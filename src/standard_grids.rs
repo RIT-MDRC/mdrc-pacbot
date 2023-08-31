@@ -1,8 +1,20 @@
 #![cfg_attr(rustfmt, rustfmt_skip)]
+//! A set of pre-made general purpose grids
 
 use crate::grid::Grid;
 use crate::grid::GridValue::*;
 
+/// The official Pacbot [`Grid`]
+/// 
+/// Out-of-bounds areas are replaced with walls to adhere to ComputedGrid rules
+/// 
+/// ```
+/// use mdrc_pacbot_util::standard_grids::GRID_PACMAN;
+/// use mdrc_pacbot_util::grid::{ComputedGrid, Grid};
+///
+/// let grid: Grid = GRID_PACMAN;
+/// let computed_grid: ComputedGrid = grid.try_into().unwrap();
+/// ```
 pub const GRID_PACMAN: Grid = [
 //  bottom left of pacman board                                           // top left of pacman board
     [I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I], // 0
@@ -41,9 +53,18 @@ pub const GRID_PACMAN: Grid = [
 //   0              5              10             15             20             25             30
 ];
 
+/// A (mostly) blank [`Grid`] - (1, 1) is walkable
+///
+/// ```
+/// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+/// use mdrc_pacbot_util::grid::{ComputedGrid, Grid};
+///
+/// let grid: Grid = GRID_BLANK;
+/// let computed_grid: ComputedGrid = grid.try_into().unwrap();
+/// ```
 pub const GRID_BLANK: Grid = [
     [I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I],
-    [I, o, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I],
+    [I, e, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I],
     [I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I],
     [I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I],
     [I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I, I],

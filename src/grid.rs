@@ -141,36 +141,15 @@ impl TryFrom<Grid> for ComputedGrid {
                         grid[y - 1][x].walkable(),
                         grid[y + 1][x].walkable(),
                     ]);
-                    distance_matrix.push(vec![0; walkable_nodes.len()]);
                 }
             }
         }
 
-        // compute distance matrix
-        for (i, &start) in walkable_nodes.iter().enumerate() {
-            let mut visited = vec![false; walkable_nodes.len()];
-            let mut queue = vec![(start, 0)];
-            while let Some((pos, dist)) = queue.pop() {
-                let node_index = coords_to_node[&pos];
-                if visited[node_index] {
-                    continue;
-                }
-                visited[node_index] = true;
-                distance_matrix[i][node_index] = dist;
-                for &neighbor in &[
-                    Point2::new(pos.x + 1, pos.y),
-                    Point2::new(pos.x - 1, pos.y),
-                    Point2::new(pos.x, pos.y + 1),
-                    Point2::new(pos.x, pos.y - 1),
-                ] {
-                    if coords_to_node.get(&neighbor).is_some() {
-                        queue.push((neighbor, dist + 1));
-                    }
-                }
-            }
+        for _ in 0..walkable_nodes.len() {
+            distance_matrix.push(vec![0; walkable_nodes.len()]);
         }
 
-        Ok(ComputedGrid {
+        let mut s = ComputedGrid {
             grid,
             pellet_count,
             power_pellets,
@@ -178,16 +157,52 @@ impl TryFrom<Grid> for ComputedGrid {
             coords_to_node,
             valid_actions,
             distance_matrix,
-        })
+        };
+
+        // compute distance matrix
+        for (i, &start) in s.walkable_nodes.iter().enumerate() {
+            let mut visited = vec![false; s.walkable_nodes.len()];
+            let mut queue = vec![(start, 0)];
+            while let Some((pos, dist)) = queue.pop() {
+                let node_index = *s.coords_to_node.get(&pos).unwrap();
+                if visited[node_index] {
+                    continue;
+                }
+                visited[node_index] = true;
+                s.distance_matrix[i][node_index] = dist;
+                for &neighbor in &[
+                    Point2::new(pos.x + 1, pos.y),
+                    Point2::new(pos.x - 1, pos.y),
+                    Point2::new(pos.x, pos.y + 1),
+                    Point2::new(pos.x, pos.y - 1),
+                ] {
+                    if s.coords_to_node.get(&neighbor).is_some() {
+                        queue.push((neighbor, dist + 1));
+                    }
+                }
+            }
+        }
+
+        Ok(s)
     }
 }
 
 impl ComputedGrid {
-    pub fn at(&self, p: Point2<u8>) -> Option<GridValue> {
+    pub fn at(&self, p: &Point2<u8>) -> Option<GridValue> {
         if p.x >= GRID_WIDTH as u8 || p.y >= GRID_HEIGHT as u8 {
             return None;
         }
         Some(self.grid[p.x as usize][p.y as usize])
+    }
+
+    pub fn next(&self, p: &Point2<u8>, direction: &Direction) -> Option<GridValue> {
+        let p = match direction {
+            Direction::Right => Point2::new(p.x + 1, p.y),
+            Direction::Left => Point2::new(p.x - 1, p.y),
+            Direction::Up => Point2::new(p.x, p.y - 1),
+            Direction::Down => Point2::new(p.x, p.y + 1),
+        };
+        self.at(&p)
     }
 }
 
@@ -195,16 +210,23 @@ impl ComputedGrid {
 mod tests {
     use super::*;
     use crate::grid::GridValue::I;
+    use crate::standard_grids::*;
 
     #[test]
     fn valid_preset_grids() {
-        assert!(validate_grid(crate::alternate_grids::GRID_PACMAN).is_ok());
-        assert!(validate_grid(crate::alternate_grids::GRID_BLANK).is_ok());
+        assert!(validate_grid(GRID_PACMAN).is_ok());
+        assert!(validate_grid(GRID_BLANK).is_ok());
+    }
+
+    #[test]
+    fn compute_preset_grids() {
+        ComputedGrid::try_from(GRID_PACMAN).unwrap();
+        ComputedGrid::try_from(GRID_BLANK).unwrap();
     }
 
     #[test]
     fn grid_at() {
-        let grid = ComputedGrid::try_from(crate::alternate_grids::GRID_BLANK).unwrap();
-        assert_eq!(grid.at(Point2::new(0, 0)), Some(I));
+        let grid = ComputedGrid::try_from(crate::standard_grids::GRID_BLANK).unwrap();
+        assert_eq!(grid.at(&Point2::new(0, 0)), Some(I));
     }
 }

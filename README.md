@@ -15,3 +15,8 @@ To view the book documentation:
 ```shell
 mdbook serve mdrc-pacbot-book --open
 ```
+
+To view the code documentation:
+```shell
+cargo doc --open
+```
