@@ -182,6 +182,15 @@ impl TryFrom<Grid> for ComputedGrid {
     }
 }
 
+impl ComputedGrid {
+    pub fn at(&self, p: Point2<u8>) -> Option<GridValue> {
+        if p.x < 0 || p.x >= GRID_WIDTH as u8 || p.y < 0 || p.y >= GRID_HEIGHT as u8 {
+            return None;
+        }
+        Some(self.grid[p.x][p.y])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
