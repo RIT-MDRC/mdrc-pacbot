@@ -1,6 +1,6 @@
 use anyhow::Error;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
-use rapier2d::na::Vector2;
+use rapier2d::na::Point2;
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
@@ -96,10 +96,10 @@ pub struct ComputedGrid {
     grid: Grid,
 
     pellet_count: u32,
-    power_pellets: Vec<Vector2<u8>>,
+    power_pellets: Vec<Point2<u8>>,
 
-    walkable_nodes: Vec<Vector2<u8>>,
-    coords_to_node: HashMap<Vector2<u8>, usize>,
+    walkable_nodes: Vec<Point2<u8>>,
+    coords_to_node: HashMap<Point2<u8>, usize>,
 
     valid_actions: Vec<[bool; 5]>,
     distance_matrix: Vec<Vec<u8>>,
@@ -115,7 +115,7 @@ impl TryFrom<Grid> for ComputedGrid {
         let mut power_pellets = vec![];
 
         let mut walkable_nodes = vec![];
-        let mut coords_to_node: HashMap<Vector2<u8>, usize> = HashMap::new();
+        let mut coords_to_node: HashMap<Point2<u8>, usize> = HashMap::new();
 
         let mut valid_actions = vec![];
         let mut distance_matrix = vec![];
@@ -123,7 +123,7 @@ impl TryFrom<Grid> for ComputedGrid {
         // note that all edges must be walls
         for y in 1..GRID_HEIGHT - 1 {
             for x in 1..GRID_WIDTH - 1 {
-                let pos = Vector2::new(x as u8, y as u8);
+                let pos = Point2::new(x as u8, y as u8);
                 let tile = grid[y][x];
                 if tile == GridValue::o {
                     pellet_count += 1;
@@ -158,10 +158,10 @@ impl TryFrom<Grid> for ComputedGrid {
                 visited[node_index] = true;
                 distance_matrix[i][node_index] = dist;
                 for &neighbor in &[
-                    Vector2::new(pos.x + 1, pos.y),
-                    Vector2::new(pos.x - 1, pos.y),
-                    Vector2::new(pos.x, pos.y + 1),
-                    Vector2::new(pos.x, pos.y - 1),
+                    Point2::new(pos.x + 1, pos.y),
+                    Point2::new(pos.x - 1, pos.y),
+                    Point2::new(pos.x, pos.y + 1),
+                    Point2::new(pos.x, pos.y - 1),
                 ] {
                     if coords_to_node.get(&neighbor).is_some() {
                         queue.push((neighbor, dist + 1));
