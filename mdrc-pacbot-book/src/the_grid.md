@@ -12,9 +12,10 @@ The actual Pacbot grid is 28 cells wide by 31 cells tall, but this code supports
 
 +y = up
 
-Points are always given as (x, y). 
+Points are always given as (x, y). Both x and y are represented as u8 to save space.
 The 2-dimensional list that represents the grid should be indexed like `grid[x][y]`. 
-However, to avoid confusion, it is recommended to only use `ComputedGrid.at()` with a `Point2`.
+To avoid confusion, instead of indexing directly, it is recommended to only use 
+`ComputedGrid.at()` with a `Point2`.
 
 Note that the array looks sideways when viewed in an editor:
 ```ignore

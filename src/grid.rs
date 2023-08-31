@@ -184,20 +184,27 @@ impl TryFrom<Grid> for ComputedGrid {
 
 impl ComputedGrid {
     pub fn at(&self, p: Point2<u8>) -> Option<GridValue> {
-        if p.x < 0 || p.x >= GRID_WIDTH as u8 || p.y < 0 || p.y >= GRID_HEIGHT as u8 {
+        if p.x >= GRID_WIDTH as u8 || p.y >= GRID_HEIGHT as u8 {
             return None;
         }
-        Some(self.grid[p.x][p.y])
+        Some(self.grid[p.x as usize][p.y as usize])
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::grid::GridValue::I;
 
     #[test]
     fn valid_preset_grids() {
         assert!(validate_grid(crate::alternate_grids::GRID_PACMAN).is_ok());
         assert!(validate_grid(crate::alternate_grids::GRID_BLANK).is_ok());
+    }
+
+    #[test]
+    fn grid_at() {
+        let grid = ComputedGrid::try_from(crate::alternate_grids::GRID_BLANK).unwrap();
+        assert_eq!(grid.at(Point2::new(0, 0)), Some(I));
     }
 }
