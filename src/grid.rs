@@ -3,6 +3,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rapier2d::na::Point2;
 use std::collections::HashMap;
 
+/// Enum for direction values.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
 pub enum Direction {
@@ -12,7 +13,7 @@ pub enum Direction {
     Down = 3,
 }
 
-/// Enum for grid cell values.
+/// Enum for [`Grid`] cell values.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
 #[allow(non_camel_case_types)]
@@ -32,65 +33,81 @@ pub enum GridValue {
 }
 
 impl GridValue {
+    /// Returns whether this [`GridValue`] is walkable.
+    ///
+    /// A [`GridValue`] is walkable if it is not a ghost chamber or wall.
     pub fn walkable(self) -> bool {
         self != GridValue::I && self != GridValue::n
     }
 }
 
+/// Width of a [`Grid`].
 pub const GRID_WIDTH: usize = 32;
+/// Height of a [`Grid`].
 pub const GRID_HEIGHT: usize = 32;
 
+/// A 2D grid of [`GridValue`]s.
+///
+/// The grid is indexed by `grid[x][y]`, where `x` is visually horizontal and `y` is vertical.
 pub type Grid = [[GridValue; GRID_WIDTH]; GRID_HEIGHT];
 
+/// Validates a [`Grid`].
+///
+/// A valid [`Grid`] must satisfy the following conditions:
+/// - The edges of the grid must all be walls.
+/// - There must be no 2x2 walkable squares.
+/// - There must be at least one walkable space.
 fn validate_grid(grid: &Grid) -> Result<(), Error> {
     // the edges of the grid should all be walls
-    for i in 0..GRID_HEIGHT {
-        if grid[0][i] != GridValue::I {
-            return Err(anyhow!("Left edge of grid is not all walls"));
-        }
-        if grid[GRID_HEIGHT - 1][i] != GridValue::I {
-            return Err(anyhow!("Right edge of grid is not all walls"));
-        }
+    if (0..GRID_HEIGHT).any(|y| grid[0][y] != GridValue::I) {
+        return Err(anyhow!("Left edge of grid is not all walls"));
     }
-    for i in grid.iter().take(GRID_HEIGHT) {
-        if i[0] != GridValue::I {
-            return Err(anyhow!("Bottom edge of grid is not all walls"));
-        }
-        if i[GRID_WIDTH - 1] != GridValue::I {
-            return Err(anyhow!("Top edge of grid is not all walls"));
-        }
+    if (0..GRID_HEIGHT).any(|y| grid[GRID_WIDTH - 1][y] != GridValue::I) {
+        return Err(anyhow!("Right edge of grid is not all walls"));
+    }
+    if (0..GRID_WIDTH).any(|x| grid[x][0] != GridValue::I) {
+        return Err(anyhow!("Bottom edge of grid is not all walls"));
+    }
+    if (0..GRID_WIDTH).any(|x| grid[x][GRID_HEIGHT - 1] != GridValue::I) {
+        return Err(anyhow!("Top edge of grid is not all walls"));
     }
 
     // there should be no 2x2 walkable squares
-    for i in 0..GRID_HEIGHT - 1 {
-        for j in 0..GRID_WIDTH - 1 {
-            if grid[i][j].walkable()
-                && grid[i][j + 1].walkable()
-                && grid[i + 1][j].walkable()
-                && grid[i + 1][j + 1].walkable()
+    for x in 0..GRID_HEIGHT - 1 {
+        for y in 0..GRID_WIDTH - 1 {
+            if grid[x][y].walkable()
+                && grid[x][y + 1].walkable()
+                && grid[x + 1][y].walkable()
+                && grid[x + 1][y + 1].walkable()
             {
-                return Err(Error::msg(format!("2x2 walkable square at ({}, {})", i, j)));
+                return Err(Error::msg(format!("2x2 walkable square at ({}, {})", x, y)));
             }
         }
     }
 
     // there should be at least one walkable space
-    let mut walkable = false;
-    for row in grid.iter().take(GRID_HEIGHT) {
-        for cell in row.iter().take(GRID_WIDTH) {
-            if cell.walkable() {
-                walkable = true;
-                break;
-            }
-        }
-    }
-    if !walkable {
+    if !grid
+        .iter()
+        .any(|row| row.iter().any(|cell| cell.walkable()))
+    {
         return Err(Error::msg("No walkable spaces"));
     }
 
     Ok(())
 }
 
+/// A [`Grid`] with precomputed data for faster pathfinding.
+///
+/// This struct is created by [`ComputedGrid::try_from`].
+///
+/// # Examples
+///
+/// ```
+/// use mdrc_pacbot_util::grid::ComputedGrid;
+/// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+///
+/// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+/// ```
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ComputedGrid {
     grid: Grid,
@@ -121,19 +138,24 @@ impl TryFrom<Grid> for ComputedGrid {
         let mut distance_matrix = vec![];
 
         // note that all edges must be walls
+        // iterate through all grid positions
         for y in 1..GRID_HEIGHT - 1 {
             for x in 1..GRID_WIDTH - 1 {
                 let pos = Point2::new(x as u8, y as u8);
                 let tile = grid[x][y];
                 if tile == GridValue::o {
+                    // count pellets
                     pellet_count += 1;
                 } else if tile == GridValue::O {
+                    // remember super pellets
                     power_pellets.push(pos);
                 }
                 if tile.walkable() {
+                    // remember walkable nodes
                     let node_index = walkable_nodes.len();
                     walkable_nodes.push(pos);
                     coords_to_node.insert(pos, node_index);
+                    // quick lookup for whether a node is walkable in a given direction
                     valid_actions.push([
                         true,
                         grid[x + 1][y].walkable(),
@@ -145,10 +167,12 @@ impl TryFrom<Grid> for ComputedGrid {
             }
         }
 
+        // initialize distance matrix
         for _ in 0..walkable_nodes.len() {
             distance_matrix.push(vec![None; walkable_nodes.len()]);
         }
 
+        // initialize ComputedGrid
         let mut s = ComputedGrid {
             grid,
             pellet_count,
@@ -159,11 +183,12 @@ impl TryFrom<Grid> for ComputedGrid {
             distance_matrix,
         };
 
-        // compute distance matrix
+        // compute distance matrix with BFS
         for (i, &start) in s.walkable_nodes.iter().enumerate() {
             let mut visited = vec![false; s.walkable_nodes.len()];
             let mut queue = vec![(start, 0)];
             while let Some((pos, dist)) = queue.pop() {
+                // only walkable nodes are added to the queue
                 let node_index = *s.coords_to_node.get(&pos).unwrap();
                 if visited[node_index] {
                     continue;
