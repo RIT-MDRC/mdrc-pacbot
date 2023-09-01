@@ -1,3 +1,5 @@
+//! Logical grid structs and utilities.
+
 use anyhow::{anyhow, Error};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rapier2d::na::Point2;
@@ -208,6 +210,110 @@ impl TryFrom<Grid> for ComputedGrid {
 }
 
 impl ComputedGrid {
+    /// Returns the underlying [`Grid`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    ///
+    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    ///
+    /// assert_eq!(grid.grid()[0][0], mdrc_pacbot_util::grid::GridValue::I);
+    /// ```
+    pub fn grid(&self) -> &Grid {
+        &self.grid
+    }
+
+    /// Returns the number of pellets in the grid.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    ///
+    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// assert_eq!(grid.pellet_count(), 0);
+    /// ```
+    pub fn pellet_count(&self) -> u32 {
+        self.pellet_count
+    }
+
+    /// Returns the positions of all power pellets in the grid.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    ///
+    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// assert!(grid.power_pellets().is_empty());
+    /// ```
+    pub fn power_pellets(&self) -> &Vec<Point2<u8>> {
+        &self.power_pellets
+    }
+
+    /// Returns the positions of all walkable nodes in the grid.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rapier2d::na::Point2;
+    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    ///
+    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// assert_eq!(grid.walkable_nodes()[0], Point2::new(1, 1));
+    /// ```
+    pub fn walkable_nodes(&self) -> &Vec<Point2<u8>> {
+        &self.walkable_nodes
+    }
+
+    /// Returns the index of the given position in the [`walkable_nodes`] vector, or `None` if the
+    /// position is not walkable.
+    ///     
+    /// # Examples
+    ///
+    /// ```
+    /// use rapier2d::na::Point2;
+    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    ///
+    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// assert_eq!(grid.coords_to_node(&Point2::new(1, 1)), Some(0));
+    /// assert_eq!(grid.coords_to_node(&Point2::new(0, 0)), None);
+    /// ```
+    pub fn coords_to_node(&self, p: &Point2<u8>) -> Option<usize> {
+        self.coords_to_node.get(p).copied()
+    }
+
+    /// Returns the valid actions for the given position.
+    ///
+    /// The five values represent:
+    /// - whether the node is walkable
+    /// - whether the node to the right is walkable
+    /// - whether the node to the left is walkable
+    /// - whether the node above is walkable
+    /// - whether the node below is walkable
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rapier2d::na::Point2;
+    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    ///
+    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// assert_eq!(grid.valid_actions(Point2::new(1, 1)), Some([true, false, false, false, false]));
+    /// ```
+    pub fn valid_actions(&self, p: Point2<u8>) -> Option<[bool; 5]> {
+        let node_index = self.coords_to_node.get(&p)?;
+        Some(self.valid_actions[*node_index])
+    }
+
     /// Returns the [`GridValue`] at the given position, or `None` if the position is out of bounds.
     ///
     /// # Examples
