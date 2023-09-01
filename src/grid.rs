@@ -118,7 +118,9 @@ pub struct ComputedGrid {
     walkable_nodes: Vec<Point2<u8>>,
     coords_to_node: HashMap<Point2<u8>, usize>,
 
+    /// walkable, right, left, up, down
     valid_actions: Vec<[bool; 5]>,
+    /// note that all walkable nodes might not be reachable from each other
     distance_matrix: Vec<Vec<Option<u8>>>,
 }
 
@@ -195,15 +197,8 @@ impl TryFrom<Grid> for ComputedGrid {
                 }
                 visited[node_index] = true;
                 s.distance_matrix[i][node_index] = Some(dist);
-                for &neighbor in &[
-                    Point2::new(pos.x + 1, pos.y),
-                    Point2::new(pos.x - 1, pos.y),
-                    Point2::new(pos.x, pos.y + 1),
-                    Point2::new(pos.x, pos.y - 1),
-                ] {
-                    if s.coords_to_node.get(&neighbor).is_some() {
-                        queue.push((neighbor, dist + 1));
-                    }
+                for neighbor in s.neighbors(&pos) {
+                    queue.push((neighbor, dist + 1));
                 }
             }
         }
@@ -213,6 +208,20 @@ impl TryFrom<Grid> for ComputedGrid {
 }
 
 impl ComputedGrid {
+    /// Returns the [`GridValue`] at the given position, or `None` if the position is out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rapier2d::na::Point2;
+    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    ///
+    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// assert_eq!(grid.at(&Point2::new(0, 0)), Some(mdrc_pacbot_util::grid::GridValue::I));
+    /// assert_eq!(grid.at(&Point2::new(1, 1)), Some(mdrc_pacbot_util::grid::GridValue::e));
+    /// assert_eq!(grid.at(&Point2::new(32, 32)), None);
+    /// ```
     pub fn at(&self, p: &Point2<u8>) -> Option<GridValue> {
         if p.x >= GRID_WIDTH as u8 || p.y >= GRID_HEIGHT as u8 {
             return None;
@@ -220,6 +229,21 @@ impl ComputedGrid {
         Some(self.grid[p.x as usize][p.y as usize])
     }
 
+    /// Returns the [`GridValue`] in the given direction from the given position, or `None` if the
+    /// position is out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rapier2d::na::Point2;
+    /// use mdrc_pacbot_util::grid::{ComputedGrid, Direction};
+    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    ///
+    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// assert_eq!(grid.next(&Point2::new(0, 0), &Direction::Right), Some(mdrc_pacbot_util::grid::GridValue::I));
+    /// assert_eq!(grid.next(&Point2::new(0, 1), &Direction::Right), Some(mdrc_pacbot_util::grid::GridValue::e));
+    /// assert_eq!(grid.next(&Point2::new(32, 32), &Direction::Right), None);
+    /// ```
     pub fn next(&self, p: &Point2<u8>, direction: &Direction) -> Option<GridValue> {
         let p = match direction {
             Direction::Right => Point2::new(p.x + 1, p.y),
@@ -240,10 +264,53 @@ impl ComputedGrid {
         self.at(&p)
     }
 
+    /// Returns the distance between two points, or `None` if the points are not both walkable.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rapier2d::na::Point2;
+    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::standard_grids::GRID_PACMAN;
+    ///
+    /// let grid = ComputedGrid::try_from(GRID_PACMAN).unwrap();
+    /// assert_eq!(grid.dist(&Point2::new(1, 1), &Point2::new(1, 1)), Some(0));
+    /// assert_eq!(grid.dist(&Point2::new(1, 1), &Point2::new(1, 2)), Some(1));
+    /// ```
     pub fn dist(&self, p1: &Point2<u8>, p2: &Point2<u8>) -> Option<u8> {
         let p1 = self.coords_to_node.get(p1)?;
         let p2 = self.coords_to_node.get(p2)?;
         self.distance_matrix[*p1][*p2]
+    }
+
+    /// Returns all the walkable neighbors of the given position.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rapier2d::na::Point2;
+    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::standard_grids::GRID_PACMAN;
+    ///
+    /// let grid = ComputedGrid::try_from(GRID_PACMAN).unwrap();
+    /// assert!(grid.neighbors(&Point2::new(1, 1)).contains(&Point2::new(1, 2)));
+    /// assert!(grid.neighbors(&Point2::new(1, 1)).contains(&Point2::new(2, 1)));
+    /// ```
+    pub fn neighbors(&self, p: &Point2<u8>) -> Vec<Point2<u8>> {
+        let mut neighbors = vec![];
+        for &neighbor in &[
+            Point2::new(p.x + 1, p.y),
+            Point2::new(p.x - 1, p.y),
+            Point2::new(p.x, p.y + 1),
+            Point2::new(p.x, p.y - 1),
+        ] {
+            if let Some(grid_value) = self.at(&neighbor) {
+                if grid_value.walkable() {
+                    neighbors.push(neighbor);
+                }
+            }
+        }
+        neighbors
     }
 }
 
