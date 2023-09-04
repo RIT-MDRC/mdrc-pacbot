@@ -29,12 +29,13 @@ jobs:
         
       - name: Generate cargo docs
         run: |
-          cargo doc --no-deps
+          cargo doc --no-deps --document-private-items
+          echo "<meta http-equiv=\"refresh\" content=\"0; url=mdrc_pacbot_util\">" > target/doc/index.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./target/doc/mdrc_pacbot_util
+          publish_dir: ./target/doc
           destination_dir: api  # this will deploy rust docs to a folder named 'api'
           keep_files: true # This is essential to avoid deleting the other docs
