@@ -1,0 +1,40 @@
+name: Build and Deploy Documentation
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup mdBook
+        uses: peaceiris/actions-mdbook@v1
+        with:
+          mdbook-version: 'latest'
+
+      - run: mdbook build mdrc-pacbot-book
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        if: ${{ github.ref == 'refs/heads/main' }}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./book
+        
+      - name: Generate cargo docs
+        run: |
+          cargo doc --no-deps
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          deploy_key: ${{ secrets.GH_PAGES_DEPLOY }}
+          publish_dir: ./target/doc
+          publish_branch: gh-pages
+          destination_dir: api  # this will deploy rust docs to a folder named 'api'
+          keep_files: true # This is essential to avoid deleting the other docs
