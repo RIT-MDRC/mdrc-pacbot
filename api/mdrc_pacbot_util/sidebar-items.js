@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["grid","standard_grids"]};
