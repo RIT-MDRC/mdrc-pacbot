@@ -25,7 +25,7 @@ jobs:
         if: ${{ github.ref == 'refs/heads/main' }}
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./mdrc-pabot-book/book
+          publish_dir: ./mdrc-pacbot-book/book
         
 #      - name: Generate cargo docs
 #        run: |
