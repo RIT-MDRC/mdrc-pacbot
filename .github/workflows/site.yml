@@ -35,6 +35,6 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./target/doc/mdrc-pacbot-util
+          publish_dir: ./target/doc/mdrc_pacbot_util
           destination_dir: api  # this will deploy rust docs to a folder named 'api'
           keep_files: true # This is essential to avoid deleting the other docs
