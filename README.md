@@ -11,12 +11,12 @@ To run check/lints:
 cargo clippy
 ```
 
-To view the book documentation:
+To view the book documentation: https://rit-mdrc.github.io/mdrc-pacbot-util/
 ```shell
 mdbook serve mdrc-pacbot-book --open
 ```
 
-To view the code documentation:
+To view the code documentation: https://rit-mdrc.github.io/mdrc-pacbot-util/api
 ```shell
 cargo doc --open
 ```
