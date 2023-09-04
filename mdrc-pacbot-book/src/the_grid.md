@@ -1,3 +1,5 @@
+[Rust API](https://rit-mdrc.github.io/mdrc-pacbot-util/api/)
+
 # The Grid
 
 ## The Logical Grid
