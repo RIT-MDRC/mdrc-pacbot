@@ -27,15 +27,14 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./mdrc-pacbot-book/book
         
-#      - name: Generate cargo docs
-#        run: |
-#          cargo doc --no-deps
-#
-#      - name: Deploy to GitHub Pages
-#        uses: peaceiris/actions-gh-pages@v3
-#        with:
-#          deploy_key: ${{ secrets.GH_PAGES_DEPLOY }}
-#          publish_dir: ./target/doc
-#          publish_branch: gh-pages
-#          destination_dir: api  # this will deploy rust docs to a folder named 'api'
-#          keep_files: true # This is essential to avoid deleting the other docs
+      - name: Generate cargo docs
+        run: |
+          cargo doc --no-deps
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./target/doc
+          destination_dir: api  # this will deploy rust docs to a folder named 'api'
+          keep_files: true # This is essential to avoid deleting the other docs
