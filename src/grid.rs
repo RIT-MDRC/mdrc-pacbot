@@ -386,7 +386,7 @@ impl ComputedGrid {
         &self.walkable_nodes
     }
 
-    /// Returns the index of the given position in the [`walkable_nodes`] vector, or `None` if the
+    /// Returns the index of the given position in the walkable_nodes vector, or `None` if the
     /// position is not walkable.
     ///     
     /// # Examples
@@ -449,7 +449,7 @@ impl ComputedGrid {
         Some(self.grid[p.x as usize][p.y as usize])
     }
 
-    /// Returns the [`Point`] in the given direction from the given position, or `None` if the
+    /// Returns the [`Point2`] in the given direction from the given position, or `None` if the
     /// position is out of bounds.
     ///
     /// # Examples
