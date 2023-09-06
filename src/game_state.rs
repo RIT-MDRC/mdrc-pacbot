@@ -1,5 +1,6 @@
 //! Structs to define the state of a game of Pacman
 use crate::agent_setup::PacmanAgentSetup;
+use crate::constants::STARTING_LIVES;
 use crate::grid::{Direction, GridValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rapier2d::na::Point2;
@@ -106,7 +107,7 @@ impl PacmanState {
         self.mode = GhostMode::Paused;
 
         self.score = 0;
-        self.lives = 3;
+        self.lives = STARTING_LIVES;
         self.elapsed_time = 0;
 
         self.pacman = Agent {

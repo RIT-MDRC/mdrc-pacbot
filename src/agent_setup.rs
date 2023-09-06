@@ -25,6 +25,8 @@ pub struct PacmanAgentSetup {
     pacman_start: (Point2<u8>, Direction),
     /// The ghosts
     ghosts: Vec<GhostSetup>,
+    /// The times when ghosts swap between chase and scatter mode
+    state_swap_times: Vec<u32>,
 }
 
 impl PacmanAgentSetup {
@@ -33,6 +35,7 @@ impl PacmanAgentSetup {
         grid: ComputedGrid,
         pacman_start: (Point2<u8>, Direction),
         ghosts: Vec<GhostSetup>,
+        state_swap_times: Vec<u32>,
     ) -> Result<Self, Error> {
         let start_value = grid
             .at(&pacman_start.0)
@@ -73,6 +76,7 @@ impl PacmanAgentSetup {
             grid,
             pacman_start,
             ghosts,
+            state_swap_times,
         })
     }
 
@@ -202,6 +206,7 @@ impl Default for PacmanAgentSetup {
             grid: grid.unwrap(),
             pacman_start,
             ghosts,
+            state_swap_times: vec![35, 135, 170, 270, 295, 395, 420],
         }
     }
 }
