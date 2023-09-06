@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Grid - MDRC Pacbot</title>
+        <title>Computed Grid - MDRC Pacbot</title>
 
 
         <!-- Custom HTML head -->
@@ -83,7 +83,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rust_api.html"><strong aria-hidden="true">1.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="game.html"><strong aria-hidden="true">2.</strong> Game</a></li><li class="chapter-item expanded "><a href="the_grid.html" class="active"><strong aria-hidden="true">3.</strong> Grid</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="grid_and_coordinates.html"><strong aria-hidden="true">3.1.</strong> Grid & Coordinate System</a></li><li class="chapter-item expanded "><a href="computed_grid.html"><strong aria-hidden="true">3.2.</strong> Computed Grid</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rust_api.html"><strong aria-hidden="true">1.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="game.html"><strong aria-hidden="true">2.</strong> Game</a></li><li class="chapter-item expanded "><a href="the_grid.html"><strong aria-hidden="true">3.</strong> Grid</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="grid_and_coordinates.html"><strong aria-hidden="true">3.1.</strong> Grid & Coordinate System</a></li><li class="chapter-item expanded "><a href="computed_grid.html" class="active"><strong aria-hidden="true">3.2.</strong> Computed Grid</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -166,23 +166,38 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="grid"><a class="header" href="#grid">Grid</a></h1>
+                        <h1 id="computed-grid"><a class="header" href="#computed-grid">Computed Grid</a></h1>
+<p><code>ComputedGrid</code> provides additional information about a <code>Grid</code> that is calculated when 
+the <code>ComputedGrid</code> is first created, meaning it is very cheap to retrieve.</p>
+<p>For this documentation, a &quot;walkable space&quot; is one where Pacman can travel.</p>
+<h2 id="grid-rules"><a class="header" href="#grid-rules">Grid Rules</a></h2>
+<p>In order for a <code>Grid</code> to be successfully upgraded to a <code>Grid</code> via <code>ComputedGrid::try_from(grid)</code>,
+all of the following must be true:</p>
 <ul>
-<li><a href="./grid_and_coordinates.html">Grid &amp; Coordinate System</a>: The 2D structure <code>Grid</code> and the corresponding coordinate system</li>
-<li><a href="./computed_grid.html">Computed Grid</a>: The utility structure <code>ComputedGrid</code> built around <code>Grid</code> that provides pre-calculated information</li>
+<li>All the cells around the outside of the grid (with <code>x</code> or <code>y</code> equal to 0 or 31) are walls</li>
+<li>There is at least one walkable cell (where Pacman can spawn)</li>
+<li>There are no 2x2 empty squares</li>
+<li>There is no wall with a walkable space both above and below it</li>
+<li>There is no wall with a walkable space both to the left and right</li>
 </ul>
+<p>The last two points can be simplified to say that all walls are 2 cells thick.</p>
+<p>Note:</p>
+<ul>
+<li>It is not necessary that a <code>ComputedGrid</code> is connected, or that every walkable space is accessible from every other one</li>
+<li>It is not necessary that there is are ghost chambers, pellets, or super pellets</li>
+</ul>
+<h2 id="pre-computed-information"><a class="header" href="#pre-computed-information">Pre-computed Information</a></h2>
+<p>When a <code>ComputedGrid</code> is constructed, it spends extra time calculating a number of variables related to
+the game grid. This information is documented in the <a href="https://rit-mdrc.github.io/mdrc-pacbot-util/api/mdrc_pacbot_util/grid/struct.ComputedGrid.html">ComputedGrid documentation</a>.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="game.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="grid_and_coordinates.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next" href="grid_and_coordinates.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -190,13 +205,10 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="game.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="grid_and_coordinates.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next" href="grid_and_coordinates.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
             </nav>
 
         </div>
