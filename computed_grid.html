@@ -171,7 +171,7 @@
 the <code>ComputedGrid</code> is first created, meaning it is very cheap to retrieve.</p>
 <p>For this documentation, a &quot;walkable space&quot; is one where Pacman can travel.</p>
 <h2 id="grid-rules"><a class="header" href="#grid-rules">Grid Rules</a></h2>
-<p>In order for a <code>Grid</code> to be successfully upgraded to a <code>Grid</code> via <code>ComputedGrid::try_from(grid)</code>,
+<p>In order for a <code>Grid</code> to be successfully upgraded to a <code>ComputedGrid</code> via <code>ComputedGrid::try_from(grid)</code>,
 all of the following must be true:</p>
 <ul>
 <li>All the cells around the outside of the grid (with <code>x</code> or <code>y</code> equal to 0 or 31) are walls</li>

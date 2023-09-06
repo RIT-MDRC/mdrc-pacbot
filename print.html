@@ -180,7 +180,7 @@
 <p>Pacman is played on a 2D integer grid, meaning the location of all objects 
 (including walls, ghosts, pellets, and Pacman) can be fully described with 
 two integers <code>x</code> and <code>y</code>. </p>
-<p>The <code>Grid</code> data type, an alias for <code>Vec&lt;Vec&lt;GridValue&gt;&gt;</code> provides information about 
+<p>The <code>Grid</code> data type, an alias for <code>[[GridValue; GRID_HEIGHT]; GRID_WIDTH]</code> provides information about 
 the state of a Pacman game before Pacman or any ghosts have moved, including:</p>
 <ul>
 <li>Location of walls</li>
@@ -212,7 +212,7 @@ common configurations:</p>
 <li><code>GRID_PLAYGROUND</code> - A <code>Grid</code> with many small areas for testing motor control algorithms</li>
 </ul>
 <p>These can be used as-is or edited to create custom <code>Grid</code>s. 
-Additionally, you can use any <code>Vec&lt;Vec&lt;GridValue&gt;&gt;</code> of the appropriate size.</p>
+Additionally, you can use any <code>[[GridValue; GRID_HEIGHT]; GRID_WIDTH]</code> of the appropriate size.</p>
 <h3 id="upgrading-to-computedgrid"><a class="header" href="#upgrading-to-computedgrid">Upgrading to <code>ComputedGrid</code></a></h3>
 <p>The <a href="./computed_grid.html">ComputedGrid</a> struct provides additional pre-calculated information about <code>Grid</code>s.
 The section <a href="./computed_grid.html#grid-rules">Grid Rules</a> contains more information about special rules, like that a <code>Grid</code> must have 
@@ -261,8 +261,8 @@ is the farthest point from the origin:</p>
 coordinate system.</p>
 <p>When points are given as floating point values, integer coordinates (like 1.0, 1.0) represent
 the center of the corresponding <code>Grid</code> cell (in this case, (1, 1)).</p>
-<p>Note that walls in the physical Pacbot grid are &quot;eroded&quot; by half a cell so that they are two
-<code>Grid</code> cells wide. This is why, except for the outer edge, there can't be a wall that is one cell 
+<p>Note that walls in the physical Pacbot grid are &quot;eroded&quot; by half a cell so that paths are two
+<code>Grid</code> cells wide. This is why, except for the outer edge, there can't be a wall in <code>Grid</code> that is one cell 
 wide - both sides would get eroded by half a cell and there would be an infinitely thin wall.</p>
 <p>Curiously, this results in the edges of walls falling on integer coordinates that lie at the center
 of the <code>Grid</code> cells that are declared as walls.</p>
@@ -274,7 +274,7 @@ counter-clockwise, with 90 degrees pointing towards the <code>+y</code> directio
 the <code>ComputedGrid</code> is first created, meaning it is very cheap to retrieve.</p>
 <p>For this documentation, a &quot;walkable space&quot; is one where Pacman can travel.</p>
 <h2 id="grid-rules"><a class="header" href="#grid-rules">Grid Rules</a></h2>
-<p>In order for a <code>Grid</code> to be successfully upgraded to a <code>Grid</code> via <code>ComputedGrid::try_from(grid)</code>,
+<p>In order for a <code>Grid</code> to be successfully upgraded to a <code>ComputedGrid</code> via <code>ComputedGrid::try_from(grid)</code>,
 all of the following must be true:</p>
 <ul>
 <li>All the cells around the outside of the grid (with <code>x</code> or <code>y</code> equal to 0 or 31) are walls</li>
