@@ -214,7 +214,7 @@ immutable.</p>
 <p>We have chosen the following coordinate system to fit best with the official Pacbot codebase.</p>
 <p><code>+x</code> is &quot;right&quot; and <code>+y</code> is &quot;up&quot;, where (0, 0) is the origin and (31, 31) 
 is the farthest point from the origin:</p>
-<pre><code>             (31, 31)
+<pre><code class="language-ignore">             (31, 31)
  ^
  |
 +y   (...)
@@ -223,14 +223,14 @@ is the farthest point from the origin:</p>
 </code></pre>
 <p>However, <code>Grid</code> is indexed like <code>grid[x][y]</code>. As a consequence, in the code, <code>Grid</code> appears sideways.</p>
 <p>This code layout:</p>
-<pre><code>[              +y -&gt;
+<pre><code class="language-ignore">[              +y -&gt;
      +x    [a, b, b, b],
      |     [a, b, b, b],
      v     [a, b, b, b],
 ];
 </code></pre>
 <p>Would appear like this:</p>
-<pre><code>angle = 90 degrees, or pi/2
+<pre><code class="language-ignore">angle = 90 degrees, or pi/2
 
  ^   b b b
  |   b b b
