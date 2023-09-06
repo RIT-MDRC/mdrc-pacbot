@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["GRID_HEIGHT","GRID_WIDTH"],"enum":["Direction","GridValue"],"fn":["point_to_screen","validate_grid"],"struct":["ComputedGrid","Wall"],"type":["Grid"]};
