@@ -1,7 +1,7 @@
 //! Static information needed to set up a Pacman game
 use crate::game_state::GhostType;
 use crate::grid::GridValue::{o, O};
-use crate::grid::{ComputedGrid, Direction};
+use crate::grid::{ComputedGrid, Direction, GridValue};
 use anyhow::{anyhow, Error};
 use rapier2d::na::Point2;
 
@@ -54,18 +54,18 @@ impl PacmanAgentSetup {
                 return Err(anyhow!("Ghost start path is empty"));
             }
 
-            if !grid
+            if grid
                 .at(&ghost.scatter_point)
                 .ok_or(anyhow!("Ghost path position doesn't exist"))?
-                .walkable()
+                == GridValue::I
             {
                 return Err(anyhow!("Ghost scatter point is not walkable"));
             }
             for point in &ghost.start_path {
-                if !grid
+                if grid
                     .at(&point.0)
                     .ok_or(anyhow!("Ghost path position doesn't exist"))?
-                    .walkable()
+                    == GridValue::I
                 {
                     return Err(anyhow!("Ghost start path is not walkable"));
                 }
@@ -202,12 +202,13 @@ impl Default for PacmanAgentSetup {
             },
         ];
 
-        Self {
-            grid: grid.unwrap(),
+        Self::new(
+            grid.unwrap(),
             pacman_start,
             ghosts,
-            state_swap_times: vec![35, 135, 170, 270, 295, 395, 420],
-        }
+            vec![35, 135, 170, 270, 295, 395, 420],
+        )
+        .expect("Default PacmanAgentSetup is invalid")
     }
 }
 
