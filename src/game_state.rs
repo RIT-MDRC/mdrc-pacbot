@@ -64,6 +64,8 @@ pub struct PacmanState {
     ///
     /// When paused, Pacman should not move
     mode: GhostMode,
+    /// Ghost behavior to resume when the game is un paused
+    mode_on_resume: GhostMode,
 
     /// Player's current game score
     score: usize,
@@ -95,6 +97,7 @@ impl PacmanState {
             },
             pellets: vec![],
             power_pellets: vec![],
+            mode_on_resume: GhostMode::Chase,
         };
 
         s.reset(agent_setup);
@@ -105,6 +108,7 @@ impl PacmanState {
     /// Reset the game state to the initial state using the same or different PacmanAgentSetup
     pub fn reset(&mut self, agent_setup: &PacmanAgentSetup) {
         self.mode = GhostMode::Paused;
+        self.mode_on_resume = GhostMode::Chase;
 
         self.score = 0;
         self.lives = STARTING_LIVES;
@@ -124,6 +128,29 @@ impl PacmanState {
             if grid_value == GridValue::O {
                 self.power_pellets.push(p.to_owned());
             }
+        }
+    }
+
+    /// Update Pacman's location and direction
+    pub fn update_pacman(&mut self, p: Point2<u8>, d: Direction) {
+        self.pacman = Agent {
+            location: p,
+            direction: d,
+        };
+    }
+
+    /// Pause the game
+    pub fn pause(&mut self) {
+        if self.mode != GhostMode::Paused {
+            self.mode_on_resume = self.mode;
+            self.mode = GhostMode::Paused;
+        }
+    }
+
+    /// Resume the game
+    pub fn resume(&mut self) {
+        if self.mode == GhostMode::Paused {
+            self.mode = self.mode_on_resume;
         }
     }
 }
