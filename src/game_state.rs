@@ -1,5 +1,6 @@
 //! Structs to define the state of a game of Pacman
-use crate::grid::Direction;
+use crate::agent_setup::PacmanAgentSetup;
+use crate::grid::{Direction, GridValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rapier2d::na::Point2;
 
@@ -77,4 +78,67 @@ pub struct PacmanState {
     pellets: Vec<bool>,
     /// Super pellets remaining
     power_pellets: Vec<Point2<u8>>,
+}
+
+impl PacmanState {
+    /// Create a new PacmanState from a PacmanAgentSetup
+    pub fn new(agent_setup: &PacmanAgentSetup) -> Self {
+        let mut s = Self {
+            mode: GhostMode::Paused,
+            score: 0,
+            lives: 0,
+            elapsed_time: 0,
+            pacman: Agent {
+                location: Default::default(),
+                direction: Direction::Right,
+            },
+            pellets: vec![],
+            power_pellets: vec![],
+        };
+
+        s.reset(agent_setup);
+
+        s
+    }
+
+    /// Reset the game state to the initial state using the same or different PacmanAgentSetup
+    pub fn reset(&mut self, agent_setup: &PacmanAgentSetup) {
+        self.mode = GhostMode::Paused;
+
+        self.score = 0;
+        self.lives = 3;
+        self.elapsed_time = 0;
+
+        self.pacman = Agent {
+            location: agent_setup.pacman_start().0,
+            direction: agent_setup.pacman_start().1,
+        };
+
+        self.pellets = Vec::new();
+        self.power_pellets = Vec::new();
+        for p in agent_setup.grid().walkable_nodes() {
+            let grid_value = agent_setup.grid().at(p).unwrap();
+            self.pellets.push(grid_value == GridValue::o);
+
+            if grid_value == GridValue::O {
+                self.power_pellets.push(p.to_owned());
+            }
+        }
+    }
+}
+
+impl Default for PacmanState {
+    fn default() -> Self {
+        PacmanState::new(&PacmanAgentSetup::default())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::game_state::PacmanState;
+
+    #[test]
+    fn default_game_setup() {
+        PacmanState::default();
+    }
 }

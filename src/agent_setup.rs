@@ -22,7 +22,7 @@ pub struct PacmanAgentSetup {
     /// The grid
     grid: ComputedGrid,
     /// The Pacman start point
-    pacman_start: Point2<u8>,
+    pacman_start: (Point2<u8>, Direction),
     /// The ghosts
     ghosts: Vec<GhostSetup>,
 }
@@ -31,11 +31,11 @@ impl PacmanAgentSetup {
     /// Create a new PacmanGridSetup from a grid and a list of ghost start points
     pub fn new(
         grid: ComputedGrid,
-        pacman_start: Point2<u8>,
+        pacman_start: (Point2<u8>, Direction),
         ghosts: Vec<GhostSetup>,
     ) -> Result<Self, Error> {
         let start_value = grid
-            .at(&pacman_start)
+            .at(&pacman_start.0)
             .ok_or(anyhow!("Pacman start position doesn't exist"))?;
         if !start_value.walkable() {
             return Err(anyhow!("Pacman start position is not walkable"));
@@ -82,7 +82,7 @@ impl PacmanAgentSetup {
     }
 
     /// Get the Pacman start point
-    pub fn pacman_start(&self) -> &Point2<u8> {
+    pub fn pacman_start(&self) -> &(Point2<u8>, Direction) {
         &self.pacman_start
     }
 
@@ -95,7 +95,7 @@ impl PacmanAgentSetup {
 impl Default for PacmanAgentSetup {
     fn default() -> Self {
         let grid = ComputedGrid::try_from(crate::standard_grids::GRID_PACMAN);
-        let pacman_start = Point2::new(14, 7);
+        let pacman_start = (Point2::new(14, 7), Direction::Left);
         let ghosts = vec![
             GhostSetup {
                 start_path: vec![
@@ -107,6 +107,8 @@ impl Default for PacmanAgentSetup {
             },
             GhostSetup {
                 start_path: vec![
+                    (Point2::new(14, 15), Direction::Up),
+                    (Point2::new(14, 16), Direction::Up),
                     (Point2::new(14, 17), Direction::Up),
                     (Point2::new(14, 18), Direction::Up),
                     (Point2::new(14, 19), Direction::Up),
@@ -116,6 +118,8 @@ impl Default for PacmanAgentSetup {
             },
             GhostSetup {
                 start_path: vec![
+                    (Point2::new(15, 15), Direction::Up),
+                    (Point2::new(15, 16), Direction::Up),
                     (Point2::new(15, 17), Direction::Up),
                     (Point2::new(15, 16), Direction::Down),
                     (Point2::new(15, 15), Direction::Down),
@@ -162,6 +166,8 @@ impl Default for PacmanAgentSetup {
             },
             GhostSetup {
                 start_path: vec![
+                    (Point2::new(12, 15), Direction::Up),
+                    (Point2::new(12, 16), Direction::Up),
                     (Point2::new(12, 17), Direction::Up),
                     (Point2::new(12, 16), Direction::Down),
                     (Point2::new(12, 15), Direction::Down),
