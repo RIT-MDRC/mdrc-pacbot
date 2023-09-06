@@ -167,7 +167,7 @@ impl Wall {
     ///     right_top: Point2::new(2, 2),
     /// };
     /// let (left_bottom, right_top) = wall.to_screen(100, 100);
-    /// assert_eq!(left_bottom, Point2::new(150, 450));
+    /// assert_eq!(left_bottom, Point2::new(6, 93));
     pub fn to_screen(
         &self,
         canvas_width: usize,
