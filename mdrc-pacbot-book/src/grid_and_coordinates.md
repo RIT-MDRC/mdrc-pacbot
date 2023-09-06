@@ -57,7 +57,7 @@ We have chosen the following coordinate system to fit best with the official Pac
 `+x` is "right" and `+y` is "up", where (0, 0) is the origin and (31, 31) 
 is the farthest point from the origin:
 
-```
+```ignore
              (31, 31)
  ^
  |
@@ -69,7 +69,7 @@ is the farthest point from the origin:
 However, `Grid` is indexed like `grid[x][y]`. As a consequence, in the code, `Grid` appears sideways.
 
 This code layout:
-```
+```ignore
 [              +y ->
      +x    [a, b, b, b],
      |     [a, b, b, b],
@@ -78,7 +78,7 @@ This code layout:
 ```
 
 Would appear like this:
-```
+```ignore
 angle = 90 degrees, or pi/2
 
  ^   b b b
