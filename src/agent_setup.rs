@@ -27,6 +27,8 @@ pub struct PacmanAgentSetup {
     ghosts: Vec<GhostSetup>,
     /// The times when ghosts swap between chase and scatter mode
     state_swap_times: Vec<u32>,
+    /// The path that ghosts take upon respawning
+    ghost_respawn_path: Vec<(Point2<u8>, Direction)>,
 }
 
 impl PacmanAgentSetup {
@@ -36,6 +38,7 @@ impl PacmanAgentSetup {
         pacman_start: (Point2<u8>, Direction),
         ghosts: Vec<GhostSetup>,
         state_swap_times: Vec<u32>,
+        ghost_respawn_path: Vec<(Point2<u8>, Direction)>,
     ) -> Result<Self, Error> {
         let start_value = grid
             .at(&pacman_start.0)
@@ -77,6 +80,7 @@ impl PacmanAgentSetup {
             pacman_start,
             ghosts,
             state_swap_times,
+            ghost_respawn_path,
         })
     }
 
@@ -93,6 +97,16 @@ impl PacmanAgentSetup {
     /// Get the ghosts
     pub fn ghosts(&self) -> &Vec<GhostSetup> {
         &self.ghosts
+    }
+
+    /// Get the times when ghosts swap between chase and scatter mode
+    pub fn state_swap_times(&self) -> &Vec<u32> {
+        &self.state_swap_times
+    }
+
+    /// Get the path that ghosts take upon respawning
+    pub fn ghost_respawn_path(&self) -> &Vec<(Point2<u8>, Direction)> {
+        &self.ghost_respawn_path
     }
 }
 
@@ -207,6 +221,17 @@ impl Default for PacmanAgentSetup {
             pacman_start,
             ghosts,
             vec![35, 135, 170, 270, 295, 395, 420],
+            vec![
+                (Point2::new(12, 15), Direction::Up),
+                (Point2::new(12, 17), Direction::Up),
+                (Point2::new(12, 16), Direction::Down),
+                (Point2::new(12, 15), Direction::Down),
+                (Point2::new(13, 15), Direction::Right),
+                (Point2::new(13, 16), Direction::Up),
+                (Point2::new(13, 17), Direction::Up),
+                (Point2::new(13, 18), Direction::Up),
+                (Point2::new(13, 19), Direction::Up),
+            ],
         )
         .expect("Default PacmanAgentSetup is invalid")
     }

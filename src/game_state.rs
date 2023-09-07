@@ -39,20 +39,26 @@ pub enum GhostType {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Agent {
     /// The agent's current location in the [`Grid`]
-    location: Point2<u8>,
+    pub location: Point2<u8>,
     /// Current facing direction
-    direction: Direction,
+    pub direction: Direction,
 }
 
 /// Information about a ghost during a game of Pacman
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Ghost {
     /// Location and direction
-    agent: Agent,
+    pub agent: Agent,
     /// Determines ghost behavior
-    color: GhostType,
+    pub color: GhostType,
     /// If frightened, the amount of time remaining as frightened
-    frightened_counter: Option<u8>,
+    ///
+    /// If not, this is 0
+    pub frightened_counter: u8,
+    /// Time since last respawn
+    pub respawn_timer: usize,
+    /// Ghost's previous location
+    pub previous_location: Point2<u8>,
 }
 
 /// Information that changes during a game of Pacman
@@ -76,6 +82,8 @@ pub struct PacmanState {
 
     /// Pacman's location and direction
     pacman: Agent,
+    /// Ghosts
+    ghosts: Vec<Ghost>,
 
     /// Pellets remaining
     pellets: Vec<bool>,
@@ -95,6 +103,7 @@ impl PacmanState {
                 location: Default::default(),
                 direction: Direction::Right,
             },
+            ghosts: vec![],
             pellets: vec![],
             power_pellets: vec![],
             mode_on_resume: GhostMode::Chase,
@@ -118,6 +127,19 @@ impl PacmanState {
             location: agent_setup.pacman_start().0,
             direction: agent_setup.pacman_start().1,
         };
+        self.ghosts = Vec::new();
+        for ghost in agent_setup.ghosts() {
+            self.ghosts.push(Ghost {
+                agent: Agent {
+                    location: ghost.start_path[0].0,
+                    direction: ghost.start_path[0].1,
+                },
+                color: ghost.color,
+                frightened_counter: 0,
+                respawn_timer: 0,
+                previous_location: Point2::new(0, 0),
+            })
+        }
 
         self.pellets = Vec::new();
         self.power_pellets = Vec::new();
