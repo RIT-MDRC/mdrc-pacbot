@@ -103,6 +103,7 @@ impl Transform {
     /// };
     /// let (left_bottom, right_top) = world_to_screen.map_wall(&wall);
     /// assert_eq!(left_bottom, Pos2::new(20.0, 310.0));
+    /// ```
     pub fn map_wall(&self, wall: &Wall) -> (Pos2, Pos2) {
         let left_bottom = Pos2::new(wall.left_bottom.x as f32, wall.left_bottom.y as f32);
         let right_top = Pos2::new(wall.right_top.x as f32, wall.right_top.y as f32);
