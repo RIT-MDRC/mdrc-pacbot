@@ -23,10 +23,10 @@ impl Transform {
         let dst_width = (dst_p1.x - dst_p2.x).abs();
         let dst_height = (dst_p1.y - dst_p2.y).abs();
         if src_height * dst_width > dst_height * src_width {
-            // The src rectangle is "taller"; add horizontal padding.
+            // The src rectangle's aspect ratio is "taller" than the dst rectangle's; add horizontal padding.
             Self::new_horizontal_padded(src_p1, src_p2, dst_p1, dst_p2)
         } else {
-            // The src rectangle is "taller"; add vertical padding.
+            // The src rectangle's aspect ratio is "wider" than the dst rectangle's; add vertical padding.
             fn tr(p: Pos2) -> Pos2 {
                 Pos2::new(p.y, p.x)
             }
