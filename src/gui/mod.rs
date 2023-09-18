@@ -26,7 +26,7 @@ struct App {
 impl Default for App {
     fn default() -> Self {
         Self {
-            grid: ComputedGrid::try_from(standard_grids::GRID_OUTER).unwrap(),
+            grid: ComputedGrid::try_from(standard_grids::GRID_PACMAN).unwrap(),
         }
     }
 }
