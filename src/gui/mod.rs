@@ -2,7 +2,7 @@
 
 pub mod transforms;
 
-use egui::{Color32, Pos2, Rect, Rounding, Stroke, Ui};
+use egui::{Color32, Frame, Pos2, Rect, Rounding, Stroke, Ui};
 
 use crate::{grid::ComputedGrid, standard_grids};
 
@@ -26,7 +26,7 @@ struct App {
 impl Default for App {
     fn default() -> Self {
         Self {
-            grid: ComputedGrid::try_from(standard_grids::GRID_PACMAN).unwrap(),
+            grid: ComputedGrid::try_from(standard_grids::GRID_OUTER).unwrap(),
         }
     }
 }
@@ -66,10 +66,17 @@ impl App {
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
-            ui.label("Hello World!");
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                ui.label("Hello World!");
+                ui.label("Hello World!");
+                ui.label("Hello World!");
+                ui.label("Hello World!");
+            });
         });
-        egui::CentralPanel::default().show(ctx, |ui| {
-            self.draw_game(ui);
-        });
+        egui::CentralPanel::default()
+            .frame(Frame::none().fill(ctx.style().visuals.panel_fill))
+            .show(ctx, |ui| {
+                self.draw_game(ui);
+            });
     }
 }
