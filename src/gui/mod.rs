@@ -33,17 +33,18 @@ impl Default for App {
 
 impl App {
     fn draw_game(&mut self, ui: &mut Ui) {
-        let (canvas_width, canvas_height) = (ui.available_width(), ui.available_height());
+        let rect = ui.max_rect();
+
         let world_to_screen = Transform::new_letterboxed(
             Pos2::new(-1.0, 32.0),
-            Pos2::new(31.0, 0.0),
-            Pos2::new(0.0, 0.0),
-            Pos2::new(canvas_width, canvas_height),
+            Pos2::new(32.0, -1.0),
+            Pos2::new(rect.left(), rect.top()),
+            Pos2::new(rect.right(), rect.bottom()),
         );
 
         let wall_color = Color32::LIGHT_GRAY;
 
-        let painter = ui.painter();
+        let painter = ui.painter_at(rect);
         for wall in self.grid.walls() {
             let (p1, p2) = world_to_screen.map_wall(wall);
             painter.rect(
@@ -64,6 +65,9 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::TopBottomPanel::top("menu").show(ctx, |ui| {
+            ui.label("Hello World!");
+        });
         egui::CentralPanel::default().show(ctx, |ui| {
             self.draw_game(ui);
         });
