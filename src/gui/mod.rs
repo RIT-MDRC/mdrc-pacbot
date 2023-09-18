@@ -36,7 +36,7 @@ impl App {
         let (canvas_width, canvas_height) = (ui.available_width(), ui.available_height());
         let world_to_screen = Transform::new_letterboxed(
             Pos2::new(-1.0, 32.0),
-            Pos2::new(32.0, -1.0),
+            Pos2::new(31.0, 0.0),
             Pos2::new(0.0, 0.0),
             Pos2::new(canvas_width, canvas_height),
         );

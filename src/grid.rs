@@ -263,38 +263,45 @@ impl TryFrom<Grid> for ComputedGrid {
             })
         }
 
+        fn is_part_of_wall(g: &ComputedGrid, p: &Point2<i8>) -> bool {
+            for wall in &g.walls {
+                if wall.left_bottom.x <= p.x
+                    && wall.left_bottom.y <= p.y
+                    && wall.right_top.x > p.x
+                    && wall.right_top.y > p.y
+                {
+                    return true;
+                }
+            }
+            false
+        }
+
         let mut x = -1i8;
         let mut y = -1i8;
         loop {
             // make sure this point isn't already a part of a wall
-            let mut is_part_of_wall = false;
-            for wall in &s.walls {
-                if wall.left_bottom.x <= x
-                    && wall.left_bottom.y <= y
-                    && wall.right_top.x > x
-                    && wall.right_top.y > y
-                {
-                    is_part_of_wall = true;
-                    break;
-                }
-            }
+            let is_already_wall = is_part_of_wall(&s, &Point2::new(x, y));
             // compute walls - first, add each cell individually
-            if !is_part_of_wall && is_wall(&s, &Point2::new(x, y)) {
+            if !is_already_wall && is_wall(&s, &Point2::new(x, y)) {
                 let mut wall = Wall {
                     left_bottom: Point2::new(x, y),
                     right_top: Point2::new(x + 1, y + 1),
                 };
 
+                if wall.right_top.x >= GRID_WIDTH as i8 {
+                    wall.right_top.x = GRID_WIDTH as i8;
+                }
+
                 x += 1;
 
                 // extend the wall to the right
-                while is_wall(&s, &Point2::new(x, y)) {
-                    wall.right_top.x += 1;
-                    x += 1;
-
+                while is_wall(&s, &Point2::new(x, y)) && !is_part_of_wall(&s, &Point2::new(x, y)) {
                     if x >= GRID_WIDTH as i8 {
                         break;
                     }
+
+                    wall.right_top.x += 1;
+                    x += 1;
                 }
 
                 // Extend the wall up
@@ -302,7 +309,9 @@ impl TryFrom<Grid> for ComputedGrid {
                 while next_y < GRID_HEIGHT as i8 {
                     let mut can_extend = true;
                     for next_x in wall.left_bottom.x..wall.right_top.x {
-                        if !is_wall(&s, &Point2::new(next_x, next_y)) {
+                        if !is_wall(&s, &Point2::new(next_x, next_y))
+                            || is_part_of_wall(&s, &Point2::new(next_x, next_y))
+                        {
                             can_extend = false;
                             break;
                         }
