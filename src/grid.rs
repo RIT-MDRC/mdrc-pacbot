@@ -148,9 +148,9 @@ fn validate_grid(grid: &Grid) -> Result<(), Error> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Wall {
     /// The bottom left corner of the [`Wall`].
-    pub left_bottom: Point2<i8>,
+    pub left_bottom: Point2<f32>,
     /// The top right corner of the [`Wall`].
-    pub right_top: Point2<i8>,
+    pub right_top: Point2<f32>,
 }
 
 impl Wall {
@@ -163,8 +163,8 @@ impl Wall {
     /// use mdrc_pacbot_util::grid::Wall;
     ///
     /// let wall = Wall {
-    ///     left_bottom: Point2::new(1, 1),
-    ///     right_top: Point2::new(2, 2),
+    ///     left_bottom: Point2::new(1., 1.),
+    ///     right_top: Point2::new(2., 2.),
     /// };
     /// let (left_bottom, right_top) = wall.to_screen(100, 100);
     /// assert_eq!(left_bottom, Point2::new(6, 93));
@@ -293,7 +293,7 @@ impl TryFrom<Grid> for ComputedGrid {
             }
         }
 
-        fn is_wall(g: &ComputedGrid, p: &Point2<i8>) -> bool {
+        fn is_wall(g: &ComputedGrid, p: &Point2<f32>) -> bool {
             let parts = [
                 Point2::new(p.x, p.y),
                 Point2::new(p.x + 1, p.y),
@@ -301,7 +301,7 @@ impl TryFrom<Grid> for ComputedGrid {
                 Point2::new(p.x + 1, p.y + 1),
             ];
             parts.iter().all(|part| {
-                if part.x < 0 || part.y < 0 {
+                if part.x < 0.0 || part.y < 0.0 {
                     return true;
                 }
                 let part_u8 = Point2::new(part.x as u8, part.y as u8);
@@ -309,8 +309,8 @@ impl TryFrom<Grid> for ComputedGrid {
             })
         }
 
-        let mut x = -1i8;
-        let mut y = -1i8;
+        let mut x = -1.0;
+        let mut y = -1.0;
         loop {
             // make sure this point isn't already a part of a wall
             let mut is_part_of_wall = false;
@@ -338,7 +338,7 @@ impl TryFrom<Grid> for ComputedGrid {
                     wall.right_top.x += 1;
                     x += 1;
 
-                    if x >= GRID_WIDTH as i8 {
+                    if x >= GRID_WIDTH as f32 {
                         break;
                     }
                 }
@@ -366,11 +366,11 @@ impl TryFrom<Grid> for ComputedGrid {
                 x += 1;
             }
 
-            if x >= GRID_WIDTH as i8 {
-                x = -1i8;
-                y += 1;
+            if x >= GRID_WIDTH as f32 {
+                x = -1.0;
+                y += 1.0;
 
-                if y == GRID_HEIGHT as i8 {
+                if y == GRID_HEIGHT as f32 {
                     break;
                 }
             }
