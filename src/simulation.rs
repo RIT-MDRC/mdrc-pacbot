@@ -1,15 +1,18 @@
+//! Handles all physics related operations
+
 use crate::grid::ComputedGrid;
 use crate::robot::Robot;
-use anyhow::anyhow;
-use anyhow::Result;
 use rapier2d::dynamics::{IntegrationParameters, RigidBodySet};
 use rapier2d::geometry::{BroadPhase, NarrowPhase};
-use rapier2d::na::{ComplexField, Isometry2, Point2, Vector2};
+use rapier2d::na::{Isometry2, Vector2};
 use rapier2d::prelude::*;
 
+/// Rapier interaction group representing all walls
 const GROUP_WALL: u32 = 1;
+/// Rapier interaction group representing all robots
 const GROUP_ROBOT: u32 = 2;
 
+/// Handles all physics related operations
 pub struct PacbotSimulation {
     integration_parameters: IntegrationParameters,
     physics_pipeline: PhysicsPipeline,
@@ -32,6 +35,7 @@ pub struct PacbotSimulation {
 }
 
 impl PacbotSimulation {
+    /// Create a new simulation on a ComputedGrid with a starting Robot and position
     pub fn new(grid: ComputedGrid, robot: Robot, robot_position: Isometry2<f32>) -> Self {
         let mut rigid_body_set = RigidBodySet::new();
         let mut collider_set = ColliderSet::new();
@@ -94,6 +98,7 @@ impl PacbotSimulation {
         }
     }
 
+    /// Update the physics simulation
     pub fn step(&mut self) {
         self.step_target_velocity();
 
@@ -116,6 +121,7 @@ impl PacbotSimulation {
         self.query_pipeline_updated = false;
     }
 
+    /// Apply an impulse to the primary robot based on robot_target_velocity
     fn step_target_velocity(&mut self) {
         let rigid_body = self
             .rigid_body_set
@@ -131,12 +137,23 @@ impl PacbotSimulation {
         rigid_body.apply_impulse(self.robot_target_velocity - rigid_body.linvel(), true);
     }
 
+    /// Get the [`Isometry`] for a given [`ColliderHandle`]
+    ///
+    /// May return [`None`] under any of the following conditions:
+    /// - there is no matching collider
+    /// - the collider in question has no associated rigid body
+    /// - the rigid body associated with the collider is invalid
     pub fn get_collider_position(&mut self, handle: ColliderHandle) -> Option<&Isometry2<f32>> {
         let rigid_body_handle = self.collider_set.get(handle)?.parent()?;
         Some(self.rigid_body_set.get(rigid_body_handle)?.position())
     }
 
-    pub fn cast_ray(&mut self, ray: Ray, max_toi: Real) -> Option<Point<Real>> {
+    /// Cast a ray in the simulation
+    ///
+    /// Rays will pass through robots and only hit walls. It is recommended to normalize the
+    /// Ray's direction so that max_toi represents a maximum distance. If the ray does not strike
+    /// a wall within max_toi, the point at max_toi along the ray will be returned.
+    pub fn cast_ray(&mut self, ray: Ray, max_toi: Real) -> Point<Real> {
         if !self.query_pipeline_updated {
             self.query_pipeline
                 .update(&self.rigid_body_set, &self.collider_set);
@@ -157,21 +174,25 @@ impl PacbotSimulation {
         ) {
             // The first collider hit has the handle `handle` and it hit after
             // the ray travelled a distance equal to `ray.dir * toi`.
-            return Some(ray.point_at(toi)); // Same as: `ray.origin + ray.dir * toi`
+            return ray.point_at(toi); // Same as: `ray.origin + ray.dir * toi`
         }
 
-        Some(ray.point_at(max_toi))
+        ray.point_at(max_toi)
     }
 
+    /// Get the current position of the primary robot
     pub fn get_primary_robot_position(&mut self) -> &Isometry2<f32> {
         self.get_collider_position(self.primary_robot).unwrap()
     }
 
+    /// Set the target velocity for the primary robot
     pub fn set_target_robot_velocity(&mut self, v: Vector2<f32>) {
         self.robot_target_velocity = v;
     }
 
-    pub fn get_primary_robot_rays(&mut self) -> Vec<Option<(Point<Real>, Point<Real>)>> {
+    /// Get the rays coming out of the primary robot, representing the theoretical readings from
+    /// its distance sensors.
+    pub fn get_primary_robot_rays(&mut self) -> Vec<(Point<Real>, Point<Real>)> {
         let sensors = self.robot_specifications.distance_sensors.clone();
 
         let pacbot = self
@@ -182,7 +203,7 @@ impl PacbotSimulation {
         sensors
             .iter()
             .map(|sensor| {
-                if let Some(p) = self.cast_ray(
+                let p = self.cast_ray(
                     Ray::new(
                         pacbot.translation.transform_point(
                             &pacbot.rotation.transform_point(&sensor.relative_position),
@@ -191,15 +212,13 @@ impl PacbotSimulation {
                             .transform_vector(&Vector2::new(1.0, 0.0)),
                     ),
                     sensor.max_range,
-                ) {
-                    return Some((
-                        pacbot.translation.transform_point(
-                            &pacbot.rotation.transform_point(&sensor.relative_position),
-                        ),
-                        p,
-                    ));
-                }
-                None
+                );
+                return (
+                    pacbot.translation.transform_point(
+                        &pacbot.rotation.transform_point(&sensor.relative_position),
+                    ),
+                    p,
+                );
             })
             .collect()
     }

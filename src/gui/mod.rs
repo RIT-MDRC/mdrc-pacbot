@@ -3,7 +3,6 @@
 pub mod transforms;
 
 use egui::{Color32, Frame, Key, Painter, Pos2, Rect, Rounding, Stroke, Ui};
-use rapier2d::math::Rotation;
 use rapier2d::na::{Isometry2, Point2, Vector2};
 
 use crate::robot::Robot;
@@ -150,7 +149,7 @@ impl App {
 
         let distance_sensor_rays = self.simulation.get_primary_robot_rays();
 
-        for (s, f) in distance_sensor_rays.iter().flatten() {
+        for (s, f) in distance_sensor_rays.iter() {
             painter.line_segment(
                 [
                     world_to_screen.map_point(Pos2::new(s.x, s.y)),
