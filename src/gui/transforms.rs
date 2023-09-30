@@ -81,6 +81,11 @@ impl Transform {
         )
     }
 
+    /// Applies a scalar transformation
+    pub fn map_dist(&self, x: f32) -> f32 {
+        (x * self.scale_x).abs() * x.signum()
+    }
+
     /// Returns the coordinates of the top left and bottom right corners of the [`Wall`] in screen coordinates.
     ///
     /// # Examples

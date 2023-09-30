@@ -29,6 +29,7 @@ struct App {
     pointer_pos: String,
 
     simulation: PacbotSimulation,
+    robot: Robot,
     target_velocity: Vector2<f32>,
 }
 
@@ -39,6 +40,7 @@ impl Default for App {
             grid: ComputedGrid::try_from(standard_grids::GRID_PACMAN).unwrap(),
             pointer_pos: "".to_string(),
 
+            robot: Robot::default(),
             simulation: PacbotSimulation::new(
                 ComputedGrid::try_from(standard_grids::GRID_PACMAN).unwrap(),
                 Robot::default(),
@@ -127,7 +129,7 @@ impl App {
                 pacbot_pos.translation.x,
                 pacbot_pos.translation.y,
             )),
-            2.0,
+            world_to_screen.map_dist(self.robot.collider_radius),
             Color32::RED,
         );
 
@@ -144,7 +146,7 @@ impl App {
                     pacbot_front.y + pacbot_pos.translation.y,
                 )),
             ],
-            Stroke::new(1.0, Color32::YELLOW),
+            Stroke::new(2.0, Color32::BLUE),
         );
 
         let distance_sensor_rays = self.simulation.get_primary_robot_rays();
