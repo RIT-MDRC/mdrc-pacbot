@@ -2,8 +2,12 @@
 
 pub mod transforms;
 
-use egui::{Color32, Frame, Pos2, Rect, Rounding, Stroke, Ui};
+use egui::{Color32, Frame, Painter, Pos2, Rect, Rounding, Stroke, Ui};
+use rapier2d::math::Rotation;
+use rapier2d::na::{Isometry2, Vector2};
 
+use crate::robot::Robot;
+use crate::simulation::PacbotSimulation;
 use crate::standard_grids::StandardGrid;
 use crate::{grid::ComputedGrid, standard_grids};
 
@@ -24,6 +28,8 @@ struct App {
     selected_grid: StandardGrid,
     grid: ComputedGrid,
     pointer_pos: String,
+
+    simulation: PacbotSimulation,
 }
 
 impl Default for App {
@@ -32,6 +38,12 @@ impl Default for App {
             selected_grid: StandardGrid::Pacman,
             grid: ComputedGrid::try_from(standard_grids::GRID_PACMAN).unwrap(),
             pointer_pos: "".to_string(),
+
+            simulation: PacbotSimulation::new(
+                ComputedGrid::try_from(standard_grids::GRID_PACMAN).unwrap(),
+                Robot::default(),
+                Isometry2::new(Vector2::new(14.0, 7.0), 0.0),
+            ),
         }
     }
 }
@@ -68,11 +80,34 @@ impl App {
             );
         }
 
+        self.draw_physics(world_to_screen, &painter)
+    }
+
+    fn draw_physics(&mut self, world_to_screen: Transform, painter: &Painter) {
+        self.simulation.step();
+
+        let pacbot_pos = self.simulation.get_primary_robot_position();
+
         painter.circle_filled(
-            world_to_screen.map_point(Pos2::new(14., 7.)),
-            5.0,
-            Color32::BLUE,
-        )
+            world_to_screen.map_point(Pos2::new(
+                pacbot_pos.translation.x,
+                pacbot_pos.translation.y,
+            )),
+            2.0,
+            Color32::RED,
+        );
+
+        let distance_sensor_rays = self.simulation.get_primary_robot_rays();
+
+        for (s, f) in distance_sensor_rays.iter().flatten() {
+            painter.line_segment(
+                [
+                    world_to_screen.map_point(Pos2::new(s.x, s.y)),
+                    world_to_screen.map_point(Pos2::new(f.x, f.y)),
+                ],
+                Stroke::new(1.0, Color32::GREEN),
+            );
+        }
     }
 
     fn add_grid_variants(&mut self, ui: &mut Ui) {

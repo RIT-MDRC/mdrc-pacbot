@@ -1,4 +1,6 @@
 use mdrc_pacbot_util::gui;
+use rapier2d::math::Rotation;
+use rapier2d::na::{ComplexField, Vector2};
 
 fn main() {
     gui::run_gui();
