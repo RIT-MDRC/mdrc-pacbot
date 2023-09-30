@@ -1,7 +1,7 @@
 //! Describes the physical features of a Robot
 
 use rapier2d::math::Rotation;
-use rapier2d::na::{Point2, Vector2};
+use rapier2d::na::Point2;
 use std::f32::consts::PI;
 
 /// Represents an Inertial Measurement Unit, usually an accelerometer and gyroscope
@@ -28,9 +28,9 @@ pub struct Motor {
     pub relative_position: Point2<f32>,
     /// The forward direction of the motor relative to the [`Robot`]
     ///
-    /// If this is (1, 0), then when the robot is at angle 0 and this motor drives forwards,
+    /// If this angle is 0, then when the robot is at angle 0 and this motor drives forwards,
     /// a force in the +x direction will be applied to the robot
-    pub forward_direction: Vector2<f32>,
+    pub forward_direction: f32,
 }
 
 /// Represents a Distance Sensor on a [`Robot`]
@@ -38,8 +38,8 @@ pub struct Motor {
 pub struct DistanceSensor {
     /// The position of the sensor relative to the [`Robot`]
     pub relative_position: Point2<f32>,
-    /// The direction of the sensor relative to the [`Robot`]
-    pub relative_direction: Rotation<f32>,
+    /// The (angle) direction of the sensor relative to the [`Robot`]
+    pub relative_direction: f32,
 
     /// Standard deviation of the noise this sensor is expected to exhibit
     pub noise_std: f32,
@@ -74,7 +74,7 @@ impl Default for Robot {
 
             distance_sensors.push(DistanceSensor {
                 relative_position: rotation.transform_point(&Point2::new(robot_radius, 0.0)),
-                relative_direction: rotation,
+                relative_direction: angle,
 
                 noise_std: 0.0,
                 max_range: 3.0,

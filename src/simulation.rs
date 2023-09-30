@@ -2,6 +2,7 @@
 
 use crate::grid::ComputedGrid;
 use crate::robot::Robot;
+use crate::standard_grids::GRID_PACMAN;
 use rapier2d::dynamics::{IntegrationParameters, RigidBodySet};
 use rapier2d::geometry::{BroadPhase, NarrowPhase};
 use rapier2d::na::{Isometry2, Vector2};
@@ -34,8 +35,35 @@ pub struct PacbotSimulation {
     robot_target_velocity: Vector2<f32>,
 }
 
+impl Default for PacbotSimulation {
+    /// Creates a simulation with GRID_PACMAN, the default Robot, and starting position (14, 7)
+    fn default() -> Self {
+        let grid = ComputedGrid::try_from(GRID_PACMAN).unwrap();
+        Self::new(
+            grid,
+            Robot::default(),
+            Isometry2::new(Vector2::new(14.0, 7.0), 0.0),
+        )
+    }
+}
+
 impl PacbotSimulation {
     /// Create a new simulation on a ComputedGrid with a starting Robot and position
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rapier2d::na::{Isometry2, Vector2};
+    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::robot::Robot;
+    /// use mdrc_pacbot_util::simulation::PacbotSimulation;
+    /// use mdrc_pacbot_util::standard_grids::GRID_PACMAN;
+    ///
+    /// let grid = ComputedGrid::try_from(GRID_PACMAN).unwrap();
+    /// let robot = Robot::default();
+    /// let starting_position = Isometry2::new(Vector2::new(14.0, 7.0), 0.0);
+    /// let mut simulation = PacbotSimulation::new(grid, robot, starting_position);
+    /// ```
     pub fn new(grid: ComputedGrid, robot: Robot, robot_position: Isometry2<f32>) -> Self {
         let mut rigid_body_set = RigidBodySet::new();
         let mut collider_set = ColliderSet::new();
@@ -99,6 +127,16 @@ impl PacbotSimulation {
     }
 
     /// Update the physics simulation
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mdrc_pacbot_util::simulation::PacbotSimulation;
+    /// let mut simulation = PacbotSimulation::default();
+    ///
+    /// // in an infinite loop
+    /// simulation.step();
+    /// ```
     pub fn step(&mut self) {
         self.step_target_velocity();
 
@@ -143,6 +181,22 @@ impl PacbotSimulation {
     /// - there is no matching collider
     /// - the collider in question has no associated rigid body
     /// - the rigid body associated with the collider is invalid
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rapier2d::geometry::ColliderHandle;
+    /// use rapier2d::na::{Isometry2, Point2, Vector2};
+    /// use rapier2d::prelude::Rotation;
+    /// use mdrc_pacbot_util::simulation::PacbotSimulation;
+    /// let mut simulation = PacbotSimulation::default();
+    ///
+    /// // in an infinite loop
+    /// let collider: ColliderHandle = simulation.get_primary_robot_collider();
+    /// let isometry: &Isometry2<f32> = simulation.get_collider_position(collider).unwrap();
+    /// let position: Point2<f32> = isometry.translation.transform_point(&Point2::new(0.0, 0.0));
+    /// let rotation: Rotation<f32> = isometry.rotation;
+    /// ```
     pub fn get_collider_position(&mut self, handle: ColliderHandle) -> Option<&Isometry2<f32>> {
         let rigid_body_handle = self.collider_set.get(handle)?.parent()?;
         Some(self.rigid_body_set.get(rigid_body_handle)?.position())
@@ -153,6 +207,22 @@ impl PacbotSimulation {
     /// Rays will pass through robots and only hit walls. It is recommended to normalize the
     /// Ray's direction so that max_toi represents a maximum distance. If the ray does not strike
     /// a wall within max_toi, the point at max_toi along the ray will be returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rapier2d::na::{Point2, Vector2};
+    /// use rapier2d::prelude::{Ray, Rotation};
+    /// use mdrc_pacbot_util::simulation::PacbotSimulation;
+    /// let mut simulation = PacbotSimulation::default();
+    ///
+    /// let pacbot_position = simulation.get_primary_robot_position();
+    /// let positive_y = Vector2::new(0.0, 1.0);
+    /// let ray = Ray::new(pacbot_position.translation.transform_point(&Point2::new(0.0, 0.0)), positive_y);
+    ///
+    /// assert_eq!(simulation.cast_ray(ray, 5.0), Point2::new(14.0, 8.0));
+    /// assert_eq!(simulation.cast_ray(ray, 0.5), Point2::new(14.0, 7.5));
+    /// ```
     pub fn cast_ray(&mut self, ray: Ray, max_toi: Real) -> Point<Real> {
         if !self.query_pipeline_updated {
             self.query_pipeline
@@ -180,18 +250,82 @@ impl PacbotSimulation {
         ray.point_at(max_toi)
     }
 
+    /// Get the collider for the primary robot
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rapier2d::prelude::ColliderHandle;
+    /// use mdrc_pacbot_util::simulation::PacbotSimulation;
+    /// let mut simulation = PacbotSimulation::default();
+    ///
+    /// let primary_collider: ColliderHandle = simulation.get_primary_robot_collider();
+    /// ```
+    pub fn get_primary_robot_collider(&self) -> ColliderHandle {
+        self.primary_robot
+    }
+
     /// Get the current position of the primary robot
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rapier2d::math::Rotation;
+    /// use rapier2d::na::Point2;
+    /// use mdrc_pacbot_util::simulation::PacbotSimulation;
+    /// let mut simulation = PacbotSimulation::default();
+    ///
+    /// let isometry = simulation.get_primary_robot_position();
+    /// let position: Point2<f32> = isometry.translation.transform_point(&Point2::new(0.0, 0.0));
+    /// let rotation: Rotation<f32> = isometry.rotation;
+    /// ```
     pub fn get_primary_robot_position(&mut self) -> &Isometry2<f32> {
         self.get_collider_position(self.primary_robot).unwrap()
     }
 
     /// Set the target velocity for the primary robot
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rapier2d::na::Vector2;
+    /// use mdrc_pacbot_util::simulation::PacbotSimulation;
+    /// let mut simulation = PacbotSimulation::default();
+    ///
+    /// let w_key_pressed = true;
+    /// if w_key_pressed {
+    ///     simulation.set_target_robot_velocity(Vector2::new(0.0, 1.0));
+    /// }
+    /// ```
     pub fn set_target_robot_velocity(&mut self, v: Vector2<f32>) {
         self.robot_target_velocity = v;
     }
 
     /// Get the rays coming out of the primary robot, representing the theoretical readings from
     /// its distance sensors.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use mdrc_pacbot_util::robot::Robot;
+    /// use mdrc_pacbot_util::simulation::PacbotSimulation;
+    /// let mut simulation = PacbotSimulation::default();
+    ///
+    /// let robot = Robot::default();
+    /// let rays = simulation.get_primary_robot_rays();
+    ///
+    /// for i in 0..robot.distance_sensors.len() {
+    ///     let sensor = robot.distance_sensors[i];
+    ///
+    ///     let sensor_position = rays[i].0;
+    ///     let hit_point = rays[i].1;
+    ///
+    ///     let difference = hit_point - sensor_position;
+    ///
+    ///     assert_eq!((sensor.relative_direction.cos() >= 0.1), (difference.x >= 0.1));
+    ///     assert_eq!((sensor.relative_direction.sin() >= 0.1), (difference.y >= 0.1));
+    /// }
+    /// ```
     pub fn get_primary_robot_rays(&mut self) -> Vec<(Point<Real>, Point<Real>)> {
         let sensors = self.robot_specifications.distance_sensors.clone();
 
@@ -208,7 +342,7 @@ impl PacbotSimulation {
                         pacbot.translation.transform_point(
                             &pacbot.rotation.transform_point(&sensor.relative_position),
                         ),
-                        (pacbot.rotation * sensor.relative_direction)
+                        (pacbot.rotation * Rotation::new(sensor.relative_direction))
                             .transform_vector(&Vector2::new(1.0, 0.0)),
                     ),
                     sensor.max_range,
