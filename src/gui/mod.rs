@@ -4,7 +4,7 @@ pub mod transforms;
 
 use egui::{Color32, Frame, Painter, Pos2, Rect, Rounding, Stroke, Ui};
 use rapier2d::math::Rotation;
-use rapier2d::na::{Isometry2, Vector2};
+use rapier2d::na::{Isometry2, Point2, Vector2};
 
 use crate::robot::Robot;
 use crate::simulation::PacbotSimulation;
@@ -88,6 +88,8 @@ impl App {
 
         let pacbot_pos = self.simulation.get_primary_robot_position();
 
+        println!("{}", pacbot_pos.rotation.angle());
+
         painter.circle_filled(
             world_to_screen.map_point(Pos2::new(
                 pacbot_pos.translation.x,
@@ -95,6 +97,22 @@ impl App {
             )),
             2.0,
             Color32::RED,
+        );
+
+        let pacbot_front = pacbot_pos.rotation.transform_point(&Point2::new(0.45, 0.0));
+
+        painter.line_segment(
+            [
+                world_to_screen.map_point(Pos2::new(
+                    pacbot_pos.translation.x,
+                    pacbot_pos.translation.y,
+                )),
+                world_to_screen.map_point(Pos2::new(
+                    pacbot_front.x + pacbot_pos.translation.x,
+                    pacbot_front.y + pacbot_pos.translation.y,
+                )),
+            ],
+            Stroke::new(1.0, Color32::YELLOW),
         );
 
         let distance_sensor_rays = self.simulation.get_primary_robot_rays();

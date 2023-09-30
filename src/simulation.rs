@@ -28,6 +28,7 @@ pub struct PacbotSimulation {
 
     robot_specifications: Robot,
     primary_robot: ColliderHandle,
+    robot_target_velocity: Vector2<f32>,
 }
 
 impl PacbotSimulation {
@@ -89,10 +90,13 @@ impl PacbotSimulation {
 
             robot_specifications: robot,
             primary_robot: collider_handle,
+            robot_target_velocity: Vector2::new(1.0, 1.0),
         }
     }
 
     pub fn step(&mut self) {
+        self.step_target_velocity();
+
         self.physics_pipeline.step(
             &Vector2::new(0., 0.),
             &self.integration_parameters,
@@ -110,6 +114,21 @@ impl PacbotSimulation {
         );
 
         self.query_pipeline_updated = false;
+    }
+
+    fn step_target_velocity(&mut self) {
+        let rigid_body = self
+            .rigid_body_set
+            .get_mut(
+                self.collider_set
+                    .get(self.primary_robot)
+                    .unwrap()
+                    .parent()
+                    .unwrap(),
+            )
+            .unwrap();
+
+        rigid_body.apply_impulse(self.robot_target_velocity - rigid_body.linvel(), true);
     }
 
     pub fn get_collider_position(&mut self, handle: ColliderHandle) -> Option<&Isometry2<f32>> {
@@ -136,8 +155,6 @@ impl PacbotSimulation {
             true,
             filter,
         ) {
-            // println!("{:?}", ray.point_at(toi));
-            // println!("{:?}", self.primary_robot);
             // The first collider hit has the handle `handle` and it hit after
             // the ray travelled a distance equal to `ray.dir * toi`.
             return Some(ray.point_at(toi)); // Same as: `ray.origin + ray.dir * toi`
@@ -150,40 +167,35 @@ impl PacbotSimulation {
         self.get_collider_position(self.primary_robot).unwrap()
     }
 
+    pub fn set_target_robot_velocity(&mut self, v: Vector2<f32>) {
+        self.robot_target_velocity = v;
+    }
+
     pub fn get_primary_robot_rays(&mut self) -> Vec<Option<(Point<Real>, Point<Real>)>> {
         let sensors = self.robot_specifications.distance_sensors.clone();
 
-        let iso = self
+        let pacbot = self
             .get_collider_position(self.primary_robot)
             .unwrap()
             .to_owned();
 
-        // println!("{:?} {}", iso, iso.rotation.angle());
-
         sensors
             .iter()
             .map(|sensor| {
-                // println!(
-                //     "{:?}",
-                //     iso.translation.transform_point(&sensor.relative_position)
-                // );
-                // println!("{:?}", (iso.rotation * sensor.relative_direction).angle());
-                // println!(
-                //     "{:?}",
-                //     (iso.rotation * sensor.relative_direction)
-                //         .transform_vector(&Vector2::new(1.0, 0.0))
-                // );
                 if let Some(p) = self.cast_ray(
                     Ray::new(
-                        iso.translation.transform_point(&sensor.relative_position),
-                        (iso.rotation * sensor.relative_direction)
+                        pacbot.translation.transform_point(
+                            &pacbot.rotation.transform_point(&sensor.relative_position),
+                        ),
+                        (pacbot.rotation * sensor.relative_direction)
                             .transform_vector(&Vector2::new(1.0, 0.0)),
                     ),
                     sensor.max_range,
                 ) {
-                    // println!("{:?}", p);
                     return Some((
-                        iso.translation.transform_point(&sensor.relative_position),
+                        pacbot.translation.transform_point(
+                            &pacbot.rotation.transform_point(&sensor.relative_position),
+                        ),
                         p,
                     ));
                 }
