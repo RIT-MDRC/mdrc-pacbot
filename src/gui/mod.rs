@@ -2,7 +2,7 @@
 
 pub mod transforms;
 
-use egui::{Color32, Frame, Painter, Pos2, Rect, Rounding, Stroke, Ui};
+use egui::{Color32, Frame, Key, Painter, Pos2, Rect, Rounding, Stroke, Ui};
 use rapier2d::math::Rotation;
 use rapier2d::na::{Isometry2, Point2, Vector2};
 
@@ -30,6 +30,7 @@ struct App {
     pointer_pos: String,
 
     simulation: PacbotSimulation,
+    target_velocity: Vector2<f32>,
 }
 
 impl Default for App {
@@ -44,6 +45,7 @@ impl Default for App {
                 Robot::default(),
                 Isometry2::new(Vector2::new(14.0, 7.0), 0.0),
             ),
+            target_velocity: Vector2::new(0.0, 0.0),
         }
     }
 }
@@ -80,15 +82,46 @@ impl App {
             );
         }
 
+        if ctx.input(|i| i.key_pressed(Key::W)) {
+            self.target_velocity.y = 1.0;
+        }
+
+        self.update_target_velocity(ctx);
+
         self.draw_physics(world_to_screen, &painter)
+    }
+
+    fn update_target_velocity(&mut self, ctx: &egui::Context) {
+        ctx.input(|i| {
+            if i.key_pressed(Key::W) {
+                self.target_velocity.y = 1.0;
+            } else if i.key_released(Key::W) {
+                self.target_velocity.y = 0.0;
+            }
+            if i.key_pressed(Key::S) {
+                self.target_velocity.y = -1.0;
+            } else if i.key_released(Key::S) {
+                self.target_velocity.y = 0.0;
+            }
+            if i.key_pressed(Key::A) {
+                self.target_velocity.x = -1.0;
+            } else if i.key_released(Key::A) {
+                self.target_velocity.x = 0.0;
+            }
+            if i.key_pressed(Key::D) {
+                self.target_velocity.x = 1.0;
+            } else if i.key_released(Key::D) {
+                self.target_velocity.x = 0.0;
+            }
+            self.simulation
+                .set_target_robot_velocity(self.target_velocity);
+        })
     }
 
     fn draw_physics(&mut self, world_to_screen: Transform, painter: &Painter) {
         self.simulation.step();
 
         let pacbot_pos = self.simulation.get_primary_robot_position();
-
-        println!("{}", pacbot_pos.rotation.angle());
 
         painter.circle_filled(
             world_to_screen.map_point(Pos2::new(

@@ -90,7 +90,7 @@ impl PacbotSimulation {
 
             robot_specifications: robot,
             primary_robot: collider_handle,
-            robot_target_velocity: Vector2::new(1.0, 1.0),
+            robot_target_velocity: Vector2::new(0.0, 0.0),
         }
     }
 
