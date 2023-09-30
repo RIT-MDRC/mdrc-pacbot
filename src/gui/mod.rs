@@ -3,8 +3,7 @@
 pub mod transforms;
 
 use std::sync::{Arc, RwLock};
-
-use egui::accesskit::Point;
+\
 use egui::{Color32, Frame, Key, Painter, Pos2, Rect, Rounding, Stroke, Ui};
 use rapier2d::na::{Isometry2, Point2, Vector2};
 
