@@ -2,7 +2,7 @@ use crate::grid::ComputedGrid;
 use crate::robot::Robot;
 use rapier2d::dynamics::{IntegrationParameters, RigidBodySet};
 use rapier2d::geometry::{BroadPhase, NarrowPhase};
-use rapier2d::na::{vector, Isometry2, Vector2};
+use rapier2d::na::{Isometry2, Vector2};
 use rapier2d::prelude::{
     CCDSolver, ColliderBuilder, ColliderHandle, ColliderSet, ImpulseJointSet, IslandManager,
     MultibodyJointSet, PhysicsPipeline, QueryPipeline, RigidBodyBuilder,
@@ -36,17 +36,17 @@ impl PacbotSimulation {
 
         for wall in grid.walls() {
             let rigid_body = RigidBodyBuilder::fixed()
-                .translation(vector![
-                    (wall.right_top.x + wall.left_bottom.x) / 2,
-                    (wall.right_top.y + wall.left_bottom.y) / 2,
-                ])
+                .translation(Vector2::new(
+                    (wall.right_top.x + wall.left_bottom.x) / 2.0,
+                    (wall.right_top.y + wall.left_bottom.y) / 2.0,
+                ))
                 .build();
 
             let rigid_body_handle = rigid_body_set.insert(rigid_body);
 
             let collider = ColliderBuilder::cuboid(
-                (wall.right_top.x - wall.left_bottom.x) / 2,
-                (wall.right_top.y - wall.left_bottom.y) / 2,
+                (wall.right_top.x - wall.left_bottom.x) / 2.0,
+                (wall.right_top.y - wall.left_bottom.y) / 2.0,
             )
             .build();
 
@@ -75,7 +75,7 @@ impl PacbotSimulation {
 
     fn step(&mut self) {
         self.physics_pipeline.step(
-            &vector![0., 0.],
+            &Vector2::new(0., 0.),
             &self.integration_parameters,
             &mut self.island_manager,
             &mut self.broad_phase,
