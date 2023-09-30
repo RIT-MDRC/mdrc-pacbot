@@ -57,22 +57,6 @@ pub const GRID_HEIGHT: usize = 32;
 /// The grid is indexed by `grid[x][y]`, where `x` is visually horizontal and `y` is vertical.
 pub type Grid = [[GridValue; GRID_WIDTH]; GRID_HEIGHT];
 
-/// Translates a point in the grid to a point on the screen.
-///
-/// A result of (0, 0) represents the top left corner of the screen.
-/// +x is right, +y is down.
-/// The function should never return a point farther than (canvas_width * ([`GRID_HEIGHT`] + 1), canvas_height * ([`GRID_WIDTH`] + 1)).
-pub fn point_to_screen(
-    p: &Point2<f32>,
-    canvas_width: usize,
-    canvas_height: usize,
-) -> Point2<usize> {
-    Point2::new(
-        ((&p.x + 1.0) * canvas_width as f32 / (GRID_WIDTH as f32 + 1.0)) as usize,
-        ((GRID_HEIGHT as f32 - p.y) * canvas_height as f32 / (GRID_HEIGHT as f32 + 1.0)) as usize,
-    )
-}
-
 /// Validates a [`Grid`].
 ///
 /// A valid [`Grid`] must satisfy the following conditions:
@@ -144,42 +128,12 @@ fn validate_grid(grid: &Grid) -> Result<(), Error> {
 /// The rectangle is defined by the top left corner and the bottom right corner.
 /// Note that [`Wall`] does not follow the same grid conventions as [`Grid`].
 /// The coordinates are intended to be +0.5, and may be negative.
-/// See to_screen to get drawing coordinates.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Wall {
     /// The bottom left corner of the [`Wall`].
     pub left_bottom: Point2<f32>,
     /// The top right corner of the [`Wall`].
     pub right_top: Point2<f32>,
-}
-
-impl Wall {
-    /// Returns the coordinates of the top left and bottom right corners of the [`Wall`] in screen
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use rapier2d::na::Point2;
-    /// use mdrc_pacbot_util::grid::Wall;
-    ///
-    /// let wall = Wall {
-    ///     left_bottom: Point2::new(1., 1.),
-    ///     right_top: Point2::new(2., 2.),
-    /// };
-    /// let (left_bottom, right_top) = wall.to_screen(100, 100);
-    /// assert_eq!(left_bottom, Point2::new(6, 93));
-    pub fn to_screen(
-        &self,
-        canvas_width: usize,
-        canvas_height: usize,
-    ) -> (Point2<usize>, Point2<usize>) {
-        let left_bottom = Point2::new(self.left_bottom.x as f32, self.left_bottom.y as f32);
-        let right_top = Point2::new(self.right_top.x as f32, self.right_top.y as f32);
-        (
-            point_to_screen(&left_bottom, canvas_width, canvas_height),
-            point_to_screen(&right_top, canvas_width, canvas_height),
-        )
-    }
 }
 
 /// A [`Grid`] with precomputed data for faster pathfinding.
@@ -309,38 +263,45 @@ impl TryFrom<Grid> for ComputedGrid {
             })
         }
 
+        fn is_part_of_wall(g: &ComputedGrid, p: &Point2<f32>) -> bool {
+            for wall in &g.walls {
+                if wall.left_bottom.x <= p.x
+                    && wall.left_bottom.y <= p.y
+                    && wall.right_top.x > p.x
+                    && wall.right_top.y > p.y
+                {
+                    return true;
+                }
+            }
+            false
+        }
+
         let mut x = -1.0;
         let mut y = -1.0;
         loop {
             // make sure this point isn't already a part of a wall
-            let mut is_part_of_wall = false;
-            for wall in &s.walls {
-                if wall.left_bottom.x <= x
-                    && wall.left_bottom.y <= y
-                    && wall.right_top.x > x
-                    && wall.right_top.y > y
-                {
-                    is_part_of_wall = true;
-                    break;
-                }
-            }
+            let is_already_wall = is_part_of_wall(&s, &Point2::new(x, y));
             // compute walls - first, add each cell individually
-            if !is_part_of_wall && is_wall(&s, &Point2::new(x, y)) {
+            if !is_already_wall && is_wall(&s, &Point2::new(x, y)) {
                 let mut wall = Wall {
                     left_bottom: Point2::new(x, y),
                     right_top: Point2::new(x + 1, y + 1),
                 };
 
+                if wall.right_top.x >= GRID_WIDTH as f32 {
+                    wall.right_top.x = GRID_WIDTH as f32;
+                }
+
                 x += 1;
 
                 // extend the wall to the right
-                while is_wall(&s, &Point2::new(x, y)) {
-                    wall.right_top.x += 1;
-                    x += 1;
-
+                while is_wall(&s, &Point2::new(x, y)) && !is_part_of_wall(&s, &Point2::new(x, y)) {
                     if x >= GRID_WIDTH as f32 {
                         break;
                     }
+
+                    wall.right_top.x += 1;
+                    x += 1;
                 }
 
                 // Extend the wall up
@@ -348,7 +309,9 @@ impl TryFrom<Grid> for ComputedGrid {
                 while next_y < GRID_HEIGHT as i8 {
                     let mut can_extend = true;
                     for next_x in wall.left_bottom.x..wall.right_top.x {
-                        if !is_wall(&s, &Point2::new(next_x, next_y)) {
+                        if !is_wall(&s, &Point2::new(next_x, next_y))
+                            || is_part_of_wall(&s, &Point2::new(next_x, next_y))
+                        {
                             can_extend = false;
                             break;
                         }

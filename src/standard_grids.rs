@@ -4,6 +4,36 @@
 use crate::grid::Grid;
 use crate::grid::GridValue::*;
 
+/// An enum to support egui grid selection
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum StandardGrid {
+    /// The official Pacbot [`Grid`]
+    Pacman,
+    /// A [`Grid`] with many smaller paths to practice maneuvering
+    Playground,
+    /// A [`Grid`] where the outermost path is empty
+    Outer,
+    /// A (mostly) blank [`Grid`] - (1, 1) is walkable
+    Blank,
+}
+
+impl StandardGrid {
+    /// Get a list of all available grids
+    pub fn get_all() -> Vec<Self> {
+        vec![Self::Pacman, Self::Playground, Self::Outer, Self::Blank]
+    }
+    
+    /// Get the [`Grid`] associated with this enum
+    pub fn get_grid(&self) -> Grid {
+        match self {
+            Self::Pacman => GRID_PACMAN,
+            Self::Playground => GRID_PLAYGROUND,
+            Self::Outer => GRID_OUTER,
+            Self::Blank => GRID_BLANK,
+        }
+    }
+}
+
 /// The official Pacbot [`Grid`]
 /// 
 /// Out-of-bounds areas are replaced with walls to adhere to ComputedGrid rules
