@@ -7,7 +7,7 @@ For this documentation, a "walkable space" is one where Pacman can travel.
 
 ## Grid Rules
 
-In order for a `Grid` to be successfully upgraded to a `Grid` via `ComputedGrid::try_from(grid)`,
+In order for a `Grid` to be successfully upgraded to a `ComputedGrid` via `ComputedGrid::try_from(grid)`,
 all of the following must be true:
 - All the cells around the outside of the grid (with `x` or `y` equal to 0 or 31) are walls
 - There is at least one walkable cell (where Pacman can spawn)

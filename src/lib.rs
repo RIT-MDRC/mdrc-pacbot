@@ -6,4 +6,5 @@ pub mod constants;
 pub mod game_state;
 pub mod ghost;
 pub mod grid;
+pub mod gui;
 pub mod standard_grids;

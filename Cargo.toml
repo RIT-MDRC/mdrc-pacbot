@@ -8,6 +8,8 @@ documentation = "https://rit-mdrc.github.io/mdrc-pacbot-util/"
 
 [dependencies]
 anyhow = "1.0.75"
+eframe = "0.22.0"
+egui = "0.22.0"
 num_enum = "0.7.0"
 rand = "0.8.5"
 rapier2d = "0.17.2"
