@@ -195,5 +195,6 @@ impl eframe::App for App {
             .show(ctx, |ui| {
                 self.draw_game(ctx, ui);
             });
+        ctx.request_repaint();
     }
 }
