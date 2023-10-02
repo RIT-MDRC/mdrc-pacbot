@@ -135,26 +135,20 @@ impl App {
 
     fn update_target_velocity(&mut self, ctx: &egui::Context) {
         let mut target_velocity = self.target_velocity.write().unwrap();
+        target_velocity.x = 0.0;
+        target_velocity.y = 0.0;
         ctx.input(|i| {
-            if i.key_pressed(Key::W) {
-                target_velocity.y = 1.0;
-            } else if i.key_released(Key::W) {
-                target_velocity.y = 0.0;
+            if i.key_down(Key::S) {
+                target_velocity.y = -3.0;
             }
-            if i.key_pressed(Key::S) {
-                target_velocity.y = -1.0;
-            } else if i.key_released(Key::S) {
-                target_velocity.y = 0.0;
+            if i.key_down(Key::W) {
+                target_velocity.y = 3.0;
             }
-            if i.key_pressed(Key::A) {
-                target_velocity.x = -1.0;
-            } else if i.key_released(Key::A) {
-                target_velocity.x = 0.0;
+            if i.key_down(Key::A) {
+                target_velocity.x = -3.0;
             }
-            if i.key_pressed(Key::D) {
-                target_velocity.x = 1.0;
-            } else if i.key_released(Key::D) {
-                target_velocity.x = 0.0;
+            if i.key_down(Key::D) {
+                target_velocity.x = 3.0;
             }
         });
     }
