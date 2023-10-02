@@ -1,7 +1,9 @@
 //! Structs to define the state of a game of Pacman
 use crate::agent_setup::PacmanAgentSetup;
-use crate::constants::{GHOST_SCORE, STARTING_LIVES};
-use crate::grid::{Direction, GridValue};
+use crate::constants::{
+    FRIGHTENED_LENGTH, GHOST_SCORE, PELLET_SCORE, POWER_PELLET_SCORE, STARTING_LIVES,
+};
+use crate::grid::{ComputedGrid, Direction, GridValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rand::rngs::ThreadRng;
 use rapier2d::na::Point2;
@@ -13,13 +15,11 @@ use rapier2d::na::Point2;
 #[repr(u8)]
 pub enum GhostMode {
     /// Ghosts are chasing Pacman
-    Chase = 0,
+    Chase = 2,
     /// Ghosts are scattering to their respective corners
     Scatter = 1,
     /// Ghosts are frightened of Pacman
-    Frightened = 2,
-    /// The game is paused
-    Paused = 3,
+    Frightened = 3,
 }
 
 /// Ghost colors
@@ -71,15 +71,23 @@ pub struct PacmanState {
     ///
     /// When paused, Pacman should not move
     mode: GhostMode,
-    /// Ghost behavior to resume when the game is un paused
-    mode_on_resume: GhostMode,
+    /// Mode before the super pellet
+    old_mode: GhostMode,
+    /// Whether we entered frightened mode or swapped states the previous tick
+    just_swapped_state: bool,
+    /// Determines when the pre-programmed state swaps happen
+    state_counter: u32,
+    /// Determines how ghosts follow their starting paths
+    start_counter: u32,
+    /// Whether the game is paused
+    paused: bool,
 
     /// Player's current game score
     score: usize,
     /// Global time remaining for ghosts to be frightened
-    frightened_counter: usize,
+    frightened_counter: u8,
     /// Bonus for capturing multiple ghosts in a power pellet
-    frightened_multiplier: usize,
+    frightened_multiplier: u8,
     /// Lives remaining - starts at 3; at 0, the game is over
     lives: u8,
     /// Number of frames that have passed since the start of the game
@@ -100,8 +108,15 @@ impl PacmanState {
     /// Create a new PacmanState from a PacmanAgentSetup
     pub fn new(agent_setup: &PacmanAgentSetup) -> Self {
         let mut s = Self {
-            mode: GhostMode::Paused,
+            mode: GhostMode::Chase,
+            old_mode: GhostMode::Chase,
+            just_swapped_state: false,
+            state_counter: 0,
+            start_counter: 0,
+            paused: true,
             score: 0,
+            frightened_counter: 0,
+            frightened_multiplier: 1,
             lives: 0,
             elapsed_time: 0,
             pacman: Agent {
@@ -111,7 +126,6 @@ impl PacmanState {
             ghosts: vec![],
             pellets: vec![],
             power_pellets: vec![],
-            mode_on_resume: GhostMode::Chase,
         };
 
         s.reset(agent_setup);
@@ -121,8 +135,12 @@ impl PacmanState {
 
     /// Reset the game state to the initial state using the same or different PacmanAgentSetup
     pub fn reset(&mut self, agent_setup: &PacmanAgentSetup) {
-        self.mode = GhostMode::Paused;
-        self.mode_on_resume = GhostMode::Chase;
+        self.mode = GhostMode::Chase;
+        self.old_mode = GhostMode::Chase;
+        self.just_swapped_state = false;
+        self.state_counter = 0;
+        self.start_counter = 0;
+        self.paused = true;
 
         self.score = 0;
         self.lives = STARTING_LIVES;
@@ -162,23 +180,44 @@ impl PacmanState {
         }
     }
 
-    pub fn step(&mut self, agent_setup: &PacmanAgentSetup, rng: &mut ThreadRng) {
+    pub fn step(
+        &mut self,
+        grid: &ComputedGrid,
+        agent_setup: &PacmanAgentSetup,
+        rng: &mut ThreadRng,
+    ) {
         // TODO
         if self.is_game_over() {
             return;
         }
         if self.should_die() {
-            self.die(agent_setup);
+            self.die(grid, agent_setup);
         } else {
             self.check_if_ghost_eaten(agent_setup);
             self.update_ghosts(agent_setup, rng);
             self.check_if_ghost_eaten(agent_setup);
             if self.mode == GhostMode::Frightened {
                 if self.frightened_counter == 1 {
-                    // self.mode = self.mode_on_resume;
+                    self.mode = self.old_mode;
+                    self.frightened_multiplier = 1;
+                } else if self.frightened_counter == FRIGHTENED_LENGTH {
+                    self.just_swapped_state = false;
                 }
+                self.frightened_counter -= 1;
+            } else {
+                if agent_setup.state_swap_times().contains(&self.state_counter) {
+                    self.mode = match self.mode {
+                        GhostMode::Chase => GhostMode::Scatter,
+                        _ => GhostMode::Chase,
+                    }
+                } else {
+                    self.just_swapped_state = false;
+                }
+                self.state_counter += 1;
             }
+            self.start_counter += 1;
         }
+        self.elapsed_time += 1;
     }
 
     /// Update Pacman's location and direction
@@ -191,17 +230,12 @@ impl PacmanState {
 
     /// Pause the game
     pub fn pause(&mut self) {
-        if self.mode != GhostMode::Paused {
-            self.mode_on_resume = self.mode;
-            self.mode = GhostMode::Paused;
-        }
+        self.paused = true;
     }
 
     /// Resume the game
     pub fn resume(&mut self) {
-        if self.mode == GhostMode::Paused {
-            self.mode = self.mode_on_resume;
-        }
+        self.paused = false;
     }
 
     /// Test if the game is over (if all pellets are eaten)
@@ -219,10 +253,18 @@ impl PacmanState {
     }
 
     /// Pacman dies
-    fn die(&mut self, agent_setup: &PacmanAgentSetup) {
+    fn die(&mut self, grid: &ComputedGrid, agent_setup: &PacmanAgentSetup) {
         self.lives -= 1;
 
         self.respawn_agents(agent_setup);
+        self.state_counter = 0;
+        self.start_counter = 0;
+        self.old_mode = GhostMode::Chase;
+        self.mode = GhostMode::Scatter;
+        self.frightened_counter = 0;
+        self.frightened_multiplier = 1;
+        self.pause();
+        self.update_score(grid);
     }
 
     fn check_if_ghost_eaten(&mut self, agent_setup: &PacmanAgentSetup) {
@@ -255,6 +297,36 @@ impl PacmanState {
                 &red_ghost,
                 rng,
             );
+        }
+    }
+
+    fn update_score(&mut self, grid: &ComputedGrid) {
+        // test if eating pellet
+        match grid.coords_to_node(&self.pacman.location) {
+            Some(x) => {
+                if self.pellets[x] {
+                    self.pellets[x] = false;
+                    self.score += PELLET_SCORE;
+                }
+            }
+            _ => {}
+        }
+
+        for i in 0..self.power_pellets.len() {
+            if self.power_pellets[i] == self.pacman.location {
+                self.power_pellets.remove(i);
+                self.score += POWER_PELLET_SCORE;
+                if self.mode != GhostMode::Frightened {
+                    self.old_mode = self.mode;
+                    self.mode = GhostMode::Frightened;
+                }
+                self.frightened_counter = FRIGHTENED_LENGTH;
+                for mut ghost in self.ghosts {
+                    ghost.frightened_counter = FRIGHTENED_LENGTH;
+                }
+                self.just_swapped_state = true;
+                break;
+            }
         }
     }
 }
