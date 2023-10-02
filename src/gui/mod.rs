@@ -37,7 +37,7 @@ pub struct PhysicsRenderInfo {
 /// Thread where physics gets run.
 fn run_physics(
     phys_render: Arc<RwLock<PhysicsRenderInfo>>,
-    current_velocity: Arc<RwLock<Vector2<f32>>>,
+    current_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
 ) {
     let mut simulation = PacbotSimulation::new(
         ComputedGrid::try_from(standard_grids::GRID_PACMAN).unwrap(),
@@ -48,8 +48,9 @@ fn run_physics(
         // Run simulation one step
         simulation.step();
 
-        // Update the current veloicty
-        simulation.set_target_robot_velocity(*current_velocity.as_ref().read().unwrap());
+        // Update the current velocity
+        let target = *current_velocity.as_ref().read().unwrap();
+        simulation.set_target_robot_velocity(target);
 
         // Update our render state
         *phys_render.write().unwrap() = PhysicsRenderInfo {
@@ -69,14 +70,14 @@ struct App {
 
     /// A read-only reference to info needed to render physics.
     phys_render: Arc<RwLock<PhysicsRenderInfo>>,
-    target_velocity: Arc<RwLock<Vector2<f32>>>,
+    target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
     robot: Robot,
 }
 
 impl Default for App {
     fn default() -> Self {
         // Set up physics thread
-        let target_velocity: Arc<RwLock<Vector2<f32>>> = Arc::default();
+        let target_velocity: Arc<RwLock<(Vector2<f32>, f32)>> = Arc::default();
         let phys_render: Arc<RwLock<PhysicsRenderInfo>> = Arc::default();
         let target_velocity_r = target_velocity.clone();
         let phys_render_w = phys_render.clone();
@@ -135,20 +136,27 @@ impl App {
 
     fn update_target_velocity(&mut self, ctx: &egui::Context) {
         let mut target_velocity = self.target_velocity.write().unwrap();
-        target_velocity.x = 0.0;
-        target_velocity.y = 0.0;
+        target_velocity.0.x = 0.0;
+        target_velocity.0.y = 0.0;
+        target_velocity.1 = 0.0;
         ctx.input(|i| {
             if i.key_down(Key::S) {
-                target_velocity.y = -3.0;
+                target_velocity.0.y = -3.0;
             }
             if i.key_down(Key::W) {
-                target_velocity.y = 3.0;
+                target_velocity.0.y = 3.0;
             }
             if i.key_down(Key::A) {
-                target_velocity.x = -3.0;
+                target_velocity.0.x = -3.0;
             }
             if i.key_down(Key::D) {
-                target_velocity.x = 3.0;
+                target_velocity.0.x = 3.0;
+            }
+            if i.key_down(Key::E) {
+                target_velocity.1 = -3.0;
+            }
+            if i.key_down(Key::Q) {
+                target_velocity.1 = 3.0;
             }
         });
     }

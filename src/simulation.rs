@@ -32,7 +32,7 @@ pub struct PacbotSimulation {
 
     robot_specifications: Robot,
     primary_robot: ColliderHandle,
-    robot_target_velocity: Vector2<f32>,
+    robot_target_velocity: (Vector2<f32>, f32),
 }
 
 impl Default for PacbotSimulation {
@@ -122,7 +122,7 @@ impl PacbotSimulation {
 
             robot_specifications: robot,
             primary_robot: collider_handle,
-            robot_target_velocity: Vector2::new(0.0, 0.0),
+            robot_target_velocity: (Vector2::new(0.0, 0.0), 0.0),
         }
     }
 
@@ -172,7 +172,11 @@ impl PacbotSimulation {
             )
             .unwrap();
 
-        rigid_body.apply_impulse(self.robot_target_velocity - rigid_body.linvel(), true);
+        rigid_body.apply_impulse(self.robot_target_velocity.0 - rigid_body.linvel(), true);
+        rigid_body.apply_torque_impulse(
+            0.1 * (self.robot_target_velocity.1 - rigid_body.angvel()),
+            true,
+        );
     }
 
     /// Get the [`Isometry`] for a given [`ColliderHandle`]
@@ -283,7 +287,7 @@ impl PacbotSimulation {
         self.get_collider_position(self.primary_robot).unwrap()
     }
 
-    /// Set the target velocity for the primary robot
+    /// Set the target velocity (translational and rotational) for the primary robot
     ///
     /// # Examples
     ///
@@ -294,10 +298,10 @@ impl PacbotSimulation {
     ///
     /// let w_key_pressed = true;
     /// if w_key_pressed {
-    ///     simulation.set_target_robot_velocity(Vector2::new(0.0, 1.0));
+    ///     simulation.set_target_robot_velocity((Vector2::new(0.0, 1.0), 0.0));
     /// }
     /// ```
-    pub fn set_target_robot_velocity(&mut self, v: Vector2<f32>) {
+    pub fn set_target_robot_velocity(&mut self, v: (Vector2<f32>, f32)) {
         self.robot_target_velocity = v;
     }
 
