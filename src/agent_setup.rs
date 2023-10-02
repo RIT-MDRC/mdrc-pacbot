@@ -29,6 +29,8 @@ pub struct PacmanAgentSetup {
     state_swap_times: Vec<u32>,
     /// The path that ghosts take upon respawning
     ghost_respawn_path: Vec<(Point2<u8>, Direction)>,
+    /// This is the location where a ghost will reappear after being eaten by Pacman.
+    ghost_home_pos: (Point2<u8>, Direction),
 }
 
 impl PacmanAgentSetup {
@@ -81,6 +83,7 @@ impl PacmanAgentSetup {
             ghosts,
             state_swap_times,
             ghost_respawn_path,
+            ghost_home_pos: (Point2::new(12, 15), Direction::Up),
         })
     }
 
@@ -107,6 +110,10 @@ impl PacmanAgentSetup {
     /// Get the path that ghosts take upon respawning
     pub fn ghost_respawn_path(&self) -> &Vec<(Point2<u8>, Direction)> {
         &self.ghost_respawn_path
+    }
+
+    pub fn ghost_home_pos(&self) -> &(Point2<u8>, Direction) {
+        &self.ghost_home_pos
     }
 }
 

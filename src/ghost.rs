@@ -21,6 +21,10 @@ impl Ghost {
         red_ghost_location: &Point2<u8>,
         rng: &mut ThreadRng,
     ) {
+        if self.frightened_counter > 0 {
+            self.frightened_counter -= 1;
+        }
+
         let mut destination;
 
         if (elapsed_time as usize) < ghost_setup.start_path.len() {
@@ -183,5 +187,14 @@ impl Ghost {
             return pacman_location.to_owned();
         }
         self.get_next_red_chase_move(pacman_location)
+    }
+
+    pub fn send_home(&mut self, ghost_home_pos: &(Point2<u8>, Direction)) {
+        self.agent.location = ghost_home_pos.0;
+        self.agent.direction = ghost_home_pos.1;
+
+        self.previous_location = ghost_home_pos.0;
+        self.respawn_timer = 0;
+        self.frightened_counter = 0;
     }
 }

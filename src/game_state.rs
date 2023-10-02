@@ -1,8 +1,9 @@
 //! Structs to define the state of a game of Pacman
 use crate::agent_setup::PacmanAgentSetup;
-use crate::constants::STARTING_LIVES;
+use crate::constants::{GHOST_SCORE, STARTING_LIVES};
 use crate::grid::{Direction, GridValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use rand::rngs::ThreadRng;
 use rapier2d::na::Point2;
 
 /// Current ghost behavior - applies to all ghosts
@@ -75,6 +76,10 @@ pub struct PacmanState {
 
     /// Player's current game score
     score: usize,
+    /// Global time remaining for ghosts to be frightened
+    frightened_counter: usize,
+    /// Bonus for capturing multiple ghosts in a power pellet
+    frightened_multiplier: usize,
     /// Lives remaining - starts at 3; at 0, the game is over
     lives: u8,
     /// Number of frames that have passed since the start of the game
@@ -123,6 +128,21 @@ impl PacmanState {
         self.lives = STARTING_LIVES;
         self.elapsed_time = 0;
 
+        self.respawn_agents(agent_setup);
+
+        self.pellets = Vec::new();
+        self.power_pellets = Vec::new();
+        for p in agent_setup.grid().walkable_nodes() {
+            let grid_value = agent_setup.grid().at(p).unwrap();
+            self.pellets.push(grid_value == GridValue::o);
+
+            if grid_value == GridValue::O {
+                self.power_pellets.push(p.to_owned());
+            }
+        }
+    }
+
+    pub fn respawn_agents(&mut self, agent_setup: &PacmanAgentSetup) {
         self.pacman = Agent {
             location: agent_setup.pacman_start().0,
             direction: agent_setup.pacman_start().1,
@@ -140,15 +160,23 @@ impl PacmanState {
                 previous_location: Point2::new(0, 0),
             })
         }
+    }
 
-        self.pellets = Vec::new();
-        self.power_pellets = Vec::new();
-        for p in agent_setup.grid().walkable_nodes() {
-            let grid_value = agent_setup.grid().at(p).unwrap();
-            self.pellets.push(grid_value == GridValue::o);
-
-            if grid_value == GridValue::O {
-                self.power_pellets.push(p.to_owned());
+    pub fn step(&mut self, agent_setup: &PacmanAgentSetup, rng: &mut ThreadRng) {
+        // TODO
+        if self.is_game_over() {
+            return;
+        }
+        if self.should_die() {
+            self.die(agent_setup);
+        } else {
+            self.check_if_ghost_eaten(agent_setup);
+            self.update_ghosts(agent_setup, rng);
+            self.check_if_ghost_eaten(agent_setup);
+            if self.mode == GhostMode::Frightened {
+                if self.frightened_counter == 1 {
+                    // self.mode = self.mode_on_resume;
+                }
             }
         }
     }
@@ -173,6 +201,60 @@ impl PacmanState {
     pub fn resume(&mut self) {
         if self.mode == GhostMode::Paused {
             self.mode = self.mode_on_resume;
+        }
+    }
+
+    /// Test if the game is over (if all pellets are eaten)
+    fn is_game_over(&self) -> bool {
+        // test if all pellets & super pellets are eaten
+        (!self.pellets.iter().any(|p| *p) && self.power_pellets.is_empty()) || self.lives == 0
+    }
+
+    /// Should Pacman die this step?
+    fn should_die(&self) -> bool {
+        // are any ghost positions equal to our position?
+        self.ghosts.iter().any(|ghost| {
+            ghost.frightened_counter == 0 && ghost.agent.location == self.pacman.location
+        })
+    }
+
+    /// Pacman dies
+    fn die(&mut self, agent_setup: &PacmanAgentSetup) {
+        self.lives -= 1;
+
+        self.respawn_agents(agent_setup);
+    }
+
+    fn check_if_ghost_eaten(&mut self, agent_setup: &PacmanAgentSetup) {
+        for mut ghost in self.ghosts {
+            if ghost.agent.location == self.pacman.location && ghost.frightened_counter > 0 {
+                ghost.send_home(agent_setup.ghost_home_pos());
+                self.score += GHOST_SCORE * self.frightened_multiplier;
+                self.frightened_multiplier += 1;
+            }
+        }
+    }
+
+    fn update_ghosts(&mut self, agent_setup: &PacmanAgentSetup, rng: &mut ThreadRng) {
+        // find the red ghost location
+        let red_ghost = self
+            .ghosts
+            .iter()
+            .filter(|ghost| ghost.color == GhostType::Red)
+            .collect::<Vec<Ghost>>()[0] // this will fail if there is no red ghost
+            .agent
+            .location;
+        for i in 0..self.ghosts.len() {
+            self.ghosts[i].step_ghost(
+                agent_setup,
+                &agent_setup.ghosts()[i],
+                self.mode,
+                self.elapsed_time,
+                &self.pacman.location,
+                self.pacman.direction,
+                &red_ghost,
+                rng,
+            );
         }
     }
 }
