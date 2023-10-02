@@ -160,6 +160,7 @@ impl PacmanState {
         }
     }
 
+    /// Respawn the ghosts and Pacman, for when Pacman dies
     pub fn respawn_agents(&mut self, agent_setup: &PacmanAgentSetup) {
         self.pacman = Agent {
             location: agent_setup.pacman_start().0,
@@ -180,6 +181,7 @@ impl PacmanState {
         }
     }
 
+    /// Move forward one frame, using the current Pacman location
     pub fn step(
         &mut self,
         grid: &ComputedGrid,
@@ -268,10 +270,10 @@ impl PacmanState {
     }
 
     fn check_if_ghost_eaten(&mut self, agent_setup: &PacmanAgentSetup) {
-        for mut ghost in self.ghosts {
+        for ghost in &mut self.ghosts {
             if ghost.agent.location == self.pacman.location && ghost.frightened_counter > 0 {
                 ghost.send_home(agent_setup.ghost_home_pos());
-                self.score += GHOST_SCORE * self.frightened_multiplier;
+                self.score += GHOST_SCORE * self.frightened_multiplier as usize;
                 self.frightened_multiplier += 1;
             }
         }
@@ -283,7 +285,7 @@ impl PacmanState {
             .ghosts
             .iter()
             .filter(|ghost| ghost.color == GhostType::Red)
-            .collect::<Vec<Ghost>>()[0] // this will fail if there is no red ghost
+            .collect::<Vec<&Ghost>>()[0] // this will fail if there is no red ghost
             .agent
             .location;
         for i in 0..self.ghosts.len() {
@@ -292,8 +294,7 @@ impl PacmanState {
                 &agent_setup.ghosts()[i],
                 self.mode,
                 self.elapsed_time,
-                &self.pacman.location,
-                self.pacman.direction,
+                &self.pacman,
                 &red_ghost,
                 rng,
             );
@@ -302,14 +303,11 @@ impl PacmanState {
 
     fn update_score(&mut self, grid: &ComputedGrid) {
         // test if eating pellet
-        match grid.coords_to_node(&self.pacman.location) {
-            Some(x) => {
-                if self.pellets[x] {
-                    self.pellets[x] = false;
-                    self.score += PELLET_SCORE;
-                }
+        if let Some(x) = grid.coords_to_node(&self.pacman.location) {
+            if self.pellets[x] {
+                self.pellets[x] = false;
+                self.score += PELLET_SCORE;
             }
-            _ => {}
         }
 
         for i in 0..self.power_pellets.len() {
@@ -321,7 +319,7 @@ impl PacmanState {
                     self.mode = GhostMode::Frightened;
                 }
                 self.frightened_counter = FRIGHTENED_LENGTH;
-                for mut ghost in self.ghosts {
+                for ghost in &mut self.ghosts {
                     ghost.frightened_counter = FRIGHTENED_LENGTH;
                 }
                 self.just_swapped_state = true;

@@ -112,6 +112,7 @@ impl PacmanAgentSetup {
         &self.ghost_respawn_path
     }
 
+    /// Get the position the ghosts go when eaten
     pub fn ghost_home_pos(&self) -> &(Point2<u8>, Direction) {
         &self.ghost_home_pos
     }

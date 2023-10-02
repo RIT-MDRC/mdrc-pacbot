@@ -1,7 +1,7 @@
 //! Ghost behavior
 
 use crate::agent_setup::{GhostSetup, PacmanAgentSetup};
-use crate::game_state::{Ghost, GhostMode, GhostType, PacmanState};
+use crate::game_state::{Agent, Ghost, GhostMode, GhostType};
 use crate::grid::{ComputedGrid, Direction};
 use rand::rngs::ThreadRng;
 use rand::Rng;
@@ -10,14 +10,14 @@ use rapier2d::parry::utils::Array1;
 
 impl Ghost {
     /// Have the ghost take one step
+    #[allow(clippy::too_many_arguments)]
     pub fn step_ghost(
         &mut self,
         agent_setup: &PacmanAgentSetup,
         ghost_setup: &GhostSetup,
         mode: GhostMode,
         elapsed_time: u32,
-        pacman_location: &Point2<u8>,
-        pacman_direction: Direction,
+        pacman: &Agent,
         red_ghost_location: &Point2<u8>,
         rng: &mut ThreadRng,
     ) {
@@ -41,7 +41,7 @@ impl Ghost {
             self.frightened_counter -= 1;
         } else if mode == GhostMode::Chase {
             destination =
-                self.get_next_chase_move(pacman_location, pacman_direction, red_ghost_location);
+                self.get_next_chase_move(&pacman.location, pacman.direction, red_ghost_location);
         } else {
             destination = self.get_next_scatter_move(ghost_setup);
         }
@@ -105,9 +105,7 @@ impl Ghost {
 
     fn get_respawn_path_move(&self, agent_setup: &PacmanAgentSetup) -> Option<Point2<u8>> {
         let p = agent_setup.ghost_respawn_path().get_at(self.respawn_timer);
-        if p.is_none() {
-            return None;
-        }
+        p?;
         Some(p.unwrap().0)
     }
 
@@ -189,6 +187,7 @@ impl Ghost {
         self.get_next_red_chase_move(pacman_location)
     }
 
+    /// Teleport the ghost back to the home position, after it is eaten
     pub fn send_home(&mut self, ghost_home_pos: &(Point2<u8>, Direction)) {
         self.agent.location = ghost_home_pos.0;
         self.agent.direction = ghost_home_pos.1;
