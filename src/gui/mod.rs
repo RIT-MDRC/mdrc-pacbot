@@ -2,11 +2,16 @@
 
 pub mod transforms;
 
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, RwLock};
 
 use egui::{Color32, Frame, Key, Painter, Pos2, Rect, Rounding, Stroke, Ui};
+use rand::rngs::ThreadRng;
 use rapier2d::na::{Isometry2, Point2, Vector2};
 
+use crate::agent_setup::PacmanAgentSetup;
+use crate::game_state::{GhostType, PacmanState};
+use crate::grid::facing_direction;
 use crate::robot::Robot;
 use crate::simulation::PacbotSimulation;
 use crate::standard_grids::StandardGrid;
@@ -38,12 +43,16 @@ pub struct PhysicsRenderInfo {
 fn run_physics(
     phys_render: Arc<RwLock<PhysicsRenderInfo>>,
     current_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
+    location_send: Sender<Point2<u8>>,
 ) {
     let mut simulation = PacbotSimulation::new(
         ComputedGrid::try_from(standard_grids::GRID_PACMAN).unwrap(),
         Robot::default(),
         Isometry2::new(Vector2::new(14.0, 7.0), 0.0),
     );
+
+    let mut previous_pacbot_location = Point2::new(14, 7);
+
     loop {
         // Run simulation one step
         simulation.step();
@@ -58,8 +67,63 @@ fn run_physics(
             primary_robot_rays: simulation.get_primary_robot_rays().clone(),
         };
 
+        // Did pacbot's (rounded) position change? If so, send the new one to the game
+        let pacbot_location = Point2::new(
+            simulation
+                .get_primary_robot_position()
+                .translation
+                .x
+                .round() as u8,
+            simulation
+                .get_primary_robot_position()
+                .translation
+                .y
+                .round() as u8,
+        );
+        if pacbot_location != previous_pacbot_location {
+            location_send.send(pacbot_location).unwrap();
+            previous_pacbot_location = pacbot_location;
+        }
+
         // Sleep for 1/60th of a second
         std::thread::sleep(std::time::Duration::from_secs_f32(1. / 60.));
+    }
+}
+
+fn run_game(
+    game: Arc<RwLock<PacmanState>>,
+    agent_setup: &PacmanAgentSetup,
+    location_receive: Receiver<Point2<u8>>,
+) {
+    let mut rng = ThreadRng::default();
+
+    let mut previous_pacman_location = Point2::new(14u8, 7);
+
+    loop {
+        // {} block to make sure `game` goes out of scope and the RwLockWriteGuard is released
+        {
+            let mut game = game.write().unwrap();
+
+            // fetch updated pacbot position
+            while let Ok(pacbot_location) = location_receive.try_recv() {
+                println!("got location! {:?}", pacbot_location);
+                game.update_pacman(
+                    pacbot_location,
+                    facing_direction(&previous_pacman_location, &pacbot_location),
+                );
+                previous_pacman_location = pacbot_location;
+            }
+
+            // step the game
+            if !game.paused {
+                game.step(&agent_setup, &mut rng);
+            } else {
+                game.resume();
+            }
+        }
+
+        // Sleep for 1/2 a second
+        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 2.));
     }
 }
 
@@ -72,18 +136,29 @@ struct App {
     phys_render: Arc<RwLock<PhysicsRenderInfo>>,
     target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
     robot: Robot,
+
+    pacman_state: Arc<RwLock<PacmanState>>,
+    agent_setup: PacmanAgentSetup,
 }
 
 impl Default for App {
     fn default() -> Self {
+        let (location_send, location_receive) = channel();
+
         // Set up physics thread
         let target_velocity: Arc<RwLock<(Vector2<f32>, f32)>> = Arc::default();
         let phys_render: Arc<RwLock<PhysicsRenderInfo>> = Arc::default();
         let target_velocity_r = target_velocity.clone();
         let phys_render_w = phys_render.clone();
         std::thread::spawn(move || {
-            run_physics(phys_render_w, target_velocity_r);
+            run_physics(phys_render_w, target_velocity_r, location_send);
         });
+
+        let agent_setup = PacmanAgentSetup::default();
+
+        let pacman_state: Arc<RwLock<PacmanState>> = Arc::default();
+        let pacman_state_rw = pacman_state.clone();
+        std::thread::spawn(move || run_game(pacman_state_rw, &agent_setup, location_receive));
 
         Self {
             selected_grid: StandardGrid::Pacman,
@@ -93,12 +168,15 @@ impl Default for App {
             robot: Robot::default(),
             target_velocity,
             phys_render,
+
+            pacman_state,
+            agent_setup: PacmanAgentSetup::default(),
         }
     }
 }
 
 impl App {
-    fn draw_game(&mut self, ctx: &egui::Context, ui: &mut Ui) {
+    fn draw_grid(&mut self, ctx: &egui::Context, ui: &mut Ui) {
         let rect = ui.max_rect();
 
         let world_to_screen = Transform::new_letterboxed(
@@ -131,7 +209,9 @@ impl App {
 
         self.update_target_velocity(ctx);
 
-        self.draw_physics(world_to_screen, &painter)
+        self.draw_pacman_state(&world_to_screen, &painter);
+
+        self.draw_simulation(&world_to_screen, &painter)
     }
 
     fn update_target_velocity(&mut self, ctx: &egui::Context) {
@@ -161,7 +241,7 @@ impl App {
         });
     }
 
-    fn draw_physics(&mut self, world_to_screen: Transform, painter: &Painter) {
+    fn draw_simulation(&mut self, world_to_screen: &Transform, painter: &Painter) {
         let phys_render = self.phys_render.as_ref().read().unwrap();
         let pacbot_pos = phys_render.pacbot_pos;
 
@@ -171,7 +251,7 @@ impl App {
                 pacbot_pos.translation.y,
             )),
             world_to_screen.map_dist(self.robot.collider_radius),
-            Color32::RED,
+            Color32::YELLOW,
         );
 
         let pacbot_front = pacbot_pos.rotation.transform_point(&Point2::new(0.45, 0.0));
@@ -200,6 +280,50 @@ impl App {
                 ],
                 Stroke::new(1.0, Color32::GREEN),
             );
+        }
+    }
+
+    fn draw_pacman_state(&mut self, world_to_screen: &Transform, painter: &Painter) {
+        let pacman_state = self.pacman_state.read().unwrap();
+
+        // ghosts
+        for i in 0..self.agent_setup.ghosts().len() {
+            painter.circle_filled(
+                world_to_screen.map_point(Pos2::new(
+                    pacman_state.ghosts[i].agent.location.x as f32,
+                    pacman_state.ghosts[i].agent.location.y as f32,
+                )),
+                world_to_screen.map_dist(0.45),
+                match pacman_state.ghosts[i].color {
+                    GhostType::Red => Color32::RED,
+                    GhostType::Pink => Color32::from_rgb(255, 192, 203),
+                    GhostType::Orange => Color32::from_rgb(255, 140, 0),
+                    GhostType::Blue => Color32::BLUE,
+                },
+            )
+        }
+
+        // pellets
+        for i in 0..pacman_state.pellets.len() {
+            if pacman_state.pellets[i] {
+                painter.circle_filled(
+                    world_to_screen.map_point(Pos2::new(
+                        self.agent_setup.grid().walkable_nodes()[i].x as f32,
+                        self.agent_setup.grid().walkable_nodes()[i].y as f32,
+                    )),
+                    3.0,
+                    Color32::BLUE,
+                )
+            }
+        }
+
+        // super pellets
+        for super_pellet in &pacman_state.power_pellets {
+            painter.circle_filled(
+                world_to_screen.map_point(Pos2::new(super_pellet.x as f32, super_pellet.y as f32)),
+                6.0,
+                Color32::BLUE,
+            )
         }
     }
 
@@ -234,7 +358,7 @@ impl eframe::App for App {
         egui::CentralPanel::default()
             .frame(Frame::none().fill(ctx.style().visuals.panel_fill))
             .show(ctx, |ui| {
-                self.draw_game(ctx, ui);
+                self.draw_grid(ctx, ui);
             });
         ctx.request_repaint();
     }

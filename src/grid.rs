@@ -845,3 +845,18 @@ mod tests {
         assert_eq!(grid.at(&Point2::new(GRID_WIDTH as u8, 0)), None);
     }
 }
+
+pub fn facing_direction(start: &Point2<u8>, end: &Point2<u8>) -> Direction {
+    if start.x < end.x {
+        Direction::Right
+    } else if start.x > end.x {
+        Direction::Left
+    } else if start.y < end.y {
+        Direction::Up
+    } else if start.y > end.y {
+        Direction::Down
+    } else {
+        // start == end
+        Direction::Right
+    }
+}

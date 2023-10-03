@@ -80,35 +80,35 @@ pub struct PacmanState {
     /// Determines how ghosts follow their starting paths
     start_counter: u32,
     /// Whether the game is paused
-    paused: bool,
+    pub paused: bool,
 
     /// Player's current game score
-    score: usize,
+    pub score: usize,
     /// Global time remaining for ghosts to be frightened
     frightened_counter: u8,
     /// Bonus for capturing multiple ghosts in a power pellet
-    frightened_multiplier: u8,
+    pub frightened_multiplier: u8,
     /// Lives remaining - starts at 3; at 0, the game is over
-    lives: u8,
+    pub lives: u8,
     /// Number of frames that have passed since the start of the game
-    elapsed_time: u32,
+    pub elapsed_time: u32,
 
     /// Pacman's location and direction
-    pacman: Agent,
+    pub pacman: Agent,
     /// Ghosts
-    ghosts: Vec<Ghost>,
+    pub ghosts: Vec<Ghost>,
 
     /// Pellets remaining
-    pellets: Vec<bool>,
+    pub pellets: Vec<bool>,
     /// Super pellets remaining
-    power_pellets: Vec<Point2<u8>>,
+    pub power_pellets: Vec<Point2<u8>>,
 }
 
 impl PacmanState {
     /// Create a new PacmanState from a PacmanAgentSetup
     pub fn new(agent_setup: &PacmanAgentSetup) -> Self {
         let mut s = Self {
-            mode: GhostMode::Chase,
+            mode: GhostMode::Scatter,
             old_mode: GhostMode::Chase,
             just_swapped_state: false,
             state_counter: 0,
@@ -135,7 +135,7 @@ impl PacmanState {
 
     /// Reset the game state to the initial state using the same or different PacmanAgentSetup
     pub fn reset(&mut self, agent_setup: &PacmanAgentSetup) {
-        self.mode = GhostMode::Chase;
+        self.mode = GhostMode::Scatter;
         self.old_mode = GhostMode::Chase;
         self.just_swapped_state = false;
         self.state_counter = 0;
@@ -158,6 +158,8 @@ impl PacmanState {
                 self.power_pellets.push(p.to_owned());
             }
         }
+
+        self.update_score(agent_setup.grid());
     }
 
     /// Respawn the ghosts and Pacman, for when Pacman dies
@@ -175,7 +177,7 @@ impl PacmanState {
                 },
                 color: ghost.color,
                 frightened_counter: 0,
-                respawn_timer: 0,
+                respawn_timer: agent_setup.ghost_respawn_path().len(),
                 previous_location: Point2::new(0, 0),
             })
         }
@@ -213,6 +215,7 @@ impl PacmanState {
             }
             self.start_counter += 1;
         }
+        self.update_score(agent_setup.grid());
         self.elapsed_time += 1;
     }
 
@@ -299,6 +302,7 @@ impl PacmanState {
         // test if eating pellet
         if let Some(x) = grid.coords_to_node(&self.pacman.location) {
             if self.pellets[x] {
+                println!("ate pellet!");
                 self.pellets[x] = false;
                 self.score += PELLET_SCORE;
             }

@@ -26,11 +26,14 @@ impl Ghost {
         }
 
         let mut destination;
+        let mut literal = false;
 
         if (elapsed_time as usize) < ghost_setup.start_path.len() {
             destination = ghost_setup.start_path[elapsed_time as usize].0;
+            literal = true;
         } else if let Some(next_respawn_path_move) = self.get_respawn_path_move(agent_setup) {
             destination = next_respawn_path_move.to_owned();
+            literal = true;
             self.respawn_timer += 1;
         } else if let Some(next_swapped_state_move) =
             self.get_swapped_state_move(agent_setup, elapsed_time)
@@ -46,7 +49,10 @@ impl Ghost {
             destination = self.get_next_scatter_move(ghost_setup);
         }
 
-        destination = self.get_move_based_on(&destination, ghost_setup, agent_setup.grid());
+        if !literal {
+            destination =
+                self.get_move_based_on(&self.agent.location, &destination, agent_setup.grid());
+        }
 
         let current_position = self.agent.location.to_owned();
         let direction = Self::direction(&current_position, &destination);
@@ -77,15 +83,16 @@ impl Ghost {
 
     fn get_move_based_on(
         &self,
+        start: &Point2<u8>,
         p: &Point2<u8>,
-        ghost_setup: &GhostSetup,
         grid: &ComputedGrid,
     ) -> Point2<u8> {
-        grid.neighbors(p)
+        grid.neighbors(start)
             .iter()
+            .filter(|p| **p != self.previous_location)
             .min_by(|n1, n2| {
-                let d1 = Self::distance(n1, &ghost_setup.scatter_point);
-                let d2 = Self::distance(n2, &ghost_setup.scatter_point);
+                let d1 = Self::distance(n1, &p);
+                let d2 = Self::distance(n2, &p);
                 d1.total_cmp(&d2)
             })
             .unwrap()
@@ -149,10 +156,10 @@ impl Ghost {
             Direction::Down => Point2::new(pacman_location.x, pacman_location.y - 2),
         };
 
-        let x = target.x + (target.x - red_ghost_location.x);
-        let y = target.y + (target.y - red_ghost_location.y);
+        let x = target.x as i32 + (target.x as i32 - red_ghost_location.x as i32);
+        let y = target.y as i32 + (target.y as i32 - red_ghost_location.y as i32);
 
-        Point2::new(x, y)
+        Point2::new(x as u8, y as u8)
     }
 
     fn get_next_red_chase_move(&self, pacman_location: &Point2<u8>) -> Point2<u8> {

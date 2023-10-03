@@ -127,6 +127,7 @@ impl Default for PacmanAgentSetup {
                 start_path: vec![
                     (Point2::new(13, 19), Direction::Left),
                     (Point2::new(12, 19), Direction::Left),
+                    (Point2::new(11, 19), Direction::Left),
                 ],
                 color: GhostType::Red,
                 scatter_point: Point2::new(26, 29),
