@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["GROUP_ROBOT","GROUP_WALL"],"struct":["PacbotSimulation"]};
