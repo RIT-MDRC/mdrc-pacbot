@@ -182,18 +182,12 @@ impl PacmanState {
     }
 
     /// Move forward one frame, using the current Pacman location
-    pub fn step(
-        &mut self,
-        grid: &ComputedGrid,
-        agent_setup: &PacmanAgentSetup,
-        rng: &mut ThreadRng,
-    ) {
-        // TODO
+    pub fn step(&mut self, agent_setup: &PacmanAgentSetup, rng: &mut ThreadRng) {
         if self.is_game_over() {
             return;
         }
         if self.should_die() {
-            self.die(grid, agent_setup);
+            self.die(agent_setup);
         } else {
             self.check_if_ghost_eaten(agent_setup);
             self.update_ghosts(agent_setup, rng);
@@ -255,7 +249,7 @@ impl PacmanState {
     }
 
     /// Pacman dies
-    fn die(&mut self, grid: &ComputedGrid, agent_setup: &PacmanAgentSetup) {
+    fn die(&mut self, agent_setup: &PacmanAgentSetup) {
         self.lives -= 1;
 
         self.respawn_agents(agent_setup);
@@ -266,7 +260,7 @@ impl PacmanState {
         self.frightened_counter = 0;
         self.frightened_multiplier = 1;
         self.pause();
-        self.update_score(grid);
+        self.update_score(agent_setup.grid());
     }
 
     fn check_if_ghost_eaten(&mut self, agent_setup: &PacmanAgentSetup) {

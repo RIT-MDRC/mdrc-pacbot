@@ -17,7 +17,7 @@ pub struct GhostSetup {
 }
 
 /// Static information needed to set up a Pacman game
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PacmanAgentSetup {
     /// The grid
     grid: ComputedGrid,
