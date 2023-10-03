@@ -81,6 +81,11 @@ impl Transform {
         )
     }
 
+    /// Applies a scalar transformation
+    pub fn map_dist(&self, x: f32) -> f32 {
+        (x * self.scale_x).abs() * x.signum()
+    }
+
     /// Returns the coordinates of the top left and bottom right corners of the [`Wall`] in screen coordinates.
     ///
     /// # Examples
@@ -98,8 +103,8 @@ impl Transform {
     ///     Pos2::new(330.0, 330.0),
     /// );
     /// let wall = Wall {
-    ///     left_bottom: Point2::new(1, 1),
-    ///     right_top: Point2::new(2, 2),
+    ///     left_bottom: Point2::new(1.0, 1.0),
+    ///     right_top: Point2::new(2.0, 2.0),
     /// };
     /// let (left_bottom, right_top) = world_to_screen.map_wall(&wall);
     /// assert_eq!(left_bottom, Pos2::new(20.0, 310.0));
