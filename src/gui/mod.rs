@@ -2,8 +2,13 @@
 
 pub mod transforms;
 
-use egui::{Color32, Frame, Pos2, Rect, Rounding, Stroke, Ui};
+use std::sync::{Arc, RwLock};
 
+use egui::{Color32, Frame, Key, Painter, Pos2, Rect, Rounding, Stroke, Ui};
+use rapier2d::na::{Isometry2, Point2, Vector2};
+
+use crate::robot::Robot;
+use crate::simulation::PacbotSimulation;
 use crate::standard_grids::StandardGrid;
 use crate::{grid::ComputedGrid, standard_grids};
 
@@ -20,18 +25,74 @@ pub fn run_gui() {
     .expect("eframe::run_native error");
 }
 
+/// Stores state needed to render physics information.
+#[derive(Default)]
+pub struct PhysicsRenderInfo {
+    /// The current position of the robot.
+    pub pacbot_pos: Isometry2<f32>,
+    /// An array of start and end points.
+    pub primary_robot_rays: Vec<(Point2<f32>, Point2<f32>)>,
+}
+
+/// Thread where physics gets run.
+fn run_physics(
+    phys_render: Arc<RwLock<PhysicsRenderInfo>>,
+    current_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
+) {
+    let mut simulation = PacbotSimulation::new(
+        ComputedGrid::try_from(standard_grids::GRID_PACMAN).unwrap(),
+        Robot::default(),
+        Isometry2::new(Vector2::new(14.0, 7.0), 0.0),
+    );
+    loop {
+        // Run simulation one step
+        simulation.step();
+
+        // Update the current velocity
+        let target = *current_velocity.as_ref().read().unwrap();
+        simulation.set_target_robot_velocity(target);
+
+        // Update our render state
+        *phys_render.write().unwrap() = PhysicsRenderInfo {
+            pacbot_pos: *simulation.get_primary_robot_position(),
+            primary_robot_rays: simulation.get_primary_robot_rays().clone(),
+        };
+
+        // Sleep for 1/60th of a second
+        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 60.));
+    }
+}
+
 struct App {
     selected_grid: StandardGrid,
     grid: ComputedGrid,
     pointer_pos: String,
+
+    /// A read-only reference to info needed to render physics.
+    phys_render: Arc<RwLock<PhysicsRenderInfo>>,
+    target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
+    robot: Robot,
 }
 
 impl Default for App {
     fn default() -> Self {
+        // Set up physics thread
+        let target_velocity: Arc<RwLock<(Vector2<f32>, f32)>> = Arc::default();
+        let phys_render: Arc<RwLock<PhysicsRenderInfo>> = Arc::default();
+        let target_velocity_r = target_velocity.clone();
+        let phys_render_w = phys_render.clone();
+        std::thread::spawn(move || {
+            run_physics(phys_render_w, target_velocity_r);
+        });
+
         Self {
             selected_grid: StandardGrid::Pacman,
             grid: ComputedGrid::try_from(standard_grids::GRID_PACMAN).unwrap(),
             pointer_pos: "".to_string(),
+
+            robot: Robot::default(),
+            target_velocity,
+            phys_render,
         }
     }
 }
@@ -68,11 +129,78 @@ impl App {
             );
         }
 
+        self.update_target_velocity(ctx);
+
+        self.draw_physics(world_to_screen, &painter)
+    }
+
+    fn update_target_velocity(&mut self, ctx: &egui::Context) {
+        let mut target_velocity = self.target_velocity.write().unwrap();
+        target_velocity.0.x = 0.0;
+        target_velocity.0.y = 0.0;
+        target_velocity.1 = 0.0;
+        ctx.input(|i| {
+            if i.key_down(Key::S) {
+                target_velocity.0.y = -3.0;
+            }
+            if i.key_down(Key::W) {
+                target_velocity.0.y = 3.0;
+            }
+            if i.key_down(Key::A) {
+                target_velocity.0.x = -3.0;
+            }
+            if i.key_down(Key::D) {
+                target_velocity.0.x = 3.0;
+            }
+            if i.key_down(Key::E) {
+                target_velocity.1 = -3.0;
+            }
+            if i.key_down(Key::Q) {
+                target_velocity.1 = 3.0;
+            }
+        });
+    }
+
+    fn draw_physics(&mut self, world_to_screen: Transform, painter: &Painter) {
+        let phys_render = self.phys_render.as_ref().read().unwrap();
+        let pacbot_pos = phys_render.pacbot_pos;
+
         painter.circle_filled(
-            world_to_screen.map_point(Pos2::new(14., 7.)),
-            5.0,
-            Color32::BLUE,
-        )
+            world_to_screen.map_point(Pos2::new(
+                pacbot_pos.translation.x,
+                pacbot_pos.translation.y,
+            )),
+            world_to_screen.map_dist(self.robot.collider_radius),
+            Color32::RED,
+        );
+
+        let pacbot_front = pacbot_pos.rotation.transform_point(&Point2::new(0.45, 0.0));
+
+        painter.line_segment(
+            [
+                world_to_screen.map_point(Pos2::new(
+                    pacbot_pos.translation.x,
+                    pacbot_pos.translation.y,
+                )),
+                world_to_screen.map_point(Pos2::new(
+                    pacbot_front.x + pacbot_pos.translation.x,
+                    pacbot_front.y + pacbot_pos.translation.y,
+                )),
+            ],
+            Stroke::new(2.0, Color32::BLUE),
+        );
+
+        let distance_sensor_rays = &phys_render.primary_robot_rays;
+
+        for (s, f) in distance_sensor_rays.iter() {
+            painter.line_segment(
+                [
+                    world_to_screen.map_point(Pos2::new(s.x, s.y)),
+                    world_to_screen.map_point(Pos2::new(f.x, f.y)),
+                ],
+                Stroke::new(1.0, Color32::GREEN),
+            );
+        }
     }
 
     fn add_grid_variants(&mut self, ui: &mut Ui) {
@@ -108,5 +236,6 @@ impl eframe::App for App {
             .show(ctx, |ui| {
                 self.draw_game(ctx, ui);
             });
+        ctx.request_repaint();
     }
 }
