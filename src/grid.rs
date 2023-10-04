@@ -846,6 +846,7 @@ mod tests {
     }
 }
 
+/// Find the direction from the start point to the end point
 pub fn facing_direction(start: &Point2<u8>, end: &Point2<u8>) -> Direction {
     if start.x < end.x {
         Direction::Right

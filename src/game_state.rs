@@ -302,7 +302,6 @@ impl PacmanState {
         // test if eating pellet
         if let Some(x) = grid.coords_to_node(&self.pacman.location) {
             if self.pellets[x] {
-                println!("ate pellet!");
                 self.pellets[x] = false;
                 self.score += PELLET_SCORE;
             }

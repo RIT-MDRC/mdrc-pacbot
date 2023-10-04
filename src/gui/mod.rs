@@ -39,6 +39,14 @@ pub struct PhysicsRenderInfo {
     pub primary_robot_rays: Vec<(Point2<f32>, Point2<f32>)>,
 }
 
+/// Stores state needed to render game state information
+pub struct PacmanStateRenderInfo {
+    /// Initial positions of Pacman, ghosts, etc.
+    pub agent_setup: PacmanAgentSetup,
+    /// Current game state
+    pub pacman_state: PacmanState,
+}
+
 /// Thread where physics gets run.
 fn run_physics(
     phys_render: Arc<RwLock<PhysicsRenderInfo>>,
@@ -90,11 +98,7 @@ fn run_physics(
     }
 }
 
-fn run_game(
-    game: Arc<RwLock<PacmanState>>,
-    agent_setup: &PacmanAgentSetup,
-    location_receive: Receiver<Point2<u8>>,
-) {
+fn run_game(state_rw: Arc<RwLock<PacmanStateRenderInfo>>, location_receive: Receiver<Point2<u8>>) {
     let mut rng = ThreadRng::default();
 
     let mut previous_pacman_location = Point2::new(14u8, 7);
@@ -102,23 +106,24 @@ fn run_game(
     loop {
         // {} block to make sure `game` goes out of scope and the RwLockWriteGuard is released
         {
-            let mut game = game.write().unwrap();
+            let mut state = state_rw.write().unwrap();
 
             // fetch updated pacbot position
             while let Ok(pacbot_location) = location_receive.try_recv() {
-                println!("got location! {:?}", pacbot_location);
-                game.update_pacman(
+                state.pacman_state.update_pacman(
                     pacbot_location,
                     facing_direction(&previous_pacman_location, &pacbot_location),
                 );
                 previous_pacman_location = pacbot_location;
             }
 
+            let agent_setup = state.agent_setup.clone();
+
             // step the game
-            if !game.paused {
-                game.step(&agent_setup, &mut rng);
+            if !state.pacman_state.paused {
+                state.pacman_state.step(&agent_setup, &mut rng);
             } else {
-                game.resume();
+                state.pacman_state.resume();
             }
         }
 
@@ -137,7 +142,7 @@ struct App {
     target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
     robot: Robot,
 
-    pacman_state: Arc<RwLock<PacmanState>>,
+    pacman_state_render: Arc<RwLock<PacmanStateRenderInfo>>,
     agent_setup: PacmanAgentSetup,
 }
 
@@ -155,10 +160,15 @@ impl Default for App {
         });
 
         let agent_setup = PacmanAgentSetup::default();
-
-        let pacman_state: Arc<RwLock<PacmanState>> = Arc::default();
-        let pacman_state_rw = pacman_state.clone();
-        std::thread::spawn(move || run_game(pacman_state_rw, &agent_setup, location_receive));
+        let pacman_state = PacmanState::new(&agent_setup);
+        let pacman_state_info = PacmanStateRenderInfo {
+            pacman_state,
+            agent_setup,
+        };
+        let pacman_state_render: Arc<RwLock<PacmanStateRenderInfo>> =
+            Arc::new(RwLock::new(pacman_state_info));
+        let pacman_state_rw = pacman_state_render.clone();
+        std::thread::spawn(move || run_game(pacman_state_rw, location_receive));
 
         Self {
             selected_grid: StandardGrid::Pacman,
@@ -169,7 +179,7 @@ impl Default for App {
             target_velocity,
             phys_render,
 
-            pacman_state,
+            pacman_state_render,
             agent_setup: PacmanAgentSetup::default(),
         }
     }
@@ -284,7 +294,8 @@ impl App {
     }
 
     fn draw_pacman_state(&mut self, world_to_screen: &Transform, painter: &Painter) {
-        let pacman_state = self.pacman_state.read().unwrap();
+        let pacman_state_info = self.pacman_state_render.read().unwrap();
+        let pacman_state = &pacman_state_info.pacman_state;
 
         // ghosts
         for i in 0..self.agent_setup.ghosts().len() {
