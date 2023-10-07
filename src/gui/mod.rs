@@ -192,15 +192,9 @@ struct App {
     replay_commands_send: Sender<ReplayManagerCommand>,
 }
 
-fn pretty_print_system_time(t: SystemTime) -> String {
-    let utc = time::OffsetDateTime::UNIX_EPOCH
-        + time::Duration::try_from(t.duration_since(std::time::UNIX_EPOCH).unwrap()).unwrap();
-    let local = utc.to_offset(time::UtcOffset::local_offset_at(utc).unwrap());
-    local
-        .format(time::macros::format_description!(
-            "[year]_[month repr:Numerical]_[day]__[hour]_[minute]_[second]"
-        ))
-        .unwrap()
+fn pretty_print_time_now() -> String {
+    let date = chrono::Local::now();
+    date.format("%Y_%m_%d__%H_%M_%S").to_string()
 }
 
 impl Default for App {
@@ -230,7 +224,7 @@ impl Default for App {
 
         // Set up replay manager thread
         // create default timestamped filename with human readable date
-        let time = pretty_print_system_time(SystemTime::now());
+        let time = pretty_print_time_now();
         let filename = format!("replays/replay-{}.bin", time);
         let replay_render_info = ReplayRenderInfo {
             recording: true,
