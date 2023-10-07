@@ -133,13 +133,13 @@ impl PacmanState {
             power_pellets: vec![],
         };
 
-        s.reset(agent_setup);
+        s.reset(agent_setup, true);
 
         s
     }
 
     /// Reset the game state to the initial state using the same or different PacmanAgentSetup
-    pub fn reset(&mut self, agent_setup: &PacmanAgentSetup) {
+    pub fn reset(&mut self, agent_setup: &PacmanAgentSetup, use_physics: bool) {
         self.mode = GhostMode::Scatter;
         self.old_mode = GhostMode::Chase;
         self.just_swapped_state = false;
@@ -151,7 +151,7 @@ impl PacmanState {
         self.lives = STARTING_LIVES;
         self.elapsed_time = 0;
 
-        self.respawn_agents(agent_setup);
+        self.respawn_agents(agent_setup, use_physics);
 
         self.pellets = Vec::new();
         self.power_pellets = Vec::new();
@@ -168,11 +168,13 @@ impl PacmanState {
     }
 
     /// Respawn the ghosts and Pacman, for when Pacman dies
-    pub fn respawn_agents(&mut self, agent_setup: &PacmanAgentSetup) {
-        self.pacman = Agent {
-            location: agent_setup.pacman_start().0,
-            direction: agent_setup.pacman_start().1,
-        };
+    pub fn respawn_agents(&mut self, agent_setup: &PacmanAgentSetup, use_physics: bool) {
+        if !use_physics {
+            self.pacman = Agent {
+                location: agent_setup.pacman_start().0,
+                direction: agent_setup.pacman_start().1,
+            };
+        }
         self.ghosts = Vec::new();
         for ghost in agent_setup.ghosts() {
             self.ghosts.push(Ghost {
@@ -189,12 +191,12 @@ impl PacmanState {
     }
 
     /// Move forward one frame, using the current Pacman location
-    pub fn step(&mut self, agent_setup: &PacmanAgentSetup, rng: &mut ThreadRng) {
+    pub fn step(&mut self, agent_setup: &PacmanAgentSetup, rng: &mut ThreadRng, use_physics: bool) {
         if self.is_game_over() || self.paused {
             return;
         }
-        if self.should_die() {
-            self.die(agent_setup);
+        if self.should_die(use_physics) {
+            self.die(agent_setup, use_physics);
         } else {
             self.check_if_ghost_eaten(agent_setup);
             self.update_ghosts(agent_setup, rng);
@@ -249,18 +251,30 @@ impl PacmanState {
     }
 
     /// Should Pacman die this step?
-    fn should_die(&self) -> bool {
+    fn should_die(&self, use_physics: bool) -> bool {
         // are any ghost positions equal to our position?
+        println!();
         self.ghosts.iter().any(|ghost| {
-            ghost.frightened_counter == 0 && ghost.agent.location == self.pacman.location
+            let location_difference = Point2::new(
+                ghost.agent.location.x.abs_diff(self.pacman.location.x),
+                ghost.agent.location.y.abs_diff(self.pacman.location.y),
+            );
+            let mut allowed_distance = 0;
+            if use_physics {
+                allowed_distance = 1;
+            }
+            println!("{:?}", location_difference);
+            ghost.frightened_counter == 0
+                && location_difference.x <= allowed_distance
+                && location_difference.y <= allowed_distance
         })
     }
 
     /// Pacman dies
-    fn die(&mut self, agent_setup: &PacmanAgentSetup) {
+    fn die(&mut self, agent_setup: &PacmanAgentSetup, use_physics: bool) {
         self.lives -= 1;
 
-        self.respawn_agents(agent_setup);
+        self.respawn_agents(agent_setup, use_physics);
         self.state_counter = 0;
         self.start_counter = 0;
         self.old_mode = GhostMode::Chase;

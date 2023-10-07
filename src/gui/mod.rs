@@ -142,7 +142,7 @@ fn run_game(
 
             // step the game
             if !state.pacman_state.paused {
-                state.pacman_state.step(&agent_setup, &mut rng);
+                state.pacman_state.step(&agent_setup, &mut rng, true);
             }
         }
 
@@ -406,7 +406,8 @@ impl App {
             } else {
                 if game.pacman_state.lives == 0 {
                     if ui.button("Restart").clicked() || space_pressed {
-                        game.pacman_state = PacmanState::new(&game.agent_setup);
+                        let setup = game.agent_setup.to_owned();
+                        game.pacman_state.reset(&setup, true);
                     }
                 } else {
                     if ui.button("|>").on_hover_text("Play").clicked() || space_pressed {
@@ -417,7 +418,7 @@ impl App {
                     {
                         game.pacman_state.resume();
                         game.pacman_state
-                            .step(&self.agent_setup, &mut ThreadRng::default());
+                            .step(&self.agent_setup, &mut ThreadRng::default(), true);
                         game.pacman_state.pause();
                     }
                 }
