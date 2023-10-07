@@ -13,8 +13,14 @@ pub enum ReplayManagerCommand {
     Record(String),
     /// Load the given file for playback
     Playback(String),
-    /// Set the playback speed - 1.0 is normal speed
-    Speed(f32),
+    /// Go back to the beginning of the recording
+    Beginning,
+    /// Step back one step
+    StepBack,
+    /// Step forward one step
+    StepForward,
+    /// Go to the end of the recording
+    End,
 
     /// Record a frame of physics information associated with the given time
     RecordPhys(SystemTime),
@@ -88,8 +94,7 @@ impl ReplayManager {
 
         // initial state
         // s.record_frame(RecordType::PhysRender, SystemTime::now());
-        let filename = s.replay_render.read().unwrap().filename.to_owned();
-        s.record_frame(RecordType::PacmanRender, SystemTime::now(), &filename);
+        s.record_frame(RecordType::PacmanRender, SystemTime::now(), None);
 
         // current_frame should be the index of the last recorded frame
         s.current_frame -= 1;
@@ -126,32 +131,41 @@ impl ReplayManager {
                             replay_render.filename = f;
                             self.current_frame = 0;
                         }
-                        self.pacman_render.write().unwrap().pacman_state =
-                            bincode::deserialize(&self.frames[self.current_frame].data).unwrap();
-                    }
-                    ReplayManagerCommand::Speed(s) => {
-                        self.replay_render.write().unwrap().playback_speed = s
                     }
 
                     ReplayManagerCommand::RecordPhys(t) => {
-                        let filename = self.replay_render.read().unwrap().filename.to_owned();
                         if self.replay_render.read().unwrap().recording {
-                            self.record_frame(RecordType::PhysRender, t, &filename)
+                            self.record_frame(RecordType::PhysRender, t, None)
                         }
                     }
                     ReplayManagerCommand::RecordPacman(t) => {
                         let filename = self.replay_render.read().unwrap().filename.to_owned();
                         if self.replay_render.read().unwrap().recording {
-                            self.record_frame(RecordType::PacmanRender, t, &filename)
+                            self.record_frame(RecordType::PacmanRender, t, Some(&filename))
                         }
+                    }
+                    ReplayManagerCommand::Beginning => {
+                        self.current_frame = 0;
+                    }
+                    ReplayManagerCommand::StepBack => {
+                        if self.current_frame != 0 {
+                            self.current_frame -= 1;
+                        }
+                    }
+                    ReplayManagerCommand::StepForward => {
+                        if self.current_frame + 1 < self.frames.len() {
+                            self.current_frame += 1;
+                        }
+                    }
+                    ReplayManagerCommand::End => {
+                        self.current_frame = self.frames.len() - 1;
                     }
                 }
             }
-            let replay_render = self.replay_render.read().unwrap();
 
             // then do playback if necessary
-            if !replay_render.recording
-                && !replay_render.paused
+            if !self.replay_render.read().unwrap().recording
+                && !self.replay_render.read().unwrap().paused
                 && self.current_frame + 1 < self.frames.len()
             {
                 // advance the frame
@@ -160,20 +174,36 @@ impl ReplayManager {
                 self.pacman_render.write().unwrap().pacman_state =
                     bincode::deserialize(&self.frames[self.current_frame].data).unwrap();
                 // sleep until the next frame
-                let time_diff = self.frames[self.current_frame]
-                    .timestamp
-                    .duration_since(self.frames[self.current_frame - 1].timestamp)
-                    .unwrap()
-                    .as_secs_f32();
-                thread::sleep(std::time::Duration::from_secs_f32(
-                    time_diff / replay_render.playback_speed,
-                ));
+                if self.current_frame + 1 < self.frames.len() {
+                    let time_diff = self.frames[self.current_frame + 1]
+                        .timestamp
+                        .duration_since(self.frames[self.current_frame].timestamp)
+                        .unwrap()
+                        .as_secs_f32();
+                    thread::sleep(std::time::Duration::from_secs_f32(
+                        time_diff / self.replay_render.read().unwrap().playback_speed,
+                    ));
+                } else {
+                    thread::sleep(std::time::Duration::from_secs_f32(0.1));
+                }
+            } else if !self.replay_render.read().unwrap().recording {
+                let state: PacmanStateRenderInfo =
+                    bincode::deserialize(&self.frames[self.current_frame].data).unwrap();
+                let mut old_state = self.pacman_render.write().unwrap();
+                old_state.pacman_state = state.pacman_state;
+                old_state.agent_setup = state.agent_setup;
+                thread::sleep(std::time::Duration::from_secs_f32(0.1));
             }
         }
     }
 
     /// Records one frame of generic data
-    fn record_frame(&mut self, record_type: RecordType, timestamp: SystemTime, filename: &String) {
+    fn record_frame(
+        &mut self,
+        record_type: RecordType,
+        timestamp: SystemTime,
+        filename: Option<&String>,
+    ) {
         let data;
 
         match record_type {
@@ -196,7 +226,10 @@ impl ReplayManager {
         self.current_frame += 1;
 
         if record_type == RecordType::PacmanRender {
-            self.write(filename);
+            if let Some(_filename) = filename {
+                // disable writing for now, it takes too long
+                // self.write(filename);
+            }
         }
     }
 

@@ -136,17 +136,18 @@ fn run_physics(
 fn run_game(
     pacman_render: Arc<RwLock<PacmanStateRenderInfo>>,
     location_receive: Receiver<Point2<u8>>,
+    replay_send: Sender<ReplayManagerCommand>,
 ) {
     let mut rng = ThreadRng::default();
 
     let mut previous_pacman_location = Point2::new(14u8, 7);
 
     loop {
-        // {} block to make sure `game` goes out of scope and the RwLockWriteGuard is released
-        {
-            let mut state = pacman_render.write().unwrap();
+        if !pacman_render.read().unwrap().sleep {
+            // {} block to make sure `game` goes out of scope and the RwLockWriteGuard is released
+            {
+                let mut state = pacman_render.write().unwrap();
 
-            if !state.sleep {
                 // fetch updated pacbot position
                 while let Ok(pacbot_location) = location_receive.try_recv() {
                     state.pacman_state.update_pacman(
@@ -161,6 +162,9 @@ fn run_game(
                 // step the game
                 if !state.pacman_state.paused {
                     state.pacman_state.step(&agent_setup, &mut rng, true);
+                    replay_send
+                        .send(ReplayManagerCommand::RecordPacman(SystemTime::now()))
+                        .unwrap()
                 }
             }
         }
@@ -188,9 +192,21 @@ struct App {
     replay_commands_send: Sender<ReplayManagerCommand>,
 }
 
+fn pretty_print_system_time(t: SystemTime) -> String {
+    let utc = time::OffsetDateTime::UNIX_EPOCH
+        + time::Duration::try_from(t.duration_since(std::time::UNIX_EPOCH).unwrap()).unwrap();
+    let local = utc.to_offset(time::UtcOffset::local_offset_at(utc).unwrap());
+    local
+        .format(time::macros::format_description!(
+            "[year]_[month repr:Numerical]_[day]__[hour]_[minute]_[second]"
+        ))
+        .unwrap()
+}
+
 impl Default for App {
     fn default() -> Self {
         let (location_send, location_receive) = channel();
+        let (replay_commands_send, replay_commands_recv) = channel();
 
         // Set up physics thread
         let target_velocity: Arc<RwLock<(Vector2<f32>, f32)>> = Arc::default();
@@ -198,14 +214,6 @@ impl Default for App {
         let target_velocity_r = target_velocity.clone();
         let phys_render_w = phys_render.clone();
         let (phys_restart_send, phys_restart_recv) = channel();
-        std::thread::spawn(move || {
-            run_physics(
-                phys_render_w,
-                target_velocity_r,
-                location_send,
-                phys_restart_recv,
-            );
-        });
 
         // Set up game state thread
         let agent_setup = PacmanAgentSetup::default();
@@ -218,14 +226,11 @@ impl Default for App {
         let pacman_render: Arc<RwLock<PacmanStateRenderInfo>> =
             Arc::new(RwLock::new(pacman_state_info));
         let pacman_state_rw = pacman_render.clone();
-        std::thread::spawn(move || run_game(pacman_state_rw, location_receive));
+        let pacman_replay_commands = replay_commands_send.clone();
 
         // Set up replay manager thread
         // create default timestamped filename with human readable date
-        let time = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let time = pretty_print_system_time(SystemTime::now());
         let filename = format!("replays/replay-{}.bin", time);
         let replay_render_info = ReplayRenderInfo {
             recording: true,
@@ -234,14 +239,26 @@ impl Default for App {
             playback_speed: 1.0,
         };
         let replay_render = Arc::new(RwLock::new(replay_render_info));
-        let (replay_commands_send, replay_commands_recv) = channel();
         let replay_manager = ReplayManager::new(
             phys_render.clone(),
             pacman_render.clone(),
             replay_render.clone(),
             replay_commands_recv,
         );
+
+        // Spawn threads
         std::thread::spawn(move || replay_manager.run());
+        std::thread::spawn(move || {
+            run_game(pacman_state_rw, location_receive, pacman_replay_commands)
+        });
+        std::thread::spawn(move || {
+            run_physics(
+                phys_render_w,
+                target_velocity_r,
+                location_send,
+                phys_restart_recv,
+            );
+        });
 
         Self {
             selected_grid: StandardGrid::Pacman,
@@ -376,7 +393,7 @@ impl App {
         let pacman_state = &pacman_state_info.pacman_state;
 
         // ghosts
-        for i in 0..self.agent_setup.ghosts().len() {
+        for i in 0..pacman_state.ghosts.len() {
             painter.circle_filled(
                 world_to_screen.map_point(Pos2::new(
                     pacman_state.ghosts[i].agent.location.x as f32,
@@ -441,37 +458,93 @@ impl App {
 
     fn draw_playback_controls(&mut self, ctx: &egui::Context, ui: &mut Ui) {
         let mut game = self.pacman_render.write().unwrap();
+        let mut replay = self.replay_render.write().unwrap();
 
         let space_pressed = ctx.input(|i| i.key_pressed(Key::Space));
         let arrow_right_pressed = ctx.input(|i| i.key_pressed(Key::ArrowRight));
+        let arrow_left_pressed = ctx.input(|i| i.key_pressed(Key::ArrowLeft));
+        let shift_presssed = ctx.input(|i| i.modifiers.shift);
 
         ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
             ui.group(|ui| {
-                if !game.pacman_state.paused {
-                    if ui.button("⏸").on_hover_text("Pause").clicked() || space_pressed {
-                        game.pacman_state.paused = true;
-                    }
-                    // ui.button("⏩").
-                } else {
-                    if game.pacman_state.lives == 0 {
-                        if ui.button("Restart").clicked() || space_pressed {
-                            let setup = game.agent_setup.to_owned();
-                            game.pacman_state.reset(&setup, true);
+                if replay.recording {
+                    if !game.pacman_state.paused {
+                        if ui.button("⏸").on_hover_text("Pause").clicked() || space_pressed {
+                            game.pacman_state.paused = true;
                         }
                     } else {
-                        if ui.button("▶").on_hover_text("Play").clicked() || space_pressed {
-                            game.pacman_state.paused = false;
+                        if game.pacman_state.lives == 0 {
+                            if ui.button("Restart").clicked() || space_pressed {
+                                let setup = game.agent_setup.to_owned();
+                                game.pacman_state.reset(&setup, true);
+                            }
+                        } else {
+                            if ui.button("▶").on_hover_text("Play").clicked() || space_pressed {
+                                game.pacman_state.paused = false;
+                            }
+                            if ui.button("⏹").on_hover_text("Stop/Save").clicked() {
+                                game.pacman_state.paused = true;
+                                game.sleep = true;
+                                self.replay_commands_send
+                                    .send(ReplayManagerCommand::Playback(
+                                        replay.filename.to_owned(),
+                                    ))
+                                    .unwrap();
+                            }
+                            if ui.button("⏩").on_hover_text("Advance one frame").clicked()
+                                || arrow_right_pressed
+                            {
+                                game.pacman_state.resume();
+                                game.pacman_state.step(
+                                    &self.agent_setup,
+                                    &mut ThreadRng::default(),
+                                    true,
+                                );
+                                self.replay_commands_send
+                                    .send(ReplayManagerCommand::RecordPacman(SystemTime::now()))
+                                    .unwrap();
+                                game.pacman_state.pause();
+                            }
                         }
-                        if ui.button("⏩").on_hover_text("Advance one frame").clicked()
-                            || arrow_right_pressed
+                    }
+                } else {
+                    if replay.paused {
+                        if ui.button("⏮").on_hover_text("Beginning").clicked()
+                            || (arrow_left_pressed && shift_presssed)
                         {
-                            game.pacman_state.resume();
-                            game.pacman_state.step(
-                                &self.agent_setup,
-                                &mut ThreadRng::default(),
-                                true,
-                            );
-                            game.pacman_state.pause();
+                            self.replay_commands_send
+                                .send(ReplayManagerCommand::Beginning)
+                                .unwrap();
+                        }
+                        if ui.button("⏪").on_hover_text("Back one frame").clicked()
+                            || (arrow_left_pressed && !shift_presssed)
+                        {
+                            self.replay_commands_send
+                                .send(ReplayManagerCommand::StepBack)
+                                .unwrap();
+                        }
+                        if ui.button("▶").on_hover_text("Play").clicked() || space_pressed {
+                            replay.paused = false;
+                        }
+                        if ui.button("☉").on_hover_text("Record from here").clicked() {
+                            self.replay_commands_send
+                                .send(ReplayManagerCommand::Record(replay.filename.to_owned()))
+                                .unwrap();
+                            game.sleep = false;
+                        }
+                        if ui.button("⏩").on_hover_text("Forward one from").clicked()
+                            || (arrow_right_pressed && !shift_presssed)
+                        {
+                            self.replay_commands_send
+                                .send(ReplayManagerCommand::StepForward)
+                                .unwrap();
+                        }
+                        if ui.button("⏭").on_hover_text("Go to end").clicked()
+                            || (arrow_right_pressed && shift_presssed)
+                        {
+                            self.replay_commands_send
+                                .send(ReplayManagerCommand::End)
+                                .unwrap();
                         }
                     }
                 }
