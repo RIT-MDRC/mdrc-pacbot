@@ -4,6 +4,7 @@ pub mod transforms;
 
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, RwLock};
+use std::time::SystemTime;
 
 use egui::{Color32, Frame, Key, Painter, Pos2, Rect, Rounding, Stroke, Ui};
 use rand::rngs::ThreadRng;
@@ -13,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::agent_setup::PacmanAgentSetup;
 use crate::game_state::{GhostType, PacmanState};
 use crate::grid::facing_direction;
+use crate::replay::{ReplayManager, ReplayManagerCommand};
 use crate::robot::Robot;
 use crate::simulation::PacbotSimulation;
 use crate::standard_grids::StandardGrid;
@@ -51,6 +53,19 @@ pub struct PacmanStateRenderInfo {
     pub agent_setup: PacmanAgentSetup,
     /// Current game state
     pub pacman_state: PacmanState,
+}
+
+/// Stores state need to render replay information
+#[derive(Clone)]
+pub struct ReplayRenderInfo {
+    /// recording, vs playback
+    pub recording: bool,
+    /// File to record to or playback from
+    pub filename: String,
+    /// Whether playback is paused
+    pub paused: bool,
+    /// Playback speed; 1.0 is normal speed
+    pub playback_speed: f32,
 }
 
 /// Thread where physics gets run.
@@ -129,20 +144,22 @@ fn run_game(
         {
             let mut state = pacman_render.write().unwrap();
 
-            // fetch updated pacbot position
-            while let Ok(pacbot_location) = location_receive.try_recv() {
-                state.pacman_state.update_pacman(
-                    pacbot_location,
-                    facing_direction(&previous_pacman_location, &pacbot_location),
-                );
-                previous_pacman_location = pacbot_location;
-            }
+            if !state.sleep {
+                // fetch updated pacbot position
+                while let Ok(pacbot_location) = location_receive.try_recv() {
+                    state.pacman_state.update_pacman(
+                        pacbot_location,
+                        facing_direction(&previous_pacman_location, &pacbot_location),
+                    );
+                    previous_pacman_location = pacbot_location;
+                }
 
-            let agent_setup = state.agent_setup.clone();
+                let agent_setup = state.agent_setup.clone();
 
-            // step the game
-            if !state.pacman_state.paused {
-                state.pacman_state.step(&agent_setup, &mut rng, true);
+                // step the game
+                if !state.pacman_state.paused {
+                    state.pacman_state.step(&agent_setup, &mut rng, true);
+                }
             }
         }
 
@@ -164,6 +181,9 @@ struct App {
 
     pacman_render: Arc<RwLock<PacmanStateRenderInfo>>,
     agent_setup: PacmanAgentSetup,
+
+    replay_render: Arc<RwLock<ReplayRenderInfo>>,
+    replay_commands_send: Sender<ReplayManagerCommand>,
 }
 
 impl Default for App {
@@ -185,6 +205,7 @@ impl Default for App {
             );
         });
 
+        // Set up game state thread
         let agent_setup = PacmanAgentSetup::default();
         let pacman_state = PacmanState::new(&agent_setup);
         let pacman_state_info = PacmanStateRenderInfo {
@@ -196,6 +217,29 @@ impl Default for App {
             Arc::new(RwLock::new(pacman_state_info));
         let pacman_state_rw = pacman_render.clone();
         std::thread::spawn(move || run_game(pacman_state_rw, location_receive));
+
+        // Set up replay manager thread
+        // create default timestamped filename with human readable date
+        let time = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let filename = format!("replays/replay-{}.bin", time);
+        let replay_render_info = ReplayRenderInfo {
+            recording: true,
+            filename,
+            paused: true,
+            playback_speed: 1.0,
+        };
+        let replay_render = Arc::new(RwLock::new(replay_render_info));
+        let (replay_commands_send, replay_commands_recv) = channel();
+        let replay_manager = ReplayManager::new(
+            phys_render.clone(),
+            pacman_render.clone(),
+            replay_render.clone(),
+            replay_commands_recv,
+        );
+        std::thread::spawn(move || replay_manager.run());
 
         Self {
             selected_grid: StandardGrid::Pacman,
@@ -209,6 +253,9 @@ impl Default for App {
 
             pacman_render,
             agent_setup: PacmanAgentSetup::default(),
+
+            replay_render,
+            replay_commands_send,
         }
     }
 }
@@ -398,31 +445,37 @@ impl App {
         let space_pressed = ctx.input(|i| i.key_pressed(Key::Space));
         let arrow_right_pressed = ctx.input(|i| i.key_pressed(Key::ArrowRight));
 
-        ui.horizontal(|ui| {
-            if !game.pacman_state.paused {
-                if ui.button("||").on_hover_text("Pause").clicked() || space_pressed {
-                    game.pacman_state.paused = true;
-                }
-            } else {
-                if game.pacman_state.lives == 0 {
-                    if ui.button("Restart").clicked() || space_pressed {
-                        let setup = game.agent_setup.to_owned();
-                        game.pacman_state.reset(&setup, true);
+        ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
+            ui.group(|ui| {
+                if !game.pacman_state.paused {
+                    if ui.button("⏸").on_hover_text("Pause").clicked() || space_pressed {
+                        game.pacman_state.paused = true;
                     }
+                    // ui.button("⏩").
                 } else {
-                    if ui.button("|>").on_hover_text("Play").clicked() || space_pressed {
-                        game.pacman_state.paused = false;
-                    }
-                    if ui.button(">").on_hover_text("Advance one frame").clicked()
-                        || arrow_right_pressed
-                    {
-                        game.pacman_state.resume();
-                        game.pacman_state
-                            .step(&self.agent_setup, &mut ThreadRng::default(), true);
-                        game.pacman_state.pause();
+                    if game.pacman_state.lives == 0 {
+                        if ui.button("Restart").clicked() || space_pressed {
+                            let setup = game.agent_setup.to_owned();
+                            game.pacman_state.reset(&setup, true);
+                        }
+                    } else {
+                        if ui.button("▶").on_hover_text("Play").clicked() || space_pressed {
+                            game.pacman_state.paused = false;
+                        }
+                        if ui.button("⏩").on_hover_text("Advance one frame").clicked()
+                            || arrow_right_pressed
+                        {
+                            game.pacman_state.resume();
+                            game.pacman_state.step(
+                                &self.agent_setup,
+                                &mut ThreadRng::default(),
+                                true,
+                            );
+                            game.pacman_state.pause();
+                        }
                     }
                 }
-            }
+            });
         });
     }
 }

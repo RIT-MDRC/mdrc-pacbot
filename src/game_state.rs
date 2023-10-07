@@ -253,7 +253,6 @@ impl PacmanState {
     /// Should Pacman die this step?
     fn should_die(&self, use_physics: bool) -> bool {
         // are any ghost positions equal to our position?
-        println!();
         self.ghosts.iter().any(|ghost| {
             let location_difference = Point2::new(
                 ghost.agent.location.x.abs_diff(self.pacman.location.x),
@@ -263,7 +262,6 @@ impl PacmanState {
             if use_physics {
                 allowed_distance = 1;
             }
-            println!("{:?}", location_difference);
             ghost.frightened_counter == 0
                 && location_difference.x <= allowed_distance
                 && location_difference.y <= allowed_distance

@@ -1,6 +1,6 @@
 //! Records and replays GUI data
 
-use crate::gui::{PacmanStateRenderInfo, PhysicsRenderInfo};
+use crate::gui::{PacmanStateRenderInfo, PhysicsRenderInfo, ReplayRenderInfo};
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, RwLock};
@@ -44,14 +44,7 @@ struct ReplayFrame {
 
 /// Records and replays GUI data
 pub struct ReplayManager {
-    /// recording, vs playback
-    recording: bool,
-    /// File to record to or playback from
-    filename: String,
-    /// Whether playback is paused
-    paused: bool,
-    /// Playback speed; 1.0 is normal speed
-    playback_speed: f32,
+    replay_render: Arc<RwLock<ReplayRenderInfo>>,
     /// Channel where commands are received
     commands: Receiver<ReplayManagerCommand>,
 
@@ -75,23 +68,14 @@ impl ReplayManager {
     pub fn new(
         phys_render: Arc<RwLock<PhysicsRenderInfo>>,
         pacman_render: Arc<RwLock<PacmanStateRenderInfo>>,
+        replay_render: Arc<RwLock<ReplayRenderInfo>>,
 
         commands: Receiver<ReplayManagerCommand>,
     ) -> ReplayManager {
-        // create default timestamped filename with human readable date
-        let time = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        let filename = format!("replays/replay-{}.bin", time);
-
         let frames = vec![];
 
         let mut s = Self {
-            recording: true,
-            filename,
-            paused: true,
-            playback_speed: 0.0,
+            replay_render,
 
             commands,
 
@@ -103,8 +87,9 @@ impl ReplayManager {
         };
 
         // initial state
-        s.record_frame(RecordType::PhysRender, SystemTime::now());
-        s.record_frame(RecordType::PacmanRender, SystemTime::now());
+        // s.record_frame(RecordType::PhysRender, SystemTime::now());
+        let filename = s.replay_render.read().unwrap().filename.to_owned();
+        s.record_frame(RecordType::PacmanRender, SystemTime::now(), &filename);
 
         // current_frame should be the index of the last recorded frame
         s.current_frame -= 1;
@@ -119,39 +104,61 @@ impl ReplayManager {
             while let Ok(command) = self.commands.try_recv() {
                 match command {
                     ReplayManagerCommand::Record(f) => {
-                        if self.recording {
+                        let mut replay_render = self.replay_render.write().unwrap();
+                        if replay_render.recording {
                             return;
                         }
-                        self.filename = f;
-                        self.recording = true;
-                        // TODO
+                        if replay_render.filename != f {
+                            self.current_frame = 0;
+                        }
+                        self.frames.truncate(self.current_frame + 1);
+                        replay_render.filename = f;
+                        replay_render.recording = true;
                     }
                     ReplayManagerCommand::Playback(f) => {
-                        if !self.recording {
+                        let mut replay_render = self.replay_render.write().unwrap();
+                        if !replay_render.recording {
                             return;
                         }
-                        self.filename = f;
-                        self.recording = false;
-                        self.paused = true;
-                        // TODO
+                        replay_render.recording = false;
+                        replay_render.paused = true;
+                        if replay_render.filename != f {
+                            replay_render.filename = f;
+                            self.current_frame = 0;
+                        }
+                        self.pacman_render.write().unwrap().pacman_state =
+                            bincode::deserialize(&self.frames[self.current_frame].data).unwrap();
                     }
-                    ReplayManagerCommand::Speed(s) => self.playback_speed = s,
+                    ReplayManagerCommand::Speed(s) => {
+                        self.replay_render.write().unwrap().playback_speed = s
+                    }
 
                     ReplayManagerCommand::RecordPhys(t) => {
-                        self.record_frame(RecordType::PhysRender, t)
+                        let filename = self.replay_render.read().unwrap().filename.to_owned();
+                        if self.replay_render.read().unwrap().recording {
+                            self.record_frame(RecordType::PhysRender, t, &filename)
+                        }
                     }
                     ReplayManagerCommand::RecordPacman(t) => {
-                        self.record_frame(RecordType::PacmanRender, t)
+                        let filename = self.replay_render.read().unwrap().filename.to_owned();
+                        if self.replay_render.read().unwrap().recording {
+                            self.record_frame(RecordType::PacmanRender, t, &filename)
+                        }
                     }
                 }
             }
+            let replay_render = self.replay_render.read().unwrap();
 
             // then do playback if necessary
-            if !self.recording && !self.paused && self.current_frame + 1 < self.frames.len() {
-                // TODO
+            if !replay_render.recording
+                && !replay_render.paused
+                && self.current_frame + 1 < self.frames.len()
+            {
                 // advance the frame
                 self.current_frame += 1;
                 // emit the new frame
+                self.pacman_render.write().unwrap().pacman_state =
+                    bincode::deserialize(&self.frames[self.current_frame].data).unwrap();
                 // sleep until the next frame
                 let time_diff = self.frames[self.current_frame]
                     .timestamp
@@ -159,18 +166,14 @@ impl ReplayManager {
                     .unwrap()
                     .as_secs_f32();
                 thread::sleep(std::time::Duration::from_secs_f32(
-                    time_diff / self.playback_speed,
+                    time_diff / replay_render.playback_speed,
                 ));
             }
         }
     }
 
     /// Records one frame of generic data
-    fn record_frame(&mut self, record_type: RecordType, timestamp: SystemTime) {
-        if !self.recording {
-            return;
-        }
-
+    fn record_frame(&mut self, record_type: RecordType, timestamp: SystemTime, filename: &String) {
         let data;
 
         match record_type {
@@ -193,13 +196,13 @@ impl ReplayManager {
         self.current_frame += 1;
 
         if record_type == RecordType::PacmanRender {
-            self.write();
+            self.write(filename);
         }
     }
 
     /// Write into the file
-    pub fn write(&self) {
-        let mut file = std::fs::File::create(&self.filename).unwrap();
+    pub fn write(&self, filename: &String) {
+        let mut file = std::fs::File::create(filename).unwrap();
         bincode::serialize_into(&mut file, &self.frames).unwrap();
     }
 }
