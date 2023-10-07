@@ -7,11 +7,14 @@ use crate::grid::{ComputedGrid, Direction, GridValue};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rand::rngs::ThreadRng;
 use rapier2d::na::Point2;
+use serde::{Deserialize, Serialize};
 
 /// Current ghost behavior - applies to all ghosts
 ///
 /// When paused, Pacman should not move
-#[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive, Serialize, Deserialize,
+)]
 #[repr(u8)]
 pub enum GhostMode {
     /// Ghosts are chasing Pacman
@@ -23,7 +26,9 @@ pub enum GhostMode {
 }
 
 /// Ghost colors
-#[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive, Serialize, Deserialize,
+)]
 #[repr(u8)]
 pub enum GhostType {
     /// Directly chases Pacman
@@ -37,7 +42,7 @@ pub enum GhostType {
 }
 
 /// Information about a moving entity (Pacman or a ghost) during a game of Pacman
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Agent {
     /// The agent's current location in the [`Grid`]
     pub location: Point2<u8>,
@@ -46,7 +51,7 @@ pub struct Agent {
 }
 
 /// Information about a ghost during a game of Pacman
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Ghost {
     /// Location and direction
     pub agent: Agent,
@@ -65,7 +70,7 @@ pub struct Ghost {
 /// Information that changes during a game of Pacman
 ///
 /// Note: frightened_counter is not present because its only effect is Pacman's speed after collecting a power pellet
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PacmanState {
     /// Current ghost behavior - applies to all ghosts
     ///
@@ -185,7 +190,7 @@ impl PacmanState {
 
     /// Move forward one frame, using the current Pacman location
     pub fn step(&mut self, agent_setup: &PacmanAgentSetup, rng: &mut ThreadRng) {
-        if self.is_game_over() {
+        if self.is_game_over() || self.paused {
             return;
         }
         if self.should_die() {
@@ -290,7 +295,8 @@ impl PacmanState {
                 agent_setup,
                 &agent_setup.ghosts()[i],
                 self.mode,
-                self.elapsed_time,
+                self.start_counter,
+                self.state_counter,
                 &self.pacman,
                 &red_ghost,
                 rng,

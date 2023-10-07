@@ -4,9 +4,10 @@ use crate::grid::GridValue::{o, O};
 use crate::grid::{ComputedGrid, Direction, GridValue};
 use anyhow::{anyhow, Error};
 use rapier2d::na::Point2;
+use serde::{Deserialize, Serialize};
 
 /// Static information needed to set up a ghost for Pacman game
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct GhostSetup {
     /// The ghost's starting path; where it goes when it first spawns
     pub start_path: Vec<(Point2<u8>, Direction)>,
@@ -17,7 +18,7 @@ pub struct GhostSetup {
 }
 
 /// Static information needed to set up a Pacman game
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PacmanAgentSetup {
     /// The grid
     grid: ComputedGrid,

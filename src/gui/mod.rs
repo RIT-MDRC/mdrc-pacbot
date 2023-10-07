@@ -8,6 +8,7 @@ use std::sync::{Arc, RwLock};
 use egui::{Color32, Frame, Key, Painter, Pos2, Rect, Rounding, Stroke, Ui};
 use rand::rngs::ThreadRng;
 use rapier2d::na::{Isometry2, Point2, Vector2};
+use serde::{Deserialize, Serialize};
 
 use crate::agent_setup::PacmanAgentSetup;
 use crate::game_state::{GhostType, PacmanState};
@@ -31,8 +32,10 @@ pub fn run_gui() {
 }
 
 /// Stores state needed to render physics information.
-#[derive(Default)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct PhysicsRenderInfo {
+    /// If true, the physics thread should not advance physics
+    pub sleep: bool,
     /// The current position of the robot.
     pub pacbot_pos: Isometry2<f32>,
     /// An array of start and end points.
@@ -40,7 +43,10 @@ pub struct PhysicsRenderInfo {
 }
 
 /// Stores state needed to render game state information
+#[derive(Clone, Serialize, Deserialize)]
 pub struct PacmanStateRenderInfo {
+    /// If true, the game state thread should not advance the game state
+    pub sleep: bool,
     /// Initial positions of Pacman, ghosts, etc.
     pub agent_setup: PacmanAgentSetup,
     /// Current game state
@@ -71,6 +77,7 @@ fn run_physics(
 
         // Update our render state
         *phys_render.write().unwrap() = PhysicsRenderInfo {
+            sleep: false,
             pacbot_pos: *simulation.get_primary_robot_position(),
             primary_robot_rays: simulation.get_primary_robot_rays().clone(),
         };
@@ -98,7 +105,10 @@ fn run_physics(
     }
 }
 
-fn run_game(state_rw: Arc<RwLock<PacmanStateRenderInfo>>, location_receive: Receiver<Point2<u8>>) {
+fn run_game(
+    pacman_render: Arc<RwLock<PacmanStateRenderInfo>>,
+    location_receive: Receiver<Point2<u8>>,
+) {
     let mut rng = ThreadRng::default();
 
     let mut previous_pacman_location = Point2::new(14u8, 7);
@@ -106,7 +116,7 @@ fn run_game(state_rw: Arc<RwLock<PacmanStateRenderInfo>>, location_receive: Rece
     loop {
         // {} block to make sure `game` goes out of scope and the RwLockWriteGuard is released
         {
-            let mut state = state_rw.write().unwrap();
+            let mut state = pacman_render.write().unwrap();
 
             // fetch updated pacbot position
             while let Ok(pacbot_location) = location_receive.try_recv() {
@@ -122,13 +132,11 @@ fn run_game(state_rw: Arc<RwLock<PacmanStateRenderInfo>>, location_receive: Rece
             // step the game
             if !state.pacman_state.paused {
                 state.pacman_state.step(&agent_setup, &mut rng);
-            } else {
-                state.pacman_state.resume();
             }
         }
 
         // Sleep for 1/2 a second
-        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 2.));
+        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 10.));
     }
 }
 
@@ -142,7 +150,7 @@ struct App {
     target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
     robot: Robot,
 
-    pacman_state_render: Arc<RwLock<PacmanStateRenderInfo>>,
+    pacman_render: Arc<RwLock<PacmanStateRenderInfo>>,
     agent_setup: PacmanAgentSetup,
 }
 
@@ -162,12 +170,13 @@ impl Default for App {
         let agent_setup = PacmanAgentSetup::default();
         let pacman_state = PacmanState::new(&agent_setup);
         let pacman_state_info = PacmanStateRenderInfo {
+            sleep: false,
             pacman_state,
             agent_setup,
         };
-        let pacman_state_render: Arc<RwLock<PacmanStateRenderInfo>> =
+        let pacman_render: Arc<RwLock<PacmanStateRenderInfo>> =
             Arc::new(RwLock::new(pacman_state_info));
-        let pacman_state_rw = pacman_state_render.clone();
+        let pacman_state_rw = pacman_render.clone();
         std::thread::spawn(move || run_game(pacman_state_rw, location_receive));
 
         Self {
@@ -179,7 +188,7 @@ impl Default for App {
             target_velocity,
             phys_render,
 
-            pacman_state_render,
+            pacman_render,
             agent_setup: PacmanAgentSetup::default(),
         }
     }
@@ -294,7 +303,7 @@ impl App {
     }
 
     fn draw_pacman_state(&mut self, world_to_screen: &Transform, painter: &Painter) {
-        let pacman_state_info = self.pacman_state_render.read().unwrap();
+        let pacman_state_info = self.pacman_render.read().unwrap();
         let pacman_state = &pacman_state_info.pacman_state;
 
         // ghosts
@@ -352,6 +361,33 @@ impl App {
                 });
             });
     }
+
+    fn draw_playback_controls(&mut self, ctx: &egui::Context, ui: &mut Ui) {
+        let mut game = self.pacman_render.write().unwrap();
+
+        let space_pressed = ctx.input(|i| i.key_pressed(Key::Space));
+        let arrow_right_pressed = ctx.input(|i| i.key_pressed(Key::ArrowRight));
+
+        ui.horizontal(|ui| {
+            if !game.pacman_state.paused {
+                if ui.button("||").on_hover_text("Pause").clicked() || space_pressed {
+                    game.pacman_state.paused = true;
+                }
+            } else {
+                if ui.button("|>").on_hover_text("Play").clicked() || space_pressed {
+                    game.pacman_state.paused = false;
+                }
+                if ui.button(">").on_hover_text("Advance one frame").clicked()
+                    || arrow_right_pressed
+                {
+                    game.pacman_state.resume();
+                    game.pacman_state
+                        .step(&self.agent_setup, &mut ThreadRng::default());
+                    game.pacman_state.pause();
+                }
+            }
+        });
+    }
 }
 
 impl eframe::App for App {
@@ -366,6 +402,15 @@ impl eframe::App for App {
                 });
             });
         });
+        egui::TopBottomPanel::bottom("playback_controls")
+            .frame(
+                Frame::none()
+                    .fill(ctx.style().visuals.panel_fill)
+                    .inner_margin(5.0),
+            )
+            .show(ctx, |ui| {
+                self.draw_playback_controls(ctx, ui);
+            });
         egui::CentralPanel::default()
             .frame(Frame::none().fill(ctx.style().visuals.panel_fill))
             .show(ctx, |ui| {

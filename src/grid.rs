@@ -4,10 +4,13 @@ use anyhow::{anyhow, Error};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rapier2d::math::Real;
 use rapier2d::na::Point2;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Enum for direction values.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive, Serialize, Deserialize,
+)]
 #[repr(u8)]
 pub enum Direction {
     /// Right, or +x
@@ -21,7 +24,9 @@ pub enum Direction {
 }
 
 /// Enum for [`Grid`] cell values.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive, Serialize, Deserialize,
+)]
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 pub enum GridValue {
@@ -129,7 +134,7 @@ fn validate_grid(grid: &Grid) -> Result<(), Error> {
 /// The rectangle is defined by the top left corner and the bottom right corner.
 /// Note that [`Wall`] does not follow the same grid conventions as [`Grid`].
 /// The coordinates are intended to be +0.5, and may be negative.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Wall {
     /// The bottom left corner of the [`Wall`].
     pub left_bottom: Point2<Real>,
@@ -149,7 +154,7 @@ pub struct Wall {
 ///
 /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
 /// ```
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ComputedGrid {
     grid: Grid,
 

@@ -16,7 +16,8 @@ impl Ghost {
         agent_setup: &PacmanAgentSetup,
         ghost_setup: &GhostSetup,
         mode: GhostMode,
-        elapsed_time: u32,
+        start_counter: u32,
+        state_counter: u32,
         pacman: &Agent,
         red_ghost_location: &Point2<u8>,
         rng: &mut ThreadRng,
@@ -28,15 +29,15 @@ impl Ghost {
         let mut destination;
         let mut literal = false;
 
-        if (elapsed_time as usize) < ghost_setup.start_path.len() {
-            destination = ghost_setup.start_path[elapsed_time as usize].0;
+        if (start_counter as usize) < ghost_setup.start_path.len() {
+            destination = ghost_setup.start_path[start_counter as usize].0;
             literal = true;
         } else if let Some(next_respawn_path_move) = self.get_respawn_path_move(agent_setup) {
             destination = next_respawn_path_move.to_owned();
             literal = true;
             self.respawn_timer += 1;
         } else if let Some(next_swapped_state_move) =
-            self.get_swapped_state_move(agent_setup, elapsed_time)
+            self.get_swapped_state_move(agent_setup, state_counter)
         {
             destination = next_swapped_state_move.to_owned();
         } else if self.frightened_counter > 0 {
