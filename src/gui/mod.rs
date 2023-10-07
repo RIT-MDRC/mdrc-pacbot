@@ -58,6 +58,7 @@ fn run_physics(
     phys_render: Arc<RwLock<PhysicsRenderInfo>>,
     current_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
     location_send: Sender<Point2<u8>>,
+    restart_recv: Receiver<(StandardGrid, Robot, Isometry2<f32>)>,
 ) {
     let mut simulation = PacbotSimulation::new(
         ComputedGrid::try_from(standard_grids::GRID_PACMAN).unwrap(),
@@ -68,6 +69,15 @@ fn run_physics(
     let mut previous_pacbot_location = Point2::new(14, 7);
 
     loop {
+        // Was a restart requested?
+        if let Ok((grid, robot, isometry)) = restart_recv.try_recv() {
+            simulation = PacbotSimulation::new(
+                ComputedGrid::try_from(grid.get_grid()).unwrap(),
+                robot,
+                isometry,
+            );
+        }
+
         // Run simulation one step
         simulation.step();
 
@@ -136,7 +146,7 @@ fn run_game(
         }
 
         // Sleep for 1/2 a second
-        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 10.));
+        std::thread::sleep(std::time::Duration::from_secs_f32(1.0 / 2.5));
     }
 }
 
@@ -148,6 +158,7 @@ struct App {
     /// A read-only reference to info needed to render physics.
     phys_render: Arc<RwLock<PhysicsRenderInfo>>,
     target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
+    phys_restart_send: Sender<(StandardGrid, Robot, Isometry2<f32>)>,
     robot: Robot,
 
     pacman_render: Arc<RwLock<PacmanStateRenderInfo>>,
@@ -163,8 +174,14 @@ impl Default for App {
         let phys_render: Arc<RwLock<PhysicsRenderInfo>> = Arc::default();
         let target_velocity_r = target_velocity.clone();
         let phys_render_w = phys_render.clone();
+        let (phys_restart_send, phys_restart_recv) = channel();
         std::thread::spawn(move || {
-            run_physics(phys_render_w, target_velocity_r, location_send);
+            run_physics(
+                phys_render_w,
+                target_velocity_r,
+                location_send,
+                phys_restart_recv,
+            );
         });
 
         let agent_setup = PacmanAgentSetup::default();
@@ -186,6 +203,7 @@ impl Default for App {
 
             robot: Robot::default(),
             target_velocity,
+            phys_restart_send,
             phys_render,
 
             pacman_render,
@@ -228,7 +246,9 @@ impl App {
 
         self.update_target_velocity(ctx);
 
-        self.draw_pacman_state(&world_to_screen, &painter);
+        if self.selected_grid == StandardGrid::Pacman {
+            self.draw_pacman_state(&world_to_screen, &painter);
+        }
 
         self.draw_simulation(&world_to_screen, &painter)
     }
@@ -239,23 +259,24 @@ impl App {
         target_velocity.0.y = 0.0;
         target_velocity.1 = 0.0;
         ctx.input(|i| {
+            let target_speed = if i.modifiers.shift { 10.0 } else { 4.0 };
             if i.key_down(Key::S) {
-                target_velocity.0.y = -3.0;
+                target_velocity.0.y = -target_speed;
             }
             if i.key_down(Key::W) {
-                target_velocity.0.y = 3.0;
+                target_velocity.0.y = target_speed;
             }
             if i.key_down(Key::A) {
-                target_velocity.0.x = -3.0;
+                target_velocity.0.x = -target_speed;
             }
             if i.key_down(Key::D) {
-                target_velocity.0.x = 3.0;
+                target_velocity.0.x = target_speed;
             }
             if i.key_down(Key::E) {
-                target_velocity.1 = -3.0;
+                target_velocity.1 = -target_speed;
             }
             if i.key_down(Key::Q) {
-                target_velocity.1 = 3.0;
+                target_velocity.1 = target_speed;
             }
         });
     }
@@ -356,7 +377,15 @@ impl App {
                         .selectable_value(&mut self.selected_grid, *grid, format!("{:?}", grid))
                         .clicked()
                     {
+                        self.pacman_render.write().unwrap().pacman_state.pause();
                         self.grid = ComputedGrid::try_from(grid.get_grid()).unwrap();
+                        self.phys_restart_send
+                            .send((
+                                self.selected_grid,
+                                Robot::default(),
+                                self.selected_grid.get_default_pacbot_isometry(),
+                            ))
+                            .unwrap();
                     }
                 });
             });
@@ -402,15 +431,17 @@ impl eframe::App for App {
                 });
             });
         });
-        egui::TopBottomPanel::bottom("playback_controls")
-            .frame(
-                Frame::none()
-                    .fill(ctx.style().visuals.panel_fill)
-                    .inner_margin(5.0),
-            )
-            .show(ctx, |ui| {
-                self.draw_playback_controls(ctx, ui);
-            });
+        if self.selected_grid == StandardGrid::Pacman {
+            egui::TopBottomPanel::bottom("playback_controls")
+                .frame(
+                    Frame::none()
+                        .fill(ctx.style().visuals.panel_fill)
+                        .inner_margin(5.0),
+                )
+                .show(ctx, |ui| {
+                    self.draw_playback_controls(ctx, ui);
+                });
+        }
         egui::CentralPanel::default()
             .frame(Frame::none().fill(ctx.style().visuals.panel_fill))
             .show(ctx, |ui| {

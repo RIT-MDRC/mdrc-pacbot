@@ -1,6 +1,7 @@
 #![cfg_attr(rustfmt, rustfmt_skip)]
 //! A set of pre-made general purpose grids
 
+use rapier2d::na::{Isometry2, Vector2};
 use crate::grid::Grid;
 use crate::grid::GridValue::*;
 
@@ -30,6 +31,16 @@ impl StandardGrid {
             Self::Playground => GRID_PLAYGROUND,
             Self::Outer => GRID_OUTER,
             Self::Blank => GRID_BLANK,
+        }
+    }
+    
+    /// Get the default Pacbot [`Isometry2`] associated with this enum
+    pub fn get_default_pacbot_isometry(&self) -> Isometry2<f32> {
+        match self {
+            StandardGrid::Pacman => Isometry2::new(Vector2::new(14.0, 7.0), 0.0),
+            StandardGrid::Playground => Isometry2::new(Vector2::new(1.0, 1.0), 0.0),
+            StandardGrid::Outer => Isometry2::new(Vector2::new(1.0, 1.0), 0.0),
+            StandardGrid::Blank => Isometry2::new(Vector2::new(1.0, 1.0), 0.0),
         }
     }
 }
