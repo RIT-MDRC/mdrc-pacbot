@@ -105,6 +105,7 @@ fn run_physics(
                 .y
                 .round() as u8,
         );
+
         if pacbot_location != previous_pacbot_location {
             location_send.send(pacbot_location).unwrap();
             previous_pacbot_location = pacbot_location;
@@ -403,16 +404,22 @@ impl App {
                     game.pacman_state.paused = true;
                 }
             } else {
-                if ui.button("|>").on_hover_text("Play").clicked() || space_pressed {
-                    game.pacman_state.paused = false;
-                }
-                if ui.button(">").on_hover_text("Advance one frame").clicked()
-                    || arrow_right_pressed
-                {
-                    game.pacman_state.resume();
-                    game.pacman_state
-                        .step(&self.agent_setup, &mut ThreadRng::default());
-                    game.pacman_state.pause();
+                if game.pacman_state.lives == 0 {
+                    if ui.button("Restart").clicked() || space_pressed {
+                        game.pacman_state = PacmanState::new(&game.agent_setup);
+                    }
+                } else {
+                    if ui.button("|>").on_hover_text("Play").clicked() || space_pressed {
+                        game.pacman_state.paused = false;
+                    }
+                    if ui.button(">").on_hover_text("Advance one frame").clicked()
+                        || arrow_right_pressed
+                    {
+                        game.pacman_state.resume();
+                        game.pacman_state
+                            .step(&self.agent_setup, &mut ThreadRng::default());
+                        game.pacman_state.pause();
+                    }
                 }
             }
         });
