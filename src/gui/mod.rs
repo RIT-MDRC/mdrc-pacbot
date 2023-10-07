@@ -1,12 +1,13 @@
 //! Top-level GUI elements and functionality.
 
+mod colors;
 pub mod transforms;
 
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
 
-use egui::{Color32, Frame, Key, Painter, Pos2, Rect, Rounding, Stroke, Ui};
+use egui::{Frame, Key, Painter, Pos2, Rect, Rounding, Stroke, Ui};
 use rand::rngs::ThreadRng;
 use rapier2d::na::{Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
@@ -14,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::agent_setup::PacmanAgentSetup;
 use crate::game_state::{GhostType, PacmanState};
 use crate::grid::facing_direction;
+use crate::gui::colors::*;
 use crate::replay::{ReplayManager, ReplayManagerCommand};
 use crate::robot::Robot;
 use crate::simulation::PacbotSimulation;
@@ -279,16 +281,14 @@ impl App {
             }
         };
 
-        let wall_color = Color32::LIGHT_GRAY;
-
         let painter = ui.painter_at(rect);
         for wall in self.grid.walls() {
             let (p1, p2) = world_to_screen.map_wall(wall);
             painter.rect(
                 Rect::from_two_pos(p1, p2),
                 Rounding::none(),
-                wall_color,
-                Stroke::new(1.0, wall_color),
+                WALL_COLOR,
+                Stroke::new(1.0, WALL_COLOR),
             );
         }
 
@@ -339,7 +339,7 @@ impl App {
                 pacbot_pos.translation.y,
             )),
             world_to_screen.map_dist(self.robot.collider_radius),
-            Color32::YELLOW,
+            PACMAN_COLOR,
         );
 
         let pacbot_front = pacbot_pos.rotation.transform_point(&Point2::new(0.45, 0.0));
@@ -355,7 +355,7 @@ impl App {
                     pacbot_front.y + pacbot_pos.translation.y,
                 )),
             ],
-            Stroke::new(2.0, Color32::BLUE),
+            Stroke::new(2.0, PACMAN_FACING_INDICATOR_COLOR),
         );
 
         let distance_sensor_rays = &phys_render.primary_robot_rays;
@@ -366,7 +366,7 @@ impl App {
                     world_to_screen.map_point(Pos2::new(s.x, s.y)),
                     world_to_screen.map_point(Pos2::new(f.x, f.y)),
                 ],
-                Stroke::new(1.0, Color32::GREEN),
+                Stroke::new(1.0, PACMAN_DISTANCE_SENSOR_RAY_COLOR),
             );
         }
     }
@@ -384,10 +384,10 @@ impl App {
                 )),
                 world_to_screen.map_dist(0.45),
                 match pacman_state.ghosts[i].color {
-                    GhostType::Red => Color32::RED,
-                    GhostType::Pink => Color32::from_rgb(255, 192, 203),
-                    GhostType::Orange => Color32::from_rgb(255, 140, 0),
-                    GhostType::Blue => Color32::BLUE,
+                    GhostType::Red => GHOST_RED_COLOR,
+                    GhostType::Pink => GHOST_PINK_COLOR,
+                    GhostType::Orange => GHOST_ORANGE_COLOR,
+                    GhostType::Blue => GHOST_BLUE_COLOR,
                 },
             )
         }
@@ -401,7 +401,7 @@ impl App {
                         self.agent_setup.grid().walkable_nodes()[i].y as f32,
                     )),
                     3.0,
-                    Color32::BLUE,
+                    PELLET_COLOR,
                 )
             }
         }
@@ -411,7 +411,7 @@ impl App {
             painter.circle_filled(
                 world_to_screen.map_point(Pos2::new(super_pellet.x as f32, super_pellet.y as f32)),
                 6.0,
-                Color32::BLUE,
+                SUPER_PELLET_COLOR,
             )
         }
     }
