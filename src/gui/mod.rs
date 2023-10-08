@@ -460,89 +460,86 @@ impl App {
         let shift_presssed = ctx.input(|i| i.modifiers.shift);
 
         ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
-            ui.group(|ui| {
-                if replay.recording {
-                    if !game.pacman_state.paused {
-                        if ui.button("⏸").on_hover_text("Pause").clicked() || space_pressed {
-                            game.pacman_state.paused = true;
-                        }
-                    } else {
-                        if game.pacman_state.lives == 0 {
-                            if ui.button("Restart").clicked() || space_pressed {
-                                let setup = game.agent_setup.to_owned();
-                                game.pacman_state.reset(&setup, true);
-                            }
-                        } else {
-                            if ui.button("▶").on_hover_text("Play").clicked() || space_pressed {
-                                game.pacman_state.paused = false;
-                            }
-                            if ui.button("⏹").on_hover_text("Stop/Save").clicked() {
-                                game.pacman_state.paused = true;
-                                game.sleep = true;
-                                self.replay_commands_send
-                                    .send(ReplayManagerCommand::Playback(
-                                        replay.filename.to_owned(),
-                                    ))
-                                    .unwrap();
-                            }
-                            if ui.button("⏩").on_hover_text("Advance one frame").clicked()
-                                || arrow_right_pressed
-                            {
-                                game.pacman_state.resume();
-                                game.pacman_state.step(
-                                    &self.agent_setup,
-                                    &mut ThreadRng::default(),
-                                    true,
-                                );
-                                self.replay_commands_send
-                                    .send(ReplayManagerCommand::RecordPacman(SystemTime::now()))
-                                    .unwrap();
-                                game.pacman_state.pause();
-                            }
-                        }
+            let icon_button_size = egui::vec2(22.0, 22.0);
+            let mut icon_button =
+                |character| ui.add(egui::Button::new(character).min_size(icon_button_size));
+
+            if replay.recording {
+                if !game.pacman_state.paused {
+                    if icon_button("⏸").on_hover_text("Pause").clicked() || space_pressed {
+                        game.pacman_state.paused = true;
+                    }
+                } else if game.pacman_state.lives == 0 {
+                    if ui.button("Restart").clicked() || space_pressed {
+                        let setup = game.agent_setup.to_owned();
+                        game.pacman_state.reset(&setup, true);
                     }
                 } else {
-                    if replay.paused {
-                        if ui.button("⏮").on_hover_text("Beginning").clicked()
-                            || (arrow_left_pressed && shift_presssed)
-                        {
-                            self.replay_commands_send
-                                .send(ReplayManagerCommand::Beginning)
-                                .unwrap();
-                        }
-                        if ui.button("⏪").on_hover_text("Back one frame").clicked()
-                            || (arrow_left_pressed && !shift_presssed)
-                        {
-                            self.replay_commands_send
-                                .send(ReplayManagerCommand::StepBack)
-                                .unwrap();
-                        }
-                        if ui.button("▶").on_hover_text("Play").clicked() || space_pressed {
-                            replay.paused = false;
-                        }
-                        if ui.button("☉").on_hover_text("Record from here").clicked() {
-                            self.replay_commands_send
-                                .send(ReplayManagerCommand::Record(replay.filename.to_owned()))
-                                .unwrap();
-                            game.sleep = false;
-                        }
-                        if ui.button("⏩").on_hover_text("Forward one from").clicked()
-                            || (arrow_right_pressed && !shift_presssed)
-                        {
-                            self.replay_commands_send
-                                .send(ReplayManagerCommand::StepForward)
-                                .unwrap();
-                        }
-                        if ui.button("⏭").on_hover_text("Go to end").clicked()
-                            || (arrow_right_pressed && shift_presssed)
-                        {
-                            self.replay_commands_send
-                                .send(ReplayManagerCommand::End)
-                                .unwrap();
-                        }
+                    if icon_button("▶").on_hover_text("Play").clicked() || space_pressed {
+                        game.pacman_state.paused = false;
+                    }
+                    if icon_button("⏹").on_hover_text("Stop/Save").clicked() {
+                        game.pacman_state.paused = true;
+                        game.sleep = true;
+                        self.replay_commands_send
+                            .send(ReplayManagerCommand::Playback(replay.filename.to_owned()))
+                            .unwrap();
+                    }
+                    if icon_button("⏩")
+                        .on_hover_text("Advance one frame")
+                        .clicked()
+                        || arrow_right_pressed
+                    {
+                        game.pacman_state.resume();
+                        game.pacman_state
+                            .step(&self.agent_setup, &mut ThreadRng::default(), true);
+                        self.replay_commands_send
+                            .send(ReplayManagerCommand::RecordPacman(SystemTime::now()))
+                            .unwrap();
+                        game.pacman_state.pause();
                     }
                 }
-            });
+            } else if replay.paused {
+                if icon_button("⏮").on_hover_text("Beginning").clicked()
+                    || (arrow_left_pressed && shift_presssed)
+                {
+                    self.replay_commands_send
+                        .send(ReplayManagerCommand::Beginning)
+                        .unwrap();
+                }
+                if icon_button("⏪").on_hover_text("Back one frame").clicked()
+                    || (arrow_left_pressed && !shift_presssed)
+                {
+                    self.replay_commands_send
+                        .send(ReplayManagerCommand::StepBack)
+                        .unwrap();
+                }
+                if icon_button("▶").on_hover_text("Play").clicked() || space_pressed {
+                    replay.paused = false;
+                }
+                if icon_button("☉").on_hover_text("Record from here").clicked() {
+                    self.replay_commands_send
+                        .send(ReplayManagerCommand::Record(replay.filename.to_owned()))
+                        .unwrap();
+                    game.sleep = false;
+                }
+                if icon_button("⏩")
+                    .on_hover_text("Forward one from")
+                    .clicked()
+                    || (arrow_right_pressed && !shift_presssed)
+                {
+                    self.replay_commands_send
+                        .send(ReplayManagerCommand::StepForward)
+                        .unwrap();
+                }
+                if icon_button("⏭").on_hover_text("Go to end").clicked()
+                    || (arrow_right_pressed && shift_presssed)
+                {
+                    self.replay_commands_send
+                        .send(ReplayManagerCommand::End)
+                        .unwrap();
+                }
+            }
         });
     }
 }

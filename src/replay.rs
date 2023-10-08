@@ -204,18 +204,16 @@ impl ReplayManager {
         timestamp: SystemTime,
         filename: Option<&String>,
     ) {
-        let data;
-
-        match record_type {
+        let data = match record_type {
             RecordType::PhysRender => {
                 let phys_render = self.phys_render.read().unwrap();
-                data = bincode::serialize(&*phys_render).unwrap();
+                bincode::serialize(&*phys_render).unwrap()
             }
             RecordType::PacmanRender => {
                 let pacman_render = self.pacman_render.read().unwrap();
-                data = bincode::serialize(&*pacman_render).unwrap();
+                bincode::serialize(&*pacman_render).unwrap()
             }
-        }
+        };
 
         self.frames.push(ReplayFrame {
             record: record_type,

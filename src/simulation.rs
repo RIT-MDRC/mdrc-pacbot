@@ -351,12 +351,12 @@ impl PacbotSimulation {
                     ),
                     sensor.max_range,
                 );
-                return (
+                (
                     pacbot.translation.transform_point(
                         &pacbot.rotation.transform_point(&sensor.relative_position),
                     ),
                     p,
-                );
+                )
             })
             .collect()
     }

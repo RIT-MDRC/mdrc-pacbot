@@ -783,7 +783,7 @@ mod tests {
         grid[1][2] = PELLET;
         grid[6][1] = PELLET;
 
-        let points = vec![Point2::new(1, 1), Point2::new(1, 2), Point2::new(6, 1)];
+        let points = [Point2::new(1, 1), Point2::new(1, 2), Point2::new(6, 1)];
 
         let computed_grid = ComputedGrid::try_from(grid).unwrap();
         assert_eq!(computed_grid.distance_matrix.len(), 3);

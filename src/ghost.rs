@@ -92,8 +92,8 @@ impl Ghost {
             .iter()
             .filter(|p| **p != self.previous_location)
             .min_by(|n1, n2| {
-                let d1 = Self::distance(n1, &p);
-                let d2 = Self::distance(n2, &p);
+                let d1 = Self::distance(n1, p);
+                let d2 = Self::distance(n2, p);
                 d1.total_cmp(&d2)
             })
             .unwrap()
