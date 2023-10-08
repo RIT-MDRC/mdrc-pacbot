@@ -12,9 +12,6 @@ use egui::{Align, InnerResponse, Layout, Ui};
 /// will then be recorded and used on subsequent frames to center the group. If the width changes,
 /// the centering will similarly be incorrect for a single frame.
 pub fn centered_group<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> InnerResponse<R> {
-    // ui.menu_button(title, add_contents)
-    // ui.collapsing(heading, add_contents);
-
     let id = ui.id();
     let previous_width = ui.ctx().data_mut(|d| d.get_temp::<f32>(id));
 
