@@ -4,8 +4,8 @@ use crate::gui::{PacmanStateRenderInfo, PhysicsRenderInfo, ReplayRenderInfo};
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, RwLock};
-use std::thread;
 use std::time::SystemTime;
+use std::{thread, time};
 
 /// Commands available to tell [`ReplayManager`] what to do
 pub enum ReplayManagerCommand {
@@ -164,10 +164,13 @@ impl ReplayManager {
             }
 
             // then do playback if necessary
-            if !self.replay_render.read().unwrap().recording
-                && !self.replay_render.read().unwrap().paused
-                && self.current_frame + 1 < self.frames.len()
-            {
+            let ReplayRenderInfo {
+                recording,
+                paused,
+                playback_speed,
+                ..
+            } = *self.replay_render.read().unwrap();
+            if !recording && !paused && self.current_frame + 1 < self.frames.len() {
                 // advance the frame
                 self.current_frame += 1;
                 // emit the new frame
@@ -180,19 +183,19 @@ impl ReplayManager {
                         .duration_since(self.frames[self.current_frame].timestamp)
                         .unwrap()
                         .as_secs_f32();
-                    thread::sleep(std::time::Duration::from_secs_f32(
-                        time_diff / self.replay_render.read().unwrap().playback_speed,
-                    ));
+                    thread::sleep(time::Duration::from_secs_f32(time_diff / playback_speed));
                 } else {
-                    thread::sleep(std::time::Duration::from_secs_f32(0.1));
+                    thread::sleep(time::Duration::from_secs_f32(0.1));
                 }
-            } else if !self.replay_render.read().unwrap().recording {
+            } else if !recording {
                 let state: PacmanStateRenderInfo =
                     bincode::deserialize(&self.frames[self.current_frame].data).unwrap();
-                let mut old_state = self.pacman_render.write().unwrap();
-                old_state.pacman_state = state.pacman_state;
-                old_state.agent_setup = state.agent_setup;
-                thread::sleep(std::time::Duration::from_secs_f32(0.1));
+                {
+                    let mut old_state = self.pacman_render.write().unwrap();
+                    old_state.pacman_state = state.pacman_state;
+                    old_state.agent_setup = state.agent_setup;
+                }
+                thread::sleep(time::Duration::from_secs_f32(0.1));
             }
         }
     }
