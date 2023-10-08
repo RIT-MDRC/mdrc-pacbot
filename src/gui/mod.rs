@@ -2,6 +2,7 @@
 
 mod colors;
 pub mod transforms;
+pub mod utils;
 
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, RwLock};
@@ -459,7 +460,7 @@ impl App {
         let arrow_left_pressed = ctx.input(|i| i.key_pressed(Key::ArrowLeft));
         let shift_presssed = ctx.input(|i| i.modifiers.shift);
 
-        ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
+        utils::centered_group(ui, |ui| {
             let icon_button_size = egui::vec2(22.0, 22.0);
             let mut icon_button =
                 |character| ui.add(egui::Button::new(character).min_size(icon_button_size));
