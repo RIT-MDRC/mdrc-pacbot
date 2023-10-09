@@ -1,6 +1,6 @@
-use mdrc_pacbot_util::{gui, network};
+use mdrc_pacbot_util::gui;
 
 fn main() {
-    network::start_network_thread();
+    // network::start_network_thread();
     gui::run_gui();
 }

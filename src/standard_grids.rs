@@ -2,11 +2,12 @@
 //! A set of pre-made general purpose grids
 
 use rapier2d::na::{Isometry2, Vector2};
+use serde::{Deserialize, Serialize};
 use crate::grid::Grid;
 use crate::grid::GridValue::*;
 
 /// An enum to support egui grid selection
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum StandardGrid {
     /// The official Pacbot [`Grid`]
     Pacman,
