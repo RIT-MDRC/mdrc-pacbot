@@ -273,9 +273,11 @@ impl App {
     fn draw_grid(&mut self, ctx: &egui::Context, ui: &mut Ui) {
         let rect = ui.max_rect();
 
+        let (src_p1, src_p2) = self.selected_grid.get_soft_boundaries();
+
         let world_to_screen = Transform::new_letterboxed(
-            Pos2::new(-1.0, 32.0),
-            Pos2::new(32.0, -1.0),
+            src_p1,
+            src_p2,
             Pos2::new(rect.left(), rect.top()),
             Pos2::new(rect.right(), rect.bottom()),
         );
@@ -299,10 +301,20 @@ impl App {
             );
         }
 
+        // make sure the area outside the soft boundary is not drawn on
+        for (p1, p2) in self.selected_grid.get_outside_soft_boundaries() {
+            painter.rect(
+                Rect::from_two_pos(world_to_screen.map_point(p1), world_to_screen.map_point(p2)),
+                Rounding::none(),
+                ctx.style().visuals.panel_fill,
+                Stroke::new(1.0, ctx.style().visuals.panel_fill),
+            );
+        }
+
         self.update_target_velocity(ctx);
 
         if self.selected_grid == StandardGrid::Pacman {
-            self.draw_pacman_state(&world_to_screen, &painter);
+            self.draw_pacman_state(ctx, &world_to_screen, &painter);
         }
 
         self.draw_simulation(&world_to_screen, &painter)
@@ -409,9 +421,20 @@ impl App {
         }
     }
 
-    fn draw_pacman_state(&mut self, world_to_screen: &Transform, painter: &Painter) {
+    fn draw_pacman_state(
+        &mut self,
+        ctx: &egui::Context,
+        world_to_screen: &Transform,
+        painter: &Painter,
+    ) {
         let pacman_state_info = self.pacman_render.read().unwrap();
         let pacman_state = &pacman_state_info.pacman_state;
+
+        egui::Window::new("Pacman").show(ctx, |ui| {
+            ui.label(format!("Score: {}", pacman_state.score));
+            ui.label(format!("Lives: {}", pacman_state.lives));
+            ui.label(format!("Frame: {}", pacman_state.elapsed_time));
+        });
 
         // ghosts
         for i in 0..pacman_state.ghosts.len() {
