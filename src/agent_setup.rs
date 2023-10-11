@@ -2,6 +2,7 @@
 use crate::game_state::GhostType;
 use crate::grid::GridValue::{o, O};
 use crate::grid::{ComputedGrid, Direction, GridValue};
+use crate::standard_grids::StandardGrid;
 use anyhow::{anyhow, Error};
 use rapier2d::na::Point2;
 use serde::{Deserialize, Serialize};
@@ -121,7 +122,7 @@ impl PacmanAgentSetup {
 
 impl Default for PacmanAgentSetup {
     fn default() -> Self {
-        let grid = ComputedGrid::try_from(crate::standard_grids::GRID_PACMAN);
+        let grid = StandardGrid::Pacman.compute_grid();
         let pacman_start = (Point2::new(14, 7), Direction::Left);
         let ghosts = vec![
             GhostSetup {
@@ -227,7 +228,7 @@ impl Default for PacmanAgentSetup {
         ];
 
         Self::new(
-            grid.unwrap(),
+            grid,
             pacman_start,
             ghosts,
             vec![35, 135, 170, 270, 295, 395, 420],

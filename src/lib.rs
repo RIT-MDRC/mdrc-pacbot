@@ -8,6 +8,7 @@ pub mod ghost;
 pub mod grid;
 pub mod gui;
 pub mod network;
+pub mod replay;
 pub mod robot;
 pub mod simulation;
 pub mod standard_grids;

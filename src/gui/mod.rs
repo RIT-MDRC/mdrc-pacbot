@@ -1,7 +1,7 @@
 //! Top-level GUI elements and functionality.
 
 mod colors;
-pub mod replay;
+pub mod replay_manager;
 pub mod transforms;
 pub mod utils;
 
@@ -16,11 +16,11 @@ use serde::{Deserialize, Serialize};
 use crate::agent_setup::PacmanAgentSetup;
 use crate::game_state::{GhostType, PacmanState};
 use crate::grid::facing_direction;
+use crate::grid::ComputedGrid;
 use crate::gui::colors::*;
 use crate::robot::Robot;
 use crate::simulation::PacbotSimulation;
 use crate::standard_grids::StandardGrid;
-use crate::{grid::ComputedGrid, standard_grids};
 
 use self::transforms::Transform;
 
@@ -63,7 +63,7 @@ fn run_physics(
     restart_recv: Receiver<(StandardGrid, Robot, Isometry2<f32>)>,
 ) {
     let mut simulation = PacbotSimulation::new(
-        ComputedGrid::try_from(standard_grids::GRID_PACMAN).unwrap(),
+        StandardGrid::Pacman.compute_grid(),
         Robot::default(),
         Isometry2::new(Vector2::new(14.0, 7.0), 0.0),
     );
@@ -73,11 +73,7 @@ fn run_physics(
     loop {
         // Was a restart requested?
         if let Ok((grid, robot, isometry)) = restart_recv.try_recv() {
-            simulation = PacbotSimulation::new(
-                ComputedGrid::try_from(grid.get_grid()).unwrap(),
-                robot,
-                isometry,
-            );
+            simulation = PacbotSimulation::new(grid.compute_grid(), robot, isometry);
         }
 
         // Run simulation one step
@@ -186,7 +182,7 @@ struct App {
     pacman_render: Arc<RwLock<PacmanStateRenderInfo>>,
     agent_setup: PacmanAgentSetup,
 
-    replay_manager: replay::ReplayManager,
+    replay_manager: replay_manager::ReplayManager,
     pacman_state_notify_recv: Receiver<()>,
     /// When in playback mode, the position of pacbot from the replay
     replay_pacman: Isometry2<f32>,
@@ -245,7 +241,7 @@ impl Default for App {
             mode: AppMode::Recording(GameServer::Simulated),
 
             selected_grid: StandardGrid::Pacman,
-            grid: ComputedGrid::try_from(standard_grids::GRID_PACMAN).unwrap(),
+            grid: StandardGrid::Pacman.compute_grid(),
             pointer_pos: "".to_string(),
 
             robot: Robot::default(),
@@ -259,7 +255,7 @@ impl Default for App {
             replay_manager: App::new_replay_manager(
                 filename,
                 StandardGrid::Pacman,
-                &PacmanAgentSetup::default(),
+                PacmanAgentSetup::default(),
                 &PacmanState::default(),
                 pacbot_pos,
             ),
@@ -487,7 +483,7 @@ impl App {
                         .clicked()
                     {
                         self.pacman_render.write().unwrap().pacman_state.pause();
-                        self.grid = ComputedGrid::try_from(grid.get_grid()).unwrap();
+                        self.grid = grid.compute_grid();
                         self.phys_restart_send
                             .send((
                                 self.selected_grid,
@@ -503,7 +499,8 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.update_replay_manager();
+        self.update_replay_manager()
+            .expect("Error updating replay manager");
 
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             ui.horizontal(|ui| {

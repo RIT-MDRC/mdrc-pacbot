@@ -150,9 +150,9 @@ pub struct Wall {
 ///
 /// ```
 /// use mdrc_pacbot_util::grid::ComputedGrid;
-/// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+/// use mdrc_pacbot_util::standard_grids::StandardGrid;
 ///
-/// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+/// let grid = StandardGrid::Blank.compute_grid();
 /// ```
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ComputedGrid {
@@ -358,9 +358,9 @@ impl ComputedGrid {
     ///
     /// ```
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// let grid = StandardGrid::Blank.compute_grid();
     ///
     /// assert_eq!(grid.grid()[0][0], mdrc_pacbot_util::grid::GridValue::I);
     /// ```
@@ -374,9 +374,9 @@ impl ComputedGrid {
     ///
     /// ```
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// let grid = StandardGrid::Blank.compute_grid();
     /// assert_eq!(grid.pellet_count(), 0);
     /// ```
     pub fn pellet_count(&self) -> u32 {
@@ -389,9 +389,9 @@ impl ComputedGrid {
     ///
     /// ```
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// let grid = StandardGrid::Blank.compute_grid();
     /// assert!(grid.power_pellets().is_empty());
     /// ```
     pub fn power_pellets(&self) -> &Vec<Point2<u8>> {
@@ -405,9 +405,9 @@ impl ComputedGrid {
     /// ```
     /// use rapier2d::na::Point2;
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// let grid = StandardGrid::Blank.compute_grid();
     /// assert_eq!(grid.walkable_nodes()[0], Point2::new(1, 1));
     /// ```
     pub fn walkable_nodes(&self) -> &Vec<Point2<u8>> {
@@ -422,9 +422,9 @@ impl ComputedGrid {
     /// ```
     /// use rapier2d::na::Point2;
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// let grid = StandardGrid::Blank.compute_grid();
     /// assert_eq!(grid.coords_to_node(&Point2::new(1, 1)), Some(0));
     /// assert_eq!(grid.coords_to_node(&Point2::new(0, 0)), None);
     /// ```
@@ -446,9 +446,9 @@ impl ComputedGrid {
     /// ```
     /// use rapier2d::na::Point2;
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// let grid = StandardGrid::Blank.compute_grid();
     /// assert_eq!(grid.valid_actions(Point2::new(1, 1)), Some([true, false, false, false, false]));
     /// ```
     pub fn valid_actions(&self, p: Point2<u8>) -> Option<[bool; 5]> {
@@ -463,9 +463,9 @@ impl ComputedGrid {
     /// ```
     /// use rapier2d::na::Point2;
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// let grid = StandardGrid::Blank.compute_grid();
     /// assert_eq!(grid.at(&Point2::new(0, 0)), Some(mdrc_pacbot_util::grid::GridValue::I));
     /// assert_eq!(grid.at(&Point2::new(1, 1)), Some(mdrc_pacbot_util::grid::GridValue::e));
     /// assert_eq!(grid.at(&Point2::new(32, 32)), None);
@@ -485,9 +485,9 @@ impl ComputedGrid {
     /// ```
     /// use rapier2d::na::Point2;
     /// use mdrc_pacbot_util::grid::{ComputedGrid, Direction};
-    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// let grid = StandardGrid::Blank.compute_grid();
     /// assert_eq!(grid.next(&Point2::new(1, 1), &Direction::Right), Some(Point2::new(2, 1)));
     /// assert_eq!(grid.next(&Point2::new(1, 1), &Direction::Left), Some(Point2::new(0, 1)));
     /// assert_eq!(grid.next(&Point2::new(1, 1), &Direction::Up), Some(Point2::new(1, 2)));
@@ -529,9 +529,9 @@ impl ComputedGrid {
     /// ```
     /// use rapier2d::na::Point2;
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_PACMAN;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_PACMAN).unwrap();
+    /// let grid = StandardGrid::Pacman.compute_grid();
     /// assert_eq!(grid.dist(&Point2::new(1, 1), &Point2::new(1, 1)), Some(0));
     /// assert_eq!(grid.dist(&Point2::new(1, 1), &Point2::new(1, 2)), Some(1));
     /// ```
@@ -548,9 +548,9 @@ impl ComputedGrid {
     /// ```
     /// use rapier2d::na::Point2;
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_PACMAN;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_PACMAN).unwrap();
+    /// let grid = StandardGrid::Pacman.compute_grid();
     /// assert!(grid.neighbors(&Point2::new(1, 1)).contains(&Point2::new(1, 2)));
     /// assert!(grid.neighbors(&Point2::new(1, 1)).contains(&Point2::new(2, 1)));
     /// ```
@@ -578,9 +578,9 @@ impl ComputedGrid {
     /// ```
     /// use rapier2d::na::Point2;
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_PACMAN;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_PACMAN).unwrap();
+    /// let grid = StandardGrid::Pacman.compute_grid();
     /// let walls = grid.walls();
     /// ```
     pub fn walls(&self) -> &Vec<Wall> {
@@ -680,8 +680,8 @@ mod tests {
 
     #[test]
     fn compute_preset_grids() {
-        ComputedGrid::try_from(GRID_PACMAN).unwrap();
-        ComputedGrid::try_from(GRID_BLANK).unwrap();
+        StandardGrid::Pacman.compute_grid();
+        StandardGrid::Blank.compute_grid();
     }
 
     #[test]
@@ -803,7 +803,7 @@ mod tests {
 
     #[test]
     fn grid_next() {
-        let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+        let grid = StandardGrid::Blank.compute_grid();
         assert_eq!(
             grid.next(&Point2::new(1, 1), &Direction::Right),
             Some(Point2::new(2, 1))
@@ -824,7 +824,7 @@ mod tests {
 
     #[test]
     fn grid_next_oob() {
-        let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+        let grid = StandardGrid::Blank.compute_grid();
         assert_eq!(grid.next(&Point2::new(0, 0), &Direction::Left), None);
         assert_eq!(grid.next(&Point2::new(0, 0), &Direction::Down), None);
         assert_eq!(
@@ -839,13 +839,13 @@ mod tests {
 
     #[test]
     fn grid_at() {
-        let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+        let grid = StandardGrid::Blank.compute_grid();
         assert_eq!(grid.at(&Point2::new(0, 0)), Some(WALL));
     }
 
     #[test]
     fn grid_at_oob() {
-        let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+        let grid = StandardGrid::Blank.compute_grid();
         assert_eq!(grid.at(&Point2::new(0, GRID_HEIGHT as u8)), None);
         assert_eq!(grid.at(&Point2::new(GRID_WIDTH as u8, 0)), None);
     }

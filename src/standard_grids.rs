@@ -4,7 +4,7 @@
 use egui::Pos2;
 use rapier2d::na::{Isometry2, Vector2};
 use serde::{Deserialize, Serialize};
-use crate::grid::Grid;
+use crate::grid::{ComputedGrid, Grid};
 use crate::grid::GridValue::*;
 
 /// An enum to support egui grid selection
@@ -34,6 +34,11 @@ impl StandardGrid {
             Self::Outer => GRID_OUTER,
             Self::Blank => GRID_BLANK,
         }
+    }
+    
+    /// Get the [`ComputedGrid`] associated with this enum
+    pub fn compute_grid(&self) -> ComputedGrid {
+        ComputedGrid::try_from(self.get_grid()).expect("Failed to compute a StandardGrid")
     }
 
     /// Get the default Pacbot [`Isometry2`] associated with this enum
