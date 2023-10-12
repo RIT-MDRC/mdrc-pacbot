@@ -65,7 +65,7 @@ fn run_physics(
     let mut simulation = PacbotSimulation::new(
         StandardGrid::Pacman.compute_grid(),
         Robot::default(),
-        Isometry2::new(Vector2::new(14.0, 7.0), 0.0),
+        StandardGrid::Pacman.get_default_pacbot_isometry(),
     );
 
     let mut previous_pacbot_location = Point2::new(14, 7);
@@ -200,7 +200,12 @@ impl Default for App {
 
         // Set up physics thread
         let target_velocity: Arc<RwLock<(Vector2<f32>, f32)>> = Arc::default();
-        let phys_render: Arc<RwLock<PhysicsRenderInfo>> = Arc::default();
+        let phys_render: Arc<RwLock<PhysicsRenderInfo>> =
+            Arc::new(RwLock::new(PhysicsRenderInfo {
+                sleep: false,
+                pacbot_pos: StandardGrid::Pacman.get_default_pacbot_isometry(),
+                primary_robot_rays: vec![],
+            }));
         let target_velocity_r = target_velocity.clone();
         let phys_render_w = phys_render.clone();
         let (phys_restart_send, phys_restart_recv) = channel();
@@ -256,7 +261,7 @@ impl Default for App {
                 filename,
                 StandardGrid::Pacman,
                 PacmanAgentSetup::default(),
-                &PacmanState::default(),
+                PacmanState::default(),
                 pacbot_pos,
             ),
             pacman_state_notify_recv,
