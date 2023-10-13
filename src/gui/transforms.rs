@@ -1,6 +1,6 @@
 //! Transforms between coordinate systems (such as grid/logical <=> screen pixels).
 
-use egui::Pos2;
+use eframe::egui::Pos2;
 
 use crate::grid::Wall;
 
@@ -92,7 +92,7 @@ impl Transform {
     ///
     /// ```
     /// use rapier2d::na::Point2;
-    /// use egui::Pos2;
+    /// use eframe::egui::Pos2;
     /// use mdrc_pacbot_util::grid::Wall;
     /// use mdrc_pacbot_util::gui::transforms::Transform;
     ///

@@ -8,7 +8,8 @@ pub mod utils;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, RwLock};
 
-use egui::{Frame, Key, Painter, Pos2, Rect, Rounding, Stroke, Ui};
+use eframe::egui;
+use eframe::egui::{Frame, Key, Painter, Pos2, Rect, Rounding, Stroke, Ui};
 use rand::rngs::ThreadRng;
 use rapier2d::na::{Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
@@ -186,6 +187,7 @@ struct App {
     pacman_state_notify_recv: Receiver<()>,
     /// When in playback mode, the position of pacbot from the replay
     replay_pacman: Isometry2<f32>,
+    save_pacbot_location: bool,
 }
 
 fn pretty_print_time_now() -> String {
@@ -266,6 +268,7 @@ impl Default for App {
             ),
             pacman_state_notify_recv,
             replay_pacman: Isometry2::default(),
+            save_pacbot_location: false,
         }
     }
 }
@@ -296,7 +299,7 @@ impl App {
             let (p1, p2) = world_to_screen.map_wall(wall);
             painter.rect(
                 Rect::from_two_pos(p1, p2),
-                Rounding::none(),
+                Rounding::ZERO,
                 WALL_COLOR,
                 Stroke::new(1.0, WALL_COLOR),
             );
@@ -306,7 +309,7 @@ impl App {
         for (p1, p2) in self.selected_grid.get_outside_soft_boundaries() {
             painter.rect(
                 Rect::from_two_pos(world_to_screen.map_point(p1), world_to_screen.map_point(p2)),
-                Rounding::none(),
+                Rounding::ZERO,
                 ctx.style().visuals.panel_fill,
                 Stroke::new(1.0, ctx.style().visuals.panel_fill),
             );
@@ -489,6 +492,8 @@ impl App {
                     {
                         self.pacman_render.write().unwrap().pacman_state.pause();
                         self.grid = grid.compute_grid();
+                        self.phys_render.write().unwrap().pacbot_pos =
+                            self.selected_grid.get_default_pacbot_isometry();
                         self.phys_restart_send
                             .send((
                                 self.selected_grid,
@@ -496,6 +501,7 @@ impl App {
                                 self.selected_grid.get_default_pacbot_isometry(),
                             ))
                             .unwrap();
+                        self.reset_replay();
                     }
                 });
             });
@@ -511,6 +517,34 @@ impl eframe::App for App {
             ui.horizontal(|ui| {
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                     self.add_grid_variants(ui);
+                    egui::menu::bar(ui, |ui| {
+                        ui.menu_button("Replay", |ui| {
+                            if ui.button("Save").clicked() {
+                                self.save_replay().expect("Failed to save replay!");
+                            }
+                            if ui.button("Load").clicked() {
+                                self.load_replay().expect("Failed to load replay!");
+                            }
+                            if ui
+                                .add(
+                                    egui::Button::new("Save Pacbot Location")
+                                        .selected(self.save_pacbot_location),
+                                )
+                                .clicked()
+                            {
+                                self.save_pacbot_location = !self.save_pacbot_location;
+                            }
+                        });
+                        ui.menu_button("Game", |ui| {
+                            if ui.button("Reset").clicked() {
+                                self.pacman_render
+                                    .write()
+                                    .unwrap()
+                                    .pacman_state
+                                    .reset(&self.agent_setup, true);
+                            }
+                        });
+                    })
                 });
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(&self.pointer_pos);

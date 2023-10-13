@@ -163,8 +163,6 @@ impl PacmanState {
                 self.power_pellets.push(p.to_owned());
             }
         }
-
-        self.update_score(agent_setup.grid());
     }
 
     /// Respawn the ghosts and Pacman, for when Pacman dies

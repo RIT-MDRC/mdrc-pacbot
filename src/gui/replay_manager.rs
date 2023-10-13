@@ -6,11 +6,16 @@ use crate::gui::{utils, App, AppMode, GameServer};
 use crate::replay::Replay;
 use crate::standard_grids::StandardGrid;
 use anyhow::Error;
-use egui::Button;
-use egui::Key;
-use egui::Ui;
+use eframe::egui::Button;
+use eframe::egui::Key;
+use eframe::egui::Ui;
+use native_dialog::FileDialog;
 use rand::rngs::ThreadRng;
 use rapier2d::na::Isometry2;
+use rapier2d::prelude::Translation;
+use std::fs;
+use std::fs::File;
+use std::io::{Read, Write};
 use std::time::{Duration, SystemTime};
 
 /// The public interface for recording and replaying GUI data
@@ -23,8 +28,6 @@ pub struct ReplayManager {
     playback_paused: bool,
     /// Speed of playback - 0 is stopped, 1 is normal forwards
     playback_speed: f32,
-    /// When was the last physics frame recorded
-    last_physics_frame_time: SystemTime,
 }
 
 impl App {
@@ -50,7 +53,6 @@ impl App {
             playback_time: SystemTime::now(),
             playback_paused: true,
             playback_speed: 1.0,
-            last_physics_frame_time: SystemTime::now(),
         }
     }
 
@@ -59,26 +61,29 @@ impl App {
     /// When not in Playback mode, update_replay_playback has no effect
     pub fn update_replay_manager(&mut self) -> Result<(), Error> {
         // did pacman state request saving?
-        if self.pacman_state_notify_recv.try_recv().is_ok() {
-            self.replay_manager
-                .replay
-                .record_pacman_state(self.pacman_render.read().unwrap().pacman_state.to_owned())?;
-        }
-
-        if self.mode != AppMode::Playback {
-            let now = SystemTime::now();
-            if now
-                .duration_since(self.replay_manager.last_physics_frame_time)
-                .unwrap()
-                > Duration::from_secs_f32(1.0 / 60.0)
-            {
-                // save physics position
-                let position = self.phys_render.read().unwrap().pacbot_pos;
+        if self.pacman_state_notify_recv.try_recv().is_ok() && self.mode != AppMode::Playback {
+            let state = self.pacman_render.read().unwrap().pacman_state.to_owned();
+            // if we aren't recording the physics position, we should record the game position
+            if !self.save_pacbot_location {
                 self.replay_manager
                     .replay
-                    .record_pacman_location(position)?;
-                self.replay_manager.last_physics_frame_time = now;
+                    .record_pacman_location(Isometry2::from_parts(
+                        Translation::new(
+                            state.pacman.location.x as f32,
+                            state.pacman.location.y as f32,
+                        ),
+                        state.pacman.direction.get_rotation(),
+                    ))?;
             }
+            self.replay_manager.replay.record_pacman_state(state)?;
+        }
+
+        if self.mode != AppMode::Playback && self.save_pacbot_location {
+            // save physics position
+            let position = self.phys_render.read().unwrap().pacbot_pos;
+            self.replay_manager
+                .replay
+                .record_pacman_location(position)?;
         }
 
         if self.replay_manager.playback_paused {
@@ -137,7 +142,7 @@ impl App {
     /// Draw the UI involved in recording/playback
     ///
     /// ui should be just the bottom panel
-    pub fn draw_replay_ui(&mut self, ctx: &egui::Context, ui: &mut Ui) {
+    pub fn draw_replay_ui(&mut self, ctx: &eframe::egui::Context, ui: &mut Ui) {
         let game_paused = self.pacman_render.write().unwrap().pacman_state.paused;
 
         let k_space = ctx.input(|i| i.key_pressed(Key::Space));
@@ -146,7 +151,7 @@ impl App {
         let k_shift = ctx.input(|i| i.modifiers.shift);
 
         utils::centered_group(ui, |ui| {
-            let icon_button_size = egui::vec2(22.0, 22.0);
+            let icon_button_size = eframe::egui::vec2(22.0, 22.0);
             let icon_button = |character| Button::new(character).min_size(icon_button_size);
 
             let playback_mode = matches!(self.mode, AppMode::Playback);
@@ -233,7 +238,7 @@ impl App {
 
             ui.add_enabled(
                 playback_mode,
-                egui::Slider::new(&mut self.replay_manager.playback_speed, -5.0..=5.0)
+                eframe::egui::Slider::new(&mut self.replay_manager.playback_speed, -5.0..=5.0)
                     .text("Playback Speed"),
             );
 
@@ -251,5 +256,56 @@ impl App {
         self.pacman_render.write().unwrap().pacman_state = pacman_state;
 
         self.replay_pacman = location.to_owned();
+    }
+
+    /// Save the current replay to file
+    pub fn save_replay(&self) -> Result<(), Error> {
+        let path = FileDialog::new()
+            .add_filter("Pacbot Replay", &["pb"])
+            .set_filename("replay.pb")
+            .show_save_single_file()?;
+
+        if let Some(path) = path {
+            let path = path.as_path();
+            let bytes = self.replay_manager.replay.to_bytes()?;
+            let mut file = fs::OpenOptions::new().write(true).create(true).open(path)?;
+            file.write_all(&bytes)?;
+        }
+
+        Ok(())
+    }
+
+    /// Load a replay from file
+    pub fn load_replay(&mut self) -> Result<(), Error> {
+        let path = FileDialog::new()
+            .add_filter("Pacbot Replay", &["pb"])
+            .show_open_single_file()?;
+
+        if let Some(path) = path {
+            let path = path;
+            let mut file = File::open(&path)?;
+            let metadata = fs::metadata(&path).expect("unable to read metadata");
+            let mut buffer = vec![0; metadata.len() as usize];
+            file.read_exact(&mut buffer)?;
+
+            let replay = Replay::from_bytes(&buffer)?;
+
+            self.mode = AppMode::Playback;
+            self.replay_manager.replay = replay;
+            self.update_with_replay();
+            self.replay_manager.playback_paused = true;
+        }
+
+        Ok(())
+    }
+
+    pub fn reset_replay(&mut self) {
+        self.replay_manager.replay = Replay::new(
+            "replay".to_string(),
+            self.selected_grid,
+            self.agent_setup.to_owned(),
+            self.pacman_render.read().unwrap().pacman_state.to_owned(),
+            self.phys_render.read().unwrap().pacbot_pos,
+        );
     }
 }

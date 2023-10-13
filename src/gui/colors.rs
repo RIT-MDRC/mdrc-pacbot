@@ -1,4 +1,4 @@
-use egui::Color32;
+use eframe::egui::Color32;
 
 pub const WALL_COLOR: Color32 = Color32::LIGHT_GRAY;
 pub const PELLET_COLOR: Color32 = Color32::BLUE;

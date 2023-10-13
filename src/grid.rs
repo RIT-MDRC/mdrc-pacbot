@@ -4,6 +4,7 @@ use anyhow::{anyhow, Error};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rapier2d::math::Real;
 use rapier2d::na::Point2;
+use rapier2d::prelude::Rotation;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -21,6 +22,18 @@ pub enum Direction {
     Up = 2,
     /// Down, or -y
     Down = 3,
+}
+
+impl Direction {
+    /// Get the associated rotation
+    pub fn get_rotation(&self) -> Rotation<f32> {
+        match self {
+            Direction::Right => Rotation::new(0.0),
+            Direction::Left => Rotation::new(std::f32::consts::PI),
+            Direction::Up => Rotation::new(std::f32::consts::PI / 2.0),
+            Direction::Down => Rotation::new(-std::f32::consts::PI / 2.0),
+        }
+    }
 }
 
 /// Enum for [`Grid`] cell values.

@@ -1,7 +1,7 @@
 #![cfg_attr(rustfmt, rustfmt_skip)]
 //! A set of pre-made general purpose grids
 
-use egui::Pos2;
+use eframe::egui::Pos2;
 use rapier2d::na::{Isometry2, Vector2};
 use serde::{Deserialize, Serialize};
 use crate::grid::{ComputedGrid, Grid};

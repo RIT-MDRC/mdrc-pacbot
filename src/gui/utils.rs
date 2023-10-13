@@ -1,6 +1,6 @@
 //! Utilities for GUI layouts.
 
-use egui::{Align, InnerResponse, Layout, Ui};
+use eframe::egui::{Align, InnerResponse, Layout, Ui};
 
 /// Render a sub-UI as a group that is horizontally centered within the remaining width.
 ///
