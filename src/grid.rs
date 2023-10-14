@@ -4,10 +4,14 @@ use anyhow::{anyhow, Error};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rapier2d::math::Real;
 use rapier2d::na::Point2;
+use rapier2d::prelude::Rotation;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Enum for direction values.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive, Serialize, Deserialize,
+)]
 #[repr(u8)]
 pub enum Direction {
     /// Right, or +x
@@ -20,8 +24,22 @@ pub enum Direction {
     Down = 3,
 }
 
+impl Direction {
+    /// Get the associated rotation
+    pub fn get_rotation(&self) -> Rotation<f32> {
+        match self {
+            Direction::Right => Rotation::new(0.0),
+            Direction::Left => Rotation::new(std::f32::consts::PI),
+            Direction::Up => Rotation::new(std::f32::consts::PI / 2.0),
+            Direction::Down => Rotation::new(-std::f32::consts::PI / 2.0),
+        }
+    }
+}
+
 /// Enum for [`Grid`] cell values.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive, Serialize, Deserialize,
+)]
 #[repr(u8)]
 #[allow(non_camel_case_types)]
 pub enum GridValue {
@@ -129,7 +147,7 @@ fn validate_grid(grid: &Grid) -> Result<(), Error> {
 /// The rectangle is defined by the top left corner and the bottom right corner.
 /// Note that [`Wall`] does not follow the same grid conventions as [`Grid`].
 /// The coordinates are intended to be +0.5, and may be negative.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Wall {
     /// The bottom left corner of the [`Wall`].
     pub left_bottom: Point2<Real>,
@@ -145,11 +163,11 @@ pub struct Wall {
 ///
 /// ```
 /// use mdrc_pacbot_util::grid::ComputedGrid;
-/// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+/// use mdrc_pacbot_util::standard_grids::StandardGrid;
 ///
-/// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+/// let grid = StandardGrid::Blank.compute_grid();
 /// ```
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ComputedGrid {
     grid: Grid,
 
@@ -353,9 +371,9 @@ impl ComputedGrid {
     ///
     /// ```
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// let grid = StandardGrid::Blank.compute_grid();
     ///
     /// assert_eq!(grid.grid()[0][0], mdrc_pacbot_util::grid::GridValue::I);
     /// ```
@@ -369,9 +387,9 @@ impl ComputedGrid {
     ///
     /// ```
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// let grid = StandardGrid::Blank.compute_grid();
     /// assert_eq!(grid.pellet_count(), 0);
     /// ```
     pub fn pellet_count(&self) -> u32 {
@@ -384,9 +402,9 @@ impl ComputedGrid {
     ///
     /// ```
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// let grid = StandardGrid::Blank.compute_grid();
     /// assert!(grid.power_pellets().is_empty());
     /// ```
     pub fn power_pellets(&self) -> &Vec<Point2<u8>> {
@@ -400,9 +418,9 @@ impl ComputedGrid {
     /// ```
     /// use rapier2d::na::Point2;
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// let grid = StandardGrid::Blank.compute_grid();
     /// assert_eq!(grid.walkable_nodes()[0], Point2::new(1, 1));
     /// ```
     pub fn walkable_nodes(&self) -> &Vec<Point2<u8>> {
@@ -417,9 +435,9 @@ impl ComputedGrid {
     /// ```
     /// use rapier2d::na::Point2;
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// let grid = StandardGrid::Blank.compute_grid();
     /// assert_eq!(grid.coords_to_node(&Point2::new(1, 1)), Some(0));
     /// assert_eq!(grid.coords_to_node(&Point2::new(0, 0)), None);
     /// ```
@@ -441,9 +459,9 @@ impl ComputedGrid {
     /// ```
     /// use rapier2d::na::Point2;
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// let grid = StandardGrid::Blank.compute_grid();
     /// assert_eq!(grid.valid_actions(Point2::new(1, 1)), Some([true, false, false, false, false]));
     /// ```
     pub fn valid_actions(&self, p: Point2<u8>) -> Option<[bool; 5]> {
@@ -458,9 +476,9 @@ impl ComputedGrid {
     /// ```
     /// use rapier2d::na::Point2;
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// let grid = StandardGrid::Blank.compute_grid();
     /// assert_eq!(grid.at(&Point2::new(0, 0)), Some(mdrc_pacbot_util::grid::GridValue::I));
     /// assert_eq!(grid.at(&Point2::new(1, 1)), Some(mdrc_pacbot_util::grid::GridValue::e));
     /// assert_eq!(grid.at(&Point2::new(32, 32)), None);
@@ -480,9 +498,9 @@ impl ComputedGrid {
     /// ```
     /// use rapier2d::na::Point2;
     /// use mdrc_pacbot_util::grid::{ComputedGrid, Direction};
-    /// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+    /// let grid = StandardGrid::Blank.compute_grid();
     /// assert_eq!(grid.next(&Point2::new(1, 1), &Direction::Right), Some(Point2::new(2, 1)));
     /// assert_eq!(grid.next(&Point2::new(1, 1), &Direction::Left), Some(Point2::new(0, 1)));
     /// assert_eq!(grid.next(&Point2::new(1, 1), &Direction::Up), Some(Point2::new(1, 2)));
@@ -524,9 +542,9 @@ impl ComputedGrid {
     /// ```
     /// use rapier2d::na::Point2;
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_PACMAN;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_PACMAN).unwrap();
+    /// let grid = StandardGrid::Pacman.compute_grid();
     /// assert_eq!(grid.dist(&Point2::new(1, 1), &Point2::new(1, 1)), Some(0));
     /// assert_eq!(grid.dist(&Point2::new(1, 1), &Point2::new(1, 2)), Some(1));
     /// ```
@@ -543,9 +561,9 @@ impl ComputedGrid {
     /// ```
     /// use rapier2d::na::Point2;
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_PACMAN;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_PACMAN).unwrap();
+    /// let grid = StandardGrid::Pacman.compute_grid();
     /// assert!(grid.neighbors(&Point2::new(1, 1)).contains(&Point2::new(1, 2)));
     /// assert!(grid.neighbors(&Point2::new(1, 1)).contains(&Point2::new(2, 1)));
     /// ```
@@ -573,9 +591,9 @@ impl ComputedGrid {
     /// ```
     /// use rapier2d::na::Point2;
     /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::standard_grids::GRID_PACMAN;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_PACMAN).unwrap();
+    /// let grid = StandardGrid::Pacman.compute_grid();
     /// let walls = grid.walls();
     /// ```
     pub fn walls(&self) -> &Vec<Wall> {
@@ -675,8 +693,8 @@ mod tests {
 
     #[test]
     fn compute_preset_grids() {
-        ComputedGrid::try_from(GRID_PACMAN).unwrap();
-        ComputedGrid::try_from(GRID_BLANK).unwrap();
+        StandardGrid::Pacman.compute_grid();
+        StandardGrid::Blank.compute_grid();
     }
 
     #[test]
@@ -778,7 +796,7 @@ mod tests {
         grid[1][2] = PELLET;
         grid[6][1] = PELLET;
 
-        let points = vec![Point2::new(1, 1), Point2::new(1, 2), Point2::new(6, 1)];
+        let points = [Point2::new(1, 1), Point2::new(1, 2), Point2::new(6, 1)];
 
         let computed_grid = ComputedGrid::try_from(grid).unwrap();
         assert_eq!(computed_grid.distance_matrix.len(), 3);
@@ -798,7 +816,7 @@ mod tests {
 
     #[test]
     fn grid_next() {
-        let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+        let grid = StandardGrid::Blank.compute_grid();
         assert_eq!(
             grid.next(&Point2::new(1, 1), &Direction::Right),
             Some(Point2::new(2, 1))
@@ -819,7 +837,7 @@ mod tests {
 
     #[test]
     fn grid_next_oob() {
-        let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+        let grid = StandardGrid::Blank.compute_grid();
         assert_eq!(grid.next(&Point2::new(0, 0), &Direction::Left), None);
         assert_eq!(grid.next(&Point2::new(0, 0), &Direction::Down), None);
         assert_eq!(
@@ -834,14 +852,30 @@ mod tests {
 
     #[test]
     fn grid_at() {
-        let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+        let grid = StandardGrid::Blank.compute_grid();
         assert_eq!(grid.at(&Point2::new(0, 0)), Some(WALL));
     }
 
     #[test]
     fn grid_at_oob() {
-        let grid = ComputedGrid::try_from(GRID_BLANK).unwrap();
+        let grid = StandardGrid::Blank.compute_grid();
         assert_eq!(grid.at(&Point2::new(0, GRID_HEIGHT as u8)), None);
         assert_eq!(grid.at(&Point2::new(GRID_WIDTH as u8, 0)), None);
+    }
+}
+
+/// Find the direction from the start point to the end point
+pub fn facing_direction(start: &Point2<u8>, end: &Point2<u8>) -> Direction {
+    if start.x < end.x {
+        Direction::Right
+    } else if start.x > end.x {
+        Direction::Left
+    } else if start.y < end.y {
+        Direction::Up
+    } else if start.y > end.y {
+        Direction::Down
+    } else {
+        // start == end
+        Direction::Right
     }
 }

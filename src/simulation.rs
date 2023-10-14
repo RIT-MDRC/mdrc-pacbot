@@ -2,7 +2,7 @@
 
 use crate::grid::ComputedGrid;
 use crate::robot::Robot;
-use crate::standard_grids::GRID_PACMAN;
+use crate::standard_grids::StandardGrid;
 use rapier2d::dynamics::{IntegrationParameters, RigidBodySet};
 use rapier2d::geometry::{BroadPhase, NarrowPhase};
 use rapier2d::na::{Isometry2, Vector2};
@@ -38,7 +38,7 @@ pub struct PacbotSimulation {
 impl Default for PacbotSimulation {
     /// Creates a simulation with GRID_PACMAN, the default Robot, and starting position (14, 7)
     fn default() -> Self {
-        let grid = ComputedGrid::try_from(GRID_PACMAN).unwrap();
+        let grid = StandardGrid::Pacman.compute_grid();
         Self::new(
             grid,
             Robot::default(),
@@ -57,9 +57,9 @@ impl PacbotSimulation {
     /// use mdrc_pacbot_util::grid::ComputedGrid;
     /// use mdrc_pacbot_util::robot::Robot;
     /// use mdrc_pacbot_util::simulation::PacbotSimulation;
-    /// use mdrc_pacbot_util::standard_grids::GRID_PACMAN;
+    /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let grid = ComputedGrid::try_from(GRID_PACMAN).unwrap();
+    /// let grid = StandardGrid::Pacman.compute_grid();
     /// let robot = Robot::default();
     /// let starting_position = Isometry2::new(Vector2::new(14.0, 7.0), 0.0);
     /// let mut simulation = PacbotSimulation::new(grid, robot, starting_position);
@@ -351,12 +351,12 @@ impl PacbotSimulation {
                     ),
                     sensor.max_range,
                 );
-                return (
+                (
                     pacbot.translation.transform_point(
                         &pacbot.rotation.transform_point(&sensor.relative_position),
                     ),
                     p,
-                );
+                )
             })
             .collect()
     }

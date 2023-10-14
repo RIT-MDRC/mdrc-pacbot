@@ -1,6 +1,6 @@
 //! Transforms between coordinate systems (such as grid/logical <=> screen pixels).
 
-use egui::Pos2;
+use eframe::egui::Pos2;
 
 use crate::grid::Wall;
 
@@ -92,7 +92,7 @@ impl Transform {
     ///
     /// ```
     /// use rapier2d::na::Point2;
-    /// use egui::Pos2;
+    /// use eframe::egui::Pos2;
     /// use mdrc_pacbot_util::grid::Wall;
     /// use mdrc_pacbot_util::gui::transforms::Transform;
     ///
@@ -110,8 +110,8 @@ impl Transform {
     /// assert_eq!(left_bottom, Pos2::new(20.0, 310.0));
     /// ```
     pub fn map_wall(&self, wall: &Wall) -> (Pos2, Pos2) {
-        let left_bottom = Pos2::new(wall.left_bottom.x as f32, wall.left_bottom.y as f32);
-        let right_top = Pos2::new(wall.right_top.x as f32, wall.right_top.y as f32);
+        let left_bottom = Pos2::new(wall.left_bottom.x, wall.left_bottom.y);
+        let right_top = Pos2::new(wall.right_top.x, wall.right_top.y);
         (self.map_point(left_bottom), self.map_point(right_top))
     }
 }

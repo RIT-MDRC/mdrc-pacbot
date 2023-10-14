@@ -1,11 +1,14 @@
 #![cfg_attr(rustfmt, rustfmt_skip)]
 //! A set of pre-made general purpose grids
 
-use crate::grid::Grid;
+use eframe::egui::Pos2;
+use rapier2d::na::{Isometry2, Vector2};
+use serde::{Deserialize, Serialize};
+use crate::grid::{ComputedGrid, Grid};
 use crate::grid::GridValue::*;
 
 /// An enum to support egui grid selection
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum StandardGrid {
     /// The official Pacbot [`Grid`]
     Pacman,
@@ -22,7 +25,7 @@ impl StandardGrid {
     pub fn get_all() -> Vec<Self> {
         vec![Self::Pacman, Self::Playground, Self::Outer, Self::Blank]
     }
-    
+
     /// Get the [`Grid`] associated with this enum
     pub fn get_grid(&self) -> Grid {
         match self {
@@ -32,12 +35,46 @@ impl StandardGrid {
             Self::Blank => GRID_BLANK,
         }
     }
+    
+    /// Get the [`ComputedGrid`] associated with this enum
+    pub fn compute_grid(&self) -> ComputedGrid {
+        ComputedGrid::try_from(self.get_grid()).expect("Failed to compute a StandardGrid")
+    }
+
+    /// Get the default Pacbot [`Isometry2`] associated with this enum
+    pub fn get_default_pacbot_isometry(&self) -> Isometry2<f32> {
+        match self {
+            StandardGrid::Pacman => Isometry2::new(Vector2::new(14.0, 7.0), 0.0),
+            StandardGrid::Playground => Isometry2::new(Vector2::new(1.0, 1.0), 0.0),
+            StandardGrid::Outer => Isometry2::new(Vector2::new(1.0, 1.0), 0.0),
+            StandardGrid::Blank => Isometry2::new(Vector2::new(1.0, 1.0), 0.0),
+        }
+    }
+
+    /// Get the part of the [`Grid`] that should actually show on the gui
+    pub fn get_soft_boundaries(&self) -> (Pos2, Pos2) {
+        match self {
+            Self::Pacman => (Pos2::new(-1.0, 31.0), Pos2::new(28.0, -1.0)),
+            _ => (Pos2::new(-1.0, 32.0), Pos2::new(32.0, -1.0))
+        }
+    }
+
+    /// Get the rectangles (in grid coordinates) that should be repainted with the background color
+    pub fn get_outside_soft_boundaries(&self) -> Vec<(Pos2, Pos2)> {
+        match self {
+            Self::Pacman => vec![
+                (Pos2::new(-1.0, 31.0), Pos2::new(32.1, 32.1)),
+                (Pos2::new(28.0, -1.0), Pos2::new(32.1, 32.1)),
+            ],
+            _ => vec![]
+        }
+    }
 }
 
 /// The official Pacbot [`Grid`]
-/// 
+///
 /// Out-of-bounds areas are replaced with walls to adhere to ComputedGrid rules
-/// 
+///
 /// ```
 /// use mdrc_pacbot_util::standard_grids::GRID_PACMAN;
 /// use mdrc_pacbot_util::grid::{ComputedGrid, Grid};
