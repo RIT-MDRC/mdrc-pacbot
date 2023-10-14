@@ -266,7 +266,6 @@ impl App {
             .show_save_single_file()?;
 
         if let Some(path) = path {
-            let path = path.as_path();
             let bytes = self.replay_manager.replay.to_bytes()?;
             let mut file = fs::OpenOptions::new().write(true).create(true).open(path)?;
             file.write_all(&bytes)?;
@@ -282,7 +281,6 @@ impl App {
             .show_open_single_file()?;
 
         if let Some(path) = path {
-            let path = path;
             let mut file = File::open(&path)?;
             let metadata = fs::metadata(&path).expect("unable to read metadata");
             let mut buffer = vec![0; metadata.len() as usize];
