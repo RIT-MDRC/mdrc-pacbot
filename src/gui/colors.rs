@@ -5,6 +5,7 @@ pub const PELLET_COLOR: Color32 = Color32::BLUE;
 pub const SUPER_PELLET_COLOR: Color32 = Color32::BLUE;
 
 pub const PACMAN_COLOR: Color32 = Color32::YELLOW;
+pub const PACMAN_PARTICLE_FILTER_COLOR: Color32 = Color32::WHITE;
 pub const PACMAN_REPLAY_COLOR: Color32 = Color32::from_rgba_premultiplied(88, 88, 0, 25);
 pub const PACMAN_FACING_INDICATOR_COLOR: Color32 = Color32::BLUE;
 pub const PACMAN_DISTANCE_SENSOR_RAY_COLOR: Color32 = Color32::GREEN;

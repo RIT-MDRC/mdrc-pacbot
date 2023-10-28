@@ -15,12 +15,13 @@ use rapier2d::na::{Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 
 use crate::agent_setup::PacmanAgentSetup;
+use crate::constants::GUI_PARTICLE_FILTER_POINTS;
 use crate::game_state::{GhostType, PacmanState};
 use crate::grid::facing_direction;
 use crate::grid::ComputedGrid;
 use crate::gui::colors::*;
+use crate::physics::PacbotSimulation;
 use crate::robot::Robot;
-use crate::simulation::PacbotSimulation;
 use crate::standard_grids::StandardGrid;
 
 use self::transforms::Transform;
@@ -45,6 +46,10 @@ pub struct PhysicsRenderInfo {
     pub pacbot_pos: Isometry2<f32>,
     /// An array of start and end points.
     pub primary_robot_rays: Vec<(Point2<f32>, Point2<f32>)>,
+    /// The number of best particle filter points to save
+    pub pf_count: usize,
+    /// The best pf_count particle filter points
+    pub pf_points: Vec<Isometry2<f32>>,
 }
 
 /// Stores state needed to render game state information
@@ -58,13 +63,17 @@ pub struct PacmanStateRenderInfo {
 
 /// Thread where physics gets run.
 fn run_physics(
+    rng: &mut ThreadRng,
     phys_render: Arc<RwLock<PhysicsRenderInfo>>,
     current_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
     location_send: Sender<Point2<u8>>,
     restart_recv: Receiver<(StandardGrid, Robot, Isometry2<f32>)>,
 ) {
+    let grid = StandardGrid::Pacman.compute_grid();
+
     let mut simulation = PacbotSimulation::new(
-        StandardGrid::Pacman.compute_grid(),
+        rng,
+        &grid,
         Robot::default(),
         StandardGrid::Pacman.get_default_pacbot_isometry(),
     );
@@ -74,11 +83,28 @@ fn run_physics(
     loop {
         // Was a restart requested?
         if let Ok((grid, robot, isometry)) = restart_recv.try_recv() {
-            simulation = PacbotSimulation::new(grid.compute_grid(), robot, isometry);
+            simulation = PacbotSimulation::new(rng, &grid.compute_grid(), robot, isometry);
         }
 
         // Run simulation one step
         simulation.step();
+        // Update particle filter
+        simulation.pf_update(
+            rng,
+            &grid,
+            Point2::new(
+                simulation
+                    .get_primary_robot_position()
+                    .translation
+                    .x
+                    .round() as u8,
+                simulation
+                    .get_primary_robot_position()
+                    .translation
+                    .y
+                    .round() as u8,
+            ),
+        );
 
         // Update the current velocity
         let target = *current_velocity.as_ref().read().unwrap();
@@ -89,6 +115,8 @@ fn run_physics(
             sleep: false,
             pacbot_pos: *simulation.get_primary_robot_position(),
             primary_robot_rays: simulation.get_primary_robot_rays().clone(),
+            pf_count: GUI_PARTICLE_FILTER_POINTS,
+            pf_points: simulation.pf_points(GUI_PARTICLE_FILTER_POINTS),
         };
 
         // Did pacbot's (rounded) position change? If so, send the new one to the game
@@ -111,7 +139,7 @@ fn run_physics(
         }
 
         // Sleep for 1/60th of a second
-        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 60.));
+        // std::thread::sleep(std::time::Duration::from_secs_f32(1. / 60.));
     }
 }
 
@@ -207,6 +235,8 @@ impl Default for App {
                 sleep: false,
                 pacbot_pos: StandardGrid::Pacman.get_default_pacbot_isometry(),
                 primary_robot_rays: vec![],
+                pf_count: GUI_PARTICLE_FILTER_POINTS,
+                pf_points: vec![],
             }));
         let target_velocity_r = target_velocity.clone();
         let phys_render_w = phys_render.clone();
@@ -235,6 +265,7 @@ impl Default for App {
         });
         std::thread::spawn(move || {
             run_physics(
+                &mut ThreadRng::default(),
                 phys_render_w,
                 target_velocity_r,
                 location_send,
@@ -421,6 +452,16 @@ impl App {
                     world_to_screen.map_point(Pos2::new(f.x, f.y)),
                 ],
                 Stroke::new(1.0, PACMAN_DISTANCE_SENSOR_RAY_COLOR),
+            );
+        }
+
+        let pf_points = &phys_render.pf_points;
+
+        for p in pf_points {
+            painter.circle_filled(
+                world_to_screen.map_point(Pos2::new(p.translation.x, p.translation.y)),
+                1.0,
+                PACMAN_PARTICLE_FILTER_COLOR,
             );
         }
     }
