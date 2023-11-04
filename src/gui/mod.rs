@@ -6,7 +6,7 @@ pub mod transforms;
 pub mod utils;
 
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 
 use eframe::egui;
 use eframe::egui::{Frame, Key, Painter, Pos2, Rect, Rounding, Stroke, Ui};
@@ -63,19 +63,19 @@ pub struct PacmanStateRenderInfo {
 
 /// Thread where physics gets run.
 fn run_physics(
-    rng: &mut ThreadRng,
     phys_render: Arc<RwLock<PhysicsRenderInfo>>,
     current_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
     location_send: Sender<Point2<u8>>,
     restart_recv: Receiver<(StandardGrid, Robot, Isometry2<f32>)>,
+    distance_sensors: Arc<Mutex<Vec<Option<f32>>>>,
 ) {
     let grid = StandardGrid::Pacman.compute_grid();
 
     let mut simulation = PacbotSimulation::new(
-        rng,
-        &grid,
+        grid.to_owned(),
         Robot::default(),
         StandardGrid::Pacman.get_default_pacbot_isometry(),
+        distance_sensors.clone(),
     );
 
     let mut previous_pacbot_location = Point2::new(14, 7);
@@ -83,28 +83,29 @@ fn run_physics(
     loop {
         // Was a restart requested?
         if let Ok((grid, robot, isometry)) = restart_recv.try_recv() {
-            simulation = PacbotSimulation::new(rng, &grid.compute_grid(), robot, isometry);
+            simulation = PacbotSimulation::new(
+                grid.compute_grid(),
+                robot,
+                isometry,
+                distance_sensors.clone(),
+            );
         }
 
         // Run simulation one step
         simulation.step();
         // Update particle filter
-        simulation.pf_update(
-            rng,
-            &grid,
-            Point2::new(
-                simulation
-                    .get_primary_robot_position()
-                    .translation
-                    .x
-                    .round() as u8,
-                simulation
-                    .get_primary_robot_position()
-                    .translation
-                    .y
-                    .round() as u8,
-            ),
-        );
+        simulation.pf_update(Point2::new(
+            simulation
+                .get_primary_robot_position()
+                .translation
+                .x
+                .round() as u8,
+            simulation
+                .get_primary_robot_position()
+                .translation
+                .y
+                .round() as u8,
+        ));
 
         // Update the current velocity
         let target = *current_velocity.as_ref().read().unwrap();
@@ -265,11 +266,11 @@ impl Default for App {
         });
         std::thread::spawn(move || {
             run_physics(
-                &mut ThreadRng::default(),
                 phys_render_w,
                 target_velocity_r,
                 location_send,
                 phys_restart_recv,
+                Arc::new(Mutex::new(vec![Some(0.0); 8])), // TODO actually pass values
             );
         });
 

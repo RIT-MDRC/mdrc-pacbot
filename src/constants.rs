@@ -13,6 +13,8 @@ pub const GHOST_SCORE: usize = 100;
 
 /// The number of guesses tracked by ParticleFilter
 pub const NUM_PARTICLE_FILTER_POINTS: usize = 200;
+/// The number of rigid bodies tracked by the ParticleFilter
+pub const NUM_PARTICLE_FILTER_BODIES: usize = 20;
 /// The number of points displayed on the gui
 pub const GUI_PARTICLE_FILTER_POINTS: usize = 200;
 /// The number of top guesses that are kept unchanged for the next generation

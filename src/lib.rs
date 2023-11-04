@@ -12,3 +12,4 @@ pub mod physics;
 pub mod replay;
 pub mod robot;
 pub mod standard_grids;
+pub mod util;

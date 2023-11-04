@@ -1,151 +1,139 @@
 //! Tracks the robot's position over time
 
-use crate::constants::NUM_PARTICLE_FILTER_POINTS;
 use crate::grid::{ComputedGrid, Direction};
 use crate::physics::{PacbotSimulation, GROUP_ROBOT, GROUP_WALL};
+use crate::robot::{DistanceSensor, Robot};
 use rand::rngs::ThreadRng;
 use rand::Rng;
 use rapier2d::na::{Isometry2, Point2, Vector2};
-use rapier2d::prelude::{ColliderBuilder, ColliderHandle, InteractionGroups, RigidBodyBuilder};
+use rapier2d::prelude::{
+    ColliderBuilder, ColliderSet, ImpulseJointSet, InteractionGroups, IslandManager,
+    MultibodyJointSet, QueryFilter, QueryPipeline, Ray, RigidBodyBuilder, RigidBodyHandle,
+    RigidBodySet, Rotation,
+};
+use std::cmp::Ordering;
 use std::f32::consts::PI;
+use std::sync::{Arc, Mutex};
+
+/// Values that can be tweaked to improve the performance of the particle filter
+pub struct ParticleFilterOptions {
+    /// The total number of rigid bodies tracked
+    ///
+    /// Usually small
+    pub bodies: usize,
+    /// The total number of points tracked
+    ///
+    /// Any points not included in elite, purge, or random will be moved slightly
+    pub points: usize,
+
+    /// The number of top guesses that are kept unchanged for the next generation
+    pub elite: usize,
+    /// The number of worst guesses that are deleted and randomly generated near the best guess
+    pub purge: usize,
+    /// The number of worst guesses that are deleted and randomly generated anywhere
+    pub random: usize,
+
+    /// Standard deviation of the distance from the current best known location
+    pub spread: f32,
+    /// 1 for no bias, greater than 1 for bias towards more elite points
+    pub elitism_bias: f32,
+    pub genetic_translation_limit: f32,
+    pub genetic_rotation_limit: f32,
+}
 
 /// Tracks the robot's position over time
 pub struct ParticleFilter {
+    /// Random number generator for new points
+    rng: ThreadRng,
+    /// Robot specifications
+    robot: Robot,
+    /// The grid used to find empty spaces; to change this, create a new particle filter
+    grid: ComputedGrid,
     /// Guesses for the current location, ordered by measured accuracy
-    points: Vec<ColliderHandle>,
+    points: Vec<Isometry2<f32>>,
+    /// Rigid bodies tracked by the particle filter
+    bodies: Vec<RigidBodyHandle>,
+    /// Cross-thread reference to the current distance sensor readings
+    distance_sensors: Arc<Mutex<Vec<Option<f32>>>>,
     /// The current best guess
     best_guess: Isometry2<f32>,
 
-    /// The number of top guesses that are kept unchanged for the next generation
-    elite: usize,
-    /// The number of worst guesses that are deleted and randomly generated near the best guess
-    purge: usize,
-    /// The number of worst guesses that are deleted and randomly generated anywhere
-    random: usize,
-
-    /// Standard deviation of the distance from the current best known location
-    spread: f32,
+    /// Values that can be tweaked to improve the performance of the particle filter
+    options: ParticleFilterOptions,
 }
 
 impl ParticleFilter {
     /// Create a ParticleFilter
-    pub fn new(elite: usize, purge: usize, random: usize, spread: f32) -> Self {
-        Self {
-            points: Vec::new(),
-            best_guess: Isometry2::identity(),
-            elite,
-            purge,
-            random,
-            spread,
-        }
-    }
-
-    /// Get the associated points
-    pub fn points(&self) -> &Vec<ColliderHandle> {
-        &self.points
-    }
-}
-
-impl PacbotSimulation {
-    /// Initialize the particle filter
-    pub fn pf_initialize(
-        &mut self,
-        rng: &mut ThreadRng,
-        grid: &ComputedGrid,
+    ///
+    /// Start determines the location around which the filter will generate initial particles
+    pub fn new(
+        grid: ComputedGrid,
+        robot: Robot,
         start: Isometry2<f32>,
-    ) {
-        self.particle_filter.best_guess = start;
-        self.particle_filter.points = Vec::new();
-
-        let point_near = Point2::new(
-            start.translation.vector.x.round() as u8,
-            start.translation.vector.y.round() as u8,
-        );
-
-        let points = (0..NUM_PARTICLE_FILTER_POINTS)
-            .map(|_| self.pf_random_point_near(rng, grid, point_near))
-            .collect::<Vec<_>>();
-
-        for point in points {
-            let rigid_body = RigidBodyBuilder::dynamic().position(point).build();
-            let rigid_body_handle = self.rigid_body_set.insert(rigid_body);
-
-            let collider = ColliderBuilder::ball(self.robot_specifications.collider_radius)
-                .density(self.robot_specifications.density)
-                .collision_groups(InteractionGroups::new(
-                    GROUP_ROBOT.into(),
-                    GROUP_WALL.into(),
-                )) // allows robots to only interact with walls, not other robots
-                .build();
-
-            let collider_handle = self.collider_set.insert_with_parent(
-                collider,
-                rigid_body_handle,
-                &mut self.rigid_body_set,
-            );
-
-            self.particle_filter.points.push(collider_handle);
+        distance_sensors: Arc<Mutex<Vec<Option<f32>>>>,
+        options: ParticleFilterOptions,
+    ) -> Self {
+        Self {
+            rng: ThreadRng::default(),
+            points: Vec::new(),
+            bodies: Vec::new(),
+            distance_sensors,
+            grid,
+            robot,
+            best_guess: start,
+            options,
         }
     }
 
-    /// Generate a walkable point near this point
-    pub fn pf_random_point_near(
-        &self,
-        rng: &mut ThreadRng,
-        grid: &ComputedGrid,
-        point: Point2<u8>,
-    ) -> Isometry2<f32> {
-        let distance = rng.gen_range(0.0..self.particle_filter.spread).floor() as usize;
+    fn random_point_near(&mut self, point: Point2<u8>) -> Isometry2<f32> {
+        let distance = self.rng.gen_range(0.0..self.options.spread).floor() as usize;
         let mut node = point;
         for _ in 0..distance {
-            let neighbors = grid.neighbors(&node);
-            node = neighbors[rng.gen_range(0..neighbors.len())];
+            let neighbors = self.grid.neighbors(&node);
+            node = neighbors[self.rng.gen_range(0..neighbors.len())];
         }
 
-        self.pf_random_point_at(rng, grid, node)
+        self.random_point_at(node)
     }
 
     /// Generate a completely random walkable point
-    pub fn pf_random_point(&self, rng: &mut ThreadRng, grid: &ComputedGrid) -> Isometry2<f32> {
-        // find a random walkable node
-        let node = rng.gen_range(0..grid.walkable_nodes().len());
-        let node = grid.walkable_nodes()[node];
+    fn random_point(&mut self) -> Isometry2<f32> {
+        let node = self.rng.gen_range(0..self.grid.walkable_nodes().len());
+        let node = self.grid.walkable_nodes()[node];
 
-        self.pf_random_point_at(rng, grid, node)
+        self.random_point_at(node)
     }
 
     /// Generate a random valid point around a certain walkable square
-    pub fn pf_random_point_at(
-        &self,
-        rng: &mut ThreadRng,
-        grid: &ComputedGrid,
-        node: Point2<u8>,
-    ) -> Isometry2<f32> {
+    fn random_point_at(&mut self, node: Point2<u8>) -> Isometry2<f32> {
         // the central square (radius r) is where pacbot could be placed if there were walls all around
-        let r = 1.0 - self.robot_specifications.collider_radius;
+        let r = 1.0 - self.robot.collider_radius;
 
         // if r > 0.5, some of the cells are overlapping - cut off the edges of the central square
         if r >= 0.5 {
             let mut left_bottom = Point2::new(node.x as f32 - r, node.y as f32 - r);
             let mut right_top = Point2::new(node.x as f32 + r, node.y as f32 + r);
 
-            if grid.next(&node, &Direction::Up).is_some() {
+            if self.grid.next(&node, &Direction::Up).is_some() {
                 right_top.y = node.y as f32 + 0.5;
             }
-            if grid.next(&node, &Direction::Down).is_some() {
+            if self.grid.next(&node, &Direction::Down).is_some() {
                 left_bottom.y = node.y as f32 - 0.5;
             }
-            if grid.next(&node, &Direction::Left).is_some() {
+            if self.grid.next(&node, &Direction::Left).is_some() {
                 left_bottom.x = node.x as f32 - 0.5;
             }
-            if grid.next(&node, &Direction::Right).is_some() {
+            if self.grid.next(&node, &Direction::Right).is_some() {
                 right_top.x = node.x as f32 + 0.5;
             }
 
-            let rand_x = rng.gen_range(left_bottom.x..right_top.x);
-            let rand_y = rng.gen_range(left_bottom.y..right_top.y);
+            let rand_x = self.rng.gen_range(left_bottom.x..right_top.x);
+            let rand_y = self.rng.gen_range(left_bottom.y..right_top.y);
 
-            Isometry2::new(Vector2::new(rand_x, rand_y), rng.gen_range(0.0..2.0 * PI))
+            Isometry2::new(
+                Vector2::new(rand_x, rand_y),
+                self.rng.gen_range(0.0..2.0 * PI),
+            )
         } else {
             // if r < 0.5, there are gaps between the regions - add rectangles to the sides
 
@@ -157,7 +145,7 @@ impl PacbotSimulation {
                 Direction::Left,
                 Direction::Right,
             ] {
-                if grid.next(&node, direction).is_some() {
+                if self.grid.next(&node, direction).is_some() {
                     valid_directions.push(direction);
                 }
             }
@@ -168,16 +156,16 @@ impl PacbotSimulation {
             let total_area = center_square_area + valid_directions.len() as f32 * rectangle_area;
 
             // Generate a random number to select a region
-            let mut area_selector = rng.gen_range(0.0..total_area);
+            let mut area_selector = self.rng.gen_range(0.0..total_area);
 
             // Decide the region and generate coordinates within that region
             if area_selector < center_square_area {
                 return Isometry2::new(
                     Vector2::new(
-                        node.x as f32 + rng.gen_range(-r..r),
-                        node.y as f32 + rng.gen_range(-r..r),
+                        node.x as f32 + self.rng.gen_range(-r..r),
+                        node.y as f32 + self.rng.gen_range(-r..r),
                     ),
-                    rng.gen_range(0.0..2.0 * PI),
+                    self.rng.gen_range(0.0..2.0 * PI),
                 );
             }
             area_selector -= center_square_area;
@@ -186,73 +174,343 @@ impl PacbotSimulation {
             match direction {
                 Direction::Up => Isometry2::new(
                     Vector2::new(
-                        node.x as f32 + rng.gen_range(-r..r),
-                        node.y as f32 + rng.gen_range(r..0.5),
+                        node.x as f32 + self.rng.gen_range(-r..r),
+                        node.y as f32 + self.rng.gen_range(r..0.5),
                     ),
-                    rng.gen_range(0.0..2.0 * PI),
+                    self.rng.gen_range(0.0..2.0 * PI),
                 ),
                 Direction::Down => Isometry2::new(
                     Vector2::new(
-                        node.x as f32 + rng.gen_range(-r..r),
-                        node.y as f32 + rng.gen_range(-0.5..-r),
+                        node.x as f32 + self.rng.gen_range(-r..r),
+                        node.y as f32 + self.rng.gen_range(-0.5..-r),
                     ),
-                    rng.gen_range(0.0..2.0 * PI),
+                    self.rng.gen_range(0.0..2.0 * PI),
                 ),
                 Direction::Left => Isometry2::new(
                     Vector2::new(
-                        node.x as f32 + rng.gen_range(-0.5..-r),
-                        node.y as f32 + rng.gen_range(-r..r),
+                        node.x as f32 + self.rng.gen_range(-0.5..-r),
+                        node.y as f32 + self.rng.gen_range(-r..r),
                     ),
-                    rng.gen_range(0.0..2.0 * PI),
+                    self.rng.gen_range(0.0..2.0 * PI),
                 ),
                 Direction::Right => Isometry2::new(
                     Vector2::new(
-                        node.x as f32 + rng.gen_range(r..0.5),
-                        node.y as f32 + rng.gen_range(-r..r),
+                        node.x as f32 + self.rng.gen_range(r..0.5),
+                        node.y as f32 + self.rng.gen_range(-r..r),
                     ),
-                    rng.gen_range(0.0..2.0 * PI),
+                    self.rng.gen_range(0.0..2.0 * PI),
                 ),
             }
         }
     }
 
-    pub fn pf_update(&mut self, rng: &mut ThreadRng, grid: &ComputedGrid, position: Point2<u8>) {
-        // TODO sort list by accuracy
+    /// Update the particle filter, using the same rigid body set as the start
+    pub fn update(
+        &mut self,
+        cv_position: Point2<u8>,
+        rigid_body_set: &mut RigidBodySet,
+        collider_set: &mut ColliderSet,
+        query_pipeline: &QueryPipeline,
+    ) {
+        // extend the points to the correct length
+        while self.points.len() < self.options.points {
+            let point = self.random_point();
+            self.points.push(point);
+        }
+
+        // extend bodies to the correct length
+        while self.bodies.len() < self.options.bodies {
+            let point = self.random_point();
+            self.bodies.push(Self::create_rigid_body(
+                point,
+                self.robot.collider_radius,
+                self.robot.density,
+                rigid_body_set,
+                collider_set,
+            ));
+        }
+
+        // cut off any extra points
+        while self.points.len() > self.options.points {
+            self.points.pop();
+        }
+
+        // cut off any extra bodies
+        while self.bodies.len() > self.options.bodies {
+            let handle = self.bodies.pop().expect("Ran out of points!");
+            rigid_body_set.remove(
+                handle,
+                &mut IslandManager::default(),
+                collider_set,
+                &mut ImpulseJointSet::default(),
+                &mut MultibodyJointSet::default(),
+                true,
+            );
+        }
+
+        let elite_boundary = self.options.elite;
+        let genetic_boundary = self.options.points - self.options.random - self.options.purge;
+        let random_ish_boundary = self.options.points - self.options.random;
+
+        let _elite_points = 0..elite_boundary;
+        let genetic_points = elite_boundary..genetic_boundary;
+        let random_near_cv_points = genetic_boundary..random_ish_boundary;
+        let random_points = random_ish_boundary..self.options.points;
 
         // randomize the last 'random' points
-        for i in self.particle_filter.points.len() - self.particle_filter.random
-            ..self.particle_filter.points.len()
-        {
-            let point = self.pf_random_point(rng, grid);
-            self.rigid_body_set
-                .get_mut(
-                    self.collider_set
-                        .get(self.particle_filter.points[i])
-                        .unwrap()
-                        .parent()
-                        .unwrap(),
-                )
-                .unwrap()
-                .set_position(point, true);
+        for i in random_points {
+            let point = self.random_point();
+            self.points[i] = point;
         }
 
-        // randomize the last 'purge' points near the best guess
-        for i in self.particle_filter.points.len()
-            - self.particle_filter.random
-            - self.particle_filter.purge
-            ..self.particle_filter.points.len() - self.particle_filter.random
-        {
-            let point = self.pf_random_point_near(rng, grid, position);
-            self.rigid_body_set
-                .get_mut(
-                    self.collider_set
-                        .get(self.particle_filter.points[i])
-                        .unwrap()
-                        .parent()
-                        .unwrap(),
-                )
-                .unwrap()
-                .set_position(point, true);
+        // randomize the last 'purge' points near the given approximate location
+        for i in random_near_cv_points {
+            let point = self.random_point_near(cv_position);
+            self.points[i] = point;
         }
+
+        for i in genetic_points {
+            // Generate a biased index based on the configured strength
+            let mut weighted_index = (self.rng.gen::<f32>().powf(self.options.elitism_bias)
+                * elite_boundary as f32) as usize;
+
+            // Ensure the weighted_index does not exceed the last index
+            weighted_index = weighted_index.min(self.options.points);
+
+            // Retrieve the selected point and apply a mutation
+            let point = self.points[weighted_index];
+            let new_point = self.modify_point(point);
+
+            // Replace the current point with the new one
+            self.points[i] = new_point;
+        }
+
+        // randomize any points that are within a wall or out of bounds
+        for i in 0..self.options.points {
+            // if the virtual distance sensor reads 0, it is inside a wall
+            if Self::distance_sensor_ray(
+                self.points[i],
+                self.robot.distance_sensors[0],
+                rigid_body_set,
+                collider_set,
+                query_pipeline,
+            )
+            .abs()
+                < 0.05
+                || self.points[i].translation.x < 0.0
+                || self.points[i].translation.y < 0.0
+                || self.points[i].translation.x > 32.0
+                || self.points[i].translation.y > 32.0
+            {
+                self.points[i] = self.random_point();
+            }
+        }
+
+        // Sort points
+        let distance_sensors = self
+            .distance_sensors
+            .lock()
+            .expect("Failed to acquire distance sensors lock!")
+            .to_owned();
+        if distance_sensors.len() != self.robot.distance_sensors.len() {
+            println!("Uh oh! Particle filter found the wrong number of distance sensors. Unexpected behavior may occur.");
+            return;
+        }
+        let robot = self.robot.to_owned();
+        self.points.sort_unstable_by(|a, b| {
+            Self::distance_sensor_diff(
+                &robot,
+                *a,
+                &distance_sensors,
+                rigid_body_set,
+                collider_set,
+                query_pipeline,
+            )
+            .total_cmp(&Self::distance_sensor_diff(
+                &robot,
+                *b,
+                &distance_sensors,
+                rigid_body_set,
+                collider_set,
+                query_pipeline,
+            ))
+        });
+
+        // TODO update bodies
+        // TODO reset any bodies that are performing poorly
+
+        // Sort bodies
+        self.bodies.sort_unstable_by(|a, b| {
+            let a = rigid_body_set.get(*a);
+            let b = rigid_body_set.get(*b);
+
+            // if for some reason the rigid body doesn't exist, give it a high score
+            match a {
+                None => Ordering::Greater,
+                Some(a) => match b {
+                    None => Ordering::Less,
+                    Some(b) => Self::distance_sensor_diff(
+                        &robot,
+                        *a.position(),
+                        &distance_sensors,
+                        rigid_body_set,
+                        collider_set,
+                        query_pipeline,
+                    )
+                    .total_cmp(&Self::distance_sensor_diff(
+                        &robot,
+                        *b.position(),
+                        &distance_sensors,
+                        rigid_body_set,
+                        collider_set,
+                        query_pipeline,
+                    )),
+                },
+            }
+        });
+
+        self.best_guess = self.points[0];
+    }
+
+    /// Given a location guess, measure the absolute difference against the real values
+    fn distance_sensor_diff(
+        robot: &Robot,
+        point: Isometry2<f32>,
+        actual_values: &Vec<Option<f32>>,
+        rigid_body_set: &RigidBodySet,
+        collider_set: &ColliderSet,
+        query_pipeline: &QueryPipeline,
+    ) -> f32 {
+        (0..actual_values.len())
+            .map(|i| match actual_values[i] {
+                None => 0.0,
+                Some(x) => {
+                    let sensor = robot.distance_sensors[i];
+
+                    let toi = Self::distance_sensor_ray(
+                        point,
+                        sensor,
+                        rigid_body_set,
+                        collider_set,
+                        query_pipeline,
+                    );
+
+                    (toi - x).abs()
+                }
+            })
+            .sum()
+    }
+
+    /// Given a location guess, measure one sensor
+    fn distance_sensor_ray(
+        point: Isometry2<f32>,
+        sensor: DistanceSensor,
+        rigid_body_set: &RigidBodySet,
+        collider_set: &ColliderSet,
+        query_pipeline: &QueryPipeline,
+    ) -> f32 {
+        let filter = QueryFilter::new().groups(InteractionGroups::new(
+            GROUP_ROBOT.into(),
+            GROUP_WALL.into(),
+        ));
+
+        let ray = Ray::new(
+            point
+                .translation
+                .transform_point(&point.rotation.transform_point(&sensor.relative_position)),
+            (point.rotation * Rotation::new(sensor.relative_direction))
+                .transform_vector(&Vector2::new(1.0, 0.0)),
+        );
+
+        if let Some((_, toi)) = query_pipeline.cast_ray(
+            rigid_body_set,
+            collider_set,
+            &ray,
+            sensor.max_range,
+            true,
+            filter,
+        ) {
+            toi
+        } else {
+            sensor.max_range
+        }
+    }
+
+    fn create_rigid_body(
+        point: Isometry2<f32>,
+        collider_radius: f32,
+        density: f32,
+        rigid_body_set: &mut RigidBodySet,
+        collider_set: &mut ColliderSet,
+    ) -> RigidBodyHandle {
+        let rigid_body = RigidBodyBuilder::dynamic().position(point).build();
+        let rigid_body_handle = rigid_body_set.insert(rigid_body);
+
+        let collider = ColliderBuilder::ball(collider_radius)
+            .density(density)
+            .collision_groups(InteractionGroups::new(
+                GROUP_ROBOT.into(),
+                GROUP_WALL.into(),
+            )) // allows robots to only interact with walls, not other robots
+            .build();
+
+        collider_set.insert_with_parent(collider, rigid_body_handle, rigid_body_set);
+
+        rigid_body_handle
+    }
+
+    /// a small random translation and a small random rotation to the point
+    fn modify_point(&mut self, point: Isometry2<f32>) -> Isometry2<f32> {
+        let translation_mutation_range =
+            -self.options.genetic_translation_limit..self.options.genetic_translation_limit;
+        let rotation_mutation_range =
+            -self.options.genetic_rotation_limit..self.options.genetic_rotation_limit;
+
+        let translation_mutation = Vector2::new(
+            self.rng.gen_range(translation_mutation_range.clone()),
+            self.rng.gen_range(translation_mutation_range),
+        );
+
+        let rotation_mutation = self.rng.gen_range(rotation_mutation_range);
+
+        Isometry2::new(
+            point.translation.vector + translation_mutation,
+            point.rotation.angle() + rotation_mutation,
+        )
+    }
+
+    /// Get the best 'count' particle filter points
+    pub fn points(&self, count: usize) -> Vec<Isometry2<f32>> {
+        self.points
+            .iter()
+            .map(|p| p.to_owned())
+            .take(count)
+            .collect()
+    }
+
+    /// Get the best 'count' particle filter body points
+    pub fn bodies(&self, count: usize, rigid_body_set: &RigidBodySet) -> Vec<Isometry2<f32>> {
+        self.bodies
+            .iter()
+            .take(count)
+            .map(|handle| rigid_body_set.get(*handle).unwrap().position().to_owned())
+            .collect()
+    }
+
+    /// Get the best guess
+    pub fn best_guess(&self) -> Isometry2<f32> {
+        self.best_guess
+    }
+}
+
+impl PacbotSimulation {
+    /// Update the particle filter
+    pub fn pf_update(&mut self, position: Point2<u8>) {
+        self.particle_filter.update(
+            position,
+            &mut self.rigid_body_set,
+            &mut self.collider_set,
+            &self.query_pipeline,
+        );
     }
 }
