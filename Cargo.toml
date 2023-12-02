@@ -16,6 +16,7 @@ native-dialog = { version = "0.6.4", features = ["windows_dpi_awareness", "windo
 num_enum = "0.7.0"
 rand = "0.8.5"
 rapier2d = { version = "0.17.2", features = ["serde-serialize", "parallel"] }
+rayon = "1.8.0"
 serde = { version = "1.0.188", features = ["derive"] }
 tokio = { version = "1.32.0", features = ["macros", "parking_lot", "rt"] }
 tokio-tungstenite = "0.20.1"

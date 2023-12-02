@@ -78,7 +78,7 @@ impl PacbotSimulation {
     /// let robot = Robot::default();
     /// let distance_sensors = Arc::new(Mutex::new(vec![Some(0.0); Robot::default().distance_sensors.len()]));
     /// let starting_position = Isometry2::new(Vector2::new(14.0, 7.0), 0.0);
-    /// let mut simulation = PacbotSimulation::new(grid, robot, starting_position, distance_sensors, true);
+    /// let mut simulation = PacbotSimulation::new(grid, robot, starting_position, distance_sensors);
     /// ```
     pub fn new(
         grid: ComputedGrid,

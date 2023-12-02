@@ -5,6 +5,7 @@ pub mod replay_manager;
 pub mod transforms;
 pub mod utils;
 
+use std::ops::Deref;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -23,6 +24,7 @@ use crate::gui::colors::*;
 use crate::physics::PacbotSimulation;
 use crate::robot::Robot;
 use crate::standard_grids::StandardGrid;
+use crate::util::stopwatch::Stopwatch;
 
 use self::transforms::Transform;
 
@@ -68,14 +70,18 @@ fn run_physics(
     location_send: Sender<Point2<u8>>,
     restart_recv: Receiver<(StandardGrid, Robot, Isometry2<f32>)>,
     distance_sensors: Arc<Mutex<Vec<Option<f32>>>>,
+    pf_stopwatch: Arc<Mutex<Stopwatch>>,
+    physics_stopwatch: Arc<Mutex<Stopwatch>>,
 ) {
     let grid = StandardGrid::Pacman.compute_grid();
+
+    let distance_sensors_ref = distance_sensors.clone();
 
     let mut simulation = PacbotSimulation::new(
         grid.to_owned(),
         Robot::default(),
         StandardGrid::Pacman.get_default_pacbot_isometry(),
-        distance_sensors.clone(),
+        distance_sensors_ref,
     );
 
     let mut previous_pacbot_location = Point2::new(14, 7);
@@ -92,20 +98,29 @@ fn run_physics(
         }
 
         // Run simulation one step
+        physics_stopwatch.lock().unwrap().start();
         simulation.step();
+        physics_stopwatch.lock().unwrap().mark_segment();
+
+        // Estimate game location
+        let estimated_location = grid
+            .node_nearest(
+                simulation.get_primary_robot_position().translation.x,
+                simulation.get_primary_robot_position().translation.y,
+            )
+            .unwrap_or(Point2::new(1, 1));
+        // Update distance sensors
+        let rays = simulation.get_primary_robot_rays();
+        {
+            let mut d = distance_sensors.lock().unwrap();
+            for i in 0..d.len() {
+                if let Some((a, b)) = rays.get(i) {
+                    d[i] = Some(((a.x - b.x).powi(2) + (a.y - b.y).powi(2)).sqrt())
+                }
+            }
+        }
         // Update particle filter
-        simulation.pf_update(Point2::new(
-            simulation
-                .get_primary_robot_position()
-                .translation
-                .x
-                .round() as u8,
-            simulation
-                .get_primary_robot_position()
-                .translation
-                .y
-                .round() as u8,
-        ));
+        simulation.pf_update(estimated_location, &pf_stopwatch);
 
         // Update the current velocity
         let target = *current_velocity.as_ref().read().unwrap();
@@ -121,18 +136,12 @@ fn run_physics(
         };
 
         // Did pacbot's (rounded) position change? If so, send the new one to the game
-        let pacbot_location = Point2::new(
-            simulation
-                .get_primary_robot_position()
-                .translation
-                .x
-                .round() as u8,
-            simulation
-                .get_primary_robot_position()
-                .translation
-                .y
-                .round() as u8,
-        );
+        let pacbot_location = grid
+            .node_nearest(
+                simulation.get_primary_robot_position().translation.x,
+                simulation.get_primary_robot_position().translation.y,
+            )
+            .unwrap();
 
         if pacbot_location != previous_pacbot_location {
             location_send.send(pacbot_location).unwrap();
@@ -217,6 +226,10 @@ struct App {
     /// When in playback mode, the position of pacbot from the replay
     replay_pacman: Isometry2<f32>,
     save_pacbot_location: bool,
+
+    pf_stopwatch: Arc<Mutex<Stopwatch>>,
+    physics_stopwatch: Arc<Mutex<Stopwatch>>,
+    gui_stopwatch: Stopwatch,
 }
 
 fn pretty_print_time_now() -> String {
@@ -260,6 +273,14 @@ impl Default for App {
         let time = pretty_print_time_now();
         let filename = format!("replays/replay-{}.bin", time);
 
+        // Set up stopwatches
+        let gui_stopwatch = Stopwatch::new(30);
+        let pf_stopwatch = Arc::new(Mutex::new(Stopwatch::new(10)));
+        let physics_stopwatch = Arc::new(Mutex::new(Stopwatch::new(10)));
+
+        let pf_stopwatch_ref = pf_stopwatch.clone();
+        let physics_stopwatch_ref = physics_stopwatch.clone();
+
         // Spawn threads
         std::thread::spawn(move || {
             run_game(pacman_state_rw, location_receive, pacman_replay_commands)
@@ -270,7 +291,9 @@ impl Default for App {
                 target_velocity_r,
                 location_send,
                 phys_restart_recv,
-                Arc::new(Mutex::new(vec![Some(0.0); 8])), // TODO actually pass values
+                Arc::new(Mutex::new(vec![Some(0.0); 8])),
+                pf_stopwatch_ref,
+                physics_stopwatch_ref,
             );
         });
 
@@ -301,6 +324,10 @@ impl Default for App {
             pacman_state_notify_recv,
             replay_pacman: Isometry2::default(),
             save_pacbot_location: false,
+
+            gui_stopwatch,
+            pf_stopwatch,
+            physics_stopwatch,
         }
     }
 }
@@ -349,11 +376,17 @@ impl App {
 
         self.update_target_velocity(ctx);
 
+        self.gui_stopwatch.mark_segment();
+
         if self.selected_grid == StandardGrid::Pacman {
             self.draw_pacman_state(ctx, &world_to_screen, &painter);
         }
 
-        self.draw_simulation(&world_to_screen, &painter)
+        self.gui_stopwatch.mark_segment();
+
+        self.draw_simulation(&world_to_screen, &painter);
+
+        self.gui_stopwatch.mark_segment();
     }
 
     fn update_target_velocity(&mut self, ctx: &egui::Context) {
@@ -362,7 +395,7 @@ impl App {
         target_velocity.0.y = 0.0;
         target_velocity.1 = 0.0;
         ctx.input(|i| {
-            let target_speed = if i.modifiers.shift { 10.0 } else { 4.0 };
+            let target_speed = if i.modifiers.shift { 2.0 } else { 0.8 };
             if i.key_down(Key::S) {
                 target_velocity.0.y = -target_speed;
             }
@@ -550,10 +583,38 @@ impl App {
     }
 }
 
+fn draw_stopwatch(stopwatch: &Stopwatch, ctx: &egui::Context, name: &str, segments: &[&str]) {
+    egui::Window::new(name).show(ctx, |ui| {
+        ui.label(format!(
+            "Total: {:.2}",
+            stopwatch.average_process_time() * 1000.0
+        ));
+        ui.separator();
+        egui::Grid::new("")
+            .num_columns(2)
+            .striped(true)
+            .show(ui, |ui| {
+                let segment_times = stopwatch.average_segment_times();
+                for i in 0..segment_times.len() {
+                    let name = segments
+                        .get(i)
+                        .map_or_else(|| i.to_string(), |&s| s.to_string());
+                    ui.label(format!("{}", name));
+                    ui.label(format!("{:.2}", segment_times[i] * 1000.0));
+                    ui.end_row();
+                }
+            });
+    });
+}
+
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.gui_stopwatch.start();
+
         self.update_replay_manager()
             .expect("Error updating replay manager");
+
+        self.gui_stopwatch.mark_segment();
 
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -602,6 +663,7 @@ impl eframe::App for App {
                 )
                 .show(ctx, |ui| {
                     self.draw_replay_ui(ctx, ui);
+                    self.gui_stopwatch.mark_segment();
                 });
         }
         egui::CentralPanel::default()
@@ -609,6 +671,49 @@ impl eframe::App for App {
             .show(ctx, |ui| {
                 self.draw_grid(ctx, ui);
             });
+        self.gui_stopwatch.mark_segment();
+        draw_stopwatch(
+            &self.gui_stopwatch,
+            ctx,
+            "GUI Time",
+            &[
+                "Replay manager",
+                "Replay UI",
+                "Draw Grid",
+                "Draw GameState",
+                "Draw Simulation",
+                "Draw Main UI",
+                "Draw Stopwatches",
+            ],
+        );
+        draw_stopwatch(
+            &self.physics_stopwatch.lock().unwrap().deref(),
+            ctx,
+            "Physics Time",
+            &["End"],
+        );
+        draw_stopwatch(
+            &self.pf_stopwatch.lock().unwrap().deref(),
+            ctx,
+            "PF Time",
+            &[
+                "Extended points/bodies",
+                "Cut extra points/bodies",
+                "Randomize last points",
+                "Approx. randomize points",
+                "Genetic points",
+                "Randomize invalid points",
+                "Calculate point errors",
+                "Sort points",
+                "Update bodies",
+                "Reset bodies",
+                "Calculate body errors",
+                "Sort bodies",
+                "End",
+            ],
+        );
+        self.gui_stopwatch.mark_segment();
+
         ctx.request_repaint();
     }
 }
