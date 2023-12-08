@@ -1,5 +1,7 @@
 //! Network communications with the Pico and the game server.
 
+use std::{io, net::UdpSocket};
+
 use futures_util::StreamExt;
 
 /// Starts the network thread that communicates with the Pico and game server.
@@ -43,5 +45,72 @@ async fn network_thread_main() {
                 }
             }
         };
+    }
+}
+
+/// Types of messages sent to the Pico.
+#[repr(u8)]
+enum MessageType {
+    Motors = 1,
+    Sleep = 2,
+    AccelOffset = 3,
+    DistanceOffset = 4,
+}
+
+struct PicoConnection {
+    socket: UdpSocket,
+    next_ack: u16,
+}
+
+impl PicoConnection {
+    fn new(local_port: u16, remote_address: &str) -> io::Result<Self> {
+        let socket = UdpSocket::bind(("0.0.0.0", local_port))?;
+        socket.connect(remote_address)?;
+        Ok(Self {
+            socket,
+            next_ack: 1,
+        })
+    }
+
+    fn send_message(&mut self, message: &[u8]) -> io::Result<()> {
+        self.socket.send(message)?;
+        Ok(())
+    }
+
+    fn send_motors_message(&mut self, motor1: i16, motor2: i16, motor3: i16) -> io::Result<()> {
+        let mut message = [0; 7];
+        message[0] = MessageType::Motors as u8;
+        message[1..3].copy_from_slice(&motor1.to_le_bytes());
+        message[3..5].copy_from_slice(&motor2.to_le_bytes());
+        message[5..7].copy_from_slice(&motor3.to_le_bytes());
+        self.send_message(&message)
+    }
+
+    fn send_sleep_message(&mut self, sleep: bool) -> io::Result<()> {
+        let mut message = [0; 4];
+        message[0] = MessageType::Sleep as u8;
+        message[1..3].copy_from_slice(&self.next_ack.to_le_bytes());
+        self.next_ack += 1;
+        message[3] = sleep as u8;
+        self.send_message(&message)
+    }
+
+    fn send_accel_offset_message(&mut self, offset: i16) -> io::Result<()> {
+        let mut message = [0; 5];
+        message[0] = MessageType::AccelOffset as u8;
+        message[1..3].copy_from_slice(&self.next_ack.to_le_bytes());
+        self.next_ack += 1;
+        message[3..5].copy_from_slice(&offset.to_le_bytes());
+        self.send_message(&message)
+    }
+
+    fn send_distance_offset_message(&mut self, which_sensor: u8, offset: i16) -> io::Result<()> {
+        let mut message = [0; 6];
+        message[0] = MessageType::DistanceOffset as u8;
+        message[1..3].copy_from_slice(&self.next_ack.to_le_bytes());
+        self.next_ack += 1;
+        message[3] = which_sensor;
+        message[4..6].copy_from_slice(&offset.to_le_bytes());
+        self.send_message(&message)
     }
 }
