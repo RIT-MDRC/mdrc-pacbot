@@ -12,3 +12,4 @@ pub mod replay;
 pub mod robot;
 pub mod simulation;
 pub mod standard_grids;
+pub mod high_level;

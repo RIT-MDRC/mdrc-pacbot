@@ -19,6 +19,7 @@ use crate::game_state::{GhostType, PacmanState};
 use crate::grid::facing_direction;
 use crate::grid::ComputedGrid;
 use crate::gui::colors::*;
+use crate::high_level::HighLevelContext;
 use crate::robot::Robot;
 use crate::simulation::PacbotSimulation;
 use crate::standard_grids::StandardGrid;
@@ -152,6 +153,32 @@ fn run_game(
     }
 }
 
+/// Thread where high level AI makes decisions.
+fn run_high_level(
+    pacman_state: Arc<RwLock<PacmanStateRenderInfo>>,
+    target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
+) {
+    let hl_ctx = HighLevelContext::new();
+
+    loop {
+        // Use AI to indicate which direction to move.
+        let pacman_state_render = pacman_state.read().unwrap();
+        let action = hl_ctx.step(&pacman_state_render.pacman_state);
+        drop(pacman_state_render); // Allow others to read this resource.
+        let mut target_velocity = target_velocity.write().unwrap();
+        target_velocity.0 = match action {
+            crate::high_level::HLAction::Left => -Vector2::x(),
+            crate::high_level::HLAction::Right => Vector2::x(),
+            crate::high_level::HLAction::Up => Vector2::y(),
+            crate::high_level::HLAction::Down => -Vector2::y(),
+        };
+        drop(target_velocity);
+
+        // Sleep for 1/4th of a second.
+        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 4.));
+    }
+}
+
 /// Indicates whether the game state should be taken from our simulations or from the comp server
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum GameServer {
@@ -222,6 +249,7 @@ impl Default for App {
         let pacman_render: Arc<RwLock<PacmanStateRenderInfo>> =
             Arc::new(RwLock::new(pacman_state_info));
         let pacman_state_rw = pacman_render.clone();
+        let hl_game_state = pacman_state_rw.clone();
         let pacman_replay_commands = pacman_state_notify_send.clone();
 
         // Set up replay manager
@@ -233,13 +261,19 @@ impl Default for App {
         std::thread::spawn(move || {
             run_game(pacman_state_rw, location_receive, pacman_replay_commands)
         });
+        {
+            let target_velocity_r = target_velocity_r.clone();
+            std::thread::spawn(move || {
+                run_physics(
+                    phys_render_w,
+                    target_velocity_r,
+                    location_send,
+                    phys_restart_recv,
+                );
+            });
+        }
         std::thread::spawn(move || {
-            run_physics(
-                phys_render_w,
-                target_velocity_r,
-                location_send,
-                phys_restart_recv,
-            );
+            run_high_level(hl_game_state, target_velocity_r);
         });
 
         let pacbot_pos = phys_render.read().unwrap().pacbot_pos;
@@ -315,7 +349,7 @@ impl App {
             );
         }
 
-        self.update_target_velocity(ctx);
+        // self.update_target_velocity(ctx);
 
         if self.selected_grid == StandardGrid::Pacman {
             self.draw_pacman_state(ctx, &world_to_screen, &painter);
