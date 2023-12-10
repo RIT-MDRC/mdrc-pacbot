@@ -1,6 +1,7 @@
 //! Handles all physics related operations
 
 use crate::grid::ComputedGrid;
+use crate::network;
 use crate::robot::Robot;
 use crate::standard_grids::StandardGrid;
 use rapier2d::dynamics::{IntegrationParameters, RigidBodySet};
@@ -303,6 +304,7 @@ impl PacbotSimulation {
     /// ```
     pub fn set_target_robot_velocity(&mut self, v: (Vector2<f32>, f32)) {
         self.robot_target_velocity = v;
+        network::set_target_robot_velocity(v);
     }
 
     /// Get the rays coming out of the primary robot, representing the theoretical readings from
