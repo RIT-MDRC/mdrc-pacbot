@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["AppMode","GameServer"],"fn":["pretty_print_time_now","run_game","run_gui","run_physics"],"mod":["colors","replay_manager","transforms","utils"],"struct":["App","PacmanStateRenderInfo","PhysicsRenderInfo"]};

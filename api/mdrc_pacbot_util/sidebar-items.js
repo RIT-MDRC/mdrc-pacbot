@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["agent_setup","constants","game_state","ghost","grid","gui","network","replay","robot","simulation","standard_grids"]};
