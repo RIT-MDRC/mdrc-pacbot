@@ -248,7 +248,7 @@ fn draw_stopwatch(stopwatch: &Stopwatch, ctx: &egui::Context, name: &str) {
             .show(ui, |ui| {
                 let segment_times = stopwatch.average_segment_times();
                 for (name, time) in segment_times {
-                    ui.label(format!("{}", name));
+                    ui.label(name);
                     ui.label(format!("{:.2}", time * 1000.0));
                     ui.end_row();
                 }
@@ -344,11 +344,11 @@ impl eframe::App for App {
 
         draw_stopwatch(&self.gui_stopwatch, ctx, "GUI Time");
         draw_stopwatch(
-            &self.physics_stopwatch.lock().unwrap().deref(),
+            self.physics_stopwatch.lock().unwrap().deref(),
             ctx,
             "Physics Time",
         );
-        draw_stopwatch(&self.pf_stopwatch.lock().unwrap().deref(), ctx, "PF Time");
+        draw_stopwatch(self.pf_stopwatch.lock().unwrap().deref(), ctx, "PF Time");
         self.gui_stopwatch.mark_segment("Draw stopwatches");
 
         ctx.request_repaint();
