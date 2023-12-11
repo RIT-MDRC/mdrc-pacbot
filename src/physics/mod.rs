@@ -403,6 +403,11 @@ impl PacbotSimulation {
             .collect()
     }
 
+    /// Get the particle filter's best guess position
+    pub fn pf_best_guess(&self) -> Isometry2<f32> {
+        self.particle_filter.best_guess()
+    }
+
     /// Get the best 'count' particle filter points
     pub fn pf_points(&self, count: usize) -> Vec<Isometry2<f32>> {
         self.particle_filter.points(count)

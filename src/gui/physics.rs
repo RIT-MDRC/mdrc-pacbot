@@ -1,7 +1,7 @@
 use crate::constants::GUI_PARTICLE_FILTER_POINTS;
 use crate::gui::colors::{
     PACMAN_COLOR, PACMAN_DISTANCE_SENSOR_RAY_COLOR, PACMAN_FACING_INDICATOR_COLOR,
-    PACMAN_PARTICLE_FILTER_COLOR, PACMAN_REPLAY_COLOR,
+    PACMAN_GUESS_COLOR, PACMAN_PARTICLE_FILTER_COLOR, PACMAN_REPLAY_COLOR,
 };
 use crate::gui::transforms::Transform;
 use crate::gui::{App, AppMode};
@@ -22,6 +22,8 @@ pub struct PhysicsRenderInfo {
     pub sleep: bool,
     /// The current position of the robot.
     pub pacbot_pos: Isometry2<f32>,
+    /// The particle filter's current best guess
+    pub pacbot_pos_guess: Isometry2<f32>,
     /// An array of start and end points.
     pub primary_robot_rays: Vec<(Point2<f32>, Point2<f32>)>,
     /// The number of best particle filter points to save
@@ -106,6 +108,7 @@ pub(super) fn run_physics(
         *phys_render.write().unwrap() = PhysicsRenderInfo {
             sleep: false,
             pacbot_pos: *simulation.get_primary_robot_position(),
+            pacbot_pos_guess: simulation.pf_best_guess(),
             primary_robot_rays: simulation.get_primary_robot_rays().clone(),
             pf_count: GUI_PARTICLE_FILTER_POINTS,
             pf_points: simulation.pf_points(GUI_PARTICLE_FILTER_POINTS),
@@ -131,7 +134,7 @@ impl App {
         let phys_render = self.phys_render.as_ref().read().unwrap();
         let pacbot_pos = phys_render.pacbot_pos;
 
-        // pacbot real (or best estimate) position
+        // pacbot real position
         painter.circle_filled(
             world_to_screen.map_point(Pos2::new(
                 pacbot_pos.translation.x,
@@ -139,6 +142,17 @@ impl App {
             )),
             world_to_screen.map_dist(self.robot.collider_radius),
             PACMAN_COLOR,
+        );
+
+        // pacbot best estimate position
+        let best_guess = phys_render.pacbot_pos_guess;
+        painter.circle_stroke(
+            world_to_screen.map_point(Pos2::new(
+                best_guess.translation.x,
+                best_guess.translation.y,
+            )),
+            world_to_screen.map_dist(self.robot.collider_radius),
+            Stroke::new(2.0, PACMAN_GUESS_COLOR),
         );
 
         let pacbot_front = pacbot_pos.rotation.transform_point(&Point2::new(0.45, 0.0));

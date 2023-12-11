@@ -96,6 +96,7 @@ impl Default for App {
             Arc::new(RwLock::new(PhysicsRenderInfo {
                 sleep: false,
                 pacbot_pos: StandardGrid::Pacman.get_default_pacbot_isometry(),
+                pacbot_pos_guess: StandardGrid::Pacman.get_default_pacbot_isometry(),
                 primary_robot_rays: vec![],
                 pf_count: GUI_PARTICLE_FILTER_POINTS,
                 pf_points: vec![],
