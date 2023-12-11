@@ -3,8 +3,8 @@
 mod particle_filter;
 
 use crate::constants::{
-    NUM_PARTICLE_FILTER_BODIES, NUM_PARTICLE_FILTER_POINTS, PARTICLE_FILTER_ELITE,
-    PARTICLE_FILTER_PURGE, PARTICLE_FILTER_RANDOM,
+    NUM_PARTICLE_FILTER_POINTS, PARTICLE_FILTER_ELITE, PARTICLE_FILTER_PURGE,
+    PARTICLE_FILTER_RANDOM,
 };
 use crate::grid::ComputedGrid;
 use crate::physics::particle_filter::{ParticleFilter, ParticleFilterOptions};
@@ -134,7 +134,6 @@ impl PacbotSimulation {
             distance_sensors,
             ParticleFilterOptions {
                 points: NUM_PARTICLE_FILTER_POINTS,
-                bodies: NUM_PARTICLE_FILTER_BODIES,
                 elite: PARTICLE_FILTER_ELITE,
                 purge: PARTICLE_FILTER_PURGE,
                 random: PARTICLE_FILTER_RANDOM,
@@ -407,10 +406,5 @@ impl PacbotSimulation {
     /// Get the best 'count' particle filter points
     pub fn pf_points(&self, count: usize) -> Vec<Isometry2<f32>> {
         self.particle_filter.points(count)
-    }
-
-    /// Get the best 'count' particle filter bodies
-    pub fn pf_bodies(&self, count: usize) -> Vec<Isometry2<f32>> {
-        self.particle_filter.bodies(count, &self.rigid_body_set)
     }
 }

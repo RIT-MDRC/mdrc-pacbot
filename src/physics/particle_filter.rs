@@ -8,9 +8,7 @@ use rand::rngs::ThreadRng;
 use rand::Rng;
 use rapier2d::na::{Isometry2, Point2, Vector2};
 use rapier2d::prelude::{
-    ColliderBuilder, ColliderSet, ImpulseJointSet, InteractionGroups, IslandManager,
-    MultibodyJointSet, QueryFilter, QueryPipeline, Ray, RigidBodyBuilder, RigidBodyHandle,
-    RigidBodySet, Rotation,
+    ColliderSet, InteractionGroups, QueryFilter, QueryPipeline, Ray, RigidBodySet, Rotation,
 };
 use rayon::prelude::*;
 use std::f32::consts::PI;
@@ -18,10 +16,6 @@ use std::sync::{Arc, Mutex};
 
 /// Values that can be tweaked to improve the performance of the particle filter
 pub struct ParticleFilterOptions {
-    /// The total number of rigid bodies tracked
-    ///
-    /// Usually small
-    pub bodies: usize,
     /// The total number of points tracked
     ///
     /// Any points not included in elite, purge, or random will be moved slightly
@@ -50,8 +44,6 @@ pub struct ParticleFilter {
     grid: ComputedGrid,
     /// Guesses for the current location, ordered by measured accuracy
     points: Vec<Isometry2<f32>>,
-    /// Rigid bodies tracked by the particle filter
-    bodies: Vec<RigidBodyHandle>,
     /// Cross-thread reference to the current distance sensor readings
     distance_sensors: Arc<Mutex<Vec<Option<f32>>>>,
     /// The current best guess
@@ -74,7 +66,6 @@ impl ParticleFilter {
     ) -> Self {
         Self {
             points: Vec::new(),
-            bodies: Vec::new(),
             distance_sensors,
             grid,
             robot,
@@ -219,45 +210,17 @@ impl ParticleFilter {
             self.points.push(point);
         }
 
-        // extend bodies to the correct length
-        while self.bodies.len() < self.options.bodies {
-            let point = self.random_point();
-            self.bodies.push(Self::create_rigid_body(
-                point,
-                self.robot.collider_radius,
-                self.robot.density,
-                rigid_body_set,
-                collider_set,
-            ));
-        }
-
-        stopwatch
-            .lock()
-            .unwrap()
-            .mark_segment("Extend bodies & points");
+        stopwatch.lock().unwrap().mark_segment("Extend points");
 
         // cut off any extra points
         while self.points.len() > self.options.points {
             self.points.pop();
         }
 
-        // cut off any extra bodies
-        while self.bodies.len() > self.options.bodies {
-            let handle = self.bodies.pop().expect("Ran out of points!");
-            rigid_body_set.remove(
-                handle,
-                &mut IslandManager::default(),
-                collider_set,
-                &mut ImpulseJointSet::default(),
-                &mut MultibodyJointSet::default(),
-                true,
-            );
-        }
-
         stopwatch
             .lock()
             .unwrap()
-            .mark_segment("Cut off extra bodies & points");
+            .mark_segment("Cut off extra points");
 
         let elite_boundary = self.options.elite;
         let genetic_boundary = self.options.points - self.options.random - self.options.purge;
@@ -396,50 +359,6 @@ impl ParticleFilter {
 
         stopwatch.lock().unwrap().mark_segment("Sort points");
 
-        // TODO update bodies
-        stopwatch.lock().unwrap().mark_segment("Update bodies");
-        // TODO reset any bodies that are performing poorly
-        stopwatch
-            .lock()
-            .unwrap()
-            .mark_segment("Reset poorly performing bodies");
-
-        // Calculate body values
-        let mut paired_bodies_and_errors: Vec<(&RigidBodyHandle, f32)> = self
-            .bodies
-            .par_iter()
-            .map(|p| {
-                (
-                    p,
-                    Self::distance_sensor_diff(
-                        &robot,
-                        *rigid_body_set.get(*p).unwrap().position(),
-                        &distance_sensors,
-                        rigid_body_set,
-                        collider_set,
-                        query_pipeline,
-                    ),
-                )
-            })
-            .collect();
-
-        stopwatch
-            .lock()
-            .unwrap()
-            .mark_segment("Calculate body errors");
-
-        // Sort the paired vector based on the error values
-        paired_bodies_and_errors
-            .sort_unstable_by(|(_, error_a), (_, error_b)| error_a.total_cmp(error_b));
-
-        // Extract the sorted points from the pairs
-        self.bodies = paired_bodies_and_errors
-            .into_iter()
-            .map(|(point, _)| *point)
-            .collect();
-
-        stopwatch.lock().unwrap().mark_segment("Sort bodies");
-
         self.best_guess = self.points[0];
     }
 
@@ -507,29 +426,6 @@ impl ParticleFilter {
         }
     }
 
-    fn create_rigid_body(
-        point: Isometry2<f32>,
-        collider_radius: f32,
-        density: f32,
-        rigid_body_set: &mut RigidBodySet,
-        collider_set: &mut ColliderSet,
-    ) -> RigidBodyHandle {
-        let rigid_body = RigidBodyBuilder::dynamic().position(point).build();
-        let rigid_body_handle = rigid_body_set.insert(rigid_body);
-
-        let collider = ColliderBuilder::ball(collider_radius)
-            .density(density)
-            .collision_groups(InteractionGroups::new(
-                GROUP_ROBOT.into(),
-                GROUP_WALL.into(),
-            )) // allows robots to only interact with walls, not other robots
-            .build();
-
-        collider_set.insert_with_parent(collider, rigid_body_handle, rigid_body_set);
-
-        rigid_body_handle
-    }
-
     /// a small random translation and a small random rotation to the point
     fn modify_point(&mut self, point: Isometry2<f32>) -> Isometry2<f32> {
         let mut rng = rand::thread_rng();
@@ -558,15 +454,6 @@ impl ParticleFilter {
             .iter()
             .map(|p| p.to_owned())
             .take(count)
-            .collect()
-    }
-
-    /// Get the best 'count' particle filter body points
-    pub fn bodies(&self, count: usize, rigid_body_set: &RigidBodySet) -> Vec<Isometry2<f32>> {
-        self.bodies
-            .iter()
-            .take(count)
-            .map(|handle| rigid_body_set.get(*handle).unwrap().position().to_owned())
             .collect()
     }
 
