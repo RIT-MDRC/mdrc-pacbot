@@ -231,7 +231,10 @@ impl ParticleFilter {
             ));
         }
 
-        stopwatch.lock().unwrap().mark_segment();
+        stopwatch
+            .lock()
+            .unwrap()
+            .mark_segment("Extend bodies & points");
 
         // cut off any extra points
         while self.points.len() > self.options.points {
@@ -251,7 +254,10 @@ impl ParticleFilter {
             );
         }
 
-        stopwatch.lock().unwrap().mark_segment();
+        stopwatch
+            .lock()
+            .unwrap()
+            .mark_segment("Cut off extra bodies & points");
 
         let elite_boundary = self.options.elite;
         let genetic_boundary = self.options.points - self.options.random - self.options.purge;
@@ -268,7 +274,10 @@ impl ParticleFilter {
             self.points[i] = point;
         }
 
-        stopwatch.lock().unwrap().mark_segment();
+        stopwatch
+            .lock()
+            .unwrap()
+            .mark_segment("Randomize last points");
 
         // randomize the last 'purge' points near the given approximate location
         let results: Vec<_> = random_near_cv_points
@@ -281,7 +290,10 @@ impl ParticleFilter {
         //     self.points[i] = self.random_point_near(cv_position);
         // }
 
-        stopwatch.lock().unwrap().mark_segment();
+        stopwatch
+            .lock()
+            .unwrap()
+            .mark_segment("Randomize last points near cv location");
 
         let mut rng = rand::thread_rng();
 
@@ -301,7 +313,7 @@ impl ParticleFilter {
             self.points[i] = new_point;
         }
 
-        stopwatch.lock().unwrap().mark_segment();
+        stopwatch.lock().unwrap().mark_segment("Genetic points");
 
         // randomize any points that are within a wall or out of bounds
         for i in 0..self.options.points {
@@ -324,7 +336,10 @@ impl ParticleFilter {
             }
         }
 
-        stopwatch.lock().unwrap().mark_segment();
+        stopwatch
+            .lock()
+            .unwrap()
+            .mark_segment("Randomize out of bounds or in wall points");
 
         let robot = self.robot.to_owned();
 
@@ -338,6 +353,11 @@ impl ParticleFilter {
             println!("Uh oh! Particle filter found the wrong number of distance sensors. Unexpected behavior may occur.");
             return;
         }
+
+        stopwatch
+            .lock()
+            .unwrap()
+            .mark_segment("Lock distance sensors");
 
         // Calculate distance sensor errors
         // Calculate distance sensor errors and pair with points
@@ -359,7 +379,10 @@ impl ParticleFilter {
             })
             .collect();
 
-        stopwatch.lock().unwrap().mark_segment();
+        stopwatch
+            .lock()
+            .unwrap()
+            .mark_segment("Calculate distance sensor errors");
 
         // Sort the paired vector based on the error values
         paired_points_and_errors
@@ -371,12 +394,15 @@ impl ParticleFilter {
             .map(|(point, _)| *point)
             .collect();
 
-        stopwatch.lock().unwrap().mark_segment();
+        stopwatch.lock().unwrap().mark_segment("Sort points");
 
         // TODO update bodies
-        stopwatch.lock().unwrap().mark_segment();
+        stopwatch.lock().unwrap().mark_segment("Update bodies");
         // TODO reset any bodies that are performing poorly
-        stopwatch.lock().unwrap().mark_segment();
+        stopwatch
+            .lock()
+            .unwrap()
+            .mark_segment("Reset poorly performing bodies");
 
         // Calculate body values
         let mut paired_bodies_and_errors: Vec<(&RigidBodyHandle, f32)> = self
@@ -397,7 +423,10 @@ impl ParticleFilter {
             })
             .collect();
 
-        stopwatch.lock().unwrap().mark_segment();
+        stopwatch
+            .lock()
+            .unwrap()
+            .mark_segment("Calculate body errors");
 
         // Sort the paired vector based on the error values
         paired_bodies_and_errors
@@ -409,7 +438,7 @@ impl ParticleFilter {
             .map(|(point, _)| *point)
             .collect();
 
-        stopwatch.lock().unwrap().mark_segment();
+        stopwatch.lock().unwrap().mark_segment("Sort bodies");
 
         self.best_guess = self.points[0];
     }

@@ -45,6 +45,11 @@ impl MovingAverage {
             self.samples.iter().sum::<f32>() / self.num_samples as f32
         }
     }
+
+    /// Returns the number of samples in the average
+    pub fn num_samples(&self) -> usize {
+        self.num_samples
+    }
 }
 
 #[cfg(test)]

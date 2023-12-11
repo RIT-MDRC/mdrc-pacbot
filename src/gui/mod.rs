@@ -100,7 +100,10 @@ fn run_physics(
         // Run simulation one step
         physics_stopwatch.lock().unwrap().start();
         simulation.step();
-        physics_stopwatch.lock().unwrap().mark_segment();
+        physics_stopwatch
+            .lock()
+            .unwrap()
+            .mark_segment("Step simulation");
 
         // Estimate game location
         let estimated_location = grid
@@ -121,6 +124,10 @@ fn run_physics(
         }
         // Update particle filter
         simulation.pf_update(estimated_location, &pf_stopwatch);
+        physics_stopwatch
+            .lock()
+            .unwrap()
+            .mark_segment("Update particle filter");
 
         // Update the current velocity
         let target = *current_velocity.as_ref().read().unwrap();
@@ -376,17 +383,17 @@ impl App {
 
         self.update_target_velocity(ctx);
 
-        self.gui_stopwatch.mark_segment();
+        self.gui_stopwatch.mark_segment("Draw grid");
 
         if self.selected_grid == StandardGrid::Pacman {
             self.draw_pacman_state(ctx, &world_to_screen, &painter);
         }
 
-        self.gui_stopwatch.mark_segment();
+        self.gui_stopwatch.mark_segment("Draw pacman state");
 
         self.draw_simulation(&world_to_screen, &painter);
 
-        self.gui_stopwatch.mark_segment();
+        self.gui_stopwatch.mark_segment("Draw simulation");
     }
 
     fn update_target_velocity(&mut self, ctx: &egui::Context) {
@@ -583,7 +590,7 @@ impl App {
     }
 }
 
-fn draw_stopwatch(stopwatch: &Stopwatch, ctx: &egui::Context, name: &str, segments: &[&str]) {
+fn draw_stopwatch(stopwatch: &Stopwatch, ctx: &egui::Context, name: &str) {
     egui::Window::new(name).show(ctx, |ui| {
         ui.label(format!(
             "Total: {:.2}",
@@ -595,12 +602,9 @@ fn draw_stopwatch(stopwatch: &Stopwatch, ctx: &egui::Context, name: &str, segmen
             .striped(true)
             .show(ui, |ui| {
                 let segment_times = stopwatch.average_segment_times();
-                for i in 0..segment_times.len() {
-                    let name = segments
-                        .get(i)
-                        .map_or_else(|| i.to_string(), |&s| s.to_string());
+                for (name, time) in segment_times {
                     ui.label(format!("{}", name));
-                    ui.label(format!("{:.2}", segment_times[i] * 1000.0));
+                    ui.label(format!("{:.2}", time * 1000.0));
                     ui.end_row();
                 }
             });
@@ -614,7 +618,7 @@ impl eframe::App for App {
         self.update_replay_manager()
             .expect("Error updating replay manager");
 
-        self.gui_stopwatch.mark_segment();
+        self.gui_stopwatch.mark_segment("Update replay manager");
 
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -663,7 +667,7 @@ impl eframe::App for App {
                 )
                 .show(ctx, |ui| {
                     self.draw_replay_ui(ctx, ui);
-                    self.gui_stopwatch.mark_segment();
+                    self.gui_stopwatch.mark_segment("Draw replay UI");
                 });
         }
         egui::CentralPanel::default()
@@ -671,48 +675,15 @@ impl eframe::App for App {
             .show(ctx, |ui| {
                 self.draw_grid(ctx, ui);
             });
-        self.gui_stopwatch.mark_segment();
-        draw_stopwatch(
-            &self.gui_stopwatch,
-            ctx,
-            "GUI Time",
-            &[
-                "Replay manager",
-                "Replay UI",
-                "Draw Grid",
-                "Draw GameState",
-                "Draw Simulation",
-                "Draw Main UI",
-                "Draw Stopwatches",
-            ],
-        );
+        self.gui_stopwatch.mark_segment("Draw all grid parts");
+        draw_stopwatch(&self.gui_stopwatch, ctx, "GUI Time");
         draw_stopwatch(
             &self.physics_stopwatch.lock().unwrap().deref(),
             ctx,
             "Physics Time",
-            &["End"],
         );
-        draw_stopwatch(
-            &self.pf_stopwatch.lock().unwrap().deref(),
-            ctx,
-            "PF Time",
-            &[
-                "Extended points/bodies",
-                "Cut extra points/bodies",
-                "Randomize last points",
-                "Approx. randomize points",
-                "Genetic points",
-                "Randomize invalid points",
-                "Calculate point errors",
-                "Sort points",
-                "Update bodies",
-                "Reset bodies",
-                "Calculate body errors",
-                "Sort bodies",
-                "End",
-            ],
-        );
-        self.gui_stopwatch.mark_segment();
+        draw_stopwatch(&self.pf_stopwatch.lock().unwrap().deref(), ctx, "PF Time");
+        self.gui_stopwatch.mark_segment("Draw stopwatches");
 
         ctx.request_repaint();
     }

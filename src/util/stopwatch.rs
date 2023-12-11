@@ -12,7 +12,7 @@ pub struct Stopwatch {
     segment: usize,
 
     process_moving_average: MovingAverage,
-    segment_moving_averages: Vec<MovingAverage>,
+    segment_moving_averages: Vec<(String, MovingAverage)>,
 }
 
 impl Stopwatch {
@@ -37,13 +37,13 @@ impl Stopwatch {
     }
 
     /// Mark a segment of the process
-    pub fn mark_segment(&mut self) {
+    pub fn mark_segment(&mut self, name: &str) {
         let now = Instant::now();
         if let Some(t) = self.last_segment_time {
             if self.segment_moving_averages.len() < self.segment + 1 {
                 // this is the first time through the process
                 self.segment_moving_averages
-                    .push(MovingAverage::new(self.num_samples));
+                    .push((name.to_string(), MovingAverage::new(self.num_samples)));
             } else {
                 // this is not the first time through the process; if this is the last segment,
                 // mark the time
@@ -55,6 +55,7 @@ impl Stopwatch {
                 }
             }
             self.segment_moving_averages[self.segment]
+                .1
                 .add_sample(now.duration_since(t).as_secs_f32());
         }
         self.last_segment_time = Some(now);
@@ -67,10 +68,10 @@ impl Stopwatch {
     }
 
     /// Get the average time it is taking to complete each segment
-    pub fn average_segment_times(&self) -> Vec<f32> {
+    pub fn average_segment_times(&self) -> Vec<(String, f32)> {
         self.segment_moving_averages
             .iter()
-            .map(|ma| ma.average())
+            .map(|(s, ma)| (s.to_owned(), ma.average()))
             .collect()
     }
 }
