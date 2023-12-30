@@ -1,4 +1,5 @@
 use crate::constants::GUI_PARTICLE_FILTER_POINTS;
+use crate::grid::standard_grids::StandardGrid;
 use crate::gui::colors::{
     PACMAN_COLOR, PACMAN_DISTANCE_SENSOR_RAY_COLOR, PACMAN_FACING_INDICATOR_COLOR,
     PACMAN_GUESS_COLOR, PACMAN_PARTICLE_FILTER_COLOR, PACMAN_REPLAY_COLOR,
@@ -7,7 +8,6 @@ use crate::gui::transforms::Transform;
 use crate::gui::{App, AppMode};
 use crate::physics::PacbotSimulation;
 use crate::robot::Robot;
-use crate::standard_grids::StandardGrid;
 use crate::util::stopwatch::Stopwatch;
 use eframe::egui::{Painter, Pos2, Stroke};
 use rapier2d::na::{Isometry2, Point2, Vector2};

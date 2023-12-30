@@ -1,6 +1,4 @@
-use crate::agent_setup::PacmanAgentSetup;
-use crate::game_state::{GhostType, PacmanState};
-use crate::grid::facing_direction;
+use crate::grid::{facing_direction, Direction};
 use crate::gui::colors::{
     GHOST_BLUE_COLOR, GHOST_ORANGE_COLOR, GHOST_PINK_COLOR, GHOST_RED_COLOR, PELLET_COLOR,
     SUPER_PELLET_COLOR, WALL_COLOR,
@@ -9,7 +7,8 @@ use crate::gui::transforms::Transform;
 use crate::gui::App;
 use eframe::egui;
 use eframe::egui::{Painter, Pos2, Rect, Rounding, Stroke};
-use rand::prelude::ThreadRng;
+use pacbot_rs::game_engine::GameEngine;
+use pacbot_rs::location::{LocationState, DOWN, LEFT, RIGHT, UP};
 use rapier2d::na::Point2;
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::{Receiver, Sender};
@@ -18,19 +17,17 @@ use std::sync::{Arc, RwLock};
 /// Stores state needed to render game state information
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PacmanStateRenderInfo {
-    /// Initial positions of Pacman, ghosts, etc.
-    pub agent_setup: PacmanAgentSetup,
     /// Current game state
-    pub pacman_state: PacmanState,
+    pub pacman_state: GameEngine,
 }
+
+const FLIP_OFFSET: f32 = 30.0;
 
 pub(super) fn run_game(
     pacman_render: Arc<RwLock<PacmanStateRenderInfo>>,
     location_receive: Receiver<Point2<u8>>,
     replay_send: Sender<()>,
 ) {
-    let mut rng = ThreadRng::default();
-
     let mut previous_pacman_location = Point2::new(14u8, 7);
 
     loop {
@@ -40,18 +37,22 @@ pub(super) fn run_game(
 
             // fetch updated pacbot position
             while let Ok(pacbot_location) = location_receive.try_recv() {
-                state.pacman_state.update_pacman(
-                    pacbot_location,
-                    facing_direction(&previous_pacman_location, &pacbot_location),
-                );
+                state.pacman_state.set_pacman_location(LocationState {
+                    col: pacbot_location.x as i8,
+                    row: pacbot_location.y as i8,
+                    dir: match facing_direction(&previous_pacman_location, &pacbot_location) {
+                        Direction::Right => RIGHT,
+                        Direction::Left => LEFT,
+                        Direction::Up => UP,
+                        Direction::Down => DOWN,
+                    },
+                });
                 previous_pacman_location = pacbot_location;
             }
 
-            let agent_setup = state.agent_setup.clone();
-
             // step the game
-            if !state.pacman_state.paused {
-                state.pacman_state.step(&agent_setup, &mut rng, true);
+            if !state.pacman_state.is_paused() {
+                state.pacman_state.step();
                 replay_send.send(()).unwrap()
             }
         }
@@ -108,49 +109,52 @@ impl App {
         let pacman_state = &pacman_state_info.pacman_state;
 
         egui::Window::new("Pacman").show(ctx, |ui| {
-            ui.label(format!("Score: {}", pacman_state.score));
-            ui.label(format!("Lives: {}", pacman_state.lives));
-            ui.label(format!("Frame: {}", pacman_state.elapsed_time));
+            ui.label(format!("Score: {}", pacman_state.get_state().curr_score));
+            ui.label(format!("Lives: {}", pacman_state.get_state().curr_lives));
+            ui.label(format!("Frame: {}", pacman_state.get_state().curr_ticks));
         });
 
         // ghosts
-        for i in 0..pacman_state.ghosts.len() {
+        for ghost in &pacman_state.get_state().ghosts {
+            let ghost = ghost.lock().unwrap();
             painter.circle_filled(
                 world_to_screen.map_point(Pos2::new(
-                    pacman_state.ghosts[i].agent.location.x as f32,
-                    pacman_state.ghosts[i].agent.location.y as f32,
+                    ghost.loc.col as f32,
+                    FLIP_OFFSET - ghost.loc.row as f32,
                 )),
                 world_to_screen.map_dist(0.45),
-                match pacman_state.ghosts[i].color {
-                    GhostType::Red => GHOST_RED_COLOR,
-                    GhostType::Pink => GHOST_PINK_COLOR,
-                    GhostType::Orange => GHOST_ORANGE_COLOR,
-                    GhostType::Blue => GHOST_BLUE_COLOR,
+                match ghost.color {
+                    pacbot_rs::ghost_state::RED => GHOST_RED_COLOR,
+                    pacbot_rs::ghost_state::PINK => GHOST_PINK_COLOR,
+                    pacbot_rs::ghost_state::ORANGE => GHOST_ORANGE_COLOR,
+                    pacbot_rs::ghost_state::CYAN => GHOST_BLUE_COLOR,
+                    _ => panic!("Invalid ghost color!"),
                 },
             )
         }
 
         // pellets
-        for i in 0..pacman_state.pellets.len() {
-            if pacman_state.pellets[i] {
-                painter.circle_filled(
-                    world_to_screen.map_point(Pos2::new(
-                        self.agent_setup.grid().walkable_nodes()[i].x as f32,
-                        self.agent_setup.grid().walkable_nodes()[i].y as f32,
-                    )),
-                    3.0,
-                    PELLET_COLOR,
-                )
+        for row in 0..32 {
+            for col in 0..32 {
+                if pacman_state.get_state().pellet_at((row, col)) {
+                    let super_pellet = ((row == 3) || (row == 23)) && ((col == 1) || (col == 26));
+                    if super_pellet {
+                        painter.circle_filled(
+                            world_to_screen
+                                .map_point(Pos2::new(col as f32, FLIP_OFFSET - row as f32)),
+                            6.0,
+                            SUPER_PELLET_COLOR,
+                        )
+                    } else {
+                        painter.circle_filled(
+                            world_to_screen
+                                .map_point(Pos2::new(col as f32, FLIP_OFFSET - row as f32)),
+                            3.0,
+                            PELLET_COLOR,
+                        )
+                    }
+                }
             }
-        }
-
-        // super pellets
-        for super_pellet in &pacman_state.power_pellets {
-            painter.circle_filled(
-                world_to_screen.map_point(Pos2::new(super_pellet.x as f32, super_pellet.y as f32)),
-                6.0,
-                SUPER_PELLET_COLOR,
-            )
         }
     }
 }

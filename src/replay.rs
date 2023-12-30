@@ -1,9 +1,8 @@
 //! A utility for recording over time
 
-use crate::agent_setup::PacmanAgentSetup;
-use crate::game_state::PacmanState;
-use crate::standard_grids::StandardGrid;
+use crate::grid::standard_grids::StandardGrid;
 use anyhow::{anyhow, Error};
+use pacbot_rs::game_engine::GameEngine;
 use rapier2d::na::Isometry2;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
@@ -14,7 +13,7 @@ enum ReplayFrameData {
     /// Pacbot's real physical location, as determined by the [`PacbotSimulation`]
     PacbotLocation(Isometry2<f32>),
     /// Information that changes frequently in Pacman, like ghost locations and pellets
-    PacmanGameState(Box<PacmanState>),
+    PacmanGameState(Box<GameEngine>),
 }
 
 /// The metadata included in one frame of a [`Replay`]
@@ -33,8 +32,6 @@ pub struct Replay {
     start_time: SystemTime,
     /// The StandardGrid the recording uses
     standard_grid: StandardGrid,
-    /// The agent setup the recording uses
-    agent_setup: PacmanAgentSetup,
     /// The name/label given to this replay (usually matches the file name)
     pub label: String,
     /// The data of the replay
@@ -52,8 +49,7 @@ impl Default for Replay {
         Self::new(
             "replay".to_string(),
             StandardGrid::Pacman,
-            PacmanAgentSetup::default(),
-            PacmanState::default(),
+            GameEngine::default(),
             StandardGrid::Pacman.get_default_pacbot_isometry(),
         )
     }
@@ -67,18 +63,16 @@ impl Replay {
     /// # Examples
     ///
     /// ```
+    /// use pacbot_rs::game_engine::GameEngine;
     /// use rapier2d::math::Isometry;
     /// use rapier2d::na::Vector2;
-    /// use mdrc_pacbot_util::agent_setup::PacmanAgentSetup;
-    /// use mdrc_pacbot_util::game_state::PacmanState;
     /// use mdrc_pacbot_util::replay::Replay;
     /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
     /// let mut replay = Replay::new(
     ///     "My First Replay".to_string(),
     ///     StandardGrid::Pacman,
-    ///     PacmanAgentSetup::default(),
-    ///     PacmanState::default(),
+    ///     GameEngine::default(),
     ///     StandardGrid::Pacman.get_default_pacbot_isometry()
     /// );
     ///
@@ -88,8 +82,7 @@ impl Replay {
     pub fn new(
         label: String,
         standard_grid: StandardGrid,
-        agent_setup: PacmanAgentSetup,
-        pacman_state: PacmanState,
+        pacman_state: GameEngine,
         pacbot_location: Isometry2<f32>,
     ) -> Self {
         let start_time = SystemTime::now();
@@ -106,7 +99,6 @@ impl Replay {
         Self {
             start_time,
             standard_grid,
-            agent_setup,
             label,
             frames,
             current_frame: 1,
@@ -124,22 +116,19 @@ impl Replay {
     /// # Examples
     ///
     /// ```
+    /// use pacbot_rs::game_engine::GameEngine;
     /// use rand::rngs::ThreadRng;
     /// use rapier2d::math::Isometry;
     /// use rapier2d::na::Vector2;
-    /// use mdrc_pacbot_util::agent_setup::PacmanAgentSetup;
-    /// use mdrc_pacbot_util::game_state::PacmanState;
     /// use mdrc_pacbot_util::replay::Replay;
     /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
-    /// let agent_setup = PacmanAgentSetup::default();
-    /// let mut pacman_state = PacmanState::new(&agent_setup);
+    /// let mut pacman_state = GameEngine::default();
     /// let mut rng = ThreadRng::default();
     ///
     /// let mut replay = Replay::new(
     ///     "My First Replay".to_string(),
     ///     StandardGrid::Pacman,
-    ///     PacmanAgentSetup::default(),
     ///     pacman_state.to_owned(),
     ///     StandardGrid::Pacman.get_default_pacbot_isometry()
     /// );
@@ -148,7 +137,7 @@ impl Replay {
     /// assert_eq!(replay.current_frame(), 1);
     ///
     /// for i in 0..3 {
-    ///     pacman_state.step(&agent_setup, &mut rng, false);
+    ///     pacman_state.step();
     ///     replay.record_pacman_state(pacman_state.to_owned()).unwrap();
     /// }
     ///
@@ -189,7 +178,6 @@ impl Replay {
         Self {
             start_time: frames[0].timestamp,
             standard_grid: other.standard_grid,
-            agent_setup: other.agent_setup.to_owned(),
             label: other.label.to_owned(),
             frames,
             current_frame: other.current_frame,
@@ -233,12 +221,12 @@ impl Replay {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::game_state::PacmanState;
+    /// use pacbot_rs::game_engine::GameEngine;
     /// use mdrc_pacbot_util::replay::Replay;
     ///
     /// let mut replay = Replay::default();
     /// assert!(replay.is_at_end());
-    /// replay.record_pacman_state(PacmanState::default()).unwrap();
+    /// replay.record_pacman_state(GameEngine::default()).unwrap();
     /// assert!(replay.is_at_end());
     /// replay.step_back();
     /// assert!(!replay.is_at_end());
@@ -254,12 +242,12 @@ impl Replay {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::game_state::PacmanState;
+    /// use pacbot_rs::game_engine::GameEngine;
     /// use mdrc_pacbot_util::replay::Replay;
     ///
     /// let mut replay = Replay::default();
     /// assert!(replay.is_at_beginning());
-    /// replay.record_pacman_state(PacmanState::default()).unwrap();
+    /// replay.record_pacman_state(GameEngine::default()).unwrap();
     /// assert!(!replay.is_at_beginning());
     /// replay.step_back();
     /// assert!(replay.is_at_beginning());
@@ -275,20 +263,18 @@ impl Replay {
     /// # Examples
     ///
     /// ```
+    /// use pacbot_rs::game_engine::GameEngine;
     /// use rand::rngs::ThreadRng;
-    /// use mdrc_pacbot_util::agent_setup::PacmanAgentSetup;
-    /// use mdrc_pacbot_util::game_state::PacmanState;
     /// use mdrc_pacbot_util::replay::Replay;
     ///
     /// let mut replay = Replay::default();
-    /// let mut pacman_state = PacmanState::default();
-    /// let mut agent_setup = PacmanAgentSetup::default();
+    /// let mut pacman_state = GameEngine::default();
     /// let mut rng = ThreadRng::default();
     ///
-    /// pacman_state.step(&agent_setup, &mut rng, false);
+    /// pacman_state.step();
     /// replay.record_pacman_state(pacman_state.to_owned()).unwrap();
     /// let pacman_state_1 = pacman_state.to_owned();
-    /// pacman_state.step(&agent_setup, &mut rng, false);
+    /// pacman_state.step();
     /// replay.record_pacman_state(pacman_state.to_owned()).unwrap();
     /// let pacman_state_2 = pacman_state.to_owned();
     ///
@@ -296,9 +282,9 @@ impl Replay {
     /// replay.step_backwards_until_pacman_state();
     /// assert_eq!(pacman_state_1, replay.get_pacman_state());
     /// replay.step_backwards_until_pacman_state();
-    /// assert_eq!(PacmanState::default(), replay.get_pacman_state());
+    /// assert_eq!(GameEngine::default(), replay.get_pacman_state());
     /// ```
-    pub fn get_pacman_state(&self) -> PacmanState {
+    pub fn get_pacman_state(&self) -> GameEngine {
         if let ReplayFrameData::PacmanGameState(data) = &self.frames[self.pacman_state_frame].data {
             *data.to_owned()
         } else {
@@ -384,21 +370,21 @@ impl Replay {
     /// # Examples
     ///
     /// ```
+    /// use pacbot_rs::game_engine::GameEngine;
     /// use rapier2d::na::{Isometry2, Vector2};
-    /// use mdrc_pacbot_util::game_state::PacmanState;
     /// use mdrc_pacbot_util::replay::Replay;
     ///
     /// let mut replay = Replay::default();
     ///
-    /// replay.record_pacman_state(PacmanState::default()).unwrap();
+    /// replay.record_pacman_state(GameEngine::default()).unwrap();
     /// replay.record_pacman_location(Isometry2::new(Vector2::new(1.0, 1.0), 1.0)).unwrap();
     /// replay.record_pacman_location(Isometry2::new(Vector2::new(2.0, 2.0), 2.0)).unwrap();
     /// replay.record_pacman_location(Isometry2::new(Vector2::new(3.0, 3.0), 3.0)).unwrap();
-    /// replay.record_pacman_state(PacmanState::default()).unwrap();
+    /// replay.record_pacman_state(GameEngine::default()).unwrap();
     /// replay.record_pacman_location(Isometry2::new(Vector2::new(4.0, 4.0), 4.0)).unwrap();
     /// replay.record_pacman_location(Isometry2::new(Vector2::new(5.0, 5.0), 5.0)).unwrap();
     /// replay.record_pacman_location(Isometry2::new(Vector2::new(6.0, 6.0), 6.0)).unwrap();
-    /// replay.record_pacman_state(PacmanState::default()).unwrap();
+    /// replay.record_pacman_state(GameEngine::default()).unwrap();
     ///
     /// assert_eq!(replay.get_pacbot_location(), Isometry2::new(Vector2::new(6.0, 6.0), 6.0));
     /// replay.step_backwards_until_pacman_state();
@@ -441,15 +427,15 @@ impl Replay {
     ///
     /// ```
     ///
-    /// use mdrc_pacbot_util::game_state::PacmanState;
+    /// use pacbot_rs::game_engine::GameEngine;
     /// use mdrc_pacbot_util::replay::Replay;
     ///
     /// let mut replay = Replay::default();
     ///
-    /// assert!(replay.record_pacman_state(PacmanState::default()).is_ok());
+    /// assert!(replay.record_pacman_state(GameEngine::default()).is_ok());
     /// replay.step_back();
     /// // Don't add frames to a replay that isn't at the end
-    /// assert!(replay.record_pacman_state(PacmanState::default()).is_err());
+    /// assert!(replay.record_pacman_state(GameEngine::default()).is_err());
     /// ```
     pub fn record_pacman_location(&mut self, location: Isometry2<f32>) -> Result<(), Error> {
         if !self.is_at_end() {
@@ -483,7 +469,7 @@ impl Replay {
     /// // Don't add frames to a replay that isn't at the end
     /// assert!(replay.record_pacman_location(Isometry2::default()).is_err());
     /// ```
-    pub fn record_pacman_state(&mut self, state: PacmanState) -> Result<(), Error> {
+    pub fn record_pacman_state(&mut self, state: GameEngine) -> Result<(), Error> {
         if !self.is_at_end() {
             Err(anyhow!("Tried to record to replay that was mid-playback"))
         } else {
@@ -545,8 +531,8 @@ impl Replay {
 
 #[cfg(test)]
 mod test {
-    use crate::game_state::PacmanState;
     use crate::replay::Replay;
+    use pacbot_rs::game_engine::GameEngine;
     use rapier2d::na::Isometry2;
 
     #[test]
@@ -555,7 +541,7 @@ mod test {
 
         replay.record_pacman_location(Isometry2::default()).unwrap();
         replay.record_pacman_location(Isometry2::default()).unwrap();
-        replay.record_pacman_state(PacmanState::default()).unwrap();
+        replay.record_pacman_state(GameEngine::default()).unwrap();
         replay.record_pacman_location(Isometry2::default()).unwrap();
         replay.record_pacman_location(Isometry2::default()).unwrap();
 

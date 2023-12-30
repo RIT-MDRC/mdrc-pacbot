@@ -130,12 +130,12 @@ static PICO_CONNECTION: OnceLock<Mutex<PicoConnection>> = OnceLock::new();
 /// The socket is created on the first call.
 /// Panics if an error occurs. (TODO: make this more robust?)
 pub fn set_target_robot_velocity(v: (Vector2<f32>, f32)) {
-    let mut pico_connection = PICO_CONNECTION
-        .get_or_init(|| Mutex::new(PicoConnection::new(20001, "remote_address").unwrap()))
-        .lock();
-
-    // TODO: use *math* to convert the target velocity to the 3 actual motor velocities.
-    pico_connection
-        .send_motors_message(v.0.x, v.0.y, v.1)
-        .unwrap();
+    // let mut pico_connection = PICO_CONNECTION
+    //     .get_or_init(|| Mutex::new(PicoConnection::new(20001, "remote_address").unwrap()))
+    //     .lock();
+    //
+    // // TODO: use *math* to convert the target velocity to the 3 actual motor velocities.
+    // pico_connection
+    //     .send_motors_message(v.0.x, v.0.y, v.1)
+    //     .unwrap();
 }

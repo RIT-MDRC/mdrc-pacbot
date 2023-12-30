@@ -13,16 +13,15 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use eframe::egui;
 use eframe::egui::{Frame, Key, Pos2, Ui};
+use pacbot_rs::game_engine::GameEngine;
 use rapier2d::na::{Isometry2, Vector2};
 
-use crate::agent_setup::PacmanAgentSetup;
 use crate::constants::GUI_PARTICLE_FILTER_POINTS;
-use crate::game_state::PacmanState;
+use crate::grid::standard_grids::StandardGrid;
 use crate::grid::ComputedGrid;
 use crate::gui::game::{run_game, PacmanStateRenderInfo};
 use crate::gui::physics::{run_physics, PhysicsRenderInfo};
 use crate::robot::Robot;
-use crate::standard_grids::StandardGrid;
 use crate::util::stopwatch::Stopwatch;
 
 use self::transforms::Transform;
@@ -67,7 +66,6 @@ struct App {
     robot: Robot,
 
     pacman_render: Arc<RwLock<PacmanStateRenderInfo>>,
-    agent_setup: PacmanAgentSetup,
 
     replay_manager: replay_manager::ReplayManager,
     pacman_state_notify_recv: Receiver<()>,
@@ -106,12 +104,8 @@ impl Default for App {
         let (phys_restart_send, phys_restart_recv) = channel();
 
         // Set up game state thread
-        let agent_setup = PacmanAgentSetup::default();
-        let pacman_state = PacmanState::new(&agent_setup);
-        let pacman_state_info = PacmanStateRenderInfo {
-            pacman_state,
-            agent_setup,
-        };
+        let pacman_state = GameEngine::default();
+        let pacman_state_info = PacmanStateRenderInfo { pacman_state };
         let pacman_render: Arc<RwLock<PacmanStateRenderInfo>> =
             Arc::new(RwLock::new(pacman_state_info));
         let pacman_state_rw = pacman_render.clone();
@@ -159,13 +153,11 @@ impl Default for App {
             phys_render,
 
             pacman_render,
-            agent_setup: PacmanAgentSetup::default(),
 
             replay_manager: App::new_replay_manager(
                 filename,
                 StandardGrid::Pacman,
-                PacmanAgentSetup::default(),
-                PacmanState::default(),
+                GameEngine::default(),
                 pacbot_pos,
             ),
             pacman_state_notify_recv,
@@ -289,11 +281,8 @@ impl eframe::App for App {
                         });
                         ui.menu_button("Game", |ui| {
                             if ui.button("Reset").clicked() {
-                                self.pacman_render
-                                    .write()
-                                    .unwrap()
-                                    .pacman_state
-                                    .reset(&self.agent_setup, true);
+                                self.pacman_render.write().unwrap().pacman_state =
+                                    GameEngine::default();
                             }
                         });
                     })

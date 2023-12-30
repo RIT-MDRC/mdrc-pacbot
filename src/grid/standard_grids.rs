@@ -76,7 +76,7 @@ impl StandardGrid {
 /// Out-of-bounds areas are replaced with walls to adhere to ComputedGrid rules
 ///
 /// ```
-/// use mdrc_pacbot_util::standard_grids::GRID_PACMAN;
+/// use mdrc_pacbot_util::grid::standard_grids::GRID_PACMAN;
 /// use mdrc_pacbot_util::grid::{ComputedGrid, Grid};
 ///
 /// let grid: Grid = GRID_PACMAN;
@@ -123,7 +123,7 @@ pub const GRID_PACMAN: Grid = [
 /// A (mostly) blank [`Grid`] - (1, 1) is walkable
 ///
 /// ```
-/// use mdrc_pacbot_util::standard_grids::GRID_BLANK;
+/// use mdrc_pacbot_util::grid::standard_grids::GRID_BLANK;
 /// use mdrc_pacbot_util::grid::{ComputedGrid, Grid};
 ///
 /// let grid: Grid = GRID_BLANK;
@@ -167,7 +167,7 @@ pub const GRID_BLANK: Grid = [
 /// A [`Grid`] where the outermost path is empty
 ///
 /// ```
-/// use mdrc_pacbot_util::standard_grids::GRID_OUTER;
+/// use mdrc_pacbot_util::grid::standard_grids::GRID_OUTER;
 /// use mdrc_pacbot_util::grid::{ComputedGrid, Grid};
 ///
 /// let grid: Grid = GRID_OUTER;
@@ -211,7 +211,7 @@ pub const GRID_OUTER: Grid = [
 /// A [`Grid`] with many smaller paths to practice maneuvering
 ///
 /// ```
-/// use mdrc_pacbot_util::standard_grids::GRID_PLAYGROUND;
+/// use mdrc_pacbot_util::grid::standard_grids::GRID_PLAYGROUND;
 /// use mdrc_pacbot_util::grid::{ComputedGrid, Grid};
 ///
 /// let grid: Grid = GRID_PLAYGROUND;

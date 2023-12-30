@@ -8,6 +8,8 @@ use rapier2d::prelude::Rotation;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+pub mod standard_grids;
+
 /// Enum for direction values.
 #[derive(
     Clone, Copy, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive, Serialize, Deserialize,
@@ -162,7 +164,7 @@ pub struct Wall {
 /// # Examples
 ///
 /// ```
-/// use mdrc_pacbot_util::grid::ComputedGrid;
+/// use mdrc_pacbot_util::grids::ComputedGrid;
 /// use mdrc_pacbot_util::standard_grids::StandardGrid;
 ///
 /// let grid = StandardGrid::Blank.compute_grid();
@@ -370,12 +372,12 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::grids::ComputedGrid;
     /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
     ///
-    /// assert_eq!(grid.grid()[0][0], mdrc_pacbot_util::grid::GridValue::I);
+    /// assert_eq!(grid.grid()[0][0], mdrc_pacbot_util::grids::GridValue::I);
     /// ```
     pub fn grid(&self) -> &Grid {
         &self.grid
@@ -386,7 +388,7 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::grids::ComputedGrid;
     /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
@@ -401,7 +403,7 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::grids::ComputedGrid;
     /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
@@ -417,7 +419,7 @@ impl ComputedGrid {
     ///
     /// ```
     /// use rapier2d::na::Point2;
-    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::grids::ComputedGrid;
     /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
@@ -429,12 +431,12 @@ impl ComputedGrid {
 
     /// Returns the index of the given position in the walkable_nodes vector, or `None` if the
     /// position is not walkable.
-    ///     
+    ///
     /// # Examples
     ///
     /// ```
     /// use rapier2d::na::Point2;
-    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::grids::ComputedGrid;
     /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
@@ -458,7 +460,7 @@ impl ComputedGrid {
     ///
     /// ```
     /// use rapier2d::na::Point2;
-    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::grids::ComputedGrid;
     /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
@@ -475,12 +477,12 @@ impl ComputedGrid {
     ///
     /// ```
     /// use rapier2d::na::Point2;
-    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::grids::ComputedGrid;
     /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
-    /// assert_eq!(grid.at(&Point2::new(0, 0)), Some(mdrc_pacbot_util::grid::GridValue::I));
-    /// assert_eq!(grid.at(&Point2::new(1, 1)), Some(mdrc_pacbot_util::grid::GridValue::e));
+    /// assert_eq!(grid.at(&Point2::new(0, 0)), Some(mdrc_pacbot_util::grids::GridValue::I));
+    /// assert_eq!(grid.at(&Point2::new(1, 1)), Some(mdrc_pacbot_util::grids::GridValue::e));
     /// assert_eq!(grid.at(&Point2::new(32, 32)), None);
     /// ```
     pub fn at(&self, p: &Point2<u8>) -> Option<GridValue> {
@@ -497,7 +499,7 @@ impl ComputedGrid {
     ///
     /// ```
     /// use rapier2d::na::Point2;
-    /// use mdrc_pacbot_util::grid::{ComputedGrid, Direction};
+    /// use mdrc_pacbot_util::grids::{ComputedGrid, Direction};
     /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
@@ -541,7 +543,7 @@ impl ComputedGrid {
     ///
     /// ```
     /// use rapier2d::na::Point2;
-    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::grids::ComputedGrid;
     /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Pacman.compute_grid();
@@ -560,7 +562,7 @@ impl ComputedGrid {
     ///
     /// ```
     /// use rapier2d::na::Point2;
-    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::grids::ComputedGrid;
     /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Pacman.compute_grid();
@@ -592,7 +594,7 @@ impl ComputedGrid {
     ///
     /// ```
     /// use rapier2d::na::Point2;
-    /// use mdrc_pacbot_util::grid::ComputedGrid;
+    /// use mdrc_pacbot_util::grids::ComputedGrid;
     /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Pacman.compute_grid();
@@ -623,7 +625,7 @@ impl ComputedGrid {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::grid::GridValue::{e as EMPTY, o as PELLET, I as WALL, O as POWER_PELLET};
+    use crate::grids::GridValue::{e as EMPTY, o as PELLET, I as WALL, O as POWER_PELLET};
     use crate::standard_grids::*;
 
     #[test]

@@ -20,3 +20,4 @@ rayon = "1.8.0"
 serde = { version = "1.0.188", features = ["derive"] }
 tokio = { version = "1.32.0", features = ["macros", "parking_lot", "rt"] }
 tokio-tungstenite = "0.20.1"
+pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "05b23779ba1150d959f01f8167bb14347a91d59f" }
