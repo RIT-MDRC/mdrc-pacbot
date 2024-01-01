@@ -4,34 +4,19 @@
 
 Pacman is played on a 2D integer grid, meaning the location of all objects 
 (including walls, ghosts, pellets, and Pacman) can be fully described with 
-two integers `x` and `y`. 
+two integers `row` and `col`. 
 
-The `Grid` data type, an alias for `[[GridValue; GRID_HEIGHT]; GRID_WIDTH]` provides information about 
-the state of a Pacman game before Pacman or any ghosts have moved, including:
-- Location of walls
-- Location of pellets
-- Location of super pellets
-- Ghost waiting area location
-
-Note that `Grid` does not contain information about Pacman or ghost starting locations or paths.
-
-`GridValue` can be any of the following:
-- `I`: Wall - not walkable for Pacman and Ghosts
-- `o`: Pellet
-- `e`: Empty (walkable)
-- `O`: Super pellet
-- `n`: Ghost chambers - not walkable for Pacman
-- `c`: Cherry position
+The `Grid` data type, an alias for `[[bool; GRID_COLS]; GRID_ROWS]` provides information about which cells are walls.
 
 A coordinate is "walkable" for some entity if the entity is able to travel there.
 
-`Grid` is `GRID_WIDTH` x `GRID_HEIGHT` size. The official Pacbot grid
+`Grid` is `GRID_ROWS` x `GRID_COLS` size. The official Pacbot grid
 is 28 cells wide by 31 cells tall, but this code currently supports up to 32 x 32 grids.
 Any coordinate less than (0, 0) or greater than (31, 31) is treated as a wall, and is not stored in `Grid`.
 
 ## Standard Grids
 
-A number of standard grids are provided in `mdrc_pacbot_util::standard_grids`. These include several
+A number of standard grids are provided in `mdrc_pacbot_util::grid::standard_grids`. These include several
 common configurations:
 - `GRID_PACMAN` - The official Pacbot `Grid`
 - `GRID_BLANK` - A `Grid` entirely composed of walls (except for the space at (1, 1)), copy-paste-able to create new `Grid`s
@@ -39,7 +24,7 @@ common configurations:
 - `GRID_PLAYGROUND` - A `Grid` with many small areas for testing motor control algorithms
 
 These can be used as-is or edited to create custom `Grid`s. 
-Additionally, you can use any `[[GridValue; GRID_HEIGHT]; GRID_WIDTH]` of the appropriate size.
+Additionally, you can use any `[[bool; GRID_COLS]; GRID_ROWS]` of the appropriate size.
 
 ### Upgrading to `ComputedGrid`
 
@@ -54,50 +39,32 @@ immutable.
 
 We have chosen the following coordinate system to fit best with the official Pacbot codebase.
 
-`+x` is "right" and `+y` is "up", where (0, 0) is the origin and (31, 31) 
-is the farthest point from the origin:
+In place of `x` and `y`, we use `row` and `col`.
+
+`row` is increasing in the "down" direction and `col` is increasing in the "up" direction, 
+where (0, 0) is the origin and (31, 31) is the farthest point from the origin:
 
 ```ignore
-             (31, 31)
- ^
- |
-+y   (...)
-
-(0,0)   +x -->
+(0, 0)    --> +col
+       
+ |    (...)
+ v
++row       (31, 31)
 ```
 
-However, `Grid` is indexed like `grid[x][y]`. As a consequence, in the code, `Grid` appears sideways.
+When they appear as a pair, the order is always (`row`, `col`).
 
-This code layout:
-```ignore
-[              +y ->
-     +x    [a, b, b, b],
-     |     [a, b, b, b],
-     v     [a, b, b, b],
-];
-```
-
-Would appear like this:
-```ignore
-angle = 90 degrees, or pi/2
-
- ^   b b b
- |   b b b
- +y  b b b
-     a a a
-       +x ->    angle = 0
-```
-
-When looking at code, imagine turning the grid 90 degrees counter-clockwise.
+If they must be translated to `x` and `y` (for example, for angle calculations) then `row` is `x` and `col` is `y`.
+This means that angle 0 is downwards.
 
 On the official Pacbot grid:
 
-- (1, 1) is the bottom left walkable corner
-- (26, 1) is the bottom right walkable corner
-- (1, 29) is the top left walkable corner
-- (26, 29) is the top right walkable corner
+- (1, 1)   is the top    left  walkable corner
+- (1, 26)  is the top    right walkable corner
+- (29, 1)  is the bottom left  walkable corner
+- (29, 26) is the top    right walkable corner
 
-Pacbot's starting position is (14, 7).
+Pacbot's starting position is (23, 13), facing right.
 
 ## Physical Coordinates
 
@@ -116,8 +83,8 @@ of the `Grid` cells that are declared as walls.
 
 ## Angles
 
-An angle of 0 degrees corresponds to the `+x` direction. As the angle increases in the positive direction, it rotates
-counter-clockwise, with 90 degrees pointing towards the `+y` direction.
+An angle of 0 degrees corresponds to the `+row` direction, or "down". As the angle increases in the positive direction, 
+it rotates counter-clockwise, with 90 degrees pointing towards the `+col` direction.
 
 
 
