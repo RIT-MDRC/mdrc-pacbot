@@ -180,16 +180,16 @@ impl App {
         ctx.input(|i| {
             let target_speed = if i.modifiers.shift { 2.0 } else { 0.8 };
             if i.key_down(Key::S) {
-                target_velocity.0.y = -target_speed;
+                target_velocity.0.x = target_speed;
             }
             if i.key_down(Key::W) {
-                target_velocity.0.y = target_speed;
-            }
-            if i.key_down(Key::A) {
                 target_velocity.0.x = -target_speed;
             }
+            if i.key_down(Key::A) {
+                target_velocity.0.y = -target_speed;
+            }
             if i.key_down(Key::D) {
-                target_velocity.0.x = target_speed;
+                target_velocity.0.y = target_speed;
             }
             if i.key_down(Key::E) {
                 target_velocity.1 = -target_speed;
@@ -314,8 +314,8 @@ impl eframe::App for App {
                 let world_to_screen = Transform::new_letterboxed(
                     src_p1,
                     src_p2,
-                    Pos2::new(rect.left(), rect.top()),
-                    Pos2::new(rect.right(), rect.bottom()),
+                    Pos2::new(rect.top(), rect.left()),
+                    Pos2::new(rect.bottom(), rect.right()),
                 );
                 let painter = ui.painter_at(rect);
 

@@ -70,10 +70,10 @@ impl App {
                             state.get_state().pacman_loc.row as f32,
                         ),
                         Rotation::new(match state.get_state().pacman_loc.dir {
-                            pacbot_rs::location::RIGHT => 0.0,
-                            pacbot_rs::location::UP => std::f32::consts::FRAC_PI_2,
-                            pacbot_rs::location::LEFT => std::f32::consts::PI,
-                            pacbot_rs::location::DOWN => std::f32::consts::FRAC_PI_2 * 3.0,
+                            pacbot_rs::location::RIGHT => std::f32::consts::FRAC_PI_2,
+                            pacbot_rs::location::UP => std::f32::consts::PI,
+                            pacbot_rs::location::LEFT => std::f32::consts::FRAC_PI_2 * 3.0,
+                            pacbot_rs::location::DOWN => 0.0,
                             _ => panic!("Invalid direction!"),
                         }),
                     ))?;

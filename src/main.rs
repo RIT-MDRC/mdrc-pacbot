@@ -1,5 +1,3 @@
-use std::net::UdpSocket;
-
 use mdrc_pacbot_util::gui;
 
 fn main() {
@@ -28,8 +26,6 @@ fn main() {
     //         .expect("couldn't send message");
     //     println!("sent back");
     // }
-
-    // return;
 
     // network::start_network_thread();
     gui::run_gui();

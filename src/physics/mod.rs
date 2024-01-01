@@ -68,6 +68,7 @@ impl PacbotSimulation {
     ///
     /// ```
     /// use std::sync::{Arc, Mutex};
+    /// use pacbot_rs::variables::PACMAN_SPAWN_LOC;
     /// use rand::rngs::ThreadRng;
     /// use rapier2d::na::{Isometry2, Vector2};
     /// use mdrc_pacbot_util::grid::ComputedGrid;
@@ -78,7 +79,7 @@ impl PacbotSimulation {
     /// let grid = StandardGrid::Pacman.compute_grid();
     /// let robot = Robot::default();
     /// let distance_sensors = Arc::new(Mutex::new(vec![Some(0.0); Robot::default().distance_sensors.len()]));
-    /// let starting_position = Isometry2::new(Vector2::new(14.0, 7.0), 0.0);
+    /// let starting_position = Isometry2::new(Vector2::new(PACMAN_SPAWN_LOC.row as f32, PACMAN_SPAWN_LOC.col as f32), 0.0);
     /// let mut simulation = PacbotSimulation::new(grid, robot, starting_position, distance_sensors);
     /// ```
     pub fn new(
@@ -94,16 +95,16 @@ impl PacbotSimulation {
         for wall in grid.walls() {
             let rigid_body = RigidBodyBuilder::fixed()
                 .translation(Vector2::new(
-                    (wall.right_top.x + wall.left_bottom.x) / 2.0,
-                    (wall.right_top.y + wall.left_bottom.y) / 2.0,
+                    (wall.top_left.row + wall.bottom_right.row) as f32 / 2.0,
+                    (wall.top_left.col + wall.bottom_right.col) as f32 / 2.0,
                 ))
                 .build();
 
             let rigid_body_handle = rigid_body_set.insert(rigid_body);
 
             let collider = ColliderBuilder::cuboid(
-                (wall.right_top.x - wall.left_bottom.x) / 2.0,
-                (wall.right_top.y - wall.left_bottom.y) / 2.0,
+                (wall.bottom_right.row - wall.top_left.row) as f32 / 2.0,
+                (wall.bottom_right.col - wall.top_left.col) as f32 / 2.0,
             )
             .collision_groups(InteractionGroups::new(GROUP_WALL.into(), u32::MAX.into()))
             .build();
@@ -264,11 +265,17 @@ impl PacbotSimulation {
     /// let mut simulation = PacbotSimulation::default();
     ///
     /// let pacbot_position = simulation.get_primary_robot_position();
-    /// let positive_y = Vector2::new(0.0, 1.0);
-    /// let ray = Ray::new(pacbot_position.translation.transform_point(&Point2::new(0.0, 0.0)), positive_y);
+    /// let positive_row = Vector2::new(1.0, 0.0);
+    /// let ray = Ray::new(pacbot_position.translation.transform_point(&Point2::new(0.0, 0.0)), positive_row);
     ///
-    /// assert_eq!(simulation.cast_ray(ray, 5.0), Point2::new(14.0, 8.0));
-    /// assert_eq!(simulation.cast_ray(ray, 0.5), Point2::new(14.0, 7.5));
+    /// assert_eq!(simulation.cast_ray(ray, 5.0), Point2::new(24.0, 13.0));
+    /// assert_eq!(simulation.cast_ray(ray, 0.5), Point2::new(23.5, 13.0));
+    ///
+    /// let pos = Point2::new(29.0, 21.0);
+    /// let positive_row = Vector2::new(1.0, 0.0);
+    /// let ray = Ray::new(pos, positive_row);
+    ///
+    /// assert_eq!(simulation.cast_ray(ray, 5.0), Point2::new(30.0, 21.0));
     /// ```
     pub fn cast_ray(&mut self, ray: Ray, max_toi: Real) -> Point<Real> {
         if !self.query_pipeline_updated {
@@ -355,6 +362,7 @@ impl PacbotSimulation {
     /// # Examples
     ///
     /// ```
+    /// use std::f32::consts::PI;
     /// use mdrc_pacbot_util::robot::Robot;
     /// use mdrc_pacbot_util::physics::PacbotSimulation;
     /// let mut simulation = PacbotSimulation::default();
@@ -370,8 +378,10 @@ impl PacbotSimulation {
     ///
     ///     let difference = hit_point - sensor_position;
     ///
-    ///     assert_eq!((sensor.relative_direction.cos() >= 0.1), (difference.x >= 0.1));
-    ///     assert_eq!((sensor.relative_direction.sin() >= 0.1), (difference.y >= 0.1));
+    ///     let rotated_direction = PI / 2.0 + sensor.relative_direction;
+    ///
+    ///     assert_eq!((rotated_direction.cos() >= 0.1), (difference.x >= 0.1));
+    ///     assert_eq!((rotated_direction.sin() >= 0.1), (difference.y >= 0.1));
     /// }
     /// ```
     pub fn get_primary_robot_rays(&mut self) -> Vec<(Point<Real>, Point<Real>)> {

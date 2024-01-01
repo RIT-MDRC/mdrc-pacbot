@@ -1,4 +1,4 @@
-use crate::grid::{facing_direction, Direction};
+use crate::grid::{facing_direction, PLocation};
 use crate::gui::colors::{
     GHOST_BLUE_COLOR, GHOST_ORANGE_COLOR, GHOST_PINK_COLOR, GHOST_RED_COLOR, PELLET_COLOR,
     SUPER_PELLET_COLOR, WALL_COLOR,
@@ -8,8 +8,8 @@ use crate::gui::App;
 use eframe::egui;
 use eframe::egui::{Painter, Pos2, Rect, Rounding, Stroke};
 use pacbot_rs::game_engine::GameEngine;
-use pacbot_rs::location::{LocationState, DOWN, LEFT, RIGHT, UP};
-use rapier2d::na::Point2;
+use pacbot_rs::location::LocationState;
+use pacbot_rs::variables::PACMAN_SPAWN_LOC;
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, RwLock};
@@ -21,14 +21,12 @@ pub struct PacmanStateRenderInfo {
     pub pacman_state: GameEngine,
 }
 
-const FLIP_OFFSET: f32 = 30.0;
-
 pub(super) fn run_game(
     pacman_render: Arc<RwLock<PacmanStateRenderInfo>>,
-    location_receive: Receiver<Point2<u8>>,
+    location_receive: Receiver<PLocation>,
     replay_send: Sender<()>,
 ) {
-    let mut previous_pacman_location = Point2::new(14u8, 7);
+    let mut previous_pacman_location = PLocation::new(PACMAN_SPAWN_LOC.row, PACMAN_SPAWN_LOC.col);
 
     loop {
         // {} block to make sure `game` goes out of scope and the RwLockWriteGuard is released
@@ -38,14 +36,9 @@ pub(super) fn run_game(
             // fetch updated pacbot position
             while let Ok(pacbot_location) = location_receive.try_recv() {
                 state.pacman_state.set_pacman_location(LocationState {
-                    col: pacbot_location.x as i8,
-                    row: pacbot_location.y as i8,
-                    dir: match facing_direction(&previous_pacman_location, &pacbot_location) {
-                        Direction::Right => RIGHT,
-                        Direction::Left => LEFT,
-                        Direction::Up => UP,
-                        Direction::Down => DOWN,
-                    },
+                    col: pacbot_location.col,
+                    row: pacbot_location.row,
+                    dir: facing_direction(&previous_pacman_location, &pacbot_location) as u8,
                 });
                 previous_pacman_location = pacbot_location;
             }
@@ -118,10 +111,7 @@ impl App {
         for ghost in &pacman_state.get_state().ghosts {
             let ghost = ghost.lock().unwrap();
             painter.circle_filled(
-                world_to_screen.map_point(Pos2::new(
-                    ghost.loc.col as f32,
-                    FLIP_OFFSET - ghost.loc.row as f32,
-                )),
+                world_to_screen.map_point(Pos2::new(ghost.loc.row as f32, ghost.loc.col as f32)),
                 world_to_screen.map_dist(0.45),
                 match ghost.color {
                     pacbot_rs::ghost_state::RED => GHOST_RED_COLOR,
@@ -140,15 +130,13 @@ impl App {
                     let super_pellet = ((row == 3) || (row == 23)) && ((col == 1) || (col == 26));
                     if super_pellet {
                         painter.circle_filled(
-                            world_to_screen
-                                .map_point(Pos2::new(col as f32, FLIP_OFFSET - row as f32)),
+                            world_to_screen.map_point(Pos2::new(row as f32, col as f32)),
                             6.0,
                             SUPER_PELLET_COLOR,
                         )
                     } else {
                         painter.circle_filled(
-                            world_to_screen
-                                .map_point(Pos2::new(col as f32, FLIP_OFFSET - row as f32)),
+                            world_to_screen.map_point(Pos2::new(row as f32, col as f32)),
                             3.0,
                             PELLET_COLOR,
                         )
