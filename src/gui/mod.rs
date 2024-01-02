@@ -350,7 +350,7 @@ impl eframe::App for App {
                             .add(
                                 egui::Button::new(egui::RichText::new(format!(
                                     "{} 1",
-                                    egui_phosphor::regular::HEART
+                                    regular::HEART
                                 )))
                                 .fill(TRANSLUCENT_YELLOW_COLOR),
                             )

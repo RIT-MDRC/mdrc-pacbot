@@ -46,9 +46,9 @@ pub struct StopwatchWidget {
 impl StopwatchWidget {
     pub fn new() -> (Self, [Arc<RwLock<Stopwatch>>; 3]) {
         let stopwatches = vec![
-            GuiStopwatch::new("GUI Time", 30, 20.0, 30.0),
-            GuiStopwatch::new("Physics Time", 10, 1.0, 1.5),
-            GuiStopwatch::new("PF Time", 10, 2.0, 6.0),
+            GuiStopwatch::new("GUI", 30, 20.0, 30.0),
+            GuiStopwatch::new("Physics", 10, 1.0, 1.5),
+            GuiStopwatch::new("PF", 10, 2.0, 6.0),
         ];
         (
             Self {
@@ -86,7 +86,7 @@ impl PacbotWidget for StopwatchWidget {
                 stopwatch.last_recorded_at = Instant::now();
 
                 let t = stopwatch.last_recorded_average_millis;
-                let msg = format!("{}: {:.2}", stopwatch.display_name, t);
+                let msg = format!("{:.2} - {}", t, stopwatch.display_name);
                 if stopwatch.ok_time_millis < t && t < stopwatch.bad_time_millis {
                     self.warnings.push(msg);
                     num_slow += 1;
@@ -97,7 +97,7 @@ impl PacbotWidget for StopwatchWidget {
                     self.messages.push(msg);
                 }
 
-                if stopwatch.display_name == "PF Time" {
+                if stopwatch.display_name == "PF" {
                     self.pf_time = t;
                 }
             } else {
