@@ -47,7 +47,7 @@ impl StopwatchWidget {
     pub fn new() -> (Self, [Arc<RwLock<Stopwatch>>; 3]) {
         let stopwatches = vec![
             GuiStopwatch::new("GUI Time", 30, 20.0, 30.0),
-            GuiStopwatch::new("Physics Time", 10, 3.0, 6.0),
+            GuiStopwatch::new("Physics Time", 10, 1.0, 1.5),
             GuiStopwatch::new("PF Time", 10, 2.0, 6.0),
         ];
         (

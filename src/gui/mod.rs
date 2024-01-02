@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use eframe::egui;
 use eframe::egui::{Color32, Frame, Key, Pos2, Ui, WidgetText};
+use egui_phosphor::regular;
 use pacbot_rs::game_engine::GameEngine;
 use rapier2d::na::{Isometry2, Vector2};
 
@@ -273,6 +274,38 @@ impl App {
                 });
             });
     }
+
+    fn draw_widgets(&mut self, ui: &mut Ui) {
+        for widget in &mut self.pacbot_widgets {
+            widget.update();
+            let mut button = ui.add(egui::Button::new(widget.button_text()).fill(
+                match widget.overall_status() {
+                    PacbotWidgetStatus::Ok => TRANSLUCENT_GREEN_COLOR,
+                    PacbotWidgetStatus::Warn(_) => TRANSLUCENT_YELLOW_COLOR,
+                    PacbotWidgetStatus::Error(_) => TRANSLUCENT_RED_COLOR,
+                    PacbotWidgetStatus::NotApplicable => Color32::TRANSPARENT,
+                },
+            ));
+            button = button.on_hover_ui(|ui| {
+                ui.label(widget.display_name());
+                for (msgs, icon, color) in [
+                    (widget.errors(), regular::X, Color32::RED),
+                    (widget.warnings(), regular::WARNING, Color32::YELLOW),
+                    (widget.messages(), regular::CHECK, Color32::GREEN),
+                ] {
+                    for msg in msgs {
+                        ui.label(
+                            egui::RichText::new(format!("{} {}", icon, msg.to_owned()))
+                                .color(color),
+                        );
+                    }
+                }
+            });
+            if button.clicked() {
+                println!("clicked {}", widget.display_name());
+            }
+        }
+    }
 }
 
 fn draw_stopwatch(stopwatch: &Stopwatch, ctx: &egui::Context, name: &str) {
@@ -351,35 +384,7 @@ impl eframe::App for App {
                             println!("test?");
                         }
 
-                        // widgets
-                        for widget in &mut self.pacbot_widgets {
-                            widget.update();
-                            let mut button = ui
-                                .add(egui::Button::new(widget.button_text()).fill(
-                                    match widget.overall_status() {
-                                        PacbotWidgetStatus::Ok => TRANSLUCENT_GREEN_COLOR,
-                                        PacbotWidgetStatus::Warn(_) => TRANSLUCENT_YELLOW_COLOR,
-                                        PacbotWidgetStatus::Error(_) => TRANSLUCENT_RED_COLOR,
-                                        PacbotWidgetStatus::NotApplicable => Color32::TRANSPARENT,
-                                    },
-                                ))
-                                .on_hover_text(widget.display_name());
-                            for err in widget.errors() {
-                                button = button.on_hover_text(err.to_owned());
-                            }
-                            for warning in widget.warnings() {
-                                button = button.on_hover_text(
-                                    egui::RichText::new(warning.to_owned())
-                                        .background_color(TRANSLUCENT_YELLOW_COLOR),
-                                )
-                            }
-                            for message in widget.messages() {
-                                button = button.on_hover_text(message.to_owned());
-                            }
-                            if button.clicked() {
-                                println!("clicked {}", widget.display_name());
-                            }
-                        }
+                        self.draw_widgets(ui);
 
                         ui.menu_button("Replay", |ui| {
                             if ui.button("Save").clicked() {
