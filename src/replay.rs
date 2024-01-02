@@ -2,13 +2,14 @@
 
 use crate::grid::standard_grids::StandardGrid;
 use anyhow::{anyhow, Error};
+use bincode::{deserialize, serialize};
 use pacbot_rs::game_engine::GameEngine;
 use rapier2d::na::Isometry2;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
 
 /// The types of data that might be stored in a [`ReplayFrame`]
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 enum ReplayFrameData {
     /// Pacbot's real physical location, as determined by the [`PacbotSimulation`]
     PacbotLocation(Isometry2<f32>),
@@ -17,7 +18,7 @@ enum ReplayFrameData {
 }
 
 /// The metadata included in one frame of a [`Replay`]
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct ReplayFrame {
     /// The data in the frame
     pub data: ReplayFrameData,
@@ -466,6 +467,8 @@ impl Replay {
     /// assert!(replay.record_pacman_location(Isometry2::default()).is_err());
     /// ```
     pub fn record_pacman_state(&mut self, state: GameEngine) -> Result<(), Error> {
+        let state = serialize(&state).unwrap();
+        let state: GameEngine = deserialize(&state).unwrap();
         if !self.is_at_end() {
             Err(anyhow!("Tried to record to replay that was mid-playback"))
         } else {

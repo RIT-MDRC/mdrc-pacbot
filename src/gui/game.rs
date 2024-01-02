@@ -50,7 +50,7 @@ pub(super) fn run_game(
             }
         }
 
-        // Sleep for 1/2 a second
+        // Sleep
         std::thread::sleep(std::time::Duration::from_secs_f32(1.0 / 2.5));
     }
 }
@@ -109,7 +109,7 @@ impl App {
 
         // ghosts
         for ghost in &pacman_state.get_state().ghosts {
-            let ghost = ghost.lock().unwrap();
+            let ghost = ghost.read().unwrap();
             painter.circle_filled(
                 world_to_screen.map_point(Pos2::new(ghost.loc.row as f32, ghost.loc.col as f32)),
                 world_to_screen.map_dist(0.45),
