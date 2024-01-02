@@ -12,7 +12,7 @@ use rapier2d::prelude::{
 };
 use rayon::prelude::*;
 use std::f32::consts::PI;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 /// Values that can be tweaked to improve the performance of the particle filter
 pub struct ParticleFilterOptions {
@@ -200,9 +200,9 @@ impl ParticleFilter {
         rigid_body_set: &mut RigidBodySet,
         collider_set: &mut ColliderSet,
         query_pipeline: &QueryPipeline,
-        stopwatch: &Arc<Mutex<Stopwatch>>,
+        stopwatch: &Arc<RwLock<Stopwatch>>,
     ) {
-        stopwatch.lock().unwrap().start();
+        stopwatch.write().unwrap().start();
 
         // extend the points to the correct length
         while self.points.len() < self.options.points {
@@ -210,7 +210,7 @@ impl ParticleFilter {
             self.points.push(point);
         }
 
-        stopwatch.lock().unwrap().mark_segment("Extend points");
+        stopwatch.write().unwrap().mark_segment("Extend points");
 
         // cut off any extra points
         while self.points.len() > self.options.points {
@@ -218,7 +218,7 @@ impl ParticleFilter {
         }
 
         stopwatch
-            .lock()
+            .write()
             .unwrap()
             .mark_segment("Cut off extra points");
 
@@ -238,7 +238,7 @@ impl ParticleFilter {
         }
 
         stopwatch
-            .lock()
+            .write()
             .unwrap()
             .mark_segment("Randomize last points");
 
@@ -254,7 +254,7 @@ impl ParticleFilter {
         // }
 
         stopwatch
-            .lock()
+            .write()
             .unwrap()
             .mark_segment("Randomize last points near cv location");
 
@@ -276,7 +276,7 @@ impl ParticleFilter {
             self.points[i] = new_point;
         }
 
-        stopwatch.lock().unwrap().mark_segment("Genetic points");
+        stopwatch.write().unwrap().mark_segment("Genetic points");
 
         // randomize any points that are within a wall or out of bounds
         for i in 0..self.options.points {
@@ -300,7 +300,7 @@ impl ParticleFilter {
         }
 
         stopwatch
-            .lock()
+            .write()
             .unwrap()
             .mark_segment("Randomize out of bounds or in wall points");
 
@@ -318,7 +318,7 @@ impl ParticleFilter {
         }
 
         stopwatch
-            .lock()
+            .write()
             .unwrap()
             .mark_segment("Lock distance sensors");
 
@@ -343,7 +343,7 @@ impl ParticleFilter {
             .collect();
 
         stopwatch
-            .lock()
+            .write()
             .unwrap()
             .mark_segment("Calculate distance sensor errors");
 
@@ -357,7 +357,7 @@ impl ParticleFilter {
             .map(|(point, _)| *point)
             .collect();
 
-        stopwatch.lock().unwrap().mark_segment("Sort points");
+        stopwatch.write().unwrap().mark_segment("Sort points");
 
         self.best_guess = self.points[0];
     }
@@ -465,7 +465,7 @@ impl ParticleFilter {
 
 impl PacbotSimulation {
     /// Update the particle filter
-    pub fn pf_update(&mut self, position: PLocation, pf_stopwatch: &Arc<Mutex<Stopwatch>>) {
+    pub fn pf_update(&mut self, position: PLocation, pf_stopwatch: &Arc<RwLock<Stopwatch>>) {
         self.particle_filter.update(
             position,
             &mut self.rigid_body_set,

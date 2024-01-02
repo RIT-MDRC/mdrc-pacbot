@@ -4,6 +4,7 @@ mod colors;
 mod game;
 mod physics;
 pub mod replay_manager;
+mod stopwatch;
 pub mod transforms;
 pub mod utils;
 
@@ -12,19 +13,55 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex, RwLock};
 
 use eframe::egui;
-use eframe::egui::{Frame, Key, Pos2, Ui};
+use eframe::egui::{Color32, Frame, Key, Pos2, Ui, WidgetText};
 use pacbot_rs::game_engine::GameEngine;
 use rapier2d::na::{Isometry2, Vector2};
 
 use crate::constants::GUI_PARTICLE_FILTER_POINTS;
 use crate::grid::standard_grids::StandardGrid;
 use crate::grid::ComputedGrid;
+use crate::gui::colors::{
+    TRANSLUCENT_GREEN_COLOR, TRANSLUCENT_RED_COLOR, TRANSLUCENT_YELLOW_COLOR,
+};
 use crate::gui::game::{run_game, PacmanStateRenderInfo};
 use crate::gui::physics::{run_physics, PhysicsRenderInfo};
+use crate::gui::stopwatch::StopwatchWidget;
 use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
 
 use self::transforms::Transform;
+
+// new UI framework
+
+#[derive(Clone, Debug)]
+pub enum PacbotWidgetStatus {
+    Ok,
+    Warn(String),
+    Error(String),
+    NotApplicable,
+}
+
+pub trait PacbotWidget {
+    fn update(&mut self);
+    fn display_name(&self) -> &'static str;
+    fn button_text(&self) -> egui::RichText;
+    fn overall_status(&self) -> &PacbotWidgetStatus;
+
+    fn messages(&self) -> &[String] {
+        &[]
+    }
+    fn warnings(&self) -> &[String] {
+        &[]
+    }
+    fn errors(&self) -> &[String] {
+        &[]
+    }
+
+    fn has_associated_panel(&self) -> bool {
+        false
+    }
+    fn draw_associated_panel(&self, _ctx: &egui::Context, _ui: &mut Ui) {}
+}
 
 /// Launches the GUI application. Blocks until the application has quit.
 pub fn run_gui() {
@@ -32,7 +69,13 @@ pub fn run_gui() {
     eframe::run_native(
         "PacBot simulation",
         native_options,
-        Box::new(|_cc| Box::<App>::default()),
+        Box::new(|cc| {
+            let mut fonts = egui::FontDefinitions::default();
+            egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
+
+            cc.egui_ctx.set_fonts(fonts);
+            Box::<App>::default()
+        }),
     )
     .expect("eframe::run_native error");
 }
@@ -55,6 +98,8 @@ enum AppMode {
 struct App {
     mode: AppMode,
 
+    pacbot_widgets: Vec<Box<dyn PacbotWidget>>,
+
     selected_grid: StandardGrid,
     grid: ComputedGrid,
     pointer_pos: String,
@@ -73,9 +118,9 @@ struct App {
     replay_pacman: Isometry2<f32>,
     save_pacbot_location: bool,
 
-    pf_stopwatch: Arc<Mutex<Stopwatch>>,
-    physics_stopwatch: Arc<Mutex<Stopwatch>>,
-    gui_stopwatch: Stopwatch,
+    pf_stopwatch: Arc<RwLock<Stopwatch>>,
+    physics_stopwatch: Arc<RwLock<Stopwatch>>,
+    gui_stopwatch: Arc<RwLock<Stopwatch>>,
 }
 
 fn pretty_print_time_now() -> String {
@@ -115,9 +160,10 @@ impl Default for App {
         let filename = format!("replays/replay-{}.bin", pretty_print_time_now());
 
         // Set up stopwatches
-        let gui_stopwatch = Stopwatch::new(30);
-        let pf_stopwatch = Arc::new(Mutex::new(Stopwatch::new(10)));
-        let physics_stopwatch = Arc::new(Mutex::new(Stopwatch::new(10)));
+        let (stopwatch_widget, stopwatches) = StopwatchWidget::new();
+        let gui_stopwatch = stopwatches[0].clone();
+        let pf_stopwatch = stopwatches[2].clone();
+        let physics_stopwatch = stopwatches[1].clone();
 
         let pf_stopwatch_ref = pf_stopwatch.clone();
         let physics_stopwatch_ref = physics_stopwatch.clone();
@@ -142,6 +188,8 @@ impl Default for App {
 
         Self {
             mode: AppMode::Recording(GameServer::Simulated),
+
+            pacbot_widgets: vec![Box::new(stopwatch_widget)],
 
             selected_grid: StandardGrid::Pacman,
             grid: StandardGrid::Pacman.compute_grid(),
@@ -250,18 +298,89 @@ fn draw_stopwatch(stopwatch: &Stopwatch, ctx: &egui::Context, name: &str) {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.gui_stopwatch.start();
+        self.gui_stopwatch.write().unwrap().start();
         self.update_target_velocity(ctx);
 
         self.update_replay_manager()
             .expect("Error updating replay manager");
-        self.gui_stopwatch.mark_segment("Update replay manager");
+        self.gui_stopwatch
+            .write()
+            .unwrap()
+            .mark_segment("Update replay manager");
 
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                     self.add_grid_variants(ui);
                     egui::menu::bar(ui, |ui| {
+                        if ui
+                            .add(
+                                egui::Button::new(egui::RichText::new(format!(
+                                    "{} 1",
+                                    egui_phosphor::regular::HEART
+                                )))
+                                .fill(TRANSLUCENT_YELLOW_COLOR),
+                            )
+                            .clicked()
+                        {
+                            println!("test?");
+                        }
+                        if ui
+                            .add(
+                                egui::Button::new(egui::RichText::new(format!(
+                                    "{} 180",
+                                    egui_phosphor::regular::TROPHY
+                                )))
+                                .fill(TRANSLUCENT_GREEN_COLOR),
+                            )
+                            .clicked()
+                        {
+                            println!("test?");
+                        }
+                        if ui
+                            .add(
+                                egui::Button::new(egui::RichText::new(format!(
+                                    "{} 43",
+                                    egui_phosphor::regular::WIFI_HIGH
+                                )))
+                                .fill(TRANSLUCENT_RED_COLOR),
+                            )
+                            .on_hover_text("Network (OK)")
+                            .clicked()
+                        {
+                            println!("test?");
+                        }
+
+                        // widgets
+                        for widget in &mut self.pacbot_widgets {
+                            widget.update();
+                            let mut button = ui
+                                .add(egui::Button::new(widget.button_text()).fill(
+                                    match widget.overall_status() {
+                                        PacbotWidgetStatus::Ok => TRANSLUCENT_GREEN_COLOR,
+                                        PacbotWidgetStatus::Warn(_) => TRANSLUCENT_YELLOW_COLOR,
+                                        PacbotWidgetStatus::Error(_) => TRANSLUCENT_RED_COLOR,
+                                        PacbotWidgetStatus::NotApplicable => Color32::TRANSPARENT,
+                                    },
+                                ))
+                                .on_hover_text(widget.display_name());
+                            for err in widget.errors() {
+                                button = button.on_hover_text(err.to_owned());
+                            }
+                            for warning in widget.warnings() {
+                                button = button.on_hover_text(
+                                    egui::RichText::new(warning.to_owned())
+                                        .background_color(TRANSLUCENT_YELLOW_COLOR),
+                                )
+                            }
+                            for message in widget.messages() {
+                                button = button.on_hover_text(message.to_owned());
+                            }
+                            if button.clicked() {
+                                println!("clicked {}", widget.display_name());
+                            }
+                        }
+
                         ui.menu_button("Replay", |ui| {
                             if ui.button("Save").clicked() {
                                 self.save_replay().expect("Failed to save replay!");
@@ -303,7 +422,10 @@ impl eframe::App for App {
                     self.draw_replay_ui(ctx, ui);
                 });
         }
-        self.gui_stopwatch.mark_segment("Draw replay UI");
+        self.gui_stopwatch
+            .write()
+            .unwrap()
+            .mark_segment("Draw replay UI");
 
         egui::CentralPanel::default()
             .frame(Frame::none().fill(ctx.style().visuals.panel_fill))
@@ -320,25 +442,37 @@ impl eframe::App for App {
                 let painter = ui.painter_at(rect);
 
                 self.draw_grid(ctx, &world_to_screen, &painter);
-                self.gui_stopwatch.mark_segment("Draw grid");
+                self.gui_stopwatch
+                    .write()
+                    .unwrap()
+                    .mark_segment("Draw grid");
 
                 if self.selected_grid == StandardGrid::Pacman {
                     self.draw_pacman_state(ctx, &world_to_screen, &painter);
                 }
-                self.gui_stopwatch.mark_segment("Draw pacman state");
+                self.gui_stopwatch
+                    .write()
+                    .unwrap()
+                    .mark_segment("Draw pacman state");
 
                 self.draw_simulation(&world_to_screen, &painter);
-                self.gui_stopwatch.mark_segment("Draw simulation");
+                self.gui_stopwatch
+                    .write()
+                    .unwrap()
+                    .mark_segment("Draw simulation");
             });
 
-        draw_stopwatch(&self.gui_stopwatch, ctx, "GUI Time");
+        draw_stopwatch(&self.gui_stopwatch.read().unwrap(), ctx, "GUI Time");
         draw_stopwatch(
-            self.physics_stopwatch.lock().unwrap().deref(),
+            self.physics_stopwatch.read().unwrap().deref(),
             ctx,
             "Physics Time",
         );
-        draw_stopwatch(self.pf_stopwatch.lock().unwrap().deref(), ctx, "PF Time");
-        self.gui_stopwatch.mark_segment("Draw stopwatches");
+        draw_stopwatch(self.pf_stopwatch.read().unwrap().deref(), ctx, "PF Time");
+        self.gui_stopwatch
+            .write()
+            .unwrap()
+            .mark_segment("Draw stopwatches");
 
         ctx.request_repaint();
     }

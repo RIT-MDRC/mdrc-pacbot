@@ -41,8 +41,8 @@ pub(super) fn run_physics(
     location_send: Sender<PLocation>,
     restart_recv: Receiver<(StandardGrid, Robot, Isometry2<f32>)>,
     distance_sensors: Arc<Mutex<Vec<Option<f32>>>>,
-    pf_stopwatch: Arc<Mutex<Stopwatch>>,
-    physics_stopwatch: Arc<Mutex<Stopwatch>>,
+    pf_stopwatch: Arc<RwLock<Stopwatch>>,
+    physics_stopwatch: Arc<RwLock<Stopwatch>>,
 ) {
     let grid = StandardGrid::Pacman.compute_grid();
 
@@ -69,10 +69,10 @@ pub(super) fn run_physics(
         }
 
         // Run simulation one step
-        physics_stopwatch.lock().unwrap().start();
+        physics_stopwatch.write().unwrap().start();
         simulation.step();
         physics_stopwatch
-            .lock()
+            .write()
             .unwrap()
             .mark_segment("Step simulation");
 
@@ -98,7 +98,7 @@ pub(super) fn run_physics(
         // Update particle filter
         simulation.pf_update(estimated_location, &pf_stopwatch);
         physics_stopwatch
-            .lock()
+            .write()
             .unwrap()
             .mark_segment("Update particle filter");
 
