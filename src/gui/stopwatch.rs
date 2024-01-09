@@ -154,7 +154,7 @@ impl PacbotWidget for StopwatchWidget {
         true
     }
 
-    fn draw_associated_panel(&self, ctx: &Context, ui: &mut Ui) {
-        todo!()
+    fn draw_associated_panel(&self, _ctx: &Context, ui: &mut Ui) {
+        ui.label("Hello world!");
     }
 }

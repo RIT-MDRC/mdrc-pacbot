@@ -13,7 +13,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex, RwLock};
 
 use eframe::egui;
-use eframe::egui::{Color32, Frame, Key, Pos2, Ui, WidgetText};
+use eframe::egui::{Align, Color32, Frame, Key, Pos2, Ui, WidgetText};
 use egui_phosphor::regular;
 use pacbot_rs::game_engine::GameEngine;
 use rapier2d::na::{Isometry2, Vector2};
@@ -64,6 +64,18 @@ pub trait PacbotWidget {
     fn draw_associated_panel(&self, _ctx: &egui::Context, _ui: &mut Ui) {}
 }
 
+#[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Ord, Eq)]
+pub enum PacbotWidgets {
+    Stopwatch,
+}
+
+#[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Ord, Eq)]
+pub enum WhichWidgetPanel {
+    Left,
+    Right,
+    Popout,
+}
+
 /// Launches the GUI application. Blocks until the application has quit.
 pub fn run_gui() {
     let native_options = eframe::NativeOptions::default();
@@ -99,7 +111,11 @@ enum AppMode {
 struct App {
     mode: AppMode,
 
-    pacbot_widgets: Vec<Box<dyn PacbotWidget>>,
+    stopwatch_widget: StopwatchWidget,
+
+    left_panel_widgets: Vec<PacbotWidgets>,
+    right_panel_widgets: Vec<PacbotWidgets>,
+    pop_out_widgets: Vec<PacbotWidgets>,
 
     selected_grid: StandardGrid,
     grid: ComputedGrid,
@@ -190,7 +206,11 @@ impl Default for App {
         Self {
             mode: AppMode::Recording(GameServer::Simulated),
 
-            pacbot_widgets: vec![Box::new(stopwatch_widget)],
+            stopwatch_widget,
+
+            left_panel_widgets: vec![],
+            right_panel_widgets: vec![],
+            pop_out_widgets: vec![],
 
             selected_grid: StandardGrid::Pacman,
             grid: StandardGrid::Pacman.compute_grid(),
@@ -275,8 +295,8 @@ impl App {
             });
     }
 
-    fn draw_widgets(&mut self, ui: &mut Ui) {
-        for widget in &mut self.pacbot_widgets {
+    fn draw_widget_icons(&mut self, ui: &mut Ui) {
+        for (w, widget) in [(PacbotWidgets::Stopwatch, &mut self.stopwatch_widget)] {
             widget.update();
             let mut button = ui.add(egui::Button::new(widget.button_text()).fill(
                 match widget.overall_status() {
@@ -302,7 +322,73 @@ impl App {
                 }
             });
             if button.clicked() {
-                println!("clicked {}", widget.display_name());
+                if self.left_panel_widgets.contains(&w)
+                    || self.right_panel_widgets.contains(&w)
+                    || self.pop_out_widgets.contains(&w)
+                {
+                    self.left_panel_widgets.retain(|x| *x != w);
+                    self.right_panel_widgets.retain(|x| *x != w);
+                    self.pop_out_widgets.retain(|x| *x != w);
+                } else {
+                    self.left_panel_widgets.push(w);
+                }
+            }
+        }
+    }
+
+    fn get_widget(&mut self, pacbot_widget: PacbotWidgets) -> Box<&mut dyn PacbotWidget> {
+        match pacbot_widget {
+            PacbotWidgets::Stopwatch => Box::new(&mut self.stopwatch_widget),
+        }
+    }
+
+    fn draw_widgets(
+        &mut self,
+        ctx: &egui::Context,
+        ui: &mut Ui,
+        w: Vec<PacbotWidgets>,
+        panel: WhichWidgetPanel,
+    ) {
+        for w in w {
+            ui.with_layout(egui::Layout::right_to_left(Align::TOP), |ui| {
+                if (panel == WhichWidgetPanel::Right
+                    && ui
+                        .button(egui::RichText::new(format!("{}", regular::ARROW_LEFT)))
+                        .clicked())
+                    || (panel == WhichWidgetPanel::Popout
+                        && ui
+                            .button(egui::RichText::new(format!("{}", regular::SIDEBAR_SIMPLE)))
+                            .clicked())
+                {
+                    self.right_panel_widgets.retain(|x| *x != w);
+                    self.pop_out_widgets.retain(|x| *x != w);
+                    self.left_panel_widgets.push(w);
+                }
+                if panel == WhichWidgetPanel::Left
+                    && ui
+                        .button(egui::RichText::new(format!("{}", regular::ARROW_RIGHT)))
+                        .clicked()
+                {
+                    self.left_panel_widgets.retain(|x| *x != w);
+                    self.pop_out_widgets.retain(|x| *x != w);
+                    self.right_panel_widgets.push(w);
+                }
+                if (panel == WhichWidgetPanel::Left || panel == WhichWidgetPanel::Right)
+                    && ui
+                        .button(egui::RichText::new(format!(
+                            "{}",
+                            regular::PICTURE_IN_PICTURE
+                        )))
+                        .clicked()
+                {
+                    self.left_panel_widgets.retain(|x| *x != w);
+                    self.right_panel_widgets.retain(|x| *x != w);
+                    self.pop_out_widgets.push(w);
+                }
+            });
+            self.get_widget(w).draw_associated_panel(ctx, ui);
+            if panel != WhichWidgetPanel::Popout {
+                ui.separator();
             }
         }
     }
@@ -384,7 +470,7 @@ impl eframe::App for App {
                             println!("test?");
                         }
 
-                        self.draw_widgets(ui);
+                        self.draw_widget_icons(ui);
 
                         ui.menu_button("Replay", |ui| {
                             if ui.button("Save").clicked() {
@@ -431,6 +517,36 @@ impl eframe::App for App {
             .write()
             .unwrap()
             .mark_segment("Draw replay UI");
+
+        if !self.left_panel_widgets.is_empty() {
+            egui::SidePanel::left("left_widgets")
+                .resizable(false)
+                .show(ctx, |ui| {
+                    self.draw_widgets(
+                        ctx,
+                        ui,
+                        self.left_panel_widgets.clone(),
+                        WhichWidgetPanel::Left,
+                    );
+                });
+        }
+        if !self.right_panel_widgets.is_empty() {
+            egui::SidePanel::right("right_widgets")
+                .resizable(false)
+                .show(ctx, |ui| {
+                    self.draw_widgets(
+                        ctx,
+                        ui,
+                        self.right_panel_widgets.clone(),
+                        WhichWidgetPanel::Right,
+                    );
+                });
+        }
+        for w in self.pop_out_widgets.clone() {
+            egui::Window::new(self.get_widget(w).display_name()).show(ctx, |ui| {
+                self.draw_widgets(ctx, ui, vec![w], WhichWidgetPanel::Popout);
+            });
+        }
 
         egui::CentralPanel::default()
             .frame(Frame::none().fill(ctx.style().visuals.panel_fill))
