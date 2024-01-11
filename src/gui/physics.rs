@@ -6,7 +6,7 @@ use crate::gui::colors::{
     PACMAN_GUESS_COLOR, PACMAN_PARTICLE_FILTER_COLOR, PACMAN_REPLAY_COLOR,
 };
 use crate::gui::transforms::Transform;
-use crate::gui::{App, AppMode};
+use crate::gui::{AppMode, TabViewer};
 use crate::physics::PacbotSimulation;
 use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
@@ -131,7 +131,7 @@ pub(super) fn run_physics(
     }
 }
 
-impl App {
+impl TabViewer {
     pub(super) fn draw_simulation(&mut self, world_to_screen: &Transform, painter: &Painter) {
         let phys_render = self.phys_render.as_ref().read().unwrap();
         let pacbot_pos = phys_render.pacbot_pos;

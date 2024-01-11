@@ -1,7 +1,7 @@
 //! Records and replays GUI data
 
 use crate::grid::standard_grids::StandardGrid;
-use crate::gui::{utils, App, AppMode, GameServer};
+use crate::gui::{utils, AppMode, TabViewer};
 use crate::replay::Replay;
 use anyhow::Error;
 use eframe::egui::Button;
@@ -29,7 +29,7 @@ pub struct ReplayManager {
     playback_speed: f32,
 }
 
-impl App {
+impl TabViewer {
     /// Create a new ReplayManager; assumes that it is starting in recording mode
     ///
     /// Note: pacman_state is copied once to initialize the replay
@@ -197,7 +197,7 @@ impl App {
                     .clicked()
                 {
                     self.replay_manager.replay = Replay::starting_at(&self.replay_manager.replay);
-                    self.mode = AppMode::Recording(GameServer::Simulated);
+                    self.mode = AppMode::Recording;
                 }
             } else if ui.add_enabled(game_paused, icon_button("⏹")).clicked() {
                 self.mode = AppMode::Playback;
@@ -219,7 +219,7 @@ impl App {
                     {
                         let mut game = self.pacman_render.write().unwrap();
                         game.pacman_state.unpause();
-                        game.pacman_state.step();
+                        game.pacman_state.force_step();
                         game.pacman_state.pause();
                     }
                     self.replay_manager

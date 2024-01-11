@@ -4,9 +4,8 @@ use crate::gui::colors::{
     SUPER_PELLET_COLOR, WALL_COLOR,
 };
 use crate::gui::transforms::Transform;
-use crate::gui::App;
-use eframe::egui;
-use eframe::egui::{Painter, Pos2, Rect, Rounding, Stroke};
+use crate::gui::{PacbotWidget, TabViewer};
+use eframe::egui::{Painter, Pos2, Rect, RichText, Rounding, Stroke};
 use pacbot_rs::game_engine::GameEngine;
 use pacbot_rs::location::LocationState;
 use pacbot_rs::variables::PACMAN_SPAWN_LOC;
@@ -19,6 +18,44 @@ use std::sync::{Arc, RwLock};
 pub struct PacmanStateRenderInfo {
     /// Current game state
     pub pacman_state: GameEngine,
+}
+
+#[derive(Clone)]
+pub struct GameWidget {
+    pub state: Arc<RwLock<PacmanStateRenderInfo>>,
+}
+
+impl PacbotWidget for GameWidget {
+    fn display_name(&self) -> &'static str {
+        "Game (Click to Reset)"
+    }
+
+    fn button_text(&self) -> RichText {
+        RichText::new(format!(
+            "{} {} {} {} {} {}",
+            egui_phosphor::regular::HEART,
+            self.state
+                .read()
+                .unwrap()
+                .pacman_state
+                .get_state()
+                .curr_lives,
+            egui_phosphor::regular::TROPHY,
+            self.state
+                .read()
+                .unwrap()
+                .pacman_state
+                .get_state()
+                .curr_score,
+            egui_phosphor::regular::TIMER,
+            self.state
+                .read()
+                .unwrap()
+                .pacman_state
+                .get_state()
+                .curr_ticks
+        ))
+    }
 }
 
 pub(super) fn run_game(
@@ -45,7 +82,7 @@ pub(super) fn run_game(
 
             // step the game
             if !state.pacman_state.is_paused() {
-                state.pacman_state.step();
+                state.pacman_state.force_step();
                 replay_send.send(()).unwrap()
             }
         }
@@ -55,21 +92,8 @@ pub(super) fn run_game(
     }
 }
 
-impl App {
-    pub(super) fn draw_grid(
-        &mut self,
-        ctx: &egui::Context,
-        world_to_screen: &Transform,
-        painter: &Painter,
-    ) {
-        self.pointer_pos = match ctx.pointer_latest_pos() {
-            None => "".to_string(),
-            Some(pos) => {
-                let pos = world_to_screen.inverse().map_point(pos);
-                format!("({:.1}, {:.1})", pos.x, pos.y)
-            }
-        };
-
+impl TabViewer {
+    pub(super) fn draw_grid(&mut self, world_to_screen: &Transform, painter: &Painter) {
         // paint the solid walls
         for wall in self.grid.walls() {
             let (p1, p2) = world_to_screen.map_wall(wall);
@@ -86,26 +110,15 @@ impl App {
             painter.rect(
                 Rect::from_two_pos(world_to_screen.map_point(p1), world_to_screen.map_point(p2)),
                 Rounding::ZERO,
-                ctx.style().visuals.panel_fill,
-                Stroke::new(1.0, ctx.style().visuals.panel_fill),
+                self.background_color,
+                Stroke::new(1.0, self.background_color),
             );
         }
     }
 
-    pub(super) fn draw_pacman_state(
-        &mut self,
-        ctx: &egui::Context,
-        world_to_screen: &Transform,
-        painter: &Painter,
-    ) {
+    pub(super) fn draw_pacman_state(&mut self, world_to_screen: &Transform, painter: &Painter) {
         let pacman_state_info = self.pacman_render.read().unwrap();
         let pacman_state = &pacman_state_info.pacman_state;
-
-        egui::Window::new("Pacman").show(ctx, |ui| {
-            ui.label(format!("Score: {}", pacman_state.get_state().curr_score));
-            ui.label(format!("Lives: {}", pacman_state.get_state().curr_lives));
-            ui.label(format!("Frame: {}", pacman_state.get_state().curr_ticks));
-        });
 
         // ghosts
         for ghost in &pacman_state.get_state().ghosts {

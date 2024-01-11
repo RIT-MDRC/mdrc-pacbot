@@ -5,6 +5,7 @@ use eframe::egui::Pos2;
 use crate::grid::Wall;
 
 /// A 2D transform consisting of per-axis scale and translation.
+#[derive(Copy, Clone)]
 pub struct Transform {
     scale_x: f32,
     scale_y: f32,

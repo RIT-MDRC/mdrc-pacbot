@@ -1,6 +1,6 @@
-use crate::gui::{PacbotWidget, PacbotWidgetStatus};
+use crate::gui::{PacbotWidget, PacbotWidgetStatus, Tab};
 use crate::util::stopwatch::Stopwatch;
-use eframe::egui::{Context, RichText, Ui};
+use eframe::egui::{RichText, Ui};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
@@ -34,7 +34,7 @@ impl GuiStopwatch {
     }
 }
 
-pub struct StopwatchWidget {
+pub(super) struct StopwatchWidget {
     stopwatches: Vec<GuiStopwatch>,
     pf_time: f32,
     status: PacbotWidgetStatus,
@@ -66,9 +66,11 @@ impl StopwatchWidget {
             ],
         )
     }
+}
 
-    pub fn add(&mut self, stopwatch: GuiStopwatch) {
-        self.stopwatches.push(stopwatch)
+impl StopwatchWidget {
+    pub(super) fn draw(&mut self, ui: &mut Ui) {
+        ui.label("Hello world!");
     }
 }
 
@@ -134,6 +136,10 @@ impl PacbotWidget for StopwatchWidget {
         ))
     }
 
+    fn tab(&self) -> Tab {
+        Tab::Stopwatch
+    }
+
     fn overall_status(&self) -> &PacbotWidgetStatus {
         &self.status
     }
@@ -148,13 +154,5 @@ impl PacbotWidget for StopwatchWidget {
 
     fn errors(&self) -> &[String] {
         &self.errors
-    }
-
-    fn has_associated_panel(&self) -> bool {
-        true
-    }
-
-    fn draw_associated_panel(&self, _ctx: &Context, ui: &mut Ui) {
-        ui.label("Hello world!");
     }
 }
