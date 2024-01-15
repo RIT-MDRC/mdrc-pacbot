@@ -86,7 +86,18 @@ impl egui_dock::TabViewer for TabViewer {
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
         match tab {
             Tab::Grid => self.grid_ui(ui),
-            Tab::Stopwatch => self.stopwatch_widget.draw(ui),
+            Tab::Stopwatch => {
+                ui.label("Particle Filter");
+                draw_stopwatch(&self.pf_stopwatch.read().unwrap(), ui, "pf_sw".to_string());
+                ui.separator();
+                ui.label("Physics");
+                draw_stopwatch(
+                    &self.physics_stopwatch.read().unwrap(),
+                    ui,
+                    "ph_sw".to_string(),
+                );
+                // draw_stopwatch(&self.gui_stopwatch.read().unwrap(), ui);
+            }
             _ => panic!("Widget did not declare a tab!"),
         }
     }
@@ -396,25 +407,23 @@ impl App {
     }
 }
 
-fn draw_stopwatch(stopwatch: &Stopwatch, ctx: &egui::Context, name: &str) {
-    egui::Window::new(name).show(ctx, |ui| {
-        ui.label(format!(
-            "Total: {:.2}",
-            stopwatch.average_process_time() * 1000.0
-        ));
-        ui.separator();
-        egui::Grid::new("")
-            .num_columns(2)
-            .striped(true)
-            .show(ui, |ui| {
-                let segment_times = stopwatch.average_segment_times();
-                for (name, time) in segment_times {
-                    ui.label(name);
-                    ui.label(format!("{:.2}", time * 1000.0));
-                    ui.end_row();
-                }
-            });
-    });
+fn draw_stopwatch(stopwatch: &Stopwatch, ui: &mut Ui, id: String) {
+    ui.label(format!(
+        "Total: {:.2}",
+        stopwatch.average_process_time() * 1000.0
+    ));
+    ui.separator();
+    egui::Grid::new(id)
+        .num_columns(2)
+        .striped(true)
+        .show(ui, |ui| {
+            let segment_times = stopwatch.average_segment_times();
+            for (name, time) in segment_times {
+                ui.label(name);
+                ui.label(format!("{:.2}", time * 1000.0));
+                ui.end_row();
+            }
+        });
 }
 
 impl eframe::App for App {

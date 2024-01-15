@@ -47,8 +47,8 @@ impl StopwatchWidget {
     pub fn new() -> (Self, [Arc<RwLock<Stopwatch>>; 3]) {
         let stopwatches = vec![
             GuiStopwatch::new("GUI", 30, 20.0, 30.0),
-            GuiStopwatch::new("Physics", 10, 1.0, 1.5),
-            GuiStopwatch::new("PF", 10, 2.0, 6.0),
+            GuiStopwatch::new("Physics", 10, 4.0, 6.0),
+            GuiStopwatch::new("PF", 10, 4.0, 6.0),
         ];
         (
             Self {
@@ -65,12 +65,6 @@ impl StopwatchWidget {
                 stopwatches[2].stopwatch.clone(),
             ],
         )
-    }
-}
-
-impl StopwatchWidget {
-    pub(super) fn draw(&mut self, ui: &mut Ui) {
-        ui.label("Hello world!");
     }
 }
 
