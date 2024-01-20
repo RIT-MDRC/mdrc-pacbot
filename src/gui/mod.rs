@@ -158,7 +158,7 @@ fn run_high_level(
     pacman_state: Arc<RwLock<PacmanStateRenderInfo>>,
     target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
 ) {
-    let mut hl_ctx = HighLevelContext::new();
+    let mut hl_ctx = HighLevelContext::new("./checkpoints/lilac-field-47-q_net.safetensors");
 
     loop {
         // Use AI to indicate which direction to move.
@@ -167,10 +167,11 @@ fn run_high_level(
         drop(pacman_state_render); // Allow others to read this resource.
         let mut target_velocity = target_velocity.write().unwrap();
         target_velocity.0 = match action {
+            crate::high_level::HLAction::Stay => Vector2::zeros(),
             crate::high_level::HLAction::Left => -Vector2::x(),
             crate::high_level::HLAction::Right => Vector2::x(),
-            crate::high_level::HLAction::Up => Vector2::y(),
-            crate::high_level::HLAction::Down => -Vector2::y(),
+            crate::high_level::HLAction::Up => -Vector2::y(),
+            crate::high_level::HLAction::Down => Vector2::y(),
         } * 4.;
         drop(target_velocity);
 

@@ -6,6 +6,7 @@ use ndarray::{s, Array};
 /// Represents an action the AI can choose to perform.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum HLAction {
+    Stay,
     /// The agent should move left.
     Left,
     /// The agent should move right.
@@ -27,16 +28,17 @@ pub struct HighLevelContext {
 
 impl HighLevelContext {
     /// Creates a new instance of the high level AI.
-    pub fn new() -> Self {
-        let vm = nn::VarMap::new();
+    pub fn new(weights_path: &str) -> Self {
+        let mut vm = nn::VarMap::new();
         let vb =
             nn::VarBuilder::from_varmap(&vm, candle_core::DType::F32, &candle_core::Device::Cpu);
         let net = QNetV2::new(
             candle_core::Shape::from_dims(&[OBS_SHAPE.0, OBS_SHAPE.1, OBS_SHAPE.2]),
-            4,
+            5,
             vb,
         )
         .unwrap();
+        vm.load(weights_path).unwrap();
         Self {
             net,
             last_pos: (0, 0),
@@ -94,7 +96,7 @@ impl HighLevelContext {
                 //     0
                 // };
                 // TODO: Implement checking for chase state
-                let state_index = 0;
+                let state_index = 1;
                 state[(state_index, pos.x as usize, pos.y as usize)] = 1.0;
             }
         }
@@ -119,22 +121,17 @@ impl HighLevelContext {
             .unwrap();
         let q_vals = self.net.forward(&obs_tensor).unwrap().squeeze(0).unwrap();
         let actions = [
+            HLAction::Stay,
+            HLAction::Down,
+            HLAction::Up,
             HLAction::Left,
             HLAction::Right,
-            HLAction::Up,
-            HLAction::Down,
         ];
         actions[q_vals
             .argmax(candle_core::D::Minus1)
             .unwrap()
             .to_scalar::<u32>()
             .unwrap() as usize]
-    }
-}
-
-impl Default for HighLevelContext {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -153,7 +150,7 @@ fn conv_block_pool(
                 padding: 1,
                 ..Default::default()
             },
-            vb.pp("conv"),
+            vb,
         )?)
         .add(nn::func(|x| x.max_pool2d(2)))
         .add(nn::Activation::Silu))
@@ -173,6 +170,7 @@ impl QNetV2 {
         vb: nn::VarBuilder,
     ) -> candle_core::Result<Self> {
         let (obs_channels, _, _) = obs_shape.dims3().unwrap();
+        let b_vb = vb.pp("backbone");
         let backbone = nn::seq()
             .add(nn::conv2d(
                 obs_channels,
@@ -182,12 +180,12 @@ impl QNetV2 {
                     padding: 2,
                     ..Default::default()
                 },
-                vb.pp("conv1"),
+                b_vb.pp("0"),
             )?)
             .add(nn::Activation::Silu)
-            .add(conv_block_pool(16, 32, vb.pp("conv2"))?)
-            .add(conv_block_pool(32, 64, vb.pp("conv3"))?)
-            .add(conv_block_pool(64, 128, vb.pp("conv4"))?)
+            .add(conv_block_pool(16, 32, b_vb.pp("2"))?)
+            .add(conv_block_pool(32, 64, b_vb.pp("5"))?)
+            .add(conv_block_pool(64, 128, b_vb.pp("8"))?)
             .add(nn::conv2d(
                 128,
                 128,
@@ -197,17 +195,19 @@ impl QNetV2 {
                     groups: 128 / 16,
                     ..Default::default()
                 },
-                vb.pp("conv5"),
+                b_vb.pp("11"),
             )?)
-            // TODO: Figure out how to get this operation working
             .add_fn(|xs| xs.max(candle_core::D::Minus1)?.max(candle_core::D::Minus1))
-            // nn.AdaptiveMaxPool2d((1, 1)),
             .add(nn::func(|x| x.flatten(1, candle_core::D::Minus1)))
             .add(nn::Activation::Silu)
-            .add(nn::linear(128, 256, vb.pp("l1"))?)
+            .add(nn::linear(128, 256, b_vb.pp("15"))?)
             .add(nn::Activation::Silu);
-        let value_head = nn::seq().add(nn::linear(256, 1, vb.pp("val"))?);
-        let advantage_head = nn::seq().add(nn::linear(256, action_count, vb.pp("adv"))?);
+        let value_head = nn::seq().add(nn::linear(256, 1, vb.pp("value_head").pp("0"))?);
+        let advantage_head = nn::seq().add(nn::linear(
+            256,
+            action_count,
+            vb.pp("advantage_head").pp("0"),
+        )?);
 
         Ok(Self {
             backbone,
