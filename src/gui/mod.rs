@@ -158,7 +158,7 @@ fn run_high_level(
     pacman_state: Arc<RwLock<PacmanStateRenderInfo>>,
     target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
 ) {
-    let hl_ctx = HighLevelContext::new();
+    let mut hl_ctx = HighLevelContext::new();
 
     loop {
         // Use AI to indicate which direction to move.
@@ -171,7 +171,7 @@ fn run_high_level(
             crate::high_level::HLAction::Right => Vector2::x(),
             crate::high_level::HLAction::Up => Vector2::y(),
             crate::high_level::HLAction::Down => -Vector2::y(),
-        };
+        } * 4.;
         drop(target_velocity);
 
         // Sleep for 1/4th of a second.
