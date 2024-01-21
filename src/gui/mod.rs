@@ -19,7 +19,6 @@ use crate::agent_setup::PacmanAgentSetup;
 use crate::constants::GUI_PARTICLE_FILTER_POINTS;
 use crate::game_state::PacmanState;
 use crate::grid::ComputedGrid;
-use crate::gui::colors::*;
 use crate::high_level::HighLevelContext;
 use crate::gui::game::{run_game, PacmanStateRenderInfo};
 use crate::gui::physics::{run_physics, PhysicsRenderInfo};
@@ -61,7 +60,7 @@ fn run_high_level(
                 crate::high_level::HLAction::Right => Vector2::x(),
                 crate::high_level::HLAction::Up => Vector2::y(),
                 crate::high_level::HLAction::Down => -Vector2::y(),
-            } * 4.;
+            } * 2.;
             drop(target_velocity);
         } else {
             drop(pacman_state_render);
@@ -302,7 +301,7 @@ fn draw_stopwatch(stopwatch: &Stopwatch, ctx: &egui::Context, name: &str) {
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.gui_stopwatch.start();
-        self.update_target_velocity(ctx);
+        // self.update_target_velocity(ctx);
 
         self.update_replay_manager()
             .expect("Error updating replay manager");

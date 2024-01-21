@@ -120,10 +120,10 @@ impl HighLevelContext {
             .collect();
 
         // Create action mask.
-        let mut action_mask = [false; 5];
+        let mut action_mask = [true, false, false, false, false];
         if let Some(valid_actions) = grid.valid_actions(pac_pos) {
             action_mask = [
-                !valid_actions[0],
+                true,// !valid_actions[0],
                 !valid_actions[4],
                 !valid_actions[3],
                 !valid_actions[2],
@@ -132,7 +132,6 @@ impl HighLevelContext {
         }
         let action_mask =
             Tensor::from_slice(&action_mask.map(|b| b as u8 as f32), 5, &Device::Cpu).unwrap(); // 1 if masked, 0 if not
-        println!("{}", action_mask);
 
         // Run observation through model and generate action.
         let obs_flat = obs_array.as_slice().unwrap();
