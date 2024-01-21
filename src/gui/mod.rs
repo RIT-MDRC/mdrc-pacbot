@@ -163,17 +163,25 @@ fn run_high_level(
     loop {
         // Use AI to indicate which direction to move.
         let pacman_state_render = pacman_state.read().unwrap();
-        let action = hl_ctx.step(&pacman_state_render.pacman_state);
-        drop(pacman_state_render); // Allow others to read this resource.
-        let mut target_velocity = target_velocity.write().unwrap();
-        target_velocity.0 = match action {
-            crate::high_level::HLAction::Stay => Vector2::zeros(),
-            crate::high_level::HLAction::Left => -Vector2::x(),
-            crate::high_level::HLAction::Right => Vector2::x(),
-            crate::high_level::HLAction::Up => -Vector2::y(),
-            crate::high_level::HLAction::Down => Vector2::y(),
-        } * 4.;
-        drop(target_velocity);
+        println!("{}", pacman_state_render.pacman_state.pacman.location);
+        if !pacman_state_render.pacman_state.paused {
+            let action = hl_ctx.step(&pacman_state_render.pacman_state, pacman_state_render.agent_setup.grid());
+            drop(pacman_state_render); // Allow others to read this resource.
+            let mut target_velocity = target_velocity.write().unwrap();
+            target_velocity.0 = match action {
+                crate::high_level::HLAction::Stay => Vector2::zeros(),
+                crate::high_level::HLAction::Left => -Vector2::x(),
+                crate::high_level::HLAction::Right => Vector2::x(),
+                crate::high_level::HLAction::Up => Vector2::y(),
+                crate::high_level::HLAction::Down => -Vector2::y(),
+            } * 4.;
+            drop(target_velocity);
+        } else {
+            drop(pacman_state_render);
+            let mut target_velocity = target_velocity.write().unwrap();
+            target_velocity.0 = Vector2::zeros();
+            drop(target_velocity);
+        }
 
         // Sleep for 1/4th of a second.
         std::thread::sleep(std::time::Duration::from_secs_f32(1. / 4.));
@@ -350,7 +358,7 @@ impl App {
             );
         }
 
-        // self.update_target_velocity(ctx);
+        self.update_target_velocity(ctx);
 
         if self.selected_grid == StandardGrid::Pacman {
             self.draw_pacman_state(ctx, &world_to_screen, &painter);

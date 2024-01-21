@@ -75,7 +75,7 @@ pub struct PacmanState {
     /// Current ghost behavior - applies to all ghosts
     ///
     /// When paused, Pacman should not move
-    mode: GhostMode,
+    pub mode: GhostMode,
     /// Mode before the super pellet
     old_mode: GhostMode,
     /// Whether we entered frightened mode or swapped states the previous tick

@@ -1,4 +1,11 @@
-use crate::{constants, game_state::PacmanState, grid::GridValue, standard_grids::GRID_PACMAN};
+//! Defines the Pacman agent's high level AI.
+
+use crate::{
+    constants,
+    game_state::{GhostMode, PacmanState},
+    grid::{ComputedGrid, GridValue},
+    standard_grids::GRID_PACMAN,
+};
 use candle_core::{Device, Module, Tensor};
 use candle_nn as nn;
 use ndarray::{s, Array};
@@ -6,6 +13,7 @@ use ndarray::{s, Array};
 /// Represents an action the AI can choose to perform.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum HLAction {
+    /// The agent should stay in place.
     Stay,
     /// The agent should move left.
     Left,
@@ -49,7 +57,7 @@ impl HighLevelContext {
     /// Runs one step of the high level AI.
     /// Returns the action the AI has decided to take.
     // Currently, this implements a DQN approach.
-    pub fn step(&mut self, game_state: &PacmanState) -> HLAction {
+    pub fn step(&mut self, game_state: &PacmanState, grid: &ComputedGrid) -> HLAction {
         // Convert the current game state into an agent observation.
         let mut obs_array = Array::zeros(OBS_SHAPE);
         let (mut wall, mut reward, mut pacman, mut ghost, mut last_ghost, mut state) = obs_array
@@ -62,9 +70,9 @@ impl HighLevelContext {
                 s![12..15, .., ..],
             ));
 
-        for ((grid_value, reward_value), wall_value) in GRID_PACMAN
+        for ((grid_value, reward_value), wall_value) in GRID_PACMAN[..28]
             .iter()
-            .flatten()
+            .flat_map(|row| &row[..31])
             .zip(reward.iter_mut())
             .zip(wall.iter_mut())
         {
@@ -90,13 +98,11 @@ impl HighLevelContext {
                 state[(2, pos.x as usize, pos.y as usize)] =
                     g.frightened_counter as f32 / constants::FRIGHTENED_LENGTH as f32;
             } else {
-                // let state_index = if game_state.game_state == GameStateState::Chase {
-                //     1
-                // } else {
-                //     0
-                // };
-                // TODO: Implement checking for chase state
-                let state_index = 1;
+                let state_index = if game_state.mode == GhostMode::Chase {
+                    1
+                } else {
+                    0
+                };
                 state[(state_index, pos.x as usize, pos.y as usize)] = 1.0;
             }
         }
@@ -105,13 +111,28 @@ impl HighLevelContext {
             last_ghost[(i, pos.0, pos.1)] = 1.0;
         }
 
-        // Save last positions
+        // Save last positions.
         self.last_pos = (pac_pos.x as usize, pac_pos.y as usize);
         self.last_ghost_pos = game_state
             .ghosts
             .iter()
             .map(|g| (g.agent.location.x as usize, g.agent.location.y as usize))
             .collect();
+
+        // Create action mask.
+        let mut action_mask = [false; 5];
+        if let Some(valid_actions) = grid.valid_actions(pac_pos) {
+            action_mask = [
+                !valid_actions[0],
+                !valid_actions[4],
+                !valid_actions[3],
+                !valid_actions[2],
+                !valid_actions[1],
+            ];
+        }
+        let action_mask =
+            Tensor::from_slice(&action_mask.map(|b| b as u8 as f32), 5, &Device::Cpu).unwrap(); // 1 if masked, 0 if not
+        println!("{}", action_mask);
 
         // Run observation through model and generate action.
         let obs_flat = obs_array.as_slice().unwrap();
@@ -120,6 +141,9 @@ impl HighLevelContext {
             .unsqueeze(0)
             .unwrap();
         let q_vals = self.net.forward(&obs_tensor).unwrap().squeeze(0).unwrap();
+        let q_vals = ((q_vals * (1. - &action_mask).unwrap()).unwrap()
+            + (&action_mask * -999.).unwrap())
+        .unwrap();
         let actions = [
             HLAction::Stay,
             HLAction::Down,
