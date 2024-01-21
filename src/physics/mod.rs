@@ -1,12 +1,20 @@
 //! Handles all physics related operations
 
+mod particle_filter;
+
+use crate::constants::{
+    NUM_PARTICLE_FILTER_POINTS, PARTICLE_FILTER_ELITE, PARTICLE_FILTER_PURGE,
+    PARTICLE_FILTER_RANDOM,
+};
 use crate::grid::ComputedGrid;
+use crate::physics::particle_filter::{ParticleFilter, ParticleFilterOptions};
 use crate::robot::Robot;
 use crate::standard_grids::StandardGrid;
 use rapier2d::dynamics::{IntegrationParameters, RigidBodySet};
 use rapier2d::geometry::{BroadPhase, NarrowPhase};
 use rapier2d::na::{Isometry2, Vector2};
 use rapier2d::prelude::*;
+use std::sync::{Arc, Mutex};
 
 /// Rapier interaction group representing all walls
 const GROUP_WALL: u32 = 1;
@@ -33,16 +41,21 @@ pub struct PacbotSimulation {
     robot_specifications: Robot,
     primary_robot: ColliderHandle,
     robot_target_velocity: (Vector2<f32>, f32),
+
+    particle_filter: ParticleFilter,
 }
 
 impl Default for PacbotSimulation {
     /// Creates a simulation with GRID_PACMAN, the default Robot, and starting position (14, 7)
     fn default() -> Self {
-        let grid = StandardGrid::Pacman.compute_grid();
         Self::new(
-            grid,
+            StandardGrid::Pacman.compute_grid(),
             Robot::default(),
-            Isometry2::new(Vector2::new(14.0, 7.0), 0.0),
+            StandardGrid::Pacman.get_default_pacbot_isometry(),
+            Arc::new(Mutex::new(vec![
+                Some(0.0);
+                Robot::default().distance_sensors.len()
+            ])),
         )
     }
 }
@@ -53,18 +66,26 @@ impl PacbotSimulation {
     /// # Examples
     ///
     /// ```
+    /// use std::sync::{Arc, Mutex};
+    /// use rand::rngs::ThreadRng;
     /// use rapier2d::na::{Isometry2, Vector2};
     /// use mdrc_pacbot_util::grid::ComputedGrid;
     /// use mdrc_pacbot_util::robot::Robot;
-    /// use mdrc_pacbot_util::simulation::PacbotSimulation;
+    /// use mdrc_pacbot_util::physics::PacbotSimulation;
     /// use mdrc_pacbot_util::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Pacman.compute_grid();
     /// let robot = Robot::default();
+    /// let distance_sensors = Arc::new(Mutex::new(vec![Some(0.0); Robot::default().distance_sensors.len()]));
     /// let starting_position = Isometry2::new(Vector2::new(14.0, 7.0), 0.0);
-    /// let mut simulation = PacbotSimulation::new(grid, robot, starting_position);
+    /// let mut simulation = PacbotSimulation::new(grid, robot, starting_position, distance_sensors);
     /// ```
-    pub fn new(grid: ComputedGrid, robot: Robot, robot_position: Isometry2<f32>) -> Self {
+    pub fn new(
+        grid: ComputedGrid,
+        robot: Robot,
+        robot_position: Isometry2<f32>,
+        distance_sensors: Arc<Mutex<Vec<Option<f32>>>>,
+    ) -> Self {
         let mut rigid_body_set = RigidBodySet::new();
         let mut collider_set = ColliderSet::new();
 
@@ -104,6 +125,25 @@ impl PacbotSimulation {
         let collider_handle =
             collider_set.insert_with_parent(collider, rigid_body_handle, &mut rigid_body_set);
 
+        let query_pipeline = QueryPipeline::new();
+
+        let particle_filter = ParticleFilter::new(
+            grid,
+            robot.to_owned(),
+            robot_position,
+            distance_sensors,
+            ParticleFilterOptions {
+                points: NUM_PARTICLE_FILTER_POINTS,
+                elite: PARTICLE_FILTER_ELITE,
+                purge: PARTICLE_FILTER_PURGE,
+                random: PARTICLE_FILTER_RANDOM,
+                spread: 2.5,
+                elitism_bias: 1.0,
+                genetic_translation_limit: 0.1,
+                genetic_rotation_limit: 0.1,
+            },
+        );
+
         Self {
             integration_parameters: IntegrationParameters::default(),
             physics_pipeline: PhysicsPipeline::new(),
@@ -117,12 +157,14 @@ impl PacbotSimulation {
             rigid_body_set,
             collider_set,
 
-            query_pipeline: QueryPipeline::new(),
+            query_pipeline,
             query_pipeline_updated: false,
 
             robot_specifications: robot,
             primary_robot: collider_handle,
             robot_target_velocity: (Vector2::new(0.0, 0.0), 0.0),
+
+            particle_filter,
         }
     }
 
@@ -131,7 +173,7 @@ impl PacbotSimulation {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::simulation::PacbotSimulation;
+    /// use mdrc_pacbot_util::physics::PacbotSimulation;
     /// let mut simulation = PacbotSimulation::default();
     ///
     /// // in an infinite loop
@@ -192,7 +234,7 @@ impl PacbotSimulation {
     /// use rapier2d::geometry::ColliderHandle;
     /// use rapier2d::na::{Isometry2, Point2, Vector2};
     /// use rapier2d::prelude::Rotation;
-    /// use mdrc_pacbot_util::simulation::PacbotSimulation;
+    /// use mdrc_pacbot_util::physics::PacbotSimulation;
     /// let mut simulation = PacbotSimulation::default();
     ///
     /// // in an infinite loop
@@ -201,7 +243,7 @@ impl PacbotSimulation {
     /// let position: Point2<f32> = isometry.translation.transform_point(&Point2::new(0.0, 0.0));
     /// let rotation: Rotation<f32> = isometry.rotation;
     /// ```
-    pub fn get_collider_position(&mut self, handle: ColliderHandle) -> Option<&Isometry2<f32>> {
+    pub fn get_collider_position(&self, handle: ColliderHandle) -> Option<&Isometry2<f32>> {
         let rigid_body_handle = self.collider_set.get(handle)?.parent()?;
         Some(self.rigid_body_set.get(rigid_body_handle)?.position())
     }
@@ -217,7 +259,7 @@ impl PacbotSimulation {
     /// ```
     /// use rapier2d::na::{Point2, Vector2};
     /// use rapier2d::prelude::{Ray, Rotation};
-    /// use mdrc_pacbot_util::simulation::PacbotSimulation;
+    /// use mdrc_pacbot_util::physics::PacbotSimulation;
     /// let mut simulation = PacbotSimulation::default();
     ///
     /// let pacbot_position = simulation.get_primary_robot_position();
@@ -260,7 +302,7 @@ impl PacbotSimulation {
     ///
     /// ```
     /// use rapier2d::prelude::ColliderHandle;
-    /// use mdrc_pacbot_util::simulation::PacbotSimulation;
+    /// use mdrc_pacbot_util::physics::PacbotSimulation;
     /// let mut simulation = PacbotSimulation::default();
     ///
     /// let primary_collider: ColliderHandle = simulation.get_primary_robot_collider();
@@ -276,14 +318,14 @@ impl PacbotSimulation {
     /// ```
     /// use rapier2d::math::Rotation;
     /// use rapier2d::na::Point2;
-    /// use mdrc_pacbot_util::simulation::PacbotSimulation;
+    /// use mdrc_pacbot_util::physics::PacbotSimulation;
     /// let mut simulation = PacbotSimulation::default();
     ///
     /// let isometry = simulation.get_primary_robot_position();
     /// let position: Point2<f32> = isometry.translation.transform_point(&Point2::new(0.0, 0.0));
     /// let rotation: Rotation<f32> = isometry.rotation;
     /// ```
-    pub fn get_primary_robot_position(&mut self) -> &Isometry2<f32> {
+    pub fn get_primary_robot_position(&self) -> &Isometry2<f32> {
         self.get_collider_position(self.primary_robot).unwrap()
     }
 
@@ -293,7 +335,7 @@ impl PacbotSimulation {
     ///
     /// ```
     /// use rapier2d::na::Vector2;
-    /// use mdrc_pacbot_util::simulation::PacbotSimulation;
+    /// use mdrc_pacbot_util::physics::PacbotSimulation;
     /// let mut simulation = PacbotSimulation::default();
     ///
     /// let w_key_pressed = true;
@@ -312,7 +354,7 @@ impl PacbotSimulation {
     ///
     /// ```
     /// use mdrc_pacbot_util::robot::Robot;
-    /// use mdrc_pacbot_util::simulation::PacbotSimulation;
+    /// use mdrc_pacbot_util::physics::PacbotSimulation;
     /// let mut simulation = PacbotSimulation::default();
     ///
     /// let robot = Robot::default();
@@ -359,5 +401,15 @@ impl PacbotSimulation {
                 )
             })
             .collect()
+    }
+
+    /// Get the particle filter's best guess position
+    pub fn pf_best_guess(&self) -> Isometry2<f32> {
+        self.particle_filter.best_guess()
+    }
+
+    /// Get the best 'count' particle filter points
+    pub fn pf_points(&self, count: usize) -> Vec<Isometry2<f32>> {
+        self.particle_filter.points(count)
     }
 }

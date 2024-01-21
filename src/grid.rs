@@ -569,12 +569,14 @@ impl ComputedGrid {
     /// ```
     pub fn neighbors(&self, p: &Point2<u8>) -> Vec<Point2<u8>> {
         let mut neighbors = vec![];
-        for &neighbor in &[
-            Point2::new(p.x + 1, p.y),
-            Point2::new(p.x - 1, p.y),
-            Point2::new(p.x, p.y + 1),
-            Point2::new(p.x, p.y - 1),
-        ] {
+        let mut potential_neighbors = vec![Point2::new(p.x + 1, p.y), Point2::new(p.x, p.y + 1)];
+        if p.x > 0 {
+            potential_neighbors.push(Point2::new(p.x - 1, p.y));
+        }
+        if p.y > 0 {
+            potential_neighbors.push(Point2::new(p.x, p.y - 1));
+        }
+        for &neighbor in &potential_neighbors {
             if let Some(grid_value) = self.at(&neighbor) {
                 if grid_value.walkable() {
                     neighbors.push(neighbor);
@@ -598,6 +600,23 @@ impl ComputedGrid {
     /// ```
     pub fn walls(&self) -> &Vec<Wall> {
         &self.walls
+    }
+
+    /// Return the walkable node from the nodes surrounding this point
+    pub fn node_nearest(&self, x: f32, y: f32) -> Option<Point2<u8>> {
+        for node in [
+            Point2::new(x.floor() as u8, y.floor() as u8),
+            Point2::new(x.ceil() as u8, y.floor() as u8),
+            Point2::new(x.floor() as u8, y.ceil() as u8),
+            Point2::new(x.ceil() as u8, y.ceil() as u8),
+        ] {
+            if let Some(x) = self.at(&node) {
+                if x.walkable() {
+                    return Some(node);
+                }
+            }
+        }
+        None
     }
 }
 
