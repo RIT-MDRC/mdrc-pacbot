@@ -158,7 +158,7 @@ fn run_high_level(
     pacman_state: Arc<RwLock<PacmanStateRenderInfo>>,
     target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
 ) {
-    let mut hl_ctx = HighLevelContext::new("./checkpoints/lilac-field-47-q_net.safetensors");
+    let mut hl_ctx = HighLevelContext::new("./checkpoints/q_net.safetensors");
 
     loop {
         // Use AI to indicate which direction to move.
