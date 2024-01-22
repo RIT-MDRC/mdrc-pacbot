@@ -1,15 +1,17 @@
 use crate::constants::GUI_PARTICLE_FILTER_POINTS;
+use crate::grid::standard_grids::StandardGrid;
+use crate::grid::PLocation;
 use crate::gui::colors::{
     PACMAN_COLOR, PACMAN_DISTANCE_SENSOR_RAY_COLOR, PACMAN_FACING_INDICATOR_COLOR,
     PACMAN_GUESS_COLOR, PACMAN_PARTICLE_FILTER_COLOR, PACMAN_REPLAY_COLOR,
 };
 use crate::gui::transforms::Transform;
-use crate::gui::{App, AppMode};
+use crate::gui::{AppMode, TabViewer};
 use crate::physics::PacbotSimulation;
 use crate::robot::Robot;
-use crate::standard_grids::StandardGrid;
 use crate::util::stopwatch::Stopwatch;
 use eframe::egui::{Painter, Pos2, Stroke};
+use pacbot_rs::variables::PACMAN_SPAWN_LOC;
 use rapier2d::na::{Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::{Receiver, Sender};
@@ -36,11 +38,11 @@ pub struct PhysicsRenderInfo {
 pub(super) fn run_physics(
     phys_render: Arc<RwLock<PhysicsRenderInfo>>,
     current_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
-    location_send: Sender<Point2<u8>>,
+    location_send: Sender<PLocation>,
     restart_recv: Receiver<(StandardGrid, Robot, Isometry2<f32>)>,
     distance_sensors: Arc<Mutex<Vec<Option<f32>>>>,
-    pf_stopwatch: Arc<Mutex<Stopwatch>>,
-    physics_stopwatch: Arc<Mutex<Stopwatch>>,
+    pf_stopwatch: Arc<RwLock<Stopwatch>>,
+    physics_stopwatch: Arc<RwLock<Stopwatch>>,
 ) {
     let grid = StandardGrid::Pacman.compute_grid();
 
@@ -53,7 +55,7 @@ pub(super) fn run_physics(
         distance_sensors_ref,
     );
 
-    let mut previous_pacbot_location = Point2::new(14, 7);
+    let mut previous_pacbot_location = PLocation::new(PACMAN_SPAWN_LOC.row, PACMAN_SPAWN_LOC.col);
 
     loop {
         // Was a restart requested?
@@ -67,10 +69,10 @@ pub(super) fn run_physics(
         }
 
         // Run simulation one step
-        physics_stopwatch.lock().unwrap().start();
+        physics_stopwatch.write().unwrap().start();
         simulation.step();
         physics_stopwatch
-            .lock()
+            .write()
             .unwrap()
             .mark_segment("Step simulation");
 
@@ -80,7 +82,7 @@ pub(super) fn run_physics(
                 simulation.get_primary_robot_position().translation.x,
                 simulation.get_primary_robot_position().translation.y,
             )
-            .unwrap_or(Point2::new(1, 1));
+            .unwrap_or(PLocation::new(1, 1));
 
         // Update distance sensors
         let rays = simulation.get_primary_robot_rays();
@@ -96,7 +98,7 @@ pub(super) fn run_physics(
         // Update particle filter
         simulation.pf_update(estimated_location, &pf_stopwatch);
         physics_stopwatch
-            .lock()
+            .write()
             .unwrap()
             .mark_segment("Update particle filter");
 
@@ -129,7 +131,7 @@ pub(super) fn run_physics(
     }
 }
 
-impl App {
+impl TabViewer {
     pub(super) fn draw_simulation(&mut self, world_to_screen: &Transform, painter: &Painter) {
         let phys_render = self.phys_render.as_ref().read().unwrap();
         let pacbot_pos = phys_render.pacbot_pos;

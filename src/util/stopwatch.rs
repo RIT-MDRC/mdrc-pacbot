@@ -4,6 +4,7 @@ use crate::util::moving_average::MovingAverage;
 use std::time::Instant;
 
 /// Keeps track of time elapsed for a process that may have multiple parts
+#[derive(Clone, Debug)]
 pub struct Stopwatch {
     num_samples: usize,
 

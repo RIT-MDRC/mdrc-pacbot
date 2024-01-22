@@ -1,16 +1,15 @@
 //! Records and replays GUI data
 
-use crate::agent_setup::PacmanAgentSetup;
-use crate::game_state::PacmanState;
-use crate::gui::{utils, App, AppMode, GameServer};
+use crate::grid::standard_grids::StandardGrid;
+use crate::gui::{utils, AppMode, TabViewer};
 use crate::replay::Replay;
-use crate::standard_grids::StandardGrid;
 use anyhow::Error;
 use eframe::egui::Button;
 use eframe::egui::Key;
 use eframe::egui::Ui;
 use native_dialog::FileDialog;
-use rand::rngs::ThreadRng;
+use pacbot_rs::game_engine::GameEngine;
+use rapier2d::math::Rotation;
 use rapier2d::na::Isometry2;
 use rapier2d::prelude::Translation;
 use std::fs;
@@ -30,21 +29,19 @@ pub struct ReplayManager {
     playback_speed: f32,
 }
 
-impl App {
+impl TabViewer {
     /// Create a new ReplayManager; assumes that it is starting in recording mode
     ///
-    /// Note: agent_setup and pacman_state are copied once to initialize the replay
+    /// Note: pacman_state is copied once to initialize the replay
     pub fn new_replay_manager(
         filename: String,
         standard_grid: StandardGrid,
-        agent_setup: PacmanAgentSetup,
-        pacman_state: PacmanState,
+        pacman_state: GameEngine,
         pacbot_location: Isometry2<f32>,
     ) -> ReplayManager {
         let replay = Replay::new(
             filename.to_owned(),
             standard_grid,
-            agent_setup,
             pacman_state,
             pacbot_location,
         );
@@ -69,10 +66,16 @@ impl App {
                     .replay
                     .record_pacman_location(Isometry2::from_parts(
                         Translation::new(
-                            state.pacman.location.x as f32,
-                            state.pacman.location.y as f32,
+                            state.get_state().pacman_loc.row as f32,
+                            state.get_state().pacman_loc.col as f32,
                         ),
-                        state.pacman.direction.get_rotation(),
+                        Rotation::new(match state.get_state().pacman_loc.dir {
+                            pacbot_rs::location::RIGHT => std::f32::consts::FRAC_PI_2,
+                            pacbot_rs::location::UP => std::f32::consts::PI,
+                            pacbot_rs::location::LEFT => std::f32::consts::FRAC_PI_2 * 3.0,
+                            pacbot_rs::location::DOWN => 0.0,
+                            _ => 0.0,
+                        }),
                     ))?;
             }
             self.replay_manager.replay.record_pacman_state(state)?;
@@ -143,7 +146,7 @@ impl App {
     ///
     /// ui should be just the bottom panel
     pub fn draw_replay_ui(&mut self, ctx: &eframe::egui::Context, ui: &mut Ui) {
-        let game_paused = self.pacman_render.write().unwrap().pacman_state.paused;
+        let game_paused = self.pacman_render.write().unwrap().pacman_state.is_paused();
 
         let k_space = ctx.input(|i| i.key_pressed(Key::Space));
         let k_left = ctx.input(|i| i.key_pressed(Key::ArrowLeft));
@@ -183,7 +186,7 @@ impl App {
                 }
             } else if game_paused {
                 if ui.add_enabled(true, icon_button("▶")).clicked() || k_space {
-                    self.pacman_render.write().unwrap().pacman_state.resume();
+                    self.pacman_render.write().unwrap().pacman_state.unpause();
                 }
             } else if ui.add_enabled(true, icon_button("⏸")).clicked() || k_space {
                 self.pacman_render.write().unwrap().pacman_state.pause();
@@ -194,7 +197,7 @@ impl App {
                     .clicked()
                 {
                     self.replay_manager.replay = Replay::starting_at(&self.replay_manager.replay);
-                    self.mode = AppMode::Recording(GameServer::Simulated);
+                    self.mode = AppMode::Recording;
                 }
             } else if ui.add_enabled(game_paused, icon_button("⏹")).clicked() {
                 self.mode = AppMode::Playback;
@@ -215,9 +218,8 @@ impl App {
                     // game is live but paused
                     {
                         let mut game = self.pacman_render.write().unwrap();
-                        game.pacman_state.resume();
-                        game.pacman_state
-                            .step(&self.agent_setup, &mut ThreadRng::default(), true);
+                        game.pacman_state.unpause();
+                        game.pacman_state.force_step();
                         game.pacman_state.pause();
                     }
                     self.replay_manager
@@ -301,7 +303,6 @@ impl App {
         self.replay_manager.replay = Replay::new(
             "replay".to_string(),
             self.selected_grid,
-            self.agent_setup.to_owned(),
             self.pacman_render.read().unwrap().pacman_state.to_owned(),
             self.phys_render.read().unwrap().pacbot_pos,
         );
