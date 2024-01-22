@@ -343,7 +343,7 @@ impl Default for App {
 }
 
 impl App {
-    fn update_target_velocity(&mut self, ctx: &egui::Context) {
+    fn _update_target_velocity(&mut self, ctx: &egui::Context) {
         let mut target_velocity = self.tab_viewer.target_velocity.write().unwrap();
         target_velocity.0.x = 0.0;
         target_velocity.0.y = 0.0;

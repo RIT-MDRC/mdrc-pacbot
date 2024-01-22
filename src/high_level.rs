@@ -1,14 +1,15 @@
 //! Defines the Pacman agent's high level AI.
 
-use crate::{
-    constants,
-    game_state::{GhostMode, PacmanState},
-    grid::{ComputedGrid, GridValue},
-    standard_grids::GRID_PACMAN,
-};
+use crate::grid::standard_grids::StandardGrid;
+use crate::grid::ComputedGrid;
+use crate::grid::PLocation;
 use candle_core::{Device, Module, Tensor};
 use candle_nn as nn;
 use ndarray::{s, Array};
+use pacbot_rs::game_modes::GameMode;
+use pacbot_rs::game_state::GameState;
+use pacbot_rs::variables;
+use pacbot_rs::variables::GHOST_FRIGHT_STEPS;
 
 /// Represents an action the AI can choose to perform.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -57,7 +58,7 @@ impl HighLevelContext {
     /// Runs one step of the high level AI.
     /// Returns the action the AI has decided to take.
     // Currently, this implements a DQN approach.
-    pub fn step(&mut self, game_state: &PacmanState, grid: &ComputedGrid) -> HLAction {
+    pub fn step(&mut self, game_state: &GameState, grid: &ComputedGrid) -> HLAction {
         // Convert the current game state into an agent observation.
         let mut obs_array = Array::zeros(OBS_SHAPE);
         let (mut wall, mut reward, mut pacman, mut ghost, mut last_ghost, mut state) = obs_array
@@ -70,40 +71,52 @@ impl HighLevelContext {
                 s![12..15, .., ..],
             ));
 
-        for ((grid_value, reward_value), wall_value) in GRID_PACMAN[..28]
+        for (grid_value, wall_value) in StandardGrid::Pacman.get_grid()[..31]
             .iter()
-            .flat_map(|row| &row[..31])
-            .zip(reward.iter_mut())
+            .flat_map(|row| &row[..28])
             .zip(wall.iter_mut())
         {
-            *wall_value = (*grid_value == GridValue::I || *grid_value == GridValue::n) as u8 as f32;
-            *reward_value = match grid_value {
-                GridValue::o => constants::PELLET_SCORE,
-                GridValue::O => constants::POWER_PELLET_SCORE,
-                GridValue::c => constants::CHERRY_SCORE,
-                _ => 0,
-            } as f32
-                / constants::GHOST_SCORE as f32;
+            *wall_value = *grid_value as u8 as f32;
         }
 
-        let pac_pos = game_state.pacman.location;
+        for row in 0..31 {
+            for col in 0..28 {
+                reward[(col, row)] = if game_state.pellet_at((col as i8, row as i8)) {
+                    if ((row == 3) || (row == 23)) && ((col == 1) || (col == 26)) {
+                        variables::SUPER_PELLET_POINTS
+                    } else {
+                        variables::PELLET_POINTS
+                    }
+                } else if game_state.fruit_exists()
+                    && col == game_state.fruit_loc.col as usize
+                    && row == game_state.fruit_loc.row as usize
+                {
+                    variables::FRUIT_POINTS
+                } else {
+                    0
+                } as f32
+                    / variables::COMBO_MULTIPLIER as f32;
+            }
+        }
+
+        let pac_pos = game_state.pacman_loc;
         pacman[(0, self.last_pos.0, self.last_pos.1)] = 1.0;
-        pacman[(1, pac_pos.x as usize, pac_pos.y as usize)] = 1.0;
+        pacman[(1, pac_pos.col as usize, pac_pos.row as usize)] = 1.0;
 
         for (i, g) in game_state.ghosts.iter().enumerate() {
-            let pos = g.agent.location;
-            ghost[(i, pos.x as usize, pos.y as usize)] = 1.0;
-            let is_frightened = g.frightened_counter > 0; // TODO: Check if this is correct
-            if is_frightened {
-                state[(2, pos.x as usize, pos.y as usize)] =
-                    g.frightened_counter as f32 / constants::FRIGHTENED_LENGTH as f32;
+            let g = g.read().unwrap();
+            let pos = g.loc;
+            ghost[(i, pos.col as usize, pos.row as usize)] = 1.0;
+            if g.is_frightened() {
+                state[(2, pos.col as usize, pos.row as usize)] =
+                    g.fright_steps as f32 / GHOST_FRIGHT_STEPS as f32;
             } else {
-                let state_index = if game_state.mode == GhostMode::Chase {
+                let state_index = if game_state.mode == GameMode::CHASE {
                     1
                 } else {
                     0
                 };
-                state[(state_index, pos.x as usize, pos.y as usize)] = 1.0;
+                state[(state_index, pos.col as usize, pos.row as usize)] = 1.0;
             }
         }
 
@@ -112,18 +125,19 @@ impl HighLevelContext {
         }
 
         // Save last positions.
-        self.last_pos = (pac_pos.x as usize, pac_pos.y as usize);
+        self.last_pos = (pac_pos.col as usize, pac_pos.row as usize);
         self.last_ghost_pos = game_state
             .ghosts
             .iter()
-            .map(|g| (g.agent.location.x as usize, g.agent.location.y as usize))
+            .map(|g| g.read().unwrap())
+            .map(|g| (g.loc.col as usize, g.loc.row as usize))
             .collect();
 
         // Create action mask.
         let mut action_mask = [true, false, false, false, false];
-        if let Some(valid_actions) = grid.valid_actions(pac_pos) {
+        if let Some(valid_actions) = grid.valid_actions(PLocation::new(pac_pos.row, pac_pos.col)) {
             action_mask = [
-                true,// !valid_actions[0],
+                true, // !valid_actions[0],
                 !valid_actions[4],
                 !valid_actions[3],
                 !valid_actions[2],
