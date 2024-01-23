@@ -1,6 +1,5 @@
 //! Defines the Pacman agent's high level AI.
 
-use crate::grid::standard_grids::StandardGrid;
 use crate::grid::ComputedGrid;
 use crate::grid::PLocation;
 use candle_core::{Device, Module, Tensor};
