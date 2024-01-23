@@ -62,7 +62,7 @@ fn run_high_level(
                 crate::high_level::HLAction::Right => Vector2::x(),
                 crate::high_level::HLAction::Up => Vector2::y(),
                 crate::high_level::HLAction::Down => -Vector2::y(),
-            } * 2.;
+            } * 1.;
             drop(target_velocity);
         } else {
             drop(pacman_state_render);
@@ -198,9 +198,9 @@ impl Default for TabViewer {
                 );
             });
         }
-        // std::thread::spawn(move || {
-        //     run_high_level(hl_game_state, target_velocity_r);
-        // });
+        std::thread::spawn(move || {
+            run_high_level(hl_game_state, target_velocity_r);
+        });
 
         let pacbot_pos = phys_render.read().unwrap().pacbot_pos;
 

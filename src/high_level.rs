@@ -70,18 +70,12 @@ impl HighLevelContext {
                 s![8..12, .., ..],
                 s![12..15, .., ..],
             ));
-
-        for (grid_value, wall_value) in StandardGrid::Pacman.get_grid()[..31]
-            .iter()
-            .flat_map(|row| &row[..28])
-            .zip(wall.iter_mut())
-        {
-            *wall_value = *grid_value as u8 as f32;
-        }
-
+        
         for row in 0..31 {
             for col in 0..28 {
-                reward[(col, row)] = if game_state.pellet_at((col as i8, row as i8)) {
+                let obs_row = 31 - row - 1;
+                wall[(col, obs_row)] = grid.grid()[row][col] as u8 as f32;
+                reward[(col, obs_row)] = if game_state.pellet_at((row as i8, col as i8)) {
                     if ((row == 3) || (row == 23)) && ((col == 1) || (col == 26)) {
                         variables::SUPER_PELLET_POINTS
                     } else {
@@ -100,28 +94,36 @@ impl HighLevelContext {
         }
 
         let pac_pos = game_state.pacman_loc;
-        pacman[(0, self.last_pos.0, self.last_pos.1)] = 1.0;
-        pacman[(1, pac_pos.col as usize, pac_pos.row as usize)] = 1.0;
 
-        for (i, g) in game_state.ghosts.iter().enumerate() {
-            let g = g.read().unwrap();
-            let pos = g.loc;
-            ghost[(i, pos.col as usize, pos.row as usize)] = 1.0;
-            if g.is_frightened() {
-                state[(2, pos.col as usize, pos.row as usize)] =
-                    g.fright_steps as f32 / GHOST_FRIGHT_STEPS as f32;
-            } else {
-                let state_index = if game_state.mode == GameMode::CHASE {
-                    1
-                } else {
-                    0
-                };
-                state[(state_index, pos.col as usize, pos.row as usize)] = 1.0;
+        // I think (32, 32) is the shadow realm
+        if pac_pos.col != 32 && self.last_pos.0 != 32 {
+            pacman[(0, self.last_pos.0, self.last_pos.1)] = 1.0;
+            pacman[(1, pac_pos.col as usize, pac_pos.row as usize)] = 1.0;
+
+            for (i, g) in game_state.ghosts.iter().enumerate() {
+                let g = g.read().unwrap();
+                let pos = g.loc;
+                if pos.col != 32 {
+                    ghost[(i, pos.col as usize, pos.row as usize)] = 1.0;
+                    if g.is_frightened() {
+                        state[(2, pos.col as usize, pos.row as usize)] =
+                            g.fright_steps as f32 / GHOST_FRIGHT_STEPS as f32;
+                    } else {
+                        let state_index = if game_state.mode == GameMode::CHASE {
+                            1
+                        } else {
+                            0
+                        };
+                        state[(state_index, pos.col as usize, pos.row as usize)] = 1.0;
+                    }
+                }
             }
         }
 
         for (i, pos) in self.last_ghost_pos.iter().enumerate() {
-            last_ghost[(i, pos.0, pos.1)] = 1.0;
+            if pos.0 != 32 {
+                last_ghost[(i, pos.0, pos.1)] = 1.0;
+            }
         }
 
         // Save last positions.
@@ -152,6 +154,8 @@ impl HighLevelContext {
         let obs_tensor = Tensor::from_slice(obs_flat, OBS_SHAPE, &Device::Cpu)
             .unwrap()
             .unsqueeze(0)
+            .unwrap()
+            .to_dtype(candle_core::DType::F32)
             .unwrap();
         let q_vals = self.net.forward(&obs_tensor).unwrap().squeeze(0).unwrap();
         let q_vals = ((q_vals * (1. - &action_mask).unwrap()).unwrap()
