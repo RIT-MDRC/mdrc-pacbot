@@ -198,9 +198,9 @@ impl Default for TabViewer {
                 );
             });
         }
-        std::thread::spawn(move || {
-            run_high_level(hl_game_state, target_velocity_r);
-        });
+        // std::thread::spawn(move || {
+        //     run_high_level(hl_game_state, target_velocity_r);
+        // });
 
         let pacbot_pos = phys_render.read().unwrap().pacbot_pos;
 
