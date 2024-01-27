@@ -58,10 +58,10 @@ fn run_high_level(
             let mut target_velocity = target_velocity.write().unwrap();
             target_velocity.0 = match action {
                 crate::high_level::HLAction::Stay => Vector2::zeros(),
-                crate::high_level::HLAction::Left => -Vector2::x(),
-                crate::high_level::HLAction::Right => Vector2::x(),
-                crate::high_level::HLAction::Up => Vector2::y(),
-                crate::high_level::HLAction::Down => -Vector2::y(),
+                crate::high_level::HLAction::Left => -Vector2::y(),
+                crate::high_level::HLAction::Right => Vector2::y(),
+                crate::high_level::HLAction::Up => Vector2::x(),
+                crate::high_level::HLAction::Down => -Vector2::x(),
             } * 1.;
             drop(target_velocity);
         } else {
@@ -482,7 +482,7 @@ impl eframe::App for App {
         }
         self.tab_viewer.background_color = ctx.style().visuals.panel_fill;
 
-        // self.update_target_velocity(ctx);
+        // self._update_target_velocity(ctx);
 
         self.tab_viewer
             .update_replay_manager()

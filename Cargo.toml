@@ -27,3 +27,4 @@ array-init = "2.1.0"
 ndarray = "0.15.6"
 pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "fbef4eb72a76164cee576822860bad42e40ad2bc" }
 egui-phosphor = "0.3.2"
+rerun = "0.12.1"

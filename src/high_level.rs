@@ -4,11 +4,14 @@ use crate::grid::ComputedGrid;
 use crate::grid::PLocation;
 use candle_core::{Device, Module, Tensor};
 use candle_nn as nn;
+use ndarray::ArrayBase;
+use ndarray::Axis;
 use ndarray::{s, Array};
 use pacbot_rs::game_modes::GameMode;
 use pacbot_rs::game_state::GameState;
 use pacbot_rs::variables;
 use pacbot_rs::variables::GHOST_FRIGHT_STEPS;
+use rerun::RecordingStream;
 
 /// Represents an action the AI can choose to perform.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -32,6 +35,7 @@ pub struct HighLevelContext {
     net: QNetV2,
     last_pos: (usize, usize),
     last_ghost_pos: Vec<(usize, usize)>,
+    rec: RecordingStream,
 }
 
 impl HighLevelContext {
@@ -47,10 +51,16 @@ impl HighLevelContext {
         )
         .unwrap();
         vm.load(weights_path).unwrap();
+
+        let rec = rerun::RecordingStreamBuilder::new("pacbot_highlevel_debugging")
+            .spawn()
+            .unwrap();
+
         Self {
             net,
             last_pos: (0, 0),
             last_ghost_pos: vec![(0, 0), (0, 0), (0, 0), (0, 0)],
+            rec,
         }
     }
 
@@ -69,7 +79,7 @@ impl HighLevelContext {
                 s![8..12, .., ..],
                 s![12..15, .., ..],
             ));
-        
+
         for row in 0..31 {
             for col in 0..28 {
                 let obs_row = 31 - row - 1;
@@ -97,23 +107,24 @@ impl HighLevelContext {
         // I think (32, 32) is the shadow realm
         if pac_pos.col != 32 && self.last_pos.0 != 32 {
             pacman[(0, self.last_pos.0, self.last_pos.1)] = 1.0;
-            pacman[(1, pac_pos.col as usize, pac_pos.row as usize)] = 1.0;
+            pacman[(1, pac_pos.col as usize, 31 - pac_pos.row as usize - 1)] = 1.0;
 
             for (i, g) in game_state.ghosts.iter().enumerate() {
                 let g = g.read().unwrap();
                 let pos = g.loc;
+                let col = pos.col as usize;
+                let row = 31 - pos.row as usize - 1;
                 if pos.col != 32 {
-                    ghost[(i, pos.col as usize, pos.row as usize)] = 1.0;
+                    ghost[(i, col, row)] = 1.0;
                     if g.is_frightened() {
-                        state[(2, pos.col as usize, pos.row as usize)] =
-                            g.fright_steps as f32 / GHOST_FRIGHT_STEPS as f32;
+                        state[(2, col, row)] = g.fright_steps as f32 / GHOST_FRIGHT_STEPS as f32;
                     } else {
                         let state_index = if game_state.mode == GameMode::CHASE {
                             1
                         } else {
                             0
                         };
-                        state[(state_index, pos.col as usize, pos.row as usize)] = 1.0;
+                        state[(state_index, col, row)] = 1.0;
                     }
                 }
             }
@@ -126,29 +137,35 @@ impl HighLevelContext {
         }
 
         // Save last positions.
-        self.last_pos = (pac_pos.col as usize, pac_pos.row as usize);
+        self.last_pos = (pac_pos.col as usize, 31 - pac_pos.row as usize - 1);
         self.last_ghost_pos = game_state
             .ghosts
             .iter()
             .map(|g| g.read().unwrap())
-            .map(|g| (g.loc.col as usize, g.loc.row as usize))
+            .map(|g| (g.loc.col as usize, 31 - g.loc.row as usize - 1))
             .collect();
 
         // Create action mask.
         let mut action_mask = [true, false, false, false, false];
         if let Some(valid_actions) = grid.valid_actions(PLocation::new(pac_pos.row, pac_pos.col)) {
+            // The order of valid actions is stay, down, left, up, right
             action_mask = [
-                true, // !valid_actions[0],
-                !valid_actions[4],
+                !valid_actions[0],
                 !valid_actions[3],
-                !valid_actions[2],
                 !valid_actions[1],
+                !valid_actions[2],
+                !valid_actions[4],
             ];
         }
         let action_mask =
             Tensor::from_slice(&action_mask.map(|b| b as u8 as f32), 5, &Device::Cpu).unwrap(); // 1 if masked, 0 if not
 
         // Run observation through model and generate action.
+        // This commented out block flips the observation, if need be
+        // let obs_array = obs_array.permuted_axes([2, 0, 1]);
+        // let obs_array: Vec<_> = obs_array.outer_iter().rev().collect();
+        // let obs_array = ndarray::stack(Axis(2), &obs_array).unwrap();
+        // let obs_array = obs_array.as_standard_layout().to_owned();
         let obs_flat = obs_array.as_slice().unwrap();
         let obs_tensor = Tensor::from_slice(obs_flat, OBS_SHAPE, &Device::Cpu)
             .unwrap()
@@ -156,7 +173,33 @@ impl HighLevelContext {
             .unwrap()
             .to_dtype(candle_core::DType::F32)
             .unwrap();
+
+        self.rec
+            .log(
+                "highlevel/obs_merged",
+                &rerun::Tensor::try_from(obs_array.sum_axis(Axis(0))).unwrap(),
+            )
+            .unwrap();
+        self.rec
+            .log(
+                "highlevel/obs",
+                &rerun::Tensor::try_from(obs_array).unwrap(),
+            )
+            .unwrap();
+        self.rec
+            .log(
+                "highlevel/action_mask",
+                &rerun::BarChart::new(action_mask.to_vec1::<f32>().unwrap()),
+            )
+            .unwrap();
+
         let q_vals = self.net.forward(&obs_tensor).unwrap().squeeze(0).unwrap();
+        self.rec
+            .log(
+                "highlevel/q_vals",
+                &rerun::BarChart::new(q_vals.to_vec1::<f32>().unwrap()),
+            )
+            .unwrap();
         let q_vals = ((q_vals * (1. - &action_mask).unwrap()).unwrap()
             + (&action_mask * -999.).unwrap())
         .unwrap();
