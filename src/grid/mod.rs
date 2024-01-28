@@ -1,6 +1,7 @@
 //! Logical grid structs and utilities.
 
 use anyhow::{anyhow, Error};
+use eframe::epaint::util::OrderedFloat;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pacbot_rs::location::{DOWN, LEFT, RIGHT, UP};
 use rapier2d::na::Point2;
@@ -552,17 +553,16 @@ impl ComputedGrid {
 
     /// Return the walkable node from the nodes surrounding this point
     pub fn node_nearest(&self, x: f32, y: f32) -> Option<PLocation> {
-        for node in [
+        [
             PLocation::new(x.floor() as i8, y.floor() as i8),
             PLocation::new(x.ceil() as i8, y.floor() as i8),
             PLocation::new(x.floor() as i8, y.ceil() as i8),
             PLocation::new(x.ceil() as i8, y.ceil() as i8),
-        ] {
-            if !self.wall_at(&node) {
-                return Some(node);
-            }
-        }
-        None
+        ].into_iter().filter(|&node| !self.wall_at(&node)).min_by_key(|&node| {
+            let dx = node.row as f32 - x;
+            let dy = node.col as f32 - y;
+            OrderedFloat::from(dx*dx + dy*dy)
+        })
     }
 }
 

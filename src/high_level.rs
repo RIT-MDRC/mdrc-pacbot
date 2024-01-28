@@ -2,9 +2,10 @@
 
 use crate::grid::ComputedGrid;
 use crate::grid::PLocation;
+use candle_core::IndexOp;
+use candle_core::D;
 use candle_core::{Device, Module, Tensor};
 use candle_nn as nn;
-use ndarray::ArrayBase;
 use ndarray::Axis;
 use ndarray::{s, Array};
 use pacbot_rs::game_modes::GameMode;
@@ -33,6 +34,11 @@ const OBS_SHAPE: (usize, usize, usize) = (15, 28, 31);
 /// Handles executing high level AI.
 pub struct HighLevelContext {
     net: QNetV2,
+    // These `cached` variables contain the last observed positions.
+    // Once these cached positions are different from the next observed positions, the `last_variables`
+    // are updated with these.
+    pos_cached: (usize, usize),
+    ghost_pos_cached: Vec<(usize, usize)>,
     last_pos: (usize, usize),
     last_ghost_pos: Vec<(usize, usize)>,
     rec: RecordingStream,
@@ -61,6 +67,8 @@ impl HighLevelContext {
             last_pos: (0, 0),
             last_ghost_pos: vec![(0, 0), (0, 0), (0, 0), (0, 0)],
             rec,
+            pos_cached: (0, 0),
+            ghost_pos_cached: vec![(0, 0), (0, 0), (0, 0), (0, 0)],
         }
     }
 
@@ -102,7 +110,56 @@ impl HighLevelContext {
             }
         }
 
+        // Account for old walls
+        for row in 0..9 {
+            for col in 0..5 {
+                wall[(col, 12 + row)] = 0.;
+                wall[(31 - 9 + 1 + col, 12 + row)] = 0.;
+            }
+        }
+        for row in 27..28 {
+            for col in 3..5 {
+                wall[(col, row)] = 0.;
+                wall[(28 - 1 - col, row)] = 0.;
+            }
+        }
+        for row in 27..28 {
+            for col in 8..11 {
+                wall[(col, row)] = 0.;
+                wall[(28 - 1 - col, row)] = 0.;
+            }
+        }
+
         let pac_pos = game_state.pacman_loc;
+
+        // Save last positions.
+        let new_pos_cached = (pac_pos.col as usize, 31 - pac_pos.row as usize - 1);
+        let new_ghost_pos_cached: Vec<_> = game_state
+            .ghosts
+            .iter()
+            .map(|g| g.read().unwrap())
+            .map(|g| (g.loc.col as usize, 31 - g.loc.row as usize - 1))
+            .collect();
+
+        if self.pos_cached == (32, 32) {
+            self.last_pos = new_pos_cached;
+            self.pos_cached = new_pos_cached;
+        }
+
+        if self.ghost_pos_cached.contains(&(32, 32)) {
+            self.last_ghost_pos = new_ghost_pos_cached.clone();
+            self.ghost_pos_cached = new_ghost_pos_cached.clone();
+        }
+
+        if new_pos_cached != self.pos_cached {
+            self.last_pos = self.pos_cached;
+            self.pos_cached = new_pos_cached;
+        }
+
+        if new_ghost_pos_cached != self.ghost_pos_cached {
+            self.last_ghost_pos = self.ghost_pos_cached.clone();
+            self.ghost_pos_cached = new_ghost_pos_cached;
+        }
 
         // I think (32, 32) is the shadow realm
         if pac_pos.col != 32 && self.last_pos.0 != 32 {
@@ -118,6 +175,7 @@ impl HighLevelContext {
                     ghost[(i, col, row)] = 1.0;
                     if g.is_frightened() {
                         state[(2, col, row)] = g.fright_steps as f32 / GHOST_FRIGHT_STEPS as f32;
+                        reward[(col, row)] += 1.;
                     } else {
                         let state_index = if game_state.mode == GameMode::CHASE {
                             1
@@ -136,19 +194,10 @@ impl HighLevelContext {
             }
         }
 
-        // Save last positions.
-        self.last_pos = (pac_pos.col as usize, 31 - pac_pos.row as usize - 1);
-        self.last_ghost_pos = game_state
-            .ghosts
-            .iter()
-            .map(|g| g.read().unwrap())
-            .map(|g| (g.loc.col as usize, 31 - g.loc.row as usize - 1))
-            .collect();
-
         // Create action mask.
-        let mut action_mask = [true, false, false, false, false];
+        let mut action_mask = [false, false, false, false, false];
         if let Some(valid_actions) = grid.valid_actions(PLocation::new(pac_pos.row, pac_pos.col)) {
-            // The order of valid actions is stay, down, left, up, right
+            // The order of valid actions is stay, up, left, down, right
             action_mask = [
                 !valid_actions[0],
                 !valid_actions[3],
@@ -161,11 +210,6 @@ impl HighLevelContext {
             Tensor::from_slice(&action_mask.map(|b| b as u8 as f32), 5, &Device::Cpu).unwrap(); // 1 if masked, 0 if not
 
         // Run observation through model and generate action.
-        // This commented out block flips the observation, if need be
-        // let obs_array = obs_array.permuted_axes([2, 0, 1]);
-        // let obs_array: Vec<_> = obs_array.outer_iter().rev().collect();
-        // let obs_array = ndarray::stack(Axis(2), &obs_array).unwrap();
-        // let obs_array = obs_array.as_standard_layout().to_owned();
         let obs_flat = obs_array.as_slice().unwrap();
         let obs_tensor = Tensor::from_slice(obs_flat, OBS_SHAPE, &Device::Cpu)
             .unwrap()
@@ -178,6 +222,15 @@ impl HighLevelContext {
             .log(
                 "highlevel/obs_merged",
                 &rerun::Tensor::try_from(obs_array.sum_axis(Axis(0))).unwrap(),
+            )
+            .unwrap();
+        self.rec
+            .log(
+                "highlevel/pac_walls",
+                &rerun::Tensor::try_from(
+                    &obs_array.slice(s![0, .., ..]) + 0.5 * &obs_array.slice(s![3, .., ..]),
+                )
+                .unwrap(),
             )
             .unwrap();
         self.rec
@@ -203,6 +256,16 @@ impl HighLevelContext {
         let q_vals = ((q_vals * (1. - &action_mask).unwrap()).unwrap()
             + (&action_mask * -999.).unwrap())
         .unwrap();
+        let argmax_idx = q_vals
+            .argmax(D::Minus1)
+            .unwrap()
+            .to_scalar::<u32>()
+            .unwrap() as usize;
+        let mut argmax = vec![0.; 5];
+        argmax[argmax_idx] = 1.;
+        self.rec
+            .log("highlevel/q_val_argmax", &rerun::BarChart::new(argmax))
+            .unwrap();
         let actions = [
             HLAction::Stay,
             HLAction::Down,
@@ -235,7 +298,7 @@ fn conv_block_pool(
             },
             vb,
         )?)
-        .add(nn::func(|x| x.max_pool2d(2)))
+        .add(nn::func(|x| {println!("{:?}", x.shape()); x.max_pool2d(2)}))
         .add(nn::Activation::Silu))
 }
 
@@ -281,7 +344,6 @@ impl QNetV2 {
                 b_vb.pp("11"),
             )?)
             .add_fn(|xs| xs.max(candle_core::D::Minus1)?.max(candle_core::D::Minus1))
-            .add(nn::func(|x| x.flatten(1, candle_core::D::Minus1)))
             .add(nn::Activation::Silu)
             .add(nn::linear(128, 256, b_vb.pp("15"))?)
             .add(nn::Activation::Silu);
@@ -303,8 +365,7 @@ impl QNetV2 {
 impl Module for QNetV2 {
     fn forward(&self, input_batch: &Tensor) -> candle_core::Result<Tensor> {
         let backbone_features = self.backbone.forward(input_batch)?;
-        let value = self.value_head.forward(&backbone_features)?;
         let advantages = self.advantage_head.forward(&backbone_features)?;
-        value.broadcast_sub(&advantages.mean_keepdim(1)?.broadcast_add(&advantages)?)
+        Ok(advantages)
     }
 }

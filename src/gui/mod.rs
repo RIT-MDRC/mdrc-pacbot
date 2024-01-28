@@ -44,7 +44,7 @@ enum Tab {
 /// Thread where high level AI makes decisions.
 fn run_high_level(
     pacman_state: Arc<RwLock<PacmanStateRenderInfo>>,
-    target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
+    target_pos: Arc<RwLock<(usize, usize)>>,
 ) {
     let mut hl_ctx = HighLevelContext::new("./checkpoints/q_net.safetensors");
     let std_grid = StandardGrid::Pacman.compute_grid();
@@ -53,26 +53,69 @@ fn run_high_level(
         // Use AI to indicate which direction to move.
         let pacman_state_render = pacman_state.read().unwrap();
         if !pacman_state_render.pacman_state.is_paused() {
-            let action = hl_ctx.step(pacman_state_render.pacman_state.get_state(), &std_grid);
+            let state = pacman_state_render.pacman_state.get_state();
+            let action = hl_ctx.step(state, &std_grid);
+            let curr_pos = (state.pacman_loc.row as usize, state.pacman_loc.col as usize);
             drop(pacman_state_render); // Allow others to read this resource.
-            let mut target_velocity = target_velocity.write().unwrap();
-            target_velocity.0 = match action {
-                crate::high_level::HLAction::Stay => Vector2::zeros(),
-                crate::high_level::HLAction::Left => -Vector2::y(),
-                crate::high_level::HLAction::Right => Vector2::y(),
-                crate::high_level::HLAction::Up => Vector2::x(),
-                crate::high_level::HLAction::Down => -Vector2::x(),
-            } * 1.;
-            drop(target_velocity);
+            let mut target_pos = target_pos.write().unwrap();
+            *target_pos = match action {
+                crate::high_level::HLAction::Stay => curr_pos,
+                crate::high_level::HLAction::Left => (curr_pos.0, curr_pos.1 - 1),
+                crate::high_level::HLAction::Right => (curr_pos.0, curr_pos.1 + 1),
+                crate::high_level::HLAction::Up => (curr_pos.0 - 1, curr_pos.1),
+                crate::high_level::HLAction::Down => (curr_pos.0 + 1, curr_pos.1),
+            };
+            drop(target_pos);
         } else {
-            drop(pacman_state_render);
-            let mut target_velocity = target_velocity.write().unwrap();
-            target_velocity.0 = Vector2::zeros();
-            drop(target_velocity);
+            drop(pacman_state_render); // Allow others to read this resource.
         }
 
         // Sleep for 1/4th of a second.
         std::thread::sleep(std::time::Duration::from_secs_f32(1. / 4.));
+    }
+}
+
+/// Thread where the velocity is modified to go to the target position.
+/// The robot must already be near the target position
+fn run_pos_to_target_vel(
+    pacman_state: Arc<RwLock<PacmanStateRenderInfo>>,
+    phys_render: Arc<RwLock<PhysicsRenderInfo>>,
+    target_pos: Arc<RwLock<(usize, usize)>>,
+    target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
+) {
+    loop {
+        let is_paused = pacman_state.read().unwrap().pacman_state.is_paused();
+
+        if !is_paused {
+            let curr_pos = phys_render
+                .read()
+                .unwrap()
+                .pacbot_pos
+                .translation
+                .vector
+                .xy();
+
+            let target_pos = *target_pos.read().unwrap();
+            let target_pos = Vector2::new(target_pos.0 as f32, target_pos.1 as f32);
+
+            let max_speed = 20.;
+            let mut delta_pos = target_pos - curr_pos;
+            if delta_pos.magnitude() > max_speed {
+                delta_pos = delta_pos.normalize() * max_speed;
+            }
+            delta_pos *= 2.;
+            let mut target_velocity = target_velocity.write().unwrap();
+            *target_velocity = (delta_pos, target_velocity.1);
+            drop(target_velocity);
+        }
+        else {
+            let mut target_velocity = target_velocity.write().unwrap();
+            *target_velocity = (Vector2::zeros(), target_velocity.1);
+            drop(target_velocity);
+        }
+
+        // Sleep for 1/30th of a second.
+        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 60.));
     }
 }
 
@@ -91,6 +134,7 @@ struct TabViewer {
     /// A read-only reference to info needed to render physics.
     phys_render: Arc<RwLock<PhysicsRenderInfo>>,
     target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
+    target_pos: Arc<RwLock<(usize, usize)>>,
     phys_restart_send: Sender<(StandardGrid, Robot, Isometry2<f32>)>,
     robot: Robot,
 
@@ -146,6 +190,7 @@ impl Default for TabViewer {
 
         // Set up physics thread
         let target_velocity: Arc<RwLock<(Vector2<f32>, f32)>> = Arc::default();
+        let target_pos: Arc<RwLock<(usize, usize)>> = Arc::new(RwLock::new((23, 13)));
         let phys_render: Arc<RwLock<PhysicsRenderInfo>> =
             Arc::new(RwLock::new(PhysicsRenderInfo {
                 sleep: false,
@@ -156,6 +201,7 @@ impl Default for TabViewer {
                 pf_points: vec![],
             }));
         let target_velocity_r = target_velocity.clone();
+        let target_pos_rw = target_pos.clone();
         let phys_render_w = phys_render.clone();
         let (phys_restart_send, phys_restart_recv) = channel();
 
@@ -185,6 +231,15 @@ impl Default for TabViewer {
             run_game(pacman_state_rw, location_receive, pacman_replay_commands)
         });
         {
+            let hl_game_state = hl_game_state.clone();
+            let phys_render_r = phys_render_w.clone();
+            let target_pos_rw = target_pos_rw.clone();
+            let target_velocity_w = target_velocity_r.clone();
+            std::thread::spawn(move || {
+                run_pos_to_target_vel(hl_game_state, phys_render_r, target_pos_rw, target_velocity_w);
+            });
+        }
+        {
             let target_velocity_r = target_velocity_r.clone();
             std::thread::spawn(move || {
                 run_physics(
@@ -199,7 +254,7 @@ impl Default for TabViewer {
             });
         }
         std::thread::spawn(move || {
-            run_high_level(hl_game_state, target_velocity_r);
+            run_high_level(hl_game_state, target_pos_rw);
         });
 
         let pacbot_pos = phys_render.read().unwrap().pacbot_pos;
@@ -220,6 +275,7 @@ impl Default for TabViewer {
 
             robot: Robot::default(),
             target_velocity,
+            target_pos,
             phys_restart_send,
             phys_render,
 
