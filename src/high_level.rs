@@ -200,8 +200,8 @@ impl HighLevelContext {
             // The order of valid actions is stay, up, left, down, right
             action_mask = [
                 !valid_actions[0],
-                !valid_actions[3],
                 !valid_actions[1],
+                !valid_actions[3],
                 !valid_actions[2],
                 !valid_actions[4],
             ];
@@ -247,6 +247,7 @@ impl HighLevelContext {
             .unwrap();
 
         let q_vals = self.net.forward(&obs_tensor).unwrap().squeeze(0).unwrap();
+
         self.rec
             .log(
                 "highlevel/q_vals",
@@ -268,8 +269,8 @@ impl HighLevelContext {
             .unwrap();
         let actions = [
             HLAction::Stay,
-            HLAction::Down,
             HLAction::Up,
+            HLAction::Down,
             HLAction::Left,
             HLAction::Right,
         ];
@@ -298,7 +299,14 @@ fn conv_block_pool(
             },
             vb,
         )?)
-        .add(nn::func(|x| {println!("{:?}", x.shape()); x.max_pool2d(2)}))
+        .add(nn::func(|x| {
+            let (_, _, w, h) = x.shape().dims4()?;
+            let pad_w = w % 2;
+            let pad_h = h % 2;
+            x.pad_with_same(2, 0, pad_w)?
+                .pad_with_same(3, 0, pad_h)?
+                .max_pool2d(2)
+        }))
         .add(nn::Activation::Silu))
 }
 
@@ -365,7 +373,10 @@ impl QNetV2 {
 impl Module for QNetV2 {
     fn forward(&self, input_batch: &Tensor) -> candle_core::Result<Tensor> {
         let backbone_features = self.backbone.forward(input_batch)?;
+        let values = self.value_head.forward(&backbone_features)?;
         let advantages = self.advantage_head.forward(&backbone_features)?;
-        Ok(advantages)
+        values
+            .broadcast_sub(&advantages.mean(D::Minus1)?)?
+            .broadcast_add(&advantages)
     }
 }

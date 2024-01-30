@@ -70,8 +70,8 @@ fn run_high_level(
             drop(pacman_state_render); // Allow others to read this resource.
         }
 
-        // Sleep for 1/4th of a second.
-        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 4.));
+        // Sleep for 1/8th of a second.
+        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 30.));
     }
 }
 
@@ -98,12 +98,12 @@ fn run_pos_to_target_vel(
             let target_pos = *target_pos.read().unwrap();
             let target_pos = Vector2::new(target_pos.0 as f32, target_pos.1 as f32);
 
-            let max_speed = 20.;
+            let max_speed = 40.;
             let mut delta_pos = target_pos - curr_pos;
             if delta_pos.magnitude() > max_speed {
                 delta_pos = delta_pos.normalize() * max_speed;
             }
-            delta_pos *= 2.;
+            delta_pos *= 16.;
             let mut target_velocity = target_velocity.write().unwrap();
             *target_velocity = (delta_pos, target_velocity.1);
             drop(target_velocity);
@@ -115,7 +115,7 @@ fn run_pos_to_target_vel(
         }
 
         // Sleep for 1/30th of a second.
-        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 60.));
+        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 30.));
     }
 }
 
