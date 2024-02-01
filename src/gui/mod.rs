@@ -71,7 +71,7 @@ fn run_high_level(
         }
 
         // Sleep for 1/8th of a second.
-        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 30.));
+        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 4.));
     }
 }
 
@@ -103,12 +103,11 @@ fn run_pos_to_target_vel(
             if delta_pos.magnitude() > max_speed {
                 delta_pos = delta_pos.normalize() * max_speed;
             }
-            delta_pos *= 16.;
+            delta_pos *= 2.;
             let mut target_velocity = target_velocity.write().unwrap();
             *target_velocity = (delta_pos, target_velocity.1);
             drop(target_velocity);
-        }
-        else {
+        } else {
             let mut target_velocity = target_velocity.write().unwrap();
             *target_velocity = (Vector2::zeros(), target_velocity.1);
             drop(target_velocity);
@@ -236,7 +235,12 @@ impl Default for TabViewer {
             let target_pos_rw = target_pos_rw.clone();
             let target_velocity_w = target_velocity_r.clone();
             std::thread::spawn(move || {
-                run_pos_to_target_vel(hl_game_state, phys_render_r, target_pos_rw, target_velocity_w);
+                run_pos_to_target_vel(
+                    hl_game_state,
+                    phys_render_r,
+                    target_pos_rw,
+                    target_velocity_w,
+                );
             });
         }
         {

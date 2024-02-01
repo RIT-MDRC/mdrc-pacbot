@@ -25,6 +25,6 @@ tokio = { version = "1.32.0", features = ["macros", "parking_lot", "rt"] }
 tokio-tungstenite = "0.20.1"
 array-init = "2.1.0"
 ndarray = "0.15.6"
-pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "fbef4eb72a76164cee576822860bad42e40ad2bc" }
+pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "2601948dac7b7debabbb61322a453a770ae83240" }
 egui-phosphor = "0.3.2"
 # rerun = "0.12.1"

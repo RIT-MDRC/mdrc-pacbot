@@ -1,7 +1,7 @@
 use crate::grid::{facing_direction, PLocation};
 use crate::gui::colors::{
-    GHOST_BLUE_COLOR, GHOST_ORANGE_COLOR, GHOST_PINK_COLOR, GHOST_RED_COLOR, PELLET_COLOR,
-    SUPER_PELLET_COLOR, WALL_COLOR,
+    GHOST_BLUE_COLOR, GHOST_ORANGE_COLOR, GHOST_PINK_COLOR, GHOST_RED_COLOR,
+    PACMAN_DISTANCE_SENSOR_RAY_COLOR, PELLET_COLOR, SUPER_PELLET_COLOR, WALL_COLOR,
 };
 use crate::gui::transforms::Transform;
 use crate::gui::{PacbotWidget, TabViewer};
@@ -163,5 +163,15 @@ impl TabViewer {
                 }
             }
         }
+
+        // pacman
+        painter.circle_filled(
+            world_to_screen.map_point(Pos2::new(
+                pacman_state.get_state().pacman_loc.row as f32,
+                pacman_state.get_state().pacman_loc.col as f32,
+            )),
+            world_to_screen.map_dist(0.3),
+            PACMAN_DISTANCE_SENSOR_RAY_COLOR,
+        )
     }
 }
