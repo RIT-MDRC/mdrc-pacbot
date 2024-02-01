@@ -38,9 +38,7 @@ pub(super) struct StopwatchWidget {
     stopwatches: Vec<GuiStopwatch>,
     pf_time: f32,
     status: PacbotWidgetStatus,
-    messages: Vec<String>,
-    warnings: Vec<String>,
-    errors: Vec<String>,
+    messages: Vec<(String, PacbotWidgetStatus)>,
 }
 
 impl StopwatchWidget {
@@ -56,8 +54,6 @@ impl StopwatchWidget {
                 pf_time: 999.99,
                 status: PacbotWidgetStatus::Ok,
                 messages: vec![],
-                warnings: vec![],
-                errors: vec![],
             },
             [
                 stopwatches[0].stopwatch.clone(),
@@ -71,8 +67,6 @@ impl StopwatchWidget {
 impl PacbotWidget for StopwatchWidget {
     fn update(&mut self) {
         self.messages = vec![];
-        self.warnings = vec![];
-        self.errors = vec![];
         let mut num_too_slow = 0;
         let mut num_slow = 0;
         let mut num_no_data = 0;
@@ -84,13 +78,15 @@ impl PacbotWidget for StopwatchWidget {
                 let t = stopwatch.last_recorded_average_millis;
                 let msg = format!("{:.2} - {}", t, stopwatch.display_name);
                 if stopwatch.ok_time_millis < t && t < stopwatch.bad_time_millis {
-                    self.warnings.push(msg);
+                    self.messages
+                        .push((msg, PacbotWidgetStatus::Warn("".to_string())));
                     num_slow += 1;
                 } else if t > stopwatch.bad_time_millis {
-                    self.errors.push(msg);
+                    self.messages
+                        .push((msg, PacbotWidgetStatus::Error("".to_string())));
                     num_too_slow += 1;
                 } else {
-                    self.messages.push(msg);
+                    self.messages.push((msg, PacbotWidgetStatus::Ok));
                 }
 
                 if stopwatch.display_name == "PF" {
@@ -98,10 +94,13 @@ impl PacbotWidget for StopwatchWidget {
                 }
             } else {
                 if stopwatch.last_recorded_at.elapsed() > ACCEPTABLE_RECORDING_DELAY {
-                    self.errors.push(format!(
-                        "{}: No data for {}",
-                        stopwatch.display_name,
-                        stopwatch.last_recorded_at.elapsed().as_millis()
+                    self.messages.push((
+                        format!(
+                            "{}: No data for {}",
+                            stopwatch.display_name,
+                            stopwatch.last_recorded_at.elapsed().as_millis()
+                        ),
+                        PacbotWidgetStatus::Error("".to_string()),
                     ));
                     num_no_data += 1;
                 }
@@ -138,15 +137,7 @@ impl PacbotWidget for StopwatchWidget {
         &self.status
     }
 
-    fn messages(&self) -> &[String] {
+    fn messages(&self) -> &[(String, PacbotWidgetStatus)] {
         &self.messages
-    }
-
-    fn warnings(&self) -> &[String] {
-        &self.warnings
-    }
-
-    fn errors(&self) -> &[String] {
-        &self.errors
     }
 }

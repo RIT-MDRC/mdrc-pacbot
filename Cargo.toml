@@ -21,7 +21,7 @@ rand = "0.8.5"
 rapier2d = { version = "0.17.2", features = ["serde-serialize", "parallel"] }
 rayon = "1.8.0"
 serde = { version = "1.0.188", features = ["derive"] }
-tokio = { version = "1.32.0", features = ["macros", "parking_lot", "rt"] }
+tokio = { version = "1.32.0", features = ["macros", "parking_lot", "rt", "time", "sync"] }
 tokio-tungstenite = "0.20.1"
 array-init = "2.1.0"
 ndarray = "0.15.6"
