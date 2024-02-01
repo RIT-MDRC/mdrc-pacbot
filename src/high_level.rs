@@ -12,7 +12,6 @@ use pacbot_rs::game_modes::GameMode;
 use pacbot_rs::game_state::GameState;
 use pacbot_rs::variables;
 use pacbot_rs::variables::GHOST_FRIGHT_STEPS;
-use rerun::RecordingStream;
 
 /// Represents an action the AI can choose to perform.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -41,7 +40,6 @@ pub struct HighLevelContext {
     ghost_pos_cached: Vec<(usize, usize)>,
     last_pos: (usize, usize),
     last_ghost_pos: Vec<(usize, usize)>,
-    rec: RecordingStream,
 }
 
 impl HighLevelContext {
@@ -58,15 +56,10 @@ impl HighLevelContext {
         .unwrap();
         vm.load(weights_path).unwrap();
 
-        let rec = rerun::RecordingStreamBuilder::new("pacbot_highlevel_debugging")
-            .spawn()
-            .unwrap();
-
         Self {
             net,
             last_pos: (0, 0),
             last_ghost_pos: vec![(0, 0), (0, 0), (0, 0), (0, 0)],
-            rec,
             pos_cached: (0, 0),
             ghost_pos_cached: vec![(0, 0), (0, 0), (0, 0), (0, 0)],
         }
@@ -218,42 +211,8 @@ impl HighLevelContext {
             .to_dtype(candle_core::DType::F32)
             .unwrap();
 
-        self.rec
-            .log(
-                "highlevel/obs_merged",
-                &rerun::Tensor::try_from(obs_array.sum_axis(Axis(0))).unwrap(),
-            )
-            .unwrap();
-        self.rec
-            .log(
-                "highlevel/pac_walls",
-                &rerun::Tensor::try_from(
-                    &obs_array.slice(s![0, .., ..]) + 0.5 * &obs_array.slice(s![3, .., ..]),
-                )
-                .unwrap(),
-            )
-            .unwrap();
-        self.rec
-            .log(
-                "highlevel/obs",
-                &rerun::Tensor::try_from(obs_array).unwrap(),
-            )
-            .unwrap();
-        self.rec
-            .log(
-                "highlevel/action_mask",
-                &rerun::BarChart::new(action_mask.to_vec1::<f32>().unwrap()),
-            )
-            .unwrap();
-
         let q_vals = self.net.forward(&obs_tensor).unwrap().squeeze(0).unwrap();
 
-        self.rec
-            .log(
-                "highlevel/q_vals",
-                &rerun::BarChart::new(q_vals.to_vec1::<f32>().unwrap()),
-            )
-            .unwrap();
         let q_vals = ((q_vals * (1. - &action_mask).unwrap()).unwrap()
             + (&action_mask * -999.).unwrap())
         .unwrap();
@@ -264,9 +223,7 @@ impl HighLevelContext {
             .unwrap() as usize;
         let mut argmax = vec![0.; 5];
         argmax[argmax_idx] = 1.;
-        self.rec
-            .log("highlevel/q_val_argmax", &rerun::BarChart::new(argmax))
-            .unwrap();
+
         let actions = [
             HLAction::Stay,
             HLAction::Up,
