@@ -38,6 +38,7 @@ use self::transforms::Transform;
 enum Tab {
     Grid,
     Stopwatch,
+    Ai,
     Unknown,
 }
 
@@ -82,11 +83,13 @@ fn run_pos_to_target_vel(
     phys_render: Arc<RwLock<PhysicsRenderInfo>>,
     target_pos: Arc<RwLock<(usize, usize)>>,
     target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
+    ai_enabled: Arc<RwLock<bool>>,
 ) {
     loop {
         let is_paused = pacman_state.read().unwrap().pacman_state.is_paused();
+        let ai_enabled = *ai_enabled.read().unwrap().deref();
 
-        if !is_paused {
+        if !is_paused && ai_enabled {
             let curr_pos = phys_render
                 .read()
                 .unwrap()
@@ -120,10 +123,12 @@ fn run_pos_to_target_vel(
 
 struct TabViewer {
     mode: AppMode,
+    ai_enable: Arc<RwLock<bool>>,
 
     grid_widget: GridWidget,
     game_widget: GameWidget,
     stopwatch_widget: StopwatchWidget,
+    ai_widget: AiWidget,
 
     selected_grid: StandardGrid,
     grid: ComputedGrid,
@@ -225,6 +230,8 @@ impl Default for TabViewer {
         let pf_stopwatch_ref = pf_stopwatch.clone();
         let physics_stopwatch_ref = physics_stopwatch.clone();
 
+        let ai_enabled = Arc::new(RwLock::new(true));
+
         // Spawn threads
         std::thread::spawn(move || {
             run_game(pacman_state_rw, location_receive, pacman_replay_commands)
@@ -234,12 +241,14 @@ impl Default for TabViewer {
             let phys_render_r = phys_render_w.clone();
             let target_pos_rw = target_pos_rw.clone();
             let target_velocity_w = target_velocity_r.clone();
+            let ai_enabled_r = ai_enabled.clone();
             std::thread::spawn(move || {
                 run_pos_to_target_vel(
                     hl_game_state,
                     phys_render_r,
                     target_pos_rw,
                     target_velocity_w,
+                    ai_enabled_r,
                 );
             });
         }
@@ -265,12 +274,14 @@ impl Default for TabViewer {
 
         Self {
             mode: AppMode::Recording,
+            ai_enable: ai_enabled.clone(),
 
             grid_widget: GridWidget {},
             game_widget: GameWidget {
                 state: pacman_render.clone(),
             },
             stopwatch_widget,
+            ai_widget: AiWidget { ai_enabled },
 
             selected_grid: StandardGrid::Pacman,
             grid: StandardGrid::Pacman.compute_grid(),
@@ -403,32 +414,35 @@ impl Default for App {
 }
 
 impl App {
-    fn _update_target_velocity(&mut self, ctx: &egui::Context) {
-        let mut target_velocity = self.tab_viewer.target_velocity.write().unwrap();
-        target_velocity.0.x = 0.0;
-        target_velocity.0.y = 0.0;
-        target_velocity.1 = 0.0;
-        ctx.input(|i| {
-            let target_speed = if i.modifiers.shift { 2.0 } else { 0.8 };
-            if i.key_down(Key::S) {
-                target_velocity.0.x = target_speed;
-            }
-            if i.key_down(Key::W) {
-                target_velocity.0.x = -target_speed;
-            }
-            if i.key_down(Key::A) {
-                target_velocity.0.y = -target_speed;
-            }
-            if i.key_down(Key::D) {
-                target_velocity.0.y = target_speed;
-            }
-            if i.key_down(Key::E) {
-                target_velocity.1 = -target_speed;
-            }
-            if i.key_down(Key::Q) {
-                target_velocity.1 = target_speed;
-            }
-        });
+    fn update_target_velocity(&mut self, ctx: &egui::Context) {
+        let ai_enabled = *self.tab_viewer.ai_enable.read().unwrap().deref();
+        if !ai_enabled {
+            let mut target_velocity = self.tab_viewer.target_velocity.write().unwrap();
+            target_velocity.0.x = 0.0;
+            target_velocity.0.y = 0.0;
+            target_velocity.1 = 0.0;
+            ctx.input(|i| {
+                let target_speed = if i.modifiers.shift { 2.0 } else { 0.8 };
+                if i.key_down(Key::S) {
+                    target_velocity.0.x = target_speed;
+                }
+                if i.key_down(Key::W) {
+                    target_velocity.0.x = -target_speed;
+                }
+                if i.key_down(Key::A) {
+                    target_velocity.0.y = -target_speed;
+                }
+                if i.key_down(Key::D) {
+                    target_velocity.0.y = target_speed;
+                }
+                if i.key_down(Key::E) {
+                    target_velocity.1 = -target_speed;
+                }
+                if i.key_down(Key::Q) {
+                    target_velocity.1 = target_speed;
+                }
+            });
+        }
     }
 
     fn add_grid_variants(&mut self, ui: &mut Ui) {
@@ -472,6 +486,7 @@ impl App {
             Box::new(&mut self.tab_viewer.grid_widget),
             Box::new(&mut self.tab_viewer.game_widget),
             Box::new(&mut self.tab_viewer.stopwatch_widget),
+            Box::new(&mut self.tab_viewer.ai_widget),
         ];
         for mut widget in widgets {
             widget.update();
@@ -502,6 +517,10 @@ impl App {
                     "Game (Click to Reset)" => {
                         self.tab_viewer.pacman_render.write().unwrap().pacman_state =
                             GameEngine::default()
+                    }
+                    "AI" => {
+                        let val = *self.tab_viewer.ai_enable.read().unwrap();
+                        *self.tab_viewer.ai_enable.write().unwrap() = !val;
                     }
                     _ => self.tree.push_to_focused_leaf(widget.tab()),
                 }
@@ -542,7 +561,7 @@ impl eframe::App for App {
         }
         self.tab_viewer.background_color = ctx.style().visuals.panel_fill;
 
-        // self._update_target_velocity(ctx);
+        self.update_target_velocity(ctx);
 
         self.tab_viewer
             .update_replay_manager()
@@ -617,5 +636,28 @@ impl PacbotWidget for GridWidget {
 
     fn tab(&self) -> Tab {
         Tab::Grid
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct AiWidget {
+    pub ai_enabled: Arc<RwLock<bool>>,
+}
+
+impl PacbotWidget for AiWidget {
+    fn display_name(&self) -> &'static str {
+        "AI"
+    }
+
+    fn button_text(&self) -> RichText {
+        RichText::new(format!("{}", regular::BRAIN,))
+    }
+
+    fn overall_status(&self) -> &PacbotWidgetStatus {
+        if *self.ai_enabled.read().unwrap() {
+            &PacbotWidgetStatus::Ok
+        } else {
+            &PacbotWidgetStatus::NotApplicable
+        }
     }
 }
