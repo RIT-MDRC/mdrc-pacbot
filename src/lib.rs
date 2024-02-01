@@ -8,4 +8,5 @@ pub mod network;
 pub mod physics;
 pub mod replay;
 pub mod robot;
+pub mod high_level;
 pub mod util;

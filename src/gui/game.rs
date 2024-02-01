@@ -64,21 +64,27 @@ pub(super) fn run_game(
     replay_send: Sender<()>,
 ) {
     let mut previous_pacman_location = PLocation::new(PACMAN_SPAWN_LOC.row, PACMAN_SPAWN_LOC.col);
-
-    loop {
-        // {} block to make sure `game` goes out of scope and the RwLockWriteGuard is released
-        {
-            let mut state = pacman_render.write().unwrap();
-
+    {
+        let pacman_render = pacman_render.clone();
+        std::thread::spawn(move || {
             // fetch updated pacbot position
-            while let Ok(pacbot_location) = location_receive.try_recv() {
+            while let Ok(pacbot_location) = location_receive.recv() {
+                let mut state = pacman_render.write().unwrap();
                 state.pacman_state.set_pacman_location(LocationState {
                     col: pacbot_location.col,
                     row: pacbot_location.row,
                     dir: facing_direction(&previous_pacman_location, &pacbot_location) as u8,
                 });
                 previous_pacman_location = pacbot_location;
+                drop(state);
             }
+        });
+    }
+
+    loop {
+        // {} block to make sure `game` goes out of scope and the RwLockWriteGuard is released
+        {
+            let mut state = pacman_render.write().unwrap();
 
             // step the game
             if !state.pacman_state.is_paused() {
