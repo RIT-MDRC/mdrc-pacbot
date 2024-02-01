@@ -71,7 +71,7 @@ fn run_high_level(
         }
 
         // Sleep for 1/8th of a second.
-        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 4.));
+        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 8.));
     }
 }
 
