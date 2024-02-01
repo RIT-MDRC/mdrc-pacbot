@@ -1,6 +1,6 @@
 use crate::gui::{PacbotWidget, PacbotWidgetStatus, Tab};
 use crate::util::stopwatch::Stopwatch;
-use eframe::egui::{RichText, Ui};
+use eframe::egui::RichText;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 

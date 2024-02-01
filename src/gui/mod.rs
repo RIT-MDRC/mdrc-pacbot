@@ -8,7 +8,7 @@ mod stopwatch;
 pub mod transforms;
 pub mod utils;
 
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -35,10 +35,9 @@ use crate::util::stopwatch::Stopwatch;
 use self::transforms::Transform;
 
 #[derive(Copy, Clone)]
-enum Tab {
+pub enum Tab {
     Grid,
     Stopwatch,
-    Ai,
     Unknown,
 }
 
@@ -153,7 +152,6 @@ struct TabViewer {
 
     pf_stopwatch: Arc<RwLock<Stopwatch>>,
     physics_stopwatch: Arc<RwLock<Stopwatch>>,
-    gui_stopwatch: Arc<RwLock<Stopwatch>>,
 }
 
 impl egui_dock::TabViewer for TabViewer {
@@ -223,7 +221,6 @@ impl Default for TabViewer {
 
         // Set up stopwatches
         let (stopwatch_widget, stopwatches) = StopwatchWidget::new();
-        let gui_stopwatch = stopwatches[0].clone();
         let pf_stopwatch = stopwatches[2].clone();
         let physics_stopwatch = stopwatches[1].clone();
 
@@ -307,7 +304,6 @@ impl Default for TabViewer {
             replay_pacman: Isometry2::default(),
             save_pacbot_location: false,
 
-            gui_stopwatch,
             pf_stopwatch,
             physics_stopwatch,
         }
@@ -489,7 +485,7 @@ impl App {
             Box::new(&mut self.tab_viewer.ai_widget),
         ];
         for mut widget in widgets {
-            widget.update();
+            widget.deref_mut().update();
             let mut button = ui.add(egui::Button::new(widget.button_text()).fill(
                 match widget.overall_status() {
                     PacbotWidgetStatus::Ok => TRANSLUCENT_GREEN_COLOR,

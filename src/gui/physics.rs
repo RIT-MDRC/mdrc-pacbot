@@ -2,8 +2,9 @@ use crate::constants::GUI_PARTICLE_FILTER_POINTS;
 use crate::grid::standard_grids::StandardGrid;
 use crate::grid::PLocation;
 use crate::gui::colors::{
-    PACMAN_COLOR, PACMAN_DISTANCE_SENSOR_RAY_COLOR, PACMAN_FACING_INDICATOR_COLOR,
-    PACMAN_GUESS_COLOR, PACMAN_PARTICLE_FILTER_COLOR, PACMAN_REPLAY_COLOR,
+    PACMAN_AI_TARGET_LOCATION_COLOR, PACMAN_COLOR, PACMAN_DISTANCE_SENSOR_RAY_COLOR,
+    PACMAN_FACING_INDICATOR_COLOR, PACMAN_GUESS_COLOR, PACMAN_PARTICLE_FILTER_COLOR,
+    PACMAN_REPLAY_COLOR,
 };
 use crate::gui::transforms::Transform;
 use crate::gui::{AppMode, TabViewer};
@@ -226,6 +227,21 @@ impl TabViewer {
                 world_to_screen.map_point(Pos2::new(p.translation.x, p.translation.y)),
                 1.0,
                 PACMAN_PARTICLE_FILTER_COLOR,
+            );
+        }
+
+        // AI target position
+        if *self.ai_enable.read().unwrap() {
+            let target = *self.target_pos.read().unwrap();
+            painter.line_segment(
+                [
+                    world_to_screen.map_point(Pos2::new(
+                        pacbot_pos.translation.x,
+                        pacbot_pos.translation.y,
+                    )),
+                    world_to_screen.map_point(Pos2::new(target.0 as f32, target.1 as f32)),
+                ],
+                Stroke::new(2.0, PACMAN_AI_TARGET_LOCATION_COLOR),
             );
         }
     }
