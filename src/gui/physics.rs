@@ -122,7 +122,7 @@ pub(super) fn run_physics(
                 simulation.get_primary_robot_position().translation.x,
                 simulation.get_primary_robot_position().translation.y,
             )
-            .unwrap();
+            .unwrap_or(PLocation { row: 1, col: 1 });
 
         if pacbot_location != previous_pacbot_location {
             location_send.send(pacbot_location).unwrap();
