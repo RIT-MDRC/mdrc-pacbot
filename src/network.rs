@@ -1,5 +1,7 @@
 //! Network communications with the Pico and the game server.
 
+use rapier2d::na::Vector2;
+use std::f32::consts::FRAC_PI_3;
 use std::ops::DerefMut;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
@@ -11,6 +13,7 @@ use tokio::sync::mpsc::Receiver;
 pub fn start_network_thread(
     receiver: Receiver<NetworkCommand>,
     sensors: Arc<RwLock<(bool, [u8; 8], [i64; 3], Instant)>>,
+    target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
 ) {
     std::thread::Builder::new()
         .name("network thread".into())
@@ -20,7 +23,7 @@ pub fn start_network_thread(
                 .build()
                 .expect("error creating tokio runtime");
 
-            async_runtime.block_on(network_thread_main(receiver, sensors));
+            async_runtime.block_on(network_thread_main(receiver, sensors, target_velocity));
         })
         .unwrap();
 }
@@ -34,6 +37,7 @@ pub enum NetworkCommand {
 async fn network_thread_main(
     mut receiver: Receiver<NetworkCommand>,
     sensors: Arc<RwLock<(bool, [u8; 8], [i64; 3], Instant)>>,
+    target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
 ) {
     // let server_ip = "localhost";
     // let websocket_port = 3002;
@@ -75,7 +79,35 @@ async fn network_thread_main(
             _ = pico_timer.tick() => {
                 let mut pico_connection = pico_connection.write().unwrap();
                 if let Some(pico) = &mut pico_connection.deref_mut() {
-                    if let Err(e) = pico.send_motors_message([(0, true); 3]) {
+                    let target_velocity = *target_velocity.read().unwrap();
+                    let x = target_velocity.0.x;
+                    let y = target_velocity.0.y;
+
+                    // use x and y to find the desired angle
+                    let angle = y.atan2(x);
+
+                    let scale = (x.powi(2) + y.powi(2)).sqrt();
+
+                    let motor_angles = [
+                        angle.cos(),
+                        (angle - (2.0 * FRAC_PI_3)).cos(),
+                        (angle + (2.0 * FRAC_PI_3)).cos(),
+                    ];
+
+                    let motors_i16 = [
+                        // constant is like max speed - can go up to 255.0
+                        -(motor_angles[0] * 100.0 * scale) as i16,
+                        (motor_angles[1] * 100.0 * scale) as i16,
+                        (motor_angles[2] * 100.0 * scale) as i16,
+                    ]
+
+                    let mut motors = [(0, true); 3];
+                    for i in 0..3 {
+                        motors[i].0 = motors_i16[i].abs() as u8;
+                        motors[i].1 = motors_i16[i] >= 0;
+                    }
+
+                    if let Err(e) = pico.send_motors_message(motors) {
                         println!("{:?}", e);
                         *pico_connection = None;
                     }

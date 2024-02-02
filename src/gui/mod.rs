@@ -273,7 +273,7 @@ impl Default for TabViewer {
             run_high_level(hl_game_state, target_pos_rw);
         });
         let (network_command_send, network_recv) = tokio::sync::mpsc::channel(10);
-        start_network_thread(network_recv, sensors.clone());
+        start_network_thread(network_recv, sensors.clone(), target_velocity.clone());
 
         let pacbot_pos = phys_render.read().unwrap().pacbot_pos;
 
