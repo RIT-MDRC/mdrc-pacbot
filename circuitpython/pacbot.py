@@ -14,8 +14,8 @@ MOTOR_MAX_EED = const(65535)
 # Enable/Disable components
 
 MOTORS_ENABLED = [True, True, True]
-I2C_ENABLED = True
-DIST_ENABLED = [True] * 8
+I2C_ENABLED = False
+DIST_ENABLED = [False] * 8
 ENCODERS_ENABLED = [True, True, True]
 
 # ----------------------- GPIO Pin Assignment -----------------------

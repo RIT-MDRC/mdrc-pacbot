@@ -7,6 +7,7 @@ use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 use std::{io, net::UdpSocket};
 use tokio::sync::mpsc::Receiver;
+use crate::gui::physics::PhysicsRenderInfo;
 
 /// Starts the network thread that communicates with the Pico and game server.
 /// This function does not block.
@@ -14,6 +15,7 @@ pub fn start_network_thread(
     receiver: Receiver<NetworkCommand>,
     sensors: Arc<RwLock<(bool, [u8; 8], [i64; 3], Instant)>>,
     target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
+    phys_render: Arc<RwLock<PhysicsRenderInfo>>,
 ) {
     std::thread::Builder::new()
         .name("network thread".into())
@@ -23,7 +25,7 @@ pub fn start_network_thread(
                 .build()
                 .expect("error creating tokio runtime");
 
-            async_runtime.block_on(network_thread_main(receiver, sensors, target_velocity));
+            async_runtime.block_on(network_thread_main(receiver, sensors, target_velocity, phys_render));
         })
         .unwrap();
 }
@@ -38,6 +40,7 @@ async fn network_thread_main(
     mut receiver: Receiver<NetworkCommand>,
     sensors: Arc<RwLock<(bool, [u8; 8], [i64; 3], Instant)>>,
     target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
+    phys_render: Arc<RwLock<PhysicsRenderInfo>>,
 ) {
     // let server_ip = "localhost";
     // let websocket_port = 3002;
@@ -56,14 +59,17 @@ async fn network_thread_main(
     //     socket = None;
     // }
 
-    let mut pico_address = "10.181.93.202:20001".to_string();
+    let mut pico_address = "192.168.4.16:20001".to_string();
 
     // Timer to ping pico
-    let mut pico_timer = tokio::time::interval(Duration::from_millis(5));
+    let mut pico_timer = tokio::time::interval(Duration::from_millis(10));
     let mut pico_reconnection_timer = tokio::time::interval(Duration::from_millis(500));
     // This is a terrible way to do this
     let mut pico_recv_timer = tokio::time::interval(Duration::from_millis(1));
     let pico_connection = Arc::new(RwLock::new(None::<PicoConnection>));
+
+    let mut last_motors = [0i16; 3];
+    let mut last_sent = Instant::now();
 
     // Handle incoming messages.
     loop {
@@ -86,7 +92,13 @@ async fn network_thread_main(
                     // use x and y to find the desired angle
                     let angle = y.atan2(x);
 
-                    let scale = (x.powi(2) + y.powi(2)).sqrt();
+                    let current_angle = phys_render.read().unwrap().pacbot_pos.rotation.angle();
+                    let angle = angle - current_angle;
+
+                    let mut scale = (x.powi(2) + y.powi(2)).sqrt();
+                    if scale != 0.0 {
+                        scale = 7.0;
+                    }
 
                     let motor_angles = [
                         angle.cos(),
@@ -94,22 +106,34 @@ async fn network_thread_main(
                         (angle + (2.0 * FRAC_PI_3)).cos(),
                     ];
 
+                    let rotate_adjust = if target_velocity.1 > 0.0 {
+                        3.0
+                    } else if target_velocity.1 < 0.0 {
+                        -3.0
+                    } else { 0.0 };
+
                     let motors_i16 = [
                         // constant is like max speed - can go up to 255.0
-                        -(motor_angles[0] * 100.0 * scale) as i16,
-                        (motor_angles[1] * 100.0 * scale) as i16,
-                        (motor_angles[2] * 100.0 * scale) as i16,
-                    ]
+                        (motor_angles[0] * (255.0/11.6) * scale + rotate_adjust * (255.0/11.6)) as i16,
+                        (motor_angles[1] * (255.0/11.6) * scale + rotate_adjust * (255.0/11.6)) as i16,
+                        (motor_angles[2] * (255.0/11.6) * scale + rotate_adjust * (255.0/11.6)) as i16,
+                    ];
 
-                    let mut motors = [(0, true); 3];
-                    for i in 0..3 {
-                        motors[i].0 = motors_i16[i].abs() as u8;
-                        motors[i].1 = motors_i16[i] >= 0;
-                    }
+                    if last_motors != motors_i16 || last_sent.elapsed() > Duration::from_millis(100) || true {
+                        // don't repeat motor commands too often
+                        last_motors = motors_i16;
+                        last_sent = Instant::now();
 
-                    if let Err(e) = pico.send_motors_message(motors) {
-                        println!("{:?}", e);
-                        *pico_connection = None;
+                        let mut motors = [(0, true); 3];
+                        for i in 0..3 {
+                            motors[i].0 = motors_i16[i].abs() as u8;
+                            motors[i].1 = motors_i16[i] >= 0;
+                        }
+
+                        if let Err(e) = pico.send_motors_message(motors) {
+                            println!("{:?}", e);
+                            *pico_connection = None;
+                        }
                     }
                 }
             }
@@ -132,14 +156,17 @@ async fn network_thread_main(
             _ = pico_recv_timer.tick() => {
                 let mut pico_connection = pico_connection.write().unwrap();
                 if let Some(pico) = pico_connection.deref_mut() {
-                    let mut bytes = [0; 12];
+                    let mut bytes = [0; 30];
                     while let Ok(size) = pico.socket.recv(&mut bytes) {
-                        if size == 8 {
+                        if size == 20 {
                             let mut sensors = sensors.write().unwrap();
                             for i in 0..8 {
                                 sensors.1[i] = bytes[i];
                             }
                             sensors.3 = Instant::now();
+                            for i in 0..3 {
+                                sensors.2[i] = i32::from_le_bytes([bytes[i*4 + 8], bytes[i*4 + 9], bytes[i*4 + 10], bytes[i*4 + 11]]) as i64;
+                            }
                         }
                     }
                 }

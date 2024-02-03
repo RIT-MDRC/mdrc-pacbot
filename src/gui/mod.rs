@@ -2,7 +2,7 @@
 
 mod colors;
 mod game;
-mod physics;
+pub(crate) mod physics;
 pub mod replay_manager;
 mod stopwatch;
 pub mod transforms;
@@ -102,7 +102,7 @@ fn run_pos_to_target_vel(
             let target_pos = *target_pos.read().unwrap();
             let target_pos = Vector2::new(target_pos.0 as f32, target_pos.1 as f32);
 
-            let max_speed = 40.;
+            let max_speed = 20.;
             let mut delta_pos = target_pos - curr_pos;
             if delta_pos.magnitude() > max_speed {
                 delta_pos = delta_pos.normalize() * max_speed;
@@ -111,7 +111,7 @@ fn run_pos_to_target_vel(
             let mut target_velocity = target_velocity.write().unwrap();
             *target_velocity = (delta_pos, target_velocity.1);
             drop(target_velocity);
-        } else {
+        } else if ai_enabled {
             let mut target_velocity = target_velocity.write().unwrap();
             *target_velocity = (Vector2::zeros(), target_velocity.1);
             drop(target_velocity);
@@ -273,7 +273,7 @@ impl Default for TabViewer {
             run_high_level(hl_game_state, target_pos_rw);
         });
         let (network_command_send, network_recv) = tokio::sync::mpsc::channel(10);
-        start_network_thread(network_recv, sensors.clone(), target_velocity.clone());
+        start_network_thread(network_recv, sensors.clone(), target_velocity.clone(), phys_render.clone());
 
         let pacbot_pos = phys_render.read().unwrap().pacbot_pos;
 
@@ -437,10 +437,10 @@ impl App {
                     target_velocity.0.y = target_speed;
                 }
                 if i.key_down(Key::E) {
-                    target_velocity.1 = -target_speed;
+                    target_velocity.1 = -1.0;
                 }
                 if i.key_down(Key::Q) {
-                    target_velocity.1 = target_speed;
+                    target_velocity.1 = 1.0;
                 }
             });
         }
@@ -735,6 +735,9 @@ impl PacbotWidget for PacbotSensorsWidget {
                         _ => PacbotWidgetStatus::Ok,
                     },
                 ))
+            }
+            for i in 0..3 {
+                self.messages.push((format!("Encoder {i}: {}", sensors.2[i]), PacbotWidgetStatus::Ok));
             }
         }
     }
