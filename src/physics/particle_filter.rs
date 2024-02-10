@@ -1,6 +1,6 @@
 //! Tracks the robot's position over time
 
-use crate::grid::{ComputedGrid, Direction, PLocation};
+use crate::grid::{ComputedGrid, Direction, IntLocation};
 use crate::physics::{PacbotSimulation, GROUP_ROBOT, GROUP_WALL};
 use crate::robot::{DistanceSensor, Robot};
 use crate::util::stopwatch::Stopwatch;
@@ -12,7 +12,7 @@ use rapier2d::prelude::{
 };
 use rayon::prelude::*;
 use std::f32::consts::PI;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 
 /// Values that can be tweaked to improve the performance of the particle filter
 pub struct ParticleFilterOptions {
@@ -74,7 +74,7 @@ impl ParticleFilter {
         }
     }
 
-    fn random_point_near(&self, point: PLocation) -> Isometry2<f32> {
+    fn random_point_near(&self, point: IntLocation) -> Isometry2<f32> {
         let mut rng = rand::thread_rng();
         let distance = rng.gen_range(0.0..self.options.spread).floor() as usize;
         let mut node = point;
@@ -97,7 +97,7 @@ impl ParticleFilter {
     }
 
     /// Generate a random valid point around a certain walkable square
-    fn random_point_at(&self, node: PLocation, mut rng: ThreadRng) -> Isometry2<f32> {
+    fn random_point_at(&self, node: IntLocation, mut rng: ThreadRng) -> Isometry2<f32> {
         // the central square (radius r) is where pacbot could be placed if there were walls all around
         let r = 1.0 - self.robot.collider_radius;
 
@@ -196,13 +196,13 @@ impl ParticleFilter {
     /// Update the particle filter, using the same rigid body set as the start
     pub fn update(
         &mut self,
-        cv_position: PLocation,
+        cv_position: IntLocation,
         rigid_body_set: &mut RigidBodySet,
         collider_set: &mut ColliderSet,
         query_pipeline: &QueryPipeline,
-        stopwatch: &Arc<RwLock<Stopwatch>>,
+        mut stopwatch: &mut Stopwatch,
     ) {
-        stopwatch.write().unwrap().start();
+        stopwatch.start();
 
         // extend the points to the correct length
         while self.points.len() < self.options.points {
@@ -210,17 +210,14 @@ impl ParticleFilter {
             self.points.push(point);
         }
 
-        stopwatch.write().unwrap().mark_segment("Extend points");
+        stopwatch.mark_segment("Extend points");
 
         // cut off any extra points
         while self.points.len() > self.options.points {
             self.points.pop();
         }
 
-        stopwatch
-            .write()
-            .unwrap()
-            .mark_segment("Cut off extra points");
+        stopwatch.mark_segment("Cut off extra points");
 
         let elite_boundary = self.options.elite;
         let genetic_boundary = self.options.points - self.options.random - self.options.purge;
@@ -237,10 +234,7 @@ impl ParticleFilter {
             self.points[i] = point;
         }
 
-        stopwatch
-            .write()
-            .unwrap()
-            .mark_segment("Randomize last points");
+        stopwatch.mark_segment("Randomize last points");
 
         // randomize the last 'purge' points near the given approximate location
         let results: Vec<_> = random_near_cv_points
@@ -253,10 +247,7 @@ impl ParticleFilter {
         //     self.points[i] = self.random_point_near(cv_position);
         // }
 
-        stopwatch
-            .write()
-            .unwrap()
-            .mark_segment("Randomize last points near cv location");
+        stopwatch.mark_segment("Randomize last points near cv location");
 
         let mut rng = rand::thread_rng();
 
@@ -276,7 +267,7 @@ impl ParticleFilter {
             self.points[i] = new_point;
         }
 
-        stopwatch.write().unwrap().mark_segment("Genetic points");
+        stopwatch.mark_segment("Genetic points");
 
         // randomize any points that are within a wall or out of bounds
         for i in 0..self.options.points {
@@ -299,10 +290,7 @@ impl ParticleFilter {
             }
         }
 
-        stopwatch
-            .write()
-            .unwrap()
-            .mark_segment("Randomize out of bounds or in wall points");
+        stopwatch.mark_segment("Randomize out of bounds or in wall points");
 
         let robot = self.robot.to_owned();
 
@@ -317,10 +305,7 @@ impl ParticleFilter {
             return;
         }
 
-        stopwatch
-            .write()
-            .unwrap()
-            .mark_segment("Lock distance sensors");
+        stopwatch.mark_segment("Lock distance sensors");
 
         // Calculate distance sensor errors
         // Calculate distance sensor errors and pair with points
@@ -342,10 +327,7 @@ impl ParticleFilter {
             })
             .collect();
 
-        stopwatch
-            .write()
-            .unwrap()
-            .mark_segment("Calculate distance sensor errors");
+        stopwatch.mark_segment("Calculate distance sensor errors");
 
         // Sort the paired vector based on the error values
         paired_points_and_errors
@@ -357,7 +339,7 @@ impl ParticleFilter {
             .map(|(point, _)| *point)
             .collect();
 
-        stopwatch.write().unwrap().mark_segment("Sort points");
+        stopwatch.mark_segment("Sort points");
 
         self.best_guess = self.points[0];
     }
@@ -465,7 +447,7 @@ impl ParticleFilter {
 
 impl PacbotSimulation {
     /// Update the particle filter
-    pub fn pf_update(&mut self, position: PLocation, pf_stopwatch: &Arc<RwLock<Stopwatch>>) {
+    pub fn pf_update(&mut self, position: IntLocation, pf_stopwatch: &mut Stopwatch) {
         self.particle_filter.update(
             position,
             &mut self.rigid_body_set,

@@ -1,6 +1,7 @@
 //! Logical grid structs and utilities.
 
 use anyhow::{anyhow, Error};
+use bevy::prelude::Resource;
 use eframe::epaint::util::OrderedFloat;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pacbot_rs::location::{DOWN, LEFT, RIGHT, UP};
@@ -13,27 +14,27 @@ pub mod standard_grids;
 
 /// An integer location on the Pacman grid
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct PLocation {
+pub struct IntLocation {
     /// Row - increases downwards
     pub row: i8,
     /// Column - increases to the right
     pub col: i8,
 }
 
-impl PLocation {
+impl IntLocation {
     /// Create a new PLocation
     pub fn new(row: i8, col: i8) -> Self {
         Self { row, col }
     }
 }
 
-impl Into<Point2<i8>> for PLocation {
+impl Into<Point2<i8>> for IntLocation {
     fn into(self) -> Point2<i8> {
         Point2::new(self.row, self.col)
     }
 }
 
-impl From<Point2<i8>> for PLocation {
+impl From<Point2<i8>> for IntLocation {
     fn from(p: Point2<i8>) -> Self {
         Self { row: p.x, col: p.y }
     }
@@ -151,9 +152,9 @@ fn validate_grid(grid: &Grid) -> Result<(), Error> {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Wall {
     /// The top left corner of the [`Wall`].
-    pub top_left: PLocation,
+    pub top_left: IntLocation,
     /// The bottom right corner of the [`Wall`].
-    pub bottom_right: PLocation,
+    pub bottom_right: IntLocation,
 }
 
 /// A [`Grid`] with precomputed data for faster pathfinding.
@@ -168,12 +169,12 @@ pub struct Wall {
 ///
 /// let grid = StandardGrid::Blank.compute_grid();
 /// ```
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Resource)]
 pub struct ComputedGrid {
     grid: Grid,
 
-    walkable_nodes: Vec<PLocation>,
-    coords_to_node: HashMap<PLocation, usize>,
+    walkable_nodes: Vec<IntLocation>,
+    coords_to_node: HashMap<IntLocation, usize>,
 
     /// walkable, right, left, up, down
     valid_actions: Vec<[bool; 5]>,
@@ -184,6 +185,12 @@ pub struct ComputedGrid {
     walls: Vec<Wall>,
 }
 
+impl Default for ComputedGrid {
+    fn default() -> Self {
+        standard_grids::StandardGrid::Pacman.compute_grid()
+    }
+}
+
 impl TryFrom<Grid> for ComputedGrid {
     type Error = Error;
 
@@ -191,7 +198,7 @@ impl TryFrom<Grid> for ComputedGrid {
         validate_grid(&grid)?;
 
         let mut walkable_nodes = vec![];
-        let mut coords_to_node: HashMap<PLocation, usize> = HashMap::new();
+        let mut coords_to_node: HashMap<IntLocation, usize> = HashMap::new();
 
         let mut valid_actions = vec![];
         let mut distance_matrix = vec![];
@@ -200,7 +207,7 @@ impl TryFrom<Grid> for ComputedGrid {
         // iterate through all grid positions
         for row in 1..GRID_ROWS - 1 {
             for col in 1..GRID_COLS - 1 {
-                let pos = PLocation::new(row as i8, col as i8);
+                let pos = IntLocation::new(row as i8, col as i8);
                 if !grid[row][col] {
                     // remember walkable nodes
                     let node_index = walkable_nodes.len();
@@ -251,12 +258,12 @@ impl TryFrom<Grid> for ComputedGrid {
             }
         }
 
-        fn is_wall(g: &ComputedGrid, p: &PLocation) -> bool {
+        fn is_wall(g: &ComputedGrid, p: &IntLocation) -> bool {
             let parts = [
-                PLocation::new(p.row, p.col),
-                PLocation::new(p.row + 1, p.col),
-                PLocation::new(p.row, p.col + 1),
-                PLocation::new(p.row + 1, p.col + 1),
+                IntLocation::new(p.row, p.col),
+                IntLocation::new(p.row + 1, p.col),
+                IntLocation::new(p.row, p.col + 1),
+                IntLocation::new(p.row + 1, p.col + 1),
             ];
             parts.iter().all(|part| {
                 if part.row < 0 || part.col < 0 {
@@ -267,7 +274,7 @@ impl TryFrom<Grid> for ComputedGrid {
             })
         }
 
-        fn is_part_of_wall(g: &ComputedGrid, p: &PLocation) -> bool {
+        fn is_part_of_wall(g: &ComputedGrid, p: &IntLocation) -> bool {
             for wall in &g.walls {
                 if p.row >= wall.top_left.row
                     && p.col >= wall.top_left.col
@@ -284,12 +291,12 @@ impl TryFrom<Grid> for ComputedGrid {
         let mut col = -1;
         loop {
             // make sure this point isn't already a part of a wall
-            let is_already_wall = is_part_of_wall(&s, &PLocation::new(row, col));
+            let is_already_wall = is_part_of_wall(&s, &IntLocation::new(row, col));
             // compute walls - first, add each cell individually
-            if !is_already_wall && is_wall(&s, &PLocation::new(row, col)) {
+            if !is_already_wall && is_wall(&s, &IntLocation::new(row, col)) {
                 let mut wall = Wall {
-                    top_left: PLocation::new(row, col),
-                    bottom_right: PLocation::new(row + 1, col + 1),
+                    top_left: IntLocation::new(row, col),
+                    bottom_right: IntLocation::new(row + 1, col + 1),
                 };
 
                 if wall.top_left.col > GRID_COLS as i8 {
@@ -299,8 +306,8 @@ impl TryFrom<Grid> for ComputedGrid {
                 col += 1;
 
                 // extend the wall to the right
-                while is_wall(&s, &PLocation::new(row, col))
-                    && !is_part_of_wall(&s, &PLocation::new(row, col))
+                while is_wall(&s, &IntLocation::new(row, col))
+                    && !is_part_of_wall(&s, &IntLocation::new(row, col))
                 {
                     if col >= GRID_COLS as i8 {
                         break;
@@ -315,8 +322,8 @@ impl TryFrom<Grid> for ComputedGrid {
                 while next_row < GRID_ROWS as i8 {
                     let mut can_extend = true;
                     for next_col in wall.top_left.col..wall.bottom_right.col {
-                        if !is_wall(&s, &PLocation::new(next_row, next_col))
-                            || is_part_of_wall(&s, &PLocation::new(next_row, next_col))
+                        if !is_wall(&s, &IntLocation::new(next_row, next_col))
+                            || is_part_of_wall(&s, &IntLocation::new(next_row, next_col))
                         {
                             can_extend = false;
                             break;
@@ -371,13 +378,13 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::{ComputedGrid, PLocation};
+    /// use mdrc_pacbot_util::grid::{ComputedGrid, IntLocation};
     /// use mdrc_pacbot_util::grid::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
-    /// assert_eq!(grid.walkable_nodes()[0], PLocation::new(1, 1));
+    /// assert_eq!(grid.walkable_nodes()[0], IntLocation::new(1, 1));
     /// ```
-    pub fn walkable_nodes(&self) -> &Vec<PLocation> {
+    pub fn walkable_nodes(&self) -> &Vec<IntLocation> {
         &self.walkable_nodes
     }
 
@@ -387,14 +394,14 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::{ComputedGrid, PLocation};
+    /// use mdrc_pacbot_util::grid::{ComputedGrid, IntLocation};
     /// use mdrc_pacbot_util::grid::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
-    /// assert_eq!(grid.coords_to_node(&PLocation::new(1, 1)), Some(0));
-    /// assert_eq!(grid.coords_to_node(&PLocation::new(0, 0)), None);
+    /// assert_eq!(grid.coords_to_node(&IntLocation::new(1, 1)), Some(0));
+    /// assert_eq!(grid.coords_to_node(&IntLocation::new(0, 0)), None);
     /// ```
-    pub fn coords_to_node(&self, p: &PLocation) -> Option<usize> {
+    pub fn coords_to_node(&self, p: &IntLocation) -> Option<usize> {
         self.coords_to_node.get(p).copied()
     }
 
@@ -410,13 +417,13 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::{ComputedGrid, PLocation};
+    /// use mdrc_pacbot_util::grid::{ComputedGrid, IntLocation};
     /// use mdrc_pacbot_util::grid::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
-    /// assert_eq!(grid.valid_actions(PLocation::new(1, 1)), Some([true, false, false, false, false]));
+    /// assert_eq!(grid.valid_actions(IntLocation::new(1, 1)), Some([true, false, false, false, false]));
     /// ```
-    pub fn valid_actions(&self, p: PLocation) -> Option<[bool; 5]> {
+    pub fn valid_actions(&self, p: IntLocation) -> Option<[bool; 5]> {
         let node_index = self.coords_to_node.get(&p)?;
         Some(self.valid_actions[*node_index])
     }
@@ -426,15 +433,15 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::{ComputedGrid, PLocation};
+    /// use mdrc_pacbot_util::grid::{ComputedGrid, IntLocation};
     /// use mdrc_pacbot_util::grid::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
-    /// assert_eq!(grid.wall_at(&PLocation::new(0, 0)), true);
-    /// assert_eq!(grid.wall_at(&PLocation::new(1, 1)), false);
-    /// assert_eq!(grid.wall_at(&PLocation::new(32, 32)), true);
+    /// assert_eq!(grid.wall_at(&IntLocation::new(0, 0)), true);
+    /// assert_eq!(grid.wall_at(&IntLocation::new(1, 1)), false);
+    /// assert_eq!(grid.wall_at(&IntLocation::new(32, 32)), true);
     /// ```
-    pub fn wall_at(&self, p: &PLocation) -> bool {
+    pub fn wall_at(&self, p: &IntLocation) -> bool {
         if p.row >= GRID_ROWS as i8 || p.col >= GRID_COLS as i8 || p.row < 0 || p.col < 0 {
             true
         } else {
@@ -442,46 +449,46 @@ impl ComputedGrid {
         }
     }
 
-    /// Returns the [`PLocation`] in the given direction from the given position, or `None` if the
+    /// Returns the [`IntLocation`] in the given direction from the given position, or `None` if the
     /// position is out of bounds.
     ///
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::{ComputedGrid, Direction, PLocation};
+    /// use mdrc_pacbot_util::grid::{ComputedGrid, Direction, IntLocation};
     /// use mdrc_pacbot_util::grid::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
-    /// assert_eq!(grid.next(&PLocation::new(1, 1), &Direction::Right), Some(PLocation::new(1, 2)));
-    /// assert_eq!(grid.next(&PLocation::new(1, 1), &Direction::Left), Some(PLocation::new(1, 0)));
-    /// assert_eq!(grid.next(&PLocation::new(1, 1), &Direction::Up), Some(PLocation::new(0, 1)));
-    /// assert_eq!(grid.next(&PLocation::new(1, 1), &Direction::Down), Some(PLocation::new(2, 1)));
+    /// assert_eq!(grid.next(&IntLocation::new(1, 1), &Direction::Right), Some(IntLocation::new(1, 2)));
+    /// assert_eq!(grid.next(&IntLocation::new(1, 1), &Direction::Left), Some(IntLocation::new(1, 0)));
+    /// assert_eq!(grid.next(&IntLocation::new(1, 1), &Direction::Up), Some(IntLocation::new(0, 1)));
+    /// assert_eq!(grid.next(&IntLocation::new(1, 1), &Direction::Down), Some(IntLocation::new(2, 1)));
     /// ```
-    pub fn next(&self, p: &PLocation, direction: &Direction) -> Option<PLocation> {
+    pub fn next(&self, p: &IntLocation, direction: &Direction) -> Option<IntLocation> {
         match direction {
             Direction::Right => {
                 if p.col >= GRID_COLS as i8 - 1 {
                     return None;
                 }
-                Some(PLocation::new(p.row, p.col + 1))
+                Some(IntLocation::new(p.row, p.col + 1))
             }
             Direction::Left => {
                 if p.col <= 0 {
                     return None;
                 }
-                Some(PLocation::new(p.row, p.col - 1))
+                Some(IntLocation::new(p.row, p.col - 1))
             }
             Direction::Up => {
                 if p.row <= 0 {
                     return None;
                 }
-                Some(PLocation::new(p.row - 1, p.col))
+                Some(IntLocation::new(p.row - 1, p.col))
             }
             Direction::Down => {
                 if p.row >= GRID_ROWS as i8 - 1 {
                     return None;
                 }
-                Some(PLocation::new(p.row + 1, p.col))
+                Some(IntLocation::new(p.row + 1, p.col))
             }
         }
     }
@@ -491,14 +498,14 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::{ComputedGrid, PLocation};
+    /// use mdrc_pacbot_util::grid::{ComputedGrid, IntLocation};
     /// use mdrc_pacbot_util::grid::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Pacman.compute_grid();
-    /// assert_eq!(grid.dist(&PLocation::new(1, 1), &PLocation::new(1, 1)), Some(0));
-    /// assert_eq!(grid.dist(&PLocation::new(1, 1), &PLocation::new(1, 2)), Some(1));
+    /// assert_eq!(grid.dist(&IntLocation::new(1, 1), &IntLocation::new(1, 1)), Some(0));
+    /// assert_eq!(grid.dist(&IntLocation::new(1, 1), &IntLocation::new(1, 2)), Some(1));
     /// ```
-    pub fn dist(&self, p1: &PLocation, p2: &PLocation) -> Option<u8> {
+    pub fn dist(&self, p1: &IntLocation, p2: &IntLocation) -> Option<u8> {
         let p1 = self.coords_to_node.get(p1)?;
         let p2 = self.coords_to_node.get(p2)?;
         self.distance_matrix[*p1][*p2]
@@ -509,24 +516,24 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::{ComputedGrid, PLocation};
+    /// use mdrc_pacbot_util::grid::{ComputedGrid, IntLocation};
     /// use mdrc_pacbot_util::grid::standard_grids::StandardGrid;
     ///
     /// let grid = StandardGrid::Pacman.compute_grid();
-    /// assert!(grid.neighbors(&PLocation::new(1, 1)).contains(&PLocation::new(1, 2)));
-    /// assert!(grid.neighbors(&PLocation::new(1, 1)).contains(&PLocation::new(2, 1)));
+    /// assert!(grid.neighbors(&IntLocation::new(1, 1)).contains(&IntLocation::new(1, 2)));
+    /// assert!(grid.neighbors(&IntLocation::new(1, 1)).contains(&IntLocation::new(2, 1)));
     /// ```
-    pub fn neighbors(&self, p: &PLocation) -> Vec<PLocation> {
+    pub fn neighbors(&self, p: &IntLocation) -> Vec<IntLocation> {
         let mut neighbors = vec![];
         let mut potential_neighbors = vec![
-            PLocation::new(p.row + 1, p.col),
-            PLocation::new(p.row, p.col + 1),
+            IntLocation::new(p.row + 1, p.col),
+            IntLocation::new(p.row, p.col + 1),
         ];
         if p.row > 0 {
-            potential_neighbors.push(PLocation::new(p.row - 1, p.col));
+            potential_neighbors.push(IntLocation::new(p.row - 1, p.col));
         }
         if p.col > 0 {
-            potential_neighbors.push(PLocation::new(p.row, p.col - 1));
+            potential_neighbors.push(IntLocation::new(p.row, p.col - 1));
         }
         for &neighbor in &potential_neighbors {
             if !self.wall_at(&neighbor) {
@@ -552,16 +559,19 @@ impl ComputedGrid {
     }
 
     /// Return the walkable node from the nodes surrounding this point
-    pub fn node_nearest(&self, x: f32, y: f32) -> Option<PLocation> {
+    pub fn node_nearest(&self, x: f32, y: f32) -> Option<IntLocation> {
         [
-            PLocation::new(x.floor() as i8, y.floor() as i8),
-            PLocation::new(x.ceil() as i8, y.floor() as i8),
-            PLocation::new(x.floor() as i8, y.ceil() as i8),
-            PLocation::new(x.ceil() as i8, y.ceil() as i8),
-        ].into_iter().filter(|&node| !self.wall_at(&node)).min_by_key(|&node| {
+            IntLocation::new(x.floor() as i8, y.floor() as i8),
+            IntLocation::new(x.ceil() as i8, y.floor() as i8),
+            IntLocation::new(x.floor() as i8, y.ceil() as i8),
+            IntLocation::new(x.ceil() as i8, y.ceil() as i8),
+        ]
+        .into_iter()
+        .filter(|&node| !self.wall_at(&node))
+        .min_by_key(|&node| {
             let dx = node.row as f32 - x;
             let dy = node.col as f32 - y;
-            OrderedFloat::from(dx*dx + dy*dy)
+            OrderedFloat::from(dx * dx + dy * dy)
         })
     }
 }
@@ -670,9 +680,15 @@ mod tests {
 
         let computed_grid = ComputedGrid::try_from(grid).unwrap();
         assert_eq!(computed_grid.walkable_nodes.len(), 3);
-        assert!(computed_grid.walkable_nodes.contains(&PLocation::new(1, 1)));
-        assert!(computed_grid.walkable_nodes.contains(&PLocation::new(1, 2)));
-        assert!(computed_grid.walkable_nodes.contains(&PLocation::new(6, 1)));
+        assert!(computed_grid
+            .walkable_nodes
+            .contains(&IntLocation::new(1, 1)));
+        assert!(computed_grid
+            .walkable_nodes
+            .contains(&IntLocation::new(1, 2)));
+        assert!(computed_grid
+            .walkable_nodes
+            .contains(&IntLocation::new(6, 1)));
     }
 
     #[test]
@@ -686,9 +702,9 @@ mod tests {
         assert_eq!(computed_grid.coords_to_node.len(), 3);
         let idx = *computed_grid
             .coords_to_node
-            .get(&PLocation::new(1, 1))
+            .get(&IntLocation::new(1, 1))
             .unwrap();
-        assert_eq!(computed_grid.walkable_nodes[idx], PLocation::new(1, 1));
+        assert_eq!(computed_grid.walkable_nodes[idx], IntLocation::new(1, 1));
     }
 
     #[test]
@@ -702,7 +718,7 @@ mod tests {
         assert_eq!(computed_grid.valid_actions.len(), 3);
         let one_one_idx = *computed_grid
             .coords_to_node
-            .get(&PLocation::new(1, 1))
+            .get(&IntLocation::new(1, 1))
             .unwrap();
         assert_eq!(
             computed_grid.valid_actions[one_one_idx],
@@ -711,7 +727,7 @@ mod tests {
 
         let one_two_idx = *computed_grid
             .coords_to_node
-            .get(&PLocation::new(1, 2))
+            .get(&IntLocation::new(1, 2))
             .unwrap();
         assert_eq!(
             computed_grid.valid_actions[one_two_idx],
@@ -720,7 +736,7 @@ mod tests {
 
         let six_one_idx = *computed_grid
             .coords_to_node
-            .get(&PLocation::new(6, 1))
+            .get(&IntLocation::new(6, 1))
             .unwrap();
         assert_eq!(
             computed_grid.valid_actions[six_one_idx],
@@ -736,9 +752,9 @@ mod tests {
         grid[6][1] = false;
 
         let points = [
-            PLocation::new(1, 1),
-            PLocation::new(1, 2),
-            PLocation::new(6, 1),
+            IntLocation::new(1, 1),
+            IntLocation::new(1, 2),
+            IntLocation::new(6, 1),
         ];
 
         let computed_grid = ComputedGrid::try_from(grid).unwrap();
@@ -761,34 +777,40 @@ mod tests {
     fn grid_next() {
         let grid = StandardGrid::Blank.compute_grid();
         assert_eq!(
-            grid.next(&PLocation::new(1, 1), &Direction::Right),
-            Some(PLocation::new(1, 2))
+            grid.next(&IntLocation::new(1, 1), &Direction::Right),
+            Some(IntLocation::new(1, 2))
         );
         assert_eq!(
-            grid.next(&PLocation::new(1, 1), &Direction::Left),
-            Some(PLocation::new(1, 0))
+            grid.next(&IntLocation::new(1, 1), &Direction::Left),
+            Some(IntLocation::new(1, 0))
         );
         assert_eq!(
-            grid.next(&PLocation::new(1, 1), &Direction::Up),
-            Some(PLocation::new(0, 1))
+            grid.next(&IntLocation::new(1, 1), &Direction::Up),
+            Some(IntLocation::new(0, 1))
         );
         assert_eq!(
-            grid.next(&PLocation::new(1, 1), &Direction::Down),
-            Some(PLocation::new(2, 1))
+            grid.next(&IntLocation::new(1, 1), &Direction::Down),
+            Some(IntLocation::new(2, 1))
         );
     }
 
     #[test]
     fn grid_next_oob() {
         let grid = StandardGrid::Blank.compute_grid();
-        assert_eq!(grid.next(&PLocation::new(0, 0), &Direction::Left), None);
-        assert_eq!(grid.next(&PLocation::new(0, 0), &Direction::Up), None);
+        assert_eq!(grid.next(&IntLocation::new(0, 0), &Direction::Left), None);
+        assert_eq!(grid.next(&IntLocation::new(0, 0), &Direction::Up), None);
         assert_eq!(
-            grid.next(&PLocation::new(0, (GRID_ROWS - 1) as i8), &Direction::Right),
+            grid.next(
+                &IntLocation::new(0, (GRID_ROWS - 1) as i8),
+                &Direction::Right
+            ),
             None
         );
         assert_eq!(
-            grid.next(&PLocation::new((GRID_COLS - 1) as i8, 0), &Direction::Down),
+            grid.next(
+                &IntLocation::new((GRID_COLS - 1) as i8, 0),
+                &Direction::Down
+            ),
             None
         );
     }
@@ -796,19 +818,19 @@ mod tests {
     #[test]
     fn grid_at() {
         let grid = StandardGrid::Blank.compute_grid();
-        assert_eq!(grid.wall_at(&PLocation::new(0, 0)), true);
+        assert_eq!(grid.wall_at(&IntLocation::new(0, 0)), true);
     }
 
     #[test]
     fn grid_at_oob() {
         let grid = StandardGrid::Blank.compute_grid();
-        assert_eq!(grid.wall_at(&PLocation::new(0, GRID_ROWS as i8)), true);
-        assert_eq!(grid.wall_at(&PLocation::new(GRID_COLS as i8, 0)), true);
+        assert_eq!(grid.wall_at(&IntLocation::new(0, GRID_ROWS as i8)), true);
+        assert_eq!(grid.wall_at(&IntLocation::new(GRID_COLS as i8, 0)), true);
     }
 }
 
 /// Find the direction from the start point to the end point
-pub fn facing_direction(start: &PLocation, end: &PLocation) -> Direction {
+pub fn facing_direction(start: &IntLocation, end: &IntLocation) -> Direction {
     if start.col > end.col {
         Direction::Right
     } else if start.col < end.col {

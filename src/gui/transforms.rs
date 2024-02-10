@@ -94,7 +94,7 @@ impl Transform {
     /// ```
     /// use rapier2d::na::Point2;
     /// use eframe::egui::Pos2;
-    /// use mdrc_pacbot_util::grid::{PLocation, Wall};
+    /// use mdrc_pacbot_util::grid::{IntLocation, Wall};
     /// use mdrc_pacbot_util::gui::transforms::Transform;
     ///
     /// let world_to_screen = Transform::new_letterboxed(
@@ -104,8 +104,8 @@ impl Transform {
     ///     Pos2::new(330.0, 330.0),
     /// );
     /// let wall = Wall {
-    ///     top_left: PLocation::new(1, 2),
-    ///     bottom_right: PLocation::new(2, 2),
+    ///     top_left: IntLocation::new(1, 2),
+    ///     bottom_right: IntLocation::new(2, 2),
     /// };
     /// let (top_left, bottom_right) = world_to_screen.map_wall(&wall);
     /// assert_eq!(top_left, Pos2::new(30.0, 20.0));

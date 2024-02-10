@@ -1,20 +1,29 @@
 //! A utility for recording over time
 
 use crate::grid::standard_grids::StandardGrid;
+use crate::grid::IntLocation;
+use crate::network::PacbotSensors;
 use anyhow::{anyhow, Error};
 use bincode::{deserialize, serialize};
 use pacbot_rs::game_engine::GameEngine;
-use rapier2d::na::Isometry2;
+use rapier2d::na::{Isometry2, Vector2};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
 
 /// The types of data that might be stored in a [`ReplayFrame`]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 enum ReplayFrameData {
-    /// Pacbot's real physical location, as determined by the [`PacbotSimulation`]
-    PacbotLocation(Isometry2<f32>),
+    /// Pacbot's real physical location, as determined by the [`PacbotSimulation`], as well as the
+    /// particle filter's best guess
+    PacbotLocation(Isometry2<f32>, Isometry2<f32>),
     /// Information that changes frequently in Pacman, like ghost locations and pellets
     PacmanGameState(Box<GameEngine>),
+    /// Pacbot's sensors
+    PacbotSensors(PacbotSensors),
+    /// The AI's desired path
+    TargetPath(Vec<IntLocation>),
+    /// The robot target velocity
+    TargetVelocity(Vector2<f32>, f32),
 }
 
 /// The metadata included in one frame of a [`Replay`]
@@ -93,7 +102,7 @@ impl Replay {
                 timestamp: start_time,
             },
             ReplayFrame {
-                data: ReplayFrameData::PacbotLocation(pacbot_location),
+                data: ReplayFrameData::PacbotLocation(pacbot_location, pacbot_location),
                 timestamp: start_time,
             },
         ];
@@ -167,8 +176,9 @@ impl Replay {
 
         for frame in 0..=other.current_frame {
             match other.frames[frame].data {
-                ReplayFrameData::PacbotLocation(_) => location_frame = frame,
+                ReplayFrameData::PacbotLocation(_, _) => location_frame = frame,
                 ReplayFrameData::PacmanGameState(_) => pacman_state_frame = frame,
+                _ => {}
             }
             frames.push(ReplayFrame {
                 data: other.frames[frame].data.to_owned(),
@@ -309,7 +319,7 @@ impl Replay {
     /// assert_eq!(isometry_1, replay.get_pacbot_location());
     /// ```
     pub fn get_pacbot_location(&self) -> Isometry2<f32> {
-        if let ReplayFrameData::PacbotLocation(data) = &self.frames[self.location_frame].data {
+        if let ReplayFrameData::PacbotLocation(data, _) = &self.frames[self.location_frame].data {
             data.to_owned()
         } else {
             panic!("Replay was corrupt - location_frame was wrong")
@@ -318,8 +328,9 @@ impl Replay {
 
     fn update_current_frames(&mut self) {
         match &self.frames[self.current_frame].data {
-            ReplayFrameData::PacbotLocation(_) => self.location_frame = self.current_frame,
+            ReplayFrameData::PacbotLocation(_, _) => self.location_frame = self.current_frame,
             ReplayFrameData::PacmanGameState(_) => self.pacman_state_frame = self.current_frame,
+            _ => {}
         };
     }
 
@@ -354,8 +365,9 @@ impl Replay {
     pub fn go_to_end(&mut self) {
         for frame in 0..self.frames.len() {
             match &self.frames[frame].data {
-                ReplayFrameData::PacbotLocation(_) => self.location_frame = frame,
+                ReplayFrameData::PacbotLocation(_, _) => self.location_frame = frame,
                 ReplayFrameData::PacmanGameState(_) => self.pacman_state_frame = frame,
+                _ => {}
             }
         }
 
@@ -440,7 +452,7 @@ impl Replay {
         } else {
             self.frames.push(ReplayFrame {
                 timestamp: SystemTime::now(),
-                data: ReplayFrameData::PacbotLocation(location),
+                data: ReplayFrameData::PacbotLocation(location, location),
             });
             self.current_frame += 1;
             self.location_frame = self.current_frame;

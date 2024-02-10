@@ -16,6 +16,12 @@ pub struct Stopwatch {
     segment_moving_averages: Vec<(String, MovingAverage)>,
 }
 
+impl Default for Stopwatch {
+    fn default() -> Self {
+        Self::new(10)
+    }
+}
+
 impl Stopwatch {
     /// Creates a new Stopwatch
     pub fn new(num_samples: usize) -> Self {

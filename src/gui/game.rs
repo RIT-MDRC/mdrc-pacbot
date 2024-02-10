@@ -1,4 +1,4 @@
-use crate::grid::{facing_direction, PLocation};
+use crate::grid::{facing_direction, IntLocation};
 use crate::gui::colors::{
     GHOST_BLUE_COLOR, GHOST_ORANGE_COLOR, GHOST_PINK_COLOR, GHOST_RED_COLOR,
     PACMAN_DISTANCE_SENSOR_RAY_COLOR, PELLET_COLOR, SUPER_PELLET_COLOR, WALL_COLOR,
@@ -60,10 +60,10 @@ impl PacbotWidget for GameWidget {
 
 pub(super) fn run_game(
     pacman_render: Arc<RwLock<PacmanStateRenderInfo>>,
-    location_receive: Receiver<PLocation>,
+    location_receive: Receiver<IntLocation>,
     replay_send: Sender<()>,
 ) {
-    let mut previous_pacman_location = PLocation::new(PACMAN_SPAWN_LOC.row, PACMAN_SPAWN_LOC.col);
+    let mut previous_pacman_location = IntLocation::new(PACMAN_SPAWN_LOC.row, PACMAN_SPAWN_LOC.col);
     {
         let pacman_render = pacman_render.clone();
         std::thread::spawn(move || {

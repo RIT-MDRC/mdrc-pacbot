@@ -21,6 +21,12 @@ pub enum StandardGrid {
     Blank,
 }
 
+impl Default for StandardGrid {
+    fn default() -> Self {
+        Self::Pacman
+    }
+}
+
 impl StandardGrid {
     /// Get a list of all available grids
     pub fn get_all() -> Vec<Self> {

@@ -7,12 +7,17 @@ use crate::constants::{
     PARTICLE_FILTER_RANDOM,
 };
 use crate::grid::standard_grids::StandardGrid;
-use crate::grid::ComputedGrid;
+use crate::grid::{ComputedGrid, IntLocation};
+use crate::network::PacbotSensors;
 use crate::physics::particle_filter::{ParticleFilter, ParticleFilterOptions};
 use crate::robot::Robot;
+use crate::{LightPhysicsInfo, ParticleFilterStopwatch, PhysicsStopwatch, TargetVelocity};
+use bevy::prelude::*;
 use rapier2d::dynamics::{IntegrationParameters, RigidBodySet};
 use rapier2d::geometry::{BroadPhase, NarrowPhase};
 use rapier2d::na::{Isometry2, Vector2};
+use rapier2d::prelude::Ray;
+use rapier2d::prelude::Real;
 use rapier2d::prelude::*;
 use std::sync::{Arc, Mutex};
 
@@ -22,6 +27,7 @@ const GROUP_WALL: u32 = 1;
 const GROUP_ROBOT: u32 = 2;
 
 /// Handles all physics related operations
+#[derive(Resource)]
 pub struct PacbotSimulation {
     integration_parameters: IntegrationParameters,
     physics_pipeline: PhysicsPipeline,
@@ -57,6 +63,70 @@ impl Default for PacbotSimulation {
                 Robot::default().distance_sensors.len()
             ])),
         )
+    }
+}
+
+pub struct PhysicsPlugin;
+
+impl Plugin for PhysicsPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            (
+                run_simulation,
+                run_particle_filter.after(run_simulation),
+                update_physics_info.after(run_particle_filter),
+            ),
+        );
+    }
+}
+
+fn run_simulation(
+    mut simulation: ResMut<PacbotSimulation>,
+    mut phys_stopwatch: ResMut<PhysicsStopwatch>,
+    target_velocity: Res<TargetVelocity>,
+) {
+    phys_stopwatch.0.start();
+    simulation.set_target_robot_velocity((target_velocity.0, target_velocity.1));
+    simulation.step();
+    phys_stopwatch.0.mark_segment("Step simulation");
+}
+
+fn run_particle_filter(
+    mut simulation: ResMut<PacbotSimulation>,
+    mut pf_stopwatch: ResMut<ParticleFilterStopwatch>,
+    grid: Local<ComputedGrid>,
+) {
+    // Estimate game location
+    let estimated_location = grid
+        .node_nearest(
+            simulation.get_primary_robot_position().translation.x,
+            simulation.get_primary_robot_position().translation.y,
+        )
+        .unwrap_or(IntLocation::new(1, 1));
+
+    // Update particle filter
+    simulation.pf_update(estimated_location, &mut pf_stopwatch.0);
+}
+
+fn update_physics_info(
+    mut simulation: ResMut<PacbotSimulation>,
+    mut sensors: ResMut<PacbotSensors>,
+    mut phys_info: ResMut<LightPhysicsInfo>,
+) {
+    let rays = simulation.get_primary_robot_rays();
+    for i in 0..sensors.distance_sensors.len() {
+        let (a, b) = rays[i];
+        sensors.distance_sensors[i] = ((a.x - b.x).powi(2) + (a.y - b.y).powi(2))
+            .sqrt()
+            .round()
+            .min(255.0) as u8;
+    }
+    *phys_info = LightPhysicsInfo {
+        real_pos: Some(*simulation.get_primary_robot_position()),
+        pf_pos: Some(simulation.pf_best_guess()),
+        real_pos_rays: simulation.get_primary_robot_rays(),
+        pf_pos_rays: vec![], // TODO
     }
 }
 

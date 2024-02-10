@@ -83,10 +83,10 @@ impl TabViewer {
 
         if self.mode != AppMode::Playback && self.save_pacbot_location {
             // save physics position
-            let position = self.phys_render.read().unwrap().pacbot_pos;
-            self.replay_manager
-                .replay
-                .record_pacman_location(position)?;
+            // let position = self.phys_render.read().unwrap().pacbot_pos;
+            // self.replay_manager
+            //     .replay
+            //     .record_pacman_location(position)?;
         }
 
         if self.replay_manager.playback_paused {
@@ -300,11 +300,11 @@ impl TabViewer {
     }
 
     pub fn reset_replay(&mut self) {
-        self.replay_manager.replay = Replay::new(
-            "replay".to_string(),
-            self.selected_grid,
-            self.pacman_render.read().unwrap().pacman_state.to_owned(),
-            self.phys_render.read().unwrap().pacbot_pos,
-        );
+        // self.replay_manager.replay = Replay::new(
+        //     "replay".to_string(),
+        //     self.selected_grid,
+        //     self.pacman_render.read().unwrap().pacman_state.to_owned(),
+        //     self.phys_render.read().unwrap().pacbot_pos,
+        // );
     }
 }

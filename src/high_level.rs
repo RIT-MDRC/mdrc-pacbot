@@ -1,7 +1,9 @@
 //! Defines the Pacman agent's high level AI.
 
 use crate::grid::ComputedGrid;
-use crate::grid::PLocation;
+use crate::grid::IntLocation;
+use crate::{AiStopwatch, PacmanGameState, TargetPath, UserSettings};
+use bevy::prelude::*;
 use candle_core::D;
 use candle_core::{Device, Module, Tensor};
 use candle_nn as nn;
@@ -11,9 +13,49 @@ use pacbot_rs::game_state::GameState;
 use pacbot_rs::variables;
 use pacbot_rs::variables::GHOST_FRIGHT_STEPS;
 
+pub fn run_high_level(
+    game_state: Res<PacmanGameState>,
+    mut target_path: ResMut<TargetPath>,
+    mut hl_ctx: NonSendMut<HighLevelContext>,
+    std_grid: Local<ComputedGrid>,
+    settings: Res<UserSettings>,
+    mut ai_stopwatch: ResMut<AiStopwatch>,
+) {
+    if settings.enable_ai && !game_state.0.is_paused() && game_state.is_changed() {
+        ai_stopwatch.0.start();
+
+        let action = hl_ctx.step(game_state.0.get_state(), &std_grid);
+        let curr_pos = IntLocation {
+            row: game_state.0.get_state().pacman_loc.row,
+            col: game_state.0.get_state().pacman_loc.col,
+        };
+        target_path.0 = vec![match action {
+            HLAction::Stay => curr_pos,
+            HLAction::Left => IntLocation {
+                row: curr_pos.row,
+                col: curr_pos.col - 1,
+            },
+            HLAction::Right => IntLocation {
+                row: curr_pos.row,
+                col: curr_pos.col + 1,
+            },
+            HLAction::Up => IntLocation {
+                row: curr_pos.row - 1,
+                col: curr_pos.col,
+            },
+            HLAction::Down => IntLocation {
+                row: curr_pos.row + 1,
+                col: curr_pos.col,
+            },
+        }];
+
+        ai_stopwatch.0.mark_segment("AI");
+    }
+}
+
 /// Represents an action the AI can choose to perform.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum HLAction {
+enum HLAction {
     /// The agent should stay in place.
     Stay,
     /// The agent should move left.
@@ -38,6 +80,12 @@ pub struct HighLevelContext {
     ghost_pos_cached: Vec<(usize, usize)>,
     last_pos: (usize, usize),
     last_ghost_pos: Vec<(usize, usize)>,
+}
+
+impl Default for HighLevelContext {
+    fn default() -> Self {
+        Self::new("./checkpoints/q_net.safetensors")
+    }
 }
 
 impl HighLevelContext {
@@ -66,7 +114,7 @@ impl HighLevelContext {
     /// Runs one step of the high level AI.
     /// Returns the action the AI has decided to take.
     // Currently, this implements a DQN approach.
-    pub fn step(&mut self, game_state: &GameState, grid: &ComputedGrid) -> HLAction {
+    fn step(&mut self, game_state: &GameState, grid: &ComputedGrid) -> HLAction {
         // Convert the current game state into an agent observation.
         let mut obs_array = Array::zeros(OBS_SHAPE);
         let (mut wall, mut reward, mut pacman, mut ghost, mut last_ghost, mut state) = obs_array
@@ -187,7 +235,8 @@ impl HighLevelContext {
 
         // Create action mask.
         let mut action_mask = [false, false, false, false, false];
-        if let Some(valid_actions) = grid.valid_actions(PLocation::new(pac_pos.row, pac_pos.col)) {
+        if let Some(valid_actions) = grid.valid_actions(IntLocation::new(pac_pos.row, pac_pos.col))
+        {
             // The order of valid actions is stay, up, left, down, right
             action_mask = [
                 !valid_actions[0],

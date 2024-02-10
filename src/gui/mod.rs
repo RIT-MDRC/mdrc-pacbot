@@ -8,33 +8,38 @@ mod stopwatch;
 pub mod transforms;
 pub mod utils;
 
+use std::cell::RefMut;
 use std::ops::{Deref, DerefMut};
-use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
+use bevy::prelude::*;
+use bevy_egui::EguiContexts;
 use eframe::egui;
 use eframe::egui::{Align, Color32, Frame, Key, Pos2, RichText, Ui, WidgetText};
 use egui_dock::{DockArea, DockState, Style};
 use egui_phosphor::regular;
 use pacbot_rs::game_engine::GameEngine;
-use rapier2d::na::{Isometry2, Vector2};
 
-use crate::constants::GUI_PARTICLE_FILTER_POINTS;
 use crate::grid::standard_grids::StandardGrid;
-use crate::grid::ComputedGrid;
 use crate::gui::colors::{
     TRANSLUCENT_GREEN_COLOR, TRANSLUCENT_RED_COLOR, TRANSLUCENT_YELLOW_COLOR,
 };
-use crate::gui::game::{run_game, GameWidget, PacmanStateRenderInfo};
-use crate::gui::physics::{run_physics, PhysicsRenderInfo};
-use crate::gui::stopwatch::StopwatchWidget;
-use crate::high_level::HighLevelContext;
-use crate::network::{start_network_thread, NetworkCommand};
 use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
 
 use self::transforms::Transform;
+
+fn font_setup(mut contexts: EguiContexts) {
+    let mut fonts = egui::FontDefinitions::default();
+    egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
+
+    contexts.ctx_mut().set_fonts(fonts);
+}
+
+fn ui_system(mut contexts: EguiContexts, world: RefMut<World>) {
+    // egui::Window::new("Pacbot simulation").
+}
 
 #[derive(Copy, Clone)]
 pub enum Tab {
@@ -43,120 +48,13 @@ pub enum Tab {
     Unknown,
 }
 
-/// Thread where high level AI makes decisions.
-fn run_high_level(
-    pacman_state: Arc<RwLock<PacmanStateRenderInfo>>,
-    target_pos: Arc<RwLock<(usize, usize)>>,
-) {
-    let mut hl_ctx = HighLevelContext::new("./checkpoints/q_net.safetensors");
-    let std_grid = StandardGrid::Pacman.compute_grid();
-
-    loop {
-        // Use AI to indicate which direction to move.
-        let pacman_state_render = pacman_state.read().unwrap();
-        if !pacman_state_render.pacman_state.is_paused() {
-            let state = pacman_state_render.pacman_state.get_state();
-            let action = hl_ctx.step(state, &std_grid);
-            let curr_pos = (state.pacman_loc.row as usize, state.pacman_loc.col as usize);
-            drop(pacman_state_render); // Allow others to read this resource.
-            let mut target_pos = target_pos.write().unwrap();
-            *target_pos = match action {
-                crate::high_level::HLAction::Stay => curr_pos,
-                crate::high_level::HLAction::Left => (curr_pos.0, curr_pos.1 - 1),
-                crate::high_level::HLAction::Right => (curr_pos.0, curr_pos.1 + 1),
-                crate::high_level::HLAction::Up => (curr_pos.0 - 1, curr_pos.1),
-                crate::high_level::HLAction::Down => (curr_pos.0 + 1, curr_pos.1),
-            };
-            drop(target_pos);
-        } else {
-            drop(pacman_state_render); // Allow others to read this resource.
-        }
-
-        // Sleep for 1/8th of a second.
-        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 8.));
-    }
-}
-
-/// Thread where the velocity is modified to go to the target position.
-/// The robot must already be near the target position
-fn run_pos_to_target_vel(
-    pacman_state: Arc<RwLock<PacmanStateRenderInfo>>,
-    phys_render: Arc<RwLock<PhysicsRenderInfo>>,
-    target_pos: Arc<RwLock<(usize, usize)>>,
-    target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
-    ai_enabled: Arc<RwLock<bool>>,
-) {
-    loop {
-        let is_paused = pacman_state.read().unwrap().pacman_state.is_paused();
-        let ai_enabled = *ai_enabled.read().unwrap().deref();
-
-        if !is_paused && ai_enabled {
-            let curr_pos = phys_render
-                .read()
-                .unwrap()
-                .pacbot_pos
-                .translation
-                .vector
-                .xy();
-
-            let target_pos = *target_pos.read().unwrap();
-            let target_pos = Vector2::new(target_pos.0 as f32, target_pos.1 as f32);
-
-            let max_speed = 20.;
-            let mut delta_pos = target_pos - curr_pos;
-            if delta_pos.magnitude() > max_speed {
-                delta_pos = delta_pos.normalize() * max_speed;
-            }
-            delta_pos *= 2.;
-            let mut target_velocity = target_velocity.write().unwrap();
-            *target_velocity = (delta_pos, target_velocity.1);
-            drop(target_velocity);
-        } else if ai_enabled {
-            let mut target_velocity = target_velocity.write().unwrap();
-            *target_velocity = (Vector2::zeros(), target_velocity.1);
-            drop(target_velocity);
-        }
-
-        // Sleep for 1/30th of a second.
-        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 30.));
-    }
-}
-
-struct TabViewer {
-    mode: AppMode,
-    ai_enable: Arc<RwLock<bool>>,
-
-    grid_widget: GridWidget,
-    game_widget: GameWidget,
-    stopwatch_widget: StopwatchWidget,
-    ai_widget: AiWidget,
-    sensors_widget: PacbotSensorsWidget,
-
-    selected_grid: StandardGrid,
-    grid: ComputedGrid,
+struct TabViewer<'a> {
     pointer_pos: String,
     background_color: Color32,
 
-    /// A read-only reference to info needed to render physics.
-    phys_render: Arc<RwLock<PhysicsRenderInfo>>,
-    target_velocity: Arc<RwLock<(Vector2<f32>, f32)>>,
-    target_pos: Arc<RwLock<(usize, usize)>>,
-    phys_restart_send: Sender<(StandardGrid, Robot, Isometry2<f32>)>,
-    robot: Robot,
-
-    pacman_render: Arc<RwLock<PacmanStateRenderInfo>>,
     world_to_screen: Option<Transform>,
 
-    replay_manager: replay_manager::ReplayManager,
-    pacman_state_notify_recv: Receiver<()>,
-    /// When in playback mode, the position of pacbot from the replay
-    replay_pacman: Isometry2<f32>,
-    save_pacbot_location: bool,
-
-    network_command_send: tokio::sync::mpsc::Sender<NetworkCommand>,
-
-    pf_stopwatch: Arc<RwLock<Stopwatch>>,
-    physics_stopwatch: Arc<RwLock<Stopwatch>>,
+    bevy_world: Option<&'a mut World>,
 }
 
 impl egui_dock::TabViewer for TabViewer {
@@ -174,15 +72,15 @@ impl egui_dock::TabViewer for TabViewer {
         match tab {
             Tab::Grid => self.grid_ui(ui),
             Tab::Stopwatch => {
-                ui.label("Particle Filter");
-                draw_stopwatch(&self.pf_stopwatch.read().unwrap(), ui, "pf_sw".to_string());
-                ui.separator();
-                ui.label("Physics");
-                draw_stopwatch(
-                    &self.physics_stopwatch.read().unwrap(),
-                    ui,
-                    "ph_sw".to_string(),
-                );
+                // ui.label("Particle Filter");
+                // draw_stopwatch(&self.pf_stopwatch.read().unwrap(), ui, "pf_sw".to_string());
+                // ui.separator();
+                // ui.label("Physics");
+                // draw_stopwatch(
+                //     &self.physics_stopwatch.read().unwrap(),
+                //     ui,
+                //     "ph_sw".to_string(),
+                // );
                 // draw_stopwatch(&self.gui_stopwatch.read().unwrap(), ui);
             }
             _ => panic!("Widget did not declare a tab!"),
@@ -192,156 +90,37 @@ impl egui_dock::TabViewer for TabViewer {
 
 impl Default for TabViewer {
     fn default() -> Self {
-        let (location_send, location_receive) = channel();
-        let (pacman_state_notify_send, pacman_state_notify_recv) = channel();
-
-        // Set up physics thread
-        let target_velocity: Arc<RwLock<(Vector2<f32>, f32)>> = Arc::default();
-        let target_pos: Arc<RwLock<(usize, usize)>> = Arc::new(RwLock::new((23, 13)));
-        let phys_render: Arc<RwLock<PhysicsRenderInfo>> =
-            Arc::new(RwLock::new(PhysicsRenderInfo {
-                sleep: false,
-                pacbot_pos: StandardGrid::Pacman.get_default_pacbot_isometry(),
-                pacbot_pos_guess: StandardGrid::Pacman.get_default_pacbot_isometry(),
-                primary_robot_rays: vec![],
-                pf_count: GUI_PARTICLE_FILTER_POINTS,
-                pf_points: vec![],
-            }));
-        let target_velocity_r = target_velocity.clone();
-        let target_pos_rw = target_pos.clone();
-        let phys_render_w = phys_render.clone();
-        let (phys_restart_send, phys_restart_recv) = channel();
-
-        // Set up game state thread
-        let pacman_state = GameEngine::default();
-        let pacman_state_info = PacmanStateRenderInfo { pacman_state };
-        let pacman_render: Arc<RwLock<PacmanStateRenderInfo>> =
-            Arc::new(RwLock::new(pacman_state_info));
-        let pacman_state_rw = pacman_render.clone();
-        let hl_game_state = pacman_state_rw.clone();
-        let pacman_replay_commands = pacman_state_notify_send.clone();
-
-        // Set up replay manager
-        let filename = format!("replays/replay-{}.bin", pretty_print_time_now());
-
-        // Set up stopwatches
-        let (stopwatch_widget, stopwatches) = StopwatchWidget::new();
-        let pf_stopwatch = stopwatches[2].clone();
-        let physics_stopwatch = stopwatches[1].clone();
-
-        let pf_stopwatch_ref = pf_stopwatch.clone();
-        let physics_stopwatch_ref = physics_stopwatch.clone();
-
-        let ai_enabled = Arc::new(RwLock::new(true));
-        let sensors = Arc::new(RwLock::new((false, [0; 8], [0; 3], Instant::now())));
-
-        // Spawn threads
-        std::thread::spawn(move || {
-            run_game(pacman_state_rw, location_receive, pacman_replay_commands)
-        });
-        {
-            let hl_game_state = hl_game_state.clone();
-            let phys_render_r = phys_render_w.clone();
-            let target_pos_rw = target_pos_rw.clone();
-            let target_velocity_w = target_velocity_r.clone();
-            let ai_enabled_r = ai_enabled.clone();
-            std::thread::spawn(move || {
-                run_pos_to_target_vel(
-                    hl_game_state,
-                    phys_render_r,
-                    target_pos_rw,
-                    target_velocity_w,
-                    ai_enabled_r,
-                );
-            });
-        }
-        {
-            let target_velocity_r = target_velocity_r.clone();
-            std::thread::spawn(move || {
-                run_physics(
-                    phys_render_w,
-                    target_velocity_r,
-                    location_send,
-                    phys_restart_recv,
-                    Arc::new(Mutex::new(vec![Some(0.0); 8])),
-                    pf_stopwatch_ref,
-                    physics_stopwatch_ref,
-                );
-            });
-        }
-        std::thread::spawn(move || {
-            run_high_level(hl_game_state, target_pos_rw);
-        });
-        let (network_command_send, network_recv) = tokio::sync::mpsc::channel(10);
-        start_network_thread(network_recv, sensors.clone(), target_velocity.clone(), phys_render.clone());
-
-        let pacbot_pos = phys_render.read().unwrap().pacbot_pos;
-
         Self {
-            mode: AppMode::Recording,
-            ai_enable: ai_enabled.clone(),
-
-            grid_widget: GridWidget {},
-            game_widget: GameWidget {
-                state: pacman_render.clone(),
-            },
-            stopwatch_widget,
-            ai_widget: AiWidget { ai_enabled },
-            sensors_widget: PacbotSensorsWidget::new(sensors),
-
-            selected_grid: StandardGrid::Pacman,
-            grid: StandardGrid::Pacman.compute_grid(),
             pointer_pos: "".to_string(),
             background_color: Color32::BLACK,
 
-            robot: Robot::default(),
-            target_velocity,
-            target_pos,
-            phys_restart_send,
-            phys_render,
-
-            pacman_render,
             world_to_screen: None,
-
-            replay_manager: Self::new_replay_manager(
-                filename,
-                StandardGrid::Pacman,
-                GameEngine::default(),
-                pacbot_pos,
-            ),
-            pacman_state_notify_recv,
-            replay_pacman: Isometry2::default(),
-            save_pacbot_location: false,
-
-            network_command_send,
-
-            pf_stopwatch,
-            physics_stopwatch,
+            bevy_world: None,
         }
     }
 }
 
 impl TabViewer {
     fn grid_ui(&mut self, ui: &mut Ui) {
-        let rect = ui.max_rect();
-        let (src_p1, src_p2) = self.selected_grid.get_soft_boundaries();
+        // let rect = ui.max_rect();
+        // let (src_p1, src_p2) = self.selected_grid.get_soft_boundaries();
+        //
+        // let world_to_screen = Transform::new_letterboxed(
+        //     src_p1,
+        //     src_p2,
+        //     Pos2::new(rect.top(), rect.left()),
+        //     Pos2::new(rect.bottom(), rect.right()),
+        // );
+        // self.world_to_screen = Some(world_to_screen);
+        // let painter = ui.painter_at(rect);
+        //
+        // self.draw_grid(&world_to_screen, &painter);
+        //
+        // if self.selected_grid == StandardGrid::Pacman {
+        //     self.draw_pacman_state(&world_to_screen, &painter);
+        // }
 
-        let world_to_screen = Transform::new_letterboxed(
-            src_p1,
-            src_p2,
-            Pos2::new(rect.top(), rect.left()),
-            Pos2::new(rect.bottom(), rect.right()),
-        );
-        self.world_to_screen = Some(world_to_screen);
-        let painter = ui.painter_at(rect);
-
-        self.draw_grid(&world_to_screen, &painter);
-
-        if self.selected_grid == StandardGrid::Pacman {
-            self.draw_pacman_state(&world_to_screen, &painter);
-        }
-
-        self.draw_simulation(&world_to_screen, &painter);
+        // self.draw_simulation(&world_to_screen, &painter);
     }
 }
 
@@ -466,8 +245,8 @@ impl App {
                             .pacman_state
                             .pause();
                         self.tab_viewer.grid = grid.compute_grid();
-                        self.tab_viewer.phys_render.write().unwrap().pacbot_pos =
-                            self.tab_viewer.selected_grid.get_default_pacbot_isometry();
+                        // self.tab_viewer.phys_render.write().unwrap().pacbot_pos =
+                        //     self.tab_viewer.selected_grid.get_default_pacbot_isometry();
                         self.tab_viewer
                             .phys_restart_send
                             .send((
@@ -737,7 +516,10 @@ impl PacbotWidget for PacbotSensorsWidget {
                 ))
             }
             for i in 0..3 {
-                self.messages.push((format!("Encoder {i}: {}", sensors.2[i]), PacbotWidgetStatus::Ok));
+                self.messages.push((
+                    format!("Encoder {i}: {}", sensors.2[i]),
+                    PacbotWidgetStatus::Ok,
+                ));
             }
         }
     }
