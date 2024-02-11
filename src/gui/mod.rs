@@ -8,7 +8,7 @@ mod stopwatch;
 pub mod transforms;
 pub mod utils;
 
-use std::cell::RefMut;
+use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
@@ -33,30 +33,35 @@ use self::transforms::Transform;
 #[derive(Default, Resource)]
 pub struct GuiStopwatch(pub Stopwatch);
 
-fn font_setup(mut contexts: EguiContexts) {
+pub fn font_setup(mut contexts: EguiContexts) {
     let mut fonts = egui::FontDefinitions::default();
     egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
 
     contexts.ctx_mut().set_fonts(fonts);
 }
 
-fn ui_system(
+pub fn ui_system(
     mut contexts: EguiContexts,
-    mut world: RefMut<World>,
+    mut app: Local<GuiApp>,
     mut world_to_screen: Local<Option<Transform>>,
+    mut pacman_state: ResMut<PacmanGameState>,
+    phys_info: ResMut<LightPhysicsInfo>,
+    mut standard_grid: ResMut<StandardGridResource>,
+    mut grid: ResMut<ComputedGrid>,
+    mut replay_manager: ResMut<PacmanReplayManager>,
+    mut settings: ResMut<UserSettings>,
 ) {
-    let mut app: Mut<App> = world.resource_mut();
-    egui::Window::new("Pacbot simulation").show(contexts.ctx_mut(), |f| {
+    let ctx = contexts.ctx_mut();
+    egui::Window::new("Pacbot simulation").show(&ctx, |_| {
         app.update(
-            contexts.ctx_mut(),
-            f,
-            &mut world.resource_mut::<PacmanGameState>().0,
-            &*world.resource::<LightPhysicsInfo>(),
+            &ctx,
+            &mut pacman_state.0,
+            phys_info.deref(),
             &mut world_to_screen,
-            &mut world.resource_mut::<StandardGridResource>().0,
-            &mut world.resource_mut::<ComputedGrid>(),
-            &mut world.resource_mut::<PacmanReplayManager>().0,
-            &mut world.resource_mut::<UserSettings>(),
+            &mut standard_grid.0,
+            grid.deref_mut(),
+            &mut replay_manager.0,
+            &mut settings,
         )
     });
 }
@@ -112,7 +117,6 @@ impl<'a> Default for TabViewer<'a> {
             pointer_pos: None,
             background_color: Color32::BLACK,
 
-            world_to_screen: None,
             bevy_world: None,
         }
     }
@@ -176,7 +180,7 @@ pub enum AppMode {
 }
 
 #[derive(Resource)]
-struct App {
+pub struct GuiApp {
     tree: DockState<Tab>,
 }
 
@@ -185,7 +189,7 @@ fn pretty_print_time_now() -> String {
     date.format("%Y_%m_%d__%H_%M_%S").to_string()
 }
 
-impl Default for App {
+impl Default for GuiApp {
     fn default() -> Self {
         Self {
             tree: DockState::new(vec![Tab::Grid]),
@@ -193,7 +197,7 @@ impl Default for App {
     }
 }
 
-impl App {
+impl GuiApp {
     // TODO
     // fn update_target_velocity(&mut self, ctx: &egui::Context) {
     //     let ai_enabled = *self.tab_viewer.ai_enable.read().unwrap().deref();
@@ -335,11 +339,10 @@ fn draw_stopwatch(stopwatch: &Stopwatch, ui: &mut Ui, id: String) {
         });
 }
 
-impl App {
+impl GuiApp {
     fn update(
         &mut self,
         ctx: &egui::Context,
-        _frame: &mut eframe::Frame,
         pacman_state: &mut GameEngine,
         phys_info: &LightPhysicsInfo,
         world_to_screen: &mut Option<Transform>,
@@ -404,7 +407,7 @@ impl App {
                         &(match tab_viewer.pointer_pos {
                             None => "".to_string(),
                             Some(pos) => {
-                                let pos = world_to_screen.inverse().map_point(pos);
+                                let pos = world_to_screen.unwrap().inverse().map_point(pos);
                                 format!("({:.1}, {:.1})", pos.x, pos.y)
                             }
                         }),

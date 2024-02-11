@@ -1,6 +1,6 @@
 use crate::grid::standard_grids::StandardGrid;
 use crate::gui::replay_manager::ReplayManager;
-use crate::gui::AppMode;
+use crate::gui::{font_setup, ui_system, AppMode};
 use crate::high_level::run_high_level;
 use crate::network::NetworkPlugin;
 use crate::physics::PhysicsPlugin;
@@ -48,6 +48,7 @@ fn main() {
     App::new()
         .add_plugins(MinimalPlugins)
         .add_plugins((NetworkPlugin, PhysicsPlugin))
-        .add_systems(Update, run_high_level)
+        .add_systems(Startup, font_setup)
+        .add_systems(Update, (run_high_level, ui_system))
         .run();
 }
