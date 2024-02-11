@@ -478,8 +478,8 @@ impl Replay {
     /// // Don't add frames to a replay that isn't at the end
     /// assert!(replay.record_pacman_location(Isometry2::default()).is_err());
     /// ```
-    pub fn record_pacman_state(&mut self, state: &mut GameEngine) -> Result<(), Error> {
-        let state = serialize(&state).unwrap();
+    pub fn record_pacman_state(&mut self, state: &GameEngine) -> Result<(), Error> {
+        let state = serialize(state).unwrap();
         let state: GameEngine = deserialize(&state).unwrap();
         if !self.is_at_end() {
             Err(anyhow!("Tried to record to replay that was mid-playback"))

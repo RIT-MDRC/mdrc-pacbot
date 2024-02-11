@@ -4,8 +4,9 @@ use crate::gui::colors::{
 };
 use crate::gui::transforms::Transform;
 use crate::gui::{AppMode, TabViewer};
+use crate::physics::LightPhysicsInfo;
 use crate::robot::Robot;
-use crate::{LightPhysicsInfo, PacmanReplayManager, UserSettings};
+use crate::{PacmanReplayManager, UserSettings};
 use eframe::egui::{Painter, Pos2, Stroke};
 use rapier2d::na::Point2;
 

@@ -1,3 +1,4 @@
+use crate::grid::standard_grids::StandardGrid;
 use crate::grid::{facing_direction, ComputedGrid, IntLocation};
 use crate::gui::colors::{
     GHOST_BLUE_COLOR, GHOST_ORANGE_COLOR, GHOST_PINK_COLOR, GHOST_RED_COLOR,
@@ -5,7 +6,6 @@ use crate::gui::colors::{
 };
 use crate::gui::transforms::Transform;
 use crate::gui::{PacbotWidget, TabViewer};
-use crate::UserSettings;
 use eframe::egui::{Painter, Pos2, Rect, RichText, Rounding, Stroke};
 use pacbot_rs::game_engine::GameEngine;
 use pacbot_rs::location::LocationState;
@@ -59,6 +59,7 @@ impl PacbotWidget for GameWidget {
     }
 }
 
+// TODO bevy-ize this
 pub(super) fn run_game(
     pacman_render: Arc<RwLock<PacmanStateRenderInfo>>,
     location_receive: Receiver<IntLocation>,
@@ -105,7 +106,7 @@ impl<'a> TabViewer<'a> {
         world_to_screen: &Transform,
         painter: &Painter,
         grid: &ComputedGrid,
-        settings: &UserSettings,
+        standard_grid: &StandardGrid,
     ) {
         // paint the solid walls
         for wall in grid.walls() {
@@ -119,7 +120,7 @@ impl<'a> TabViewer<'a> {
         }
 
         // make sure the area outside the soft boundary is not drawn on
-        for (p1, p2) in settings.standard_grid.get_outside_soft_boundaries() {
+        for (p1, p2) in standard_grid.get_outside_soft_boundaries() {
             painter.rect(
                 Rect::from_two_pos(world_to_screen.map_point(p1), world_to_screen.map_point(p2)),
                 Rounding::ZERO,

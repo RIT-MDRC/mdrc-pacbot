@@ -200,7 +200,7 @@ impl ParticleFilter {
         rigid_body_set: &mut RigidBodySet,
         collider_set: &mut ColliderSet,
         query_pipeline: &QueryPipeline,
-        mut stopwatch: &mut Stopwatch,
+        stopwatch: &mut Stopwatch,
     ) {
         stopwatch.start();
 

@@ -9,7 +9,6 @@ pub mod transforms;
 pub mod utils;
 
 use std::cell::RefMut;
-use std::ops::DerefMut;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
@@ -23,14 +22,16 @@ use egui_phosphor::regular;
 use pacbot_rs::game_engine::GameEngine;
 
 use crate::grid::standard_grids::StandardGrid;
-use crate::gui::colors::{
-    TRANSLUCENT_GREEN_COLOR, TRANSLUCENT_RED_COLOR, TRANSLUCENT_YELLOW_COLOR,
-};
 use crate::gui::replay_manager::ReplayManager;
+use crate::physics::LightPhysicsInfo;
 use crate::util::stopwatch::Stopwatch;
-use crate::{LightPhysicsInfo, UserSettings};
+use crate::{PacmanGameState, PacmanReplayManager, StandardGridResource, UserSettings};
 
 use self::transforms::Transform;
+
+/// Tracks the performance of GUI rendering
+#[derive(Default, Resource)]
+pub struct GuiStopwatch(pub Stopwatch);
 
 fn font_setup(mut contexts: EguiContexts) {
     let mut fonts = egui::FontDefinitions::default();
@@ -39,8 +40,25 @@ fn font_setup(mut contexts: EguiContexts) {
     contexts.ctx_mut().set_fonts(fonts);
 }
 
-fn ui_system(mut contexts: EguiContexts, world: RefMut<World>) {
-    // egui::Window::new("Pacbot simulation").
+fn ui_system(
+    mut contexts: EguiContexts,
+    mut world: RefMut<World>,
+    mut world_to_screen: Local<Option<Transform>>,
+) {
+    let mut app: Mut<App> = world.resource_mut();
+    egui::Window::new("Pacbot simulation").show(contexts.ctx_mut(), |f| {
+        app.update(
+            contexts.ctx_mut(),
+            f,
+            &mut world.resource_mut::<PacmanGameState>().0,
+            &*world.resource::<LightPhysicsInfo>(),
+            &mut world_to_screen,
+            &mut world.resource_mut::<StandardGridResource>().0,
+            &mut world.resource_mut::<ComputedGrid>(),
+            &mut world.resource_mut::<PacmanReplayManager>().0,
+            &mut world.resource_mut::<UserSettings>(),
+        )
+    });
 }
 
 #[derive(Copy, Clone)]
@@ -53,8 +71,6 @@ pub enum Tab {
 struct TabViewer<'a> {
     pointer_pos: Option<Pos2>,
     background_color: Color32,
-
-    world_to_screen: Option<Transform>,
 
     bevy_world: Option<&'a mut World>,
 }
@@ -159,6 +175,7 @@ pub enum AppMode {
     Playback,
 }
 
+#[derive(Resource)]
 struct App {
     tree: DockState<Tab>,
 }
@@ -215,15 +232,15 @@ impl App {
         pacman_state: &mut GameEngine,
         phys_info: &LightPhysicsInfo,
         replay_manager: &mut ReplayManager,
-        mut computed_grid: &mut ComputedGrid,
-        settings: &mut UserSettings,
+        standard_grid: &mut StandardGrid,
+        computed_grid: &mut ComputedGrid,
     ) {
         egui::ComboBox::from_label("")
-            .selected_text(format!("{:?}", settings.standard_grid))
+            .selected_text(format!("{:?}", standard_grid))
             .show_ui(ui, |ui| {
                 StandardGrid::get_all().iter().for_each(|grid| {
                     if ui
-                        .selectable_value(&mut settings.standard_grid, *grid, format!("{:?}", grid))
+                        .selectable_value(standard_grid, *grid, format!("{:?}", grid))
                         .clicked()
                     {
                         pacman_state.pause();
@@ -325,7 +342,8 @@ impl App {
         _frame: &mut eframe::Frame,
         pacman_state: &mut GameEngine,
         phys_info: &LightPhysicsInfo,
-        world_to_screen: &mut Transform,
+        world_to_screen: &mut Option<Transform>,
+        selected_grid: &mut StandardGrid,
         grid: &mut ComputedGrid,
         replay_manager: &mut ReplayManager,
         settings: &mut UserSettings,
@@ -333,7 +351,6 @@ impl App {
         let mut tab_viewer = TabViewer {
             pointer_pos: ctx.pointer_latest_pos(),
             background_color: ctx.style().visuals.panel_fill,
-            world_to_screen: None,
             bevy_world: None,
         };
 
@@ -353,8 +370,8 @@ impl App {
                         pacman_state,
                         phys_info,
                         replay_manager,
+                        selected_grid,
                         grid,
-                        settings,
                     );
                     egui::menu::bar(ui, |ui| {
                         ui.menu_button("Replay", |ui| {
@@ -395,7 +412,7 @@ impl App {
                 });
             });
         });
-        if settings.standard_grid == StandardGrid::Pacman {
+        if *selected_grid == StandardGrid::Pacman {
             egui::TopBottomPanel::bottom("playback_controls")
                 .frame(
                     Frame::none()

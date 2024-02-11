@@ -1,6 +1,8 @@
 //! Network communications with the Pico and the game server.
 
-use crate::{LightPhysicsInfo, TargetVelocity, UserSettings};
+use crate::pathing::TargetVelocity;
+use crate::physics::LightPhysicsInfo;
+use crate::UserSettings;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_PI_3;

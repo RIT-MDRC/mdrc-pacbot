@@ -2,7 +2,9 @@
 
 use crate::grid::ComputedGrid;
 use crate::grid::IntLocation;
-use crate::{AiStopwatch, PacmanGameState, TargetPath, UserSettings};
+use crate::pathing::TargetPath;
+use crate::util::stopwatch::Stopwatch;
+use crate::{PacmanGameState, UserSettings};
 use bevy::prelude::*;
 use candle_core::D;
 use candle_core::{Device, Module, Tensor};
@@ -12,6 +14,10 @@ use pacbot_rs::game_modes::GameMode;
 use pacbot_rs::game_state::GameState;
 use pacbot_rs::variables;
 use pacbot_rs::variables::GHOST_FRIGHT_STEPS;
+
+/// Tracks the time AI takes to make decisions
+#[derive(Default, Resource)]
+pub struct AiStopwatch(pub Stopwatch);
 
 pub fn run_high_level(
     game_state: Res<PacmanGameState>,

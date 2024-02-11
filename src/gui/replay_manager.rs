@@ -2,8 +2,9 @@
 
 use crate::grid::standard_grids::StandardGrid;
 use crate::gui::{utils, AppMode, TabViewer};
+use crate::physics::LightPhysicsInfo;
 use crate::replay::Replay;
-use crate::{LightPhysicsInfo, PacmanGameState, UserSettings};
+use crate::{PacmanGameState, UserSettings};
 use anyhow::Error;
 use bevy::prelude::*;
 use eframe::egui::Button;
@@ -92,15 +93,12 @@ impl<'a> TabViewer<'a> {
     /// When not in Playback mode, update_replay_playback has no effect
     pub fn update_replay_manager(
         &mut self,
-        mut pacman_state: RefMut<PacmanGameState>,
+        pacman_state: Ref<PacmanGameState>,
         phys_render: Ref<LightPhysicsInfo>,
         mut replay_manager: RefMut<ReplayManager>,
         settings: Ref<UserSettings>,
     ) -> Result<(), Error> {
-        // TODO
-        if
-        /*pacman_state.is_changed() && */
-        settings.mode != AppMode::Playback {
+        if pacman_state.is_changed() && settings.mode != AppMode::Playback {
             // if we aren't recording the physics position, we should record the game position
             if !settings.replay_save_location {
                 replay_manager
@@ -119,9 +117,7 @@ impl<'a> TabViewer<'a> {
                         }),
                     ))?;
             }
-            replay_manager
-                .replay
-                .record_pacman_state(&mut pacman_state.0)?;
+            replay_manager.replay.record_pacman_state(&pacman_state.0)?;
         }
 
         if settings.mode != AppMode::Playback && settings.replay_save_location {
@@ -269,7 +265,7 @@ impl<'a> TabViewer<'a> {
                     }
                     replay_manager
                         .replay
-                        .record_pacman_state(pacman_state)
+                        .record_pacman_state(&pacman_state)
                         .expect("Failed to record pacman state!");
                 }
             }
