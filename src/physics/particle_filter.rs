@@ -78,6 +78,10 @@ impl ParticleFilter {
         self.options = particle_filter_options;
     }
 
+    pub fn set_robot(&mut self, robot: Robot) {
+        self.robot = robot;
+    }
+
     fn random_point_near(&self, point: IntLocation) -> Isometry2<f32> {
         let mut rng = rand::thread_rng();
         let distance = rng.gen_range(0.0..self.options.spread).floor() as usize;

@@ -21,7 +21,8 @@ use egui_phosphor::regular;
 use pacbot_rs::game_engine::GameEngine;
 
 use crate::grid::standard_grids::StandardGrid;
-use crate::physics::LightPhysicsInfo;
+use crate::pathing::TargetPath;
+use crate::physics::{LightPhysicsInfo, ParticleFilterStopwatch, PhysicsStopwatch};
 use crate::replay_manager::ReplayManager;
 use crate::util::stopwatch::Stopwatch;
 use crate::{PacmanGameState, StandardGridResource, UserSettings};
@@ -42,27 +43,38 @@ pub fn font_setup(mut contexts: EguiContexts) {
 pub fn ui_system(
     mut contexts: EguiContexts,
     mut app: Local<GuiApp>,
-    mut world_to_screen: Local<Option<Transform>>,
-    mut pacman_state: ResMut<PacmanGameState>,
+    world_to_screen: Local<Option<Transform>>,
+    pacman_state: ResMut<PacmanGameState>,
     phys_info: ResMut<LightPhysicsInfo>,
-    mut standard_grid: ResMut<StandardGridResource>,
-    mut grid: ResMut<ComputedGrid>,
-    mut replay_manager: ResMut<ReplayManager>,
-    mut settings: ResMut<UserSettings>,
+    selected_grid: ResMut<StandardGridResource>,
+    grid: ResMut<ComputedGrid>,
+    replay_manager: ResMut<ReplayManager>,
+    settings: ResMut<UserSettings>,
+    target_path: Res<TargetPath>,
+    pf_stopwatch: ResMut<ParticleFilterStopwatch>,
+    physics_stopwatch: ResMut<PhysicsStopwatch>,
+    gui_stopwatch: ResMut<GuiStopwatch>,
 ) {
     let ctx = contexts.ctx_mut();
-    egui::Window::new("Pacbot simulation").show(&ctx, |_| {
-        app.update(
-            &ctx,
-            &mut pacman_state.0,
-            &phys_info,
-            &mut world_to_screen,
-            &mut standard_grid.0,
-            &mut grid,
-            &mut replay_manager,
-            &mut settings,
-        )
-    });
+
+    let mut tab_viewer = TabViewer {
+        pointer_pos: ctx.pointer_latest_pos(),
+        background_color: ctx.style().visuals.panel_fill,
+
+        pacman_state,
+        phys_info,
+        world_to_screen,
+        replay_manager,
+        settings,
+        target_path,
+        grid,
+        selected_grid,
+        pf_stopwatch,
+        physics_stopwatch,
+        gui_stopwatch,
+    };
+
+    egui::Window::new("Pacbot simulation").show(&ctx, |_| app.update(&ctx, &mut tab_viewer));
 }
 
 #[derive(Copy, Clone)]
@@ -76,7 +88,18 @@ struct TabViewer<'a> {
     pointer_pos: Option<Pos2>,
     background_color: Color32,
 
-    bevy_world: Option<&'a mut World>,
+    pacman_state: ResMut<'a, PacmanGameState>,
+    phys_info: ResMut<'a, LightPhysicsInfo>,
+    world_to_screen: Local<'a, Option<Transform>>,
+    replay_manager: ResMut<'a, ReplayManager>,
+    settings: ResMut<'a, UserSettings>,
+    target_path: Res<'a, TargetPath>,
+    grid: ResMut<'a, ComputedGrid>,
+    selected_grid: ResMut<'a, StandardGridResource>,
+
+    pf_stopwatch: ResMut<'a, ParticleFilterStopwatch>,
+    physics_stopwatch: ResMut<'a, PhysicsStopwatch>,
+    gui_stopwatch: ResMut<'a, GuiStopwatch>,
 }
 
 impl<'a> egui_dock::TabViewer for TabViewer<'a> {
@@ -94,54 +117,39 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
         match tab {
             Tab::Grid => self.grid_ui(ui),
             Tab::Stopwatch => {
-                // ui.label("Particle Filter");
-                // draw_stopwatch(&self.pf_stopwatch.read().unwrap(), ui, "pf_sw".to_string());
-                // ui.separator();
-                // ui.label("Physics");
-                // draw_stopwatch(
-                //     &self.physics_stopwatch.read().unwrap(),
-                //     ui,
-                //     "ph_sw".to_string(),
-                // );
-                // draw_stopwatch(&self.gui_stopwatch.read().unwrap(), ui);
+                ui.label("Particle Filter");
+                draw_stopwatch(&self.pf_stopwatch.0, ui, "pf_sw".to_string());
+                ui.separator();
+                ui.label("Physics");
+                draw_stopwatch(&self.physics_stopwatch.0, ui, "ph_sw".to_string());
+                draw_stopwatch(&self.gui_stopwatch.0, ui, "ui_sw".to_string());
             }
             _ => panic!("Widget did not declare a tab!"),
         }
     }
 }
 
-impl<'a> Default for TabViewer<'a> {
-    fn default() -> Self {
-        Self {
-            pointer_pos: None,
-            background_color: Color32::BLACK,
-
-            bevy_world: None,
-        }
-    }
-}
-
 impl<'a> TabViewer<'a> {
     fn grid_ui(&mut self, ui: &mut Ui) {
-        // let rect = ui.max_rect();
-        // let (src_p1, src_p2) = self.selected_grid.get_soft_boundaries();
-        //
-        // let world_to_screen = Transform::new_letterboxed(
-        //     src_p1,
-        //     src_p2,
-        //     Pos2::new(rect.top(), rect.left()),
-        //     Pos2::new(rect.bottom(), rect.right()),
-        // );
-        // self.world_to_screen = Some(world_to_screen);
-        // let painter = ui.painter_at(rect);
-        //
-        // self.draw_grid(&world_to_screen, &painter);
-        //
-        // if self.selected_grid == StandardGrid::Pacman {
-        //     self.draw_pacman_state(&world_to_screen, &painter);
-        // }
+        let rect = ui.max_rect();
+        let (src_p1, src_p2) = self.selected_grid.0.get_soft_boundaries();
 
-        // self.draw_simulation(&world_to_screen, &painter);
+        let world_to_screen = Transform::new_letterboxed(
+            src_p1,
+            src_p2,
+            Pos2::new(rect.top(), rect.left()),
+            Pos2::new(rect.bottom(), rect.right()),
+        );
+        *self.world_to_screen = Some(world_to_screen);
+        let painter = ui.painter_at(rect);
+
+        self.draw_grid(&world_to_screen, &painter);
+
+        if self.selected_grid.0 == StandardGrid::Pacman {
+            self.draw_pacman_state(&world_to_screen, &painter);
+        }
+
+        self.draw_simulation(&painter);
     }
 }
 
@@ -183,11 +191,6 @@ pub struct GuiApp {
     tree: DockState<Tab>,
 }
 
-fn pretty_print_time_now() -> String {
-    let date = chrono::Local::now();
-    date.format("%Y_%m_%d__%H_%M_%S").to_string()
-}
-
 impl Default for GuiApp {
     fn default() -> Self {
         Self {
@@ -197,7 +200,7 @@ impl Default for GuiApp {
 }
 
 impl GuiApp {
-    // TODO
+    // TODO keyboard target velocity
     // fn update_target_velocity(&mut self, ctx: &egui::Context) {
     //     let ai_enabled = *self.tab_viewer.ai_enable.read().unwrap().deref();
     //     if !ai_enabled {
@@ -248,11 +251,12 @@ impl GuiApp {
                     {
                         pacman_state.pause();
                         *computed_grid = grid.compute_grid();
-                        // todo unwrap
                         replay_manager.reset_replay(
                             *grid,
                             pacman_state,
-                            phys_info.real_pos.unwrap(),
+                            phys_info
+                                .real_pos
+                                .unwrap_or(grid.get_default_pacbot_isometry()),
                         );
                     }
                 });
@@ -260,7 +264,7 @@ impl GuiApp {
     }
 
     fn draw_widget_icons(&mut self, ui: &mut Ui) {
-        // TODO
+        // TODO widgets
         // let widgets: Vec<Box<&mut dyn PacbotWidget>> = vec![
         //     Box::new(&mut self.tab_viewer.grid_widget),
         //     Box::new(&mut self.tab_viewer.game_widget),
@@ -339,62 +343,35 @@ fn draw_stopwatch(stopwatch: &Stopwatch, ui: &mut Ui, id: String) {
 }
 
 impl GuiApp {
-    fn update(
-        &mut self,
-        ctx: &egui::Context,
-        pacman_state: &mut GameEngine,
-        phys_info: &LightPhysicsInfo,
-        world_to_screen: &mut Option<Transform>,
-        selected_grid: &mut StandardGrid,
-        grid: &mut ComputedGrid,
-        replay_manager: &mut ReplayManager,
-        settings: &mut UserSettings,
-    ) {
-        let mut tab_viewer = TabViewer {
-            pointer_pos: ctx.pointer_latest_pos(),
-            background_color: ctx.style().visuals.panel_fill,
-            bevy_world: None,
-        };
-
-        // TODO
-        // self.update_target_velocity(ctx);
-
-        // TODO
-        // self.tab_viewer
-        //     .update_replay_manager()
-        //     .expect("Error updating replay manager");
-
+    fn update(&mut self, ctx: &egui::Context, tab_viewer: &mut TabViewer) {
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(egui::Layout::left_to_right(Align::Center), |ui| {
                     self.add_grid_variants(
                         ui,
-                        pacman_state,
-                        phys_info,
-                        replay_manager,
-                        selected_grid,
-                        grid,
+                        &mut tab_viewer.pacman_state.0,
+                        &tab_viewer.phys_info,
+                        &mut tab_viewer.replay_manager,
+                        &mut tab_viewer.selected_grid.0,
+                        &mut tab_viewer.grid,
                     );
                     egui::menu::bar(ui, |ui| {
                         ui.menu_button("Replay", |ui| {
                             if ui.button("Save").clicked() {
-                                tab_viewer
-                                    .save_replay(replay_manager)
-                                    .expect("Failed to save replay!");
+                                tab_viewer.save_replay().expect("Failed to save replay!");
                             }
                             if ui.button("Load").clicked() {
-                                tab_viewer
-                                    .load_replay(replay_manager, settings)
-                                    .expect("Failed to load replay!");
+                                tab_viewer.load_replay().expect("Failed to load replay!");
                             }
                             if ui
                                 .add(
                                     egui::Button::new("Save Pacbot Location")
-                                        .selected(settings.replay_save_location),
+                                        .selected(tab_viewer.settings.replay_save_location),
                                 )
                                 .clicked()
                             {
-                                settings.replay_save_location = !settings.replay_save_location;
+                                tab_viewer.settings.replay_save_location =
+                                    !tab_viewer.settings.replay_save_location;
                             }
                         });
 
@@ -406,7 +383,8 @@ impl GuiApp {
                         &(match tab_viewer.pointer_pos {
                             None => "".to_string(),
                             Some(pos) => {
-                                let pos = world_to_screen.unwrap().inverse().map_point(pos);
+                                let pos =
+                                    tab_viewer.world_to_screen.unwrap().inverse().map_point(pos);
                                 format!("({:.1}, {:.1})", pos.x, pos.y)
                             }
                         }),
@@ -414,7 +392,7 @@ impl GuiApp {
                 });
             });
         });
-        if *selected_grid == StandardGrid::Pacman {
+        if tab_viewer.selected_grid.0 == StandardGrid::Pacman {
             egui::TopBottomPanel::bottom("playback_controls")
                 .frame(
                     Frame::none()
@@ -422,12 +400,12 @@ impl GuiApp {
                         .inner_margin(5.0),
                 )
                 .show(ctx, |ui| {
-                    tab_viewer.draw_replay_ui(ctx, ui, pacman_state, replay_manager, settings);
+                    tab_viewer.draw_replay_ui(ctx, ui);
                 });
         }
         DockArea::new(&mut self.tree)
             .style(Style::from_egui(ctx.style().as_ref()))
-            .show(ctx, &mut tab_viewer);
+            .show(ctx, tab_viewer);
 
         ctx.request_repaint();
     }

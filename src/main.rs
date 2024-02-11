@@ -4,6 +4,7 @@ use crate::high_level::run_high_level;
 use crate::network::NetworkPlugin;
 use crate::physics::PhysicsPlugin;
 use crate::replay_manager::{replay_playback, update_replay_manager_system};
+use crate::robot::Robot;
 use bevy::prelude::*;
 use pacbot_rs::game_engine::GameEngine;
 
@@ -34,11 +35,13 @@ pub struct UserSettings {
     pub enable_ai: bool,
     pub pico_address: Option<String>,
     pub go_server_address: Option<String>,
+    pub robot: Robot,
 
     pub replay_save_location: bool,
     pub replay_save_sensors: bool,
     pub replay_save_targets: bool,
 
+    pub enable_pf: bool,
     /// The number of guesses tracked by ParticleFilter
     pub pf_total_points: usize,
     /// The number of points displayed on the gui
@@ -63,11 +66,13 @@ impl Default for UserSettings {
             enable_ai: false,
             pico_address: None,
             go_server_address: None,
+            robot: Robot::default(),
 
             replay_save_location: true,
             replay_save_sensors: true,
             replay_save_targets: true,
 
+            enable_pf: true,
             pf_total_points: 1000,
             pf_gui_points: 1000,
             pf_elite: 10,

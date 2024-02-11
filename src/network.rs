@@ -112,16 +112,18 @@ fn send_motor_commands(
 }
 
 fn reconnect_pico(mut network_data: ResMut<NetworkPluginData>, settings: Res<UserSettings>) {
-    if network_data.pico.is_none() && settings.enable_pico {
-        let try_conn = PicoConnection::new(20001, &settings.pico_address);
-        if let Err(ref e) = try_conn {
-            eprintln!("{:?}", e);
-        }
-        network_data.pico = try_conn.ok();
-        if let Some(pico) = &mut network_data.pico {
-            if let Err(e) = pico.socket.set_nonblocking(true) {
+    if network_data.pico.is_none() {
+        if let Some(pico_address) = &settings.pico_address {
+            let try_conn = PicoConnection::new(20001, &pico_address);
+            if let Err(ref e) = try_conn {
                 eprintln!("{:?}", e);
-                network_data.pico = None;
+            }
+            network_data.pico = try_conn.ok();
+            if let Some(pico) = &mut network_data.pico {
+                if let Err(e) = pico.socket.set_nonblocking(true) {
+                    eprintln!("{:?}", e);
+                    network_data.pico = None;
+                }
             }
         }
     }

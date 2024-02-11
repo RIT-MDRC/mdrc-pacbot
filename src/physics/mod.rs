@@ -35,6 +35,8 @@ pub struct LightPhysicsInfo {
     pub real_pos_rays: Vec<(Point2<f32>, Point2<f32>)>,
     /// Simulated distance sensor rays emanating from pf_pos
     pub pf_pos_rays: Vec<(Point2<f32>, Point2<f32>)>,
+    /// Exposed particle filter points
+    pub pf_points: Vec<Isometry2<f32>>,
 }
 
 /// Tracks the performance of the physics engine
@@ -117,38 +119,46 @@ fn run_particle_filter(
     grid: Local<ComputedGrid>,
     settings: Res<UserSettings>,
 ) {
-    simulation
-        .particle_filter
-        .set_options(ParticleFilterOptions {
-            points: settings.pf_total_points,
-            elite: settings.pf_elite,
-            purge: settings.pf_purge,
-            random: settings.pf_random,
+    if settings.enable_pf {
+        simulation
+            .particle_filter
+            .set_options(ParticleFilterOptions {
+                points: settings.pf_total_points,
+                elite: settings.pf_elite,
+                purge: settings.pf_purge,
+                random: settings.pf_random,
 
-            spread: settings.pf_spread,
-            elitism_bias: settings.pf_elitism_bias,
-            genetic_translation_limit: settings.pf_genetic_translation_limit,
-            genetic_rotation_limit: settings.pf_genetic_rotation_limit,
-        });
+                spread: settings.pf_spread,
+                elitism_bias: settings.pf_elitism_bias,
+                genetic_translation_limit: settings.pf_genetic_translation_limit,
+                genetic_rotation_limit: settings.pf_genetic_rotation_limit,
+            });
 
-    // Estimate game location
-    let estimated_location = grid
-        .node_nearest(
-            simulation.get_primary_robot_position().translation.x,
-            simulation.get_primary_robot_position().translation.y,
-        )
-        .unwrap_or(IntLocation::new(1, 1));
+        simulation.robot_specifications = settings.robot.clone();
+        simulation.particle_filter.set_robot(settings.robot.clone());
 
-    // Update particle filter
-    simulation.pf_update(estimated_location, &mut pf_stopwatch.0);
+        // Estimate game location
+        let estimated_location = grid
+            .node_nearest(
+                simulation.get_primary_robot_position().translation.x,
+                simulation.get_primary_robot_position().translation.y,
+            )
+            .unwrap_or(IntLocation::new(1, 1));
+
+        // Update particle filter
+        simulation.pf_update(estimated_location, &mut pf_stopwatch.0);
+    }
 }
 
 fn update_physics_info(
     mut simulation: ResMut<PacbotSimulation>,
     mut sensors: ResMut<PacbotSensors>,
     mut phys_info: ResMut<LightPhysicsInfo>,
+    settings: Res<UserSettings>,
 ) {
-    let rays = simulation.get_primary_robot_rays();
+    let primary_position = *simulation.get_primary_robot_position();
+    let pf_position = simulation.pf_best_guess();
+    let rays = simulation.get_distance_sensor_rays(primary_position);
     for i in 0..sensors.distance_sensors.len() {
         let (a, b) = rays[i];
         sensors.distance_sensors[i] = ((a.x - b.x).powi(2) + (a.y - b.y).powi(2))
@@ -159,8 +169,13 @@ fn update_physics_info(
     *phys_info = LightPhysicsInfo {
         real_pos: Some(*simulation.get_primary_robot_position()),
         pf_pos: Some(simulation.pf_best_guess()),
-        real_pos_rays: simulation.get_primary_robot_rays(),
-        pf_pos_rays: vec![], // TODO
+        real_pos_rays: rays,
+        pf_pos_rays: simulation.get_distance_sensor_rays(pf_position),
+        pf_points: if settings.enable_pf {
+            simulation.particle_filter.points(settings.pf_gui_points)
+        } else {
+            vec![]
+        },
     }
 }
 
@@ -486,13 +501,11 @@ impl PacbotSimulation {
     ///     assert_eq!((rotated_direction.sin() >= 0.1), (difference.y >= 0.1));
     /// }
     /// ```
-    pub fn get_primary_robot_rays(&mut self) -> Vec<(Point<Real>, Point<Real>)> {
+    pub fn get_distance_sensor_rays(
+        &mut self,
+        pacbot: Isometry2<f32>,
+    ) -> Vec<(Point<Real>, Point<Real>)> {
         let sensors = self.robot_specifications.distance_sensors.clone();
-
-        let pacbot = self
-            .get_collider_position(self.primary_robot)
-            .unwrap()
-            .to_owned();
 
         sensors
             .iter()
