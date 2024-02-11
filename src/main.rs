@@ -32,8 +32,8 @@ pub struct StandardGridResource(StandardGrid);
 pub struct UserSettings {
     pub mode: AppMode,
     pub enable_ai: bool,
-    pub enable_pico: bool,
-    pub pico_address: String,
+    pub pico_address: Option<String>,
+    pub go_server_address: Option<String>,
 
     pub replay_save_location: bool,
     pub replay_save_sensors: bool,
@@ -61,8 +61,8 @@ impl Default for UserSettings {
         Self {
             mode: AppMode::Recording,
             enable_ai: false,
-            enable_pico: true,
-            pico_address: "127.0.0.1:22222".to_string(),
+            pico_address: None,
+            go_server_address: None,
 
             replay_save_location: true,
             replay_save_sensors: true,
