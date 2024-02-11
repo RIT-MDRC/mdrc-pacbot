@@ -1,9 +1,9 @@
 use crate::grid::standard_grids::StandardGrid;
-use crate::gui::replay_manager::ReplayManager;
 use crate::gui::{font_setup, ui_system, AppMode};
 use crate::high_level::run_high_level;
 use crate::network::NetworkPlugin;
 use crate::physics::PhysicsPlugin;
+use crate::replay_manager::{replay_playback, update_replay_manager_system};
 use bevy::prelude::*;
 use pacbot_rs::game_engine::GameEngine;
 
@@ -17,15 +17,12 @@ mod high_level;
 pub mod network;
 mod pathing;
 pub mod replay;
+mod replay_manager;
 pub mod robot;
 
 /// The state of Pacman, the game
 #[derive(Default, Resource)]
 pub struct PacmanGameState(GameEngine);
-
-/// The state of Pacman over time
-#[derive(Default, Resource)]
-pub struct PacmanReplayManager(ReplayManager);
 
 /// Options that the user can set via the GUI, shared between most processes
 #[derive(Resource)]
@@ -49,6 +46,14 @@ fn main() {
         .add_plugins(MinimalPlugins)
         .add_plugins((NetworkPlugin, PhysicsPlugin))
         .add_systems(Startup, font_setup)
-        .add_systems(Update, (run_high_level, ui_system))
+        .add_systems(
+            Update,
+            (
+                run_high_level,
+                ui_system,
+                update_replay_manager_system,
+                replay_playback,
+            ),
+        )
         .run();
 }

@@ -5,8 +5,9 @@ use crate::gui::colors::{
 use crate::gui::transforms::Transform;
 use crate::gui::{AppMode, TabViewer};
 use crate::physics::LightPhysicsInfo;
+use crate::replay_manager::ReplayManager;
 use crate::robot::Robot;
-use crate::{PacmanReplayManager, UserSettings};
+use crate::UserSettings;
 use eframe::egui::{Painter, Pos2, Stroke};
 use rapier2d::na::Point2;
 
@@ -16,7 +17,7 @@ impl<'a> TabViewer<'a> {
         world_to_screen: &Transform,
         painter: &Painter,
         phys_info: &LightPhysicsInfo,
-        replay: &PacmanReplayManager,
+        replay: &ReplayManager,
         settings: &UserSettings,
     ) {
         let collider_radius = Robot::default().collider_radius;
@@ -57,7 +58,7 @@ impl<'a> TabViewer<'a> {
             );
         }
 
-        let replay_pacman = replay.0.replay().get_pacbot_location();
+        let replay_pacman = replay.replay.get_pacbot_location();
 
         // pacbot from the replay
         if matches!(settings.mode, AppMode::Playback) {

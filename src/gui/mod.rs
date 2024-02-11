@@ -8,7 +8,6 @@ mod stopwatch;
 pub mod transforms;
 pub mod utils;
 
-use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
@@ -22,10 +21,10 @@ use egui_phosphor::regular;
 use pacbot_rs::game_engine::GameEngine;
 
 use crate::grid::standard_grids::StandardGrid;
-use crate::gui::replay_manager::ReplayManager;
 use crate::physics::LightPhysicsInfo;
+use crate::replay_manager::ReplayManager;
 use crate::util::stopwatch::Stopwatch;
-use crate::{PacmanGameState, PacmanReplayManager, StandardGridResource, UserSettings};
+use crate::{PacmanGameState, StandardGridResource, UserSettings};
 
 use self::transforms::Transform;
 
@@ -48,7 +47,7 @@ pub fn ui_system(
     phys_info: ResMut<LightPhysicsInfo>,
     mut standard_grid: ResMut<StandardGridResource>,
     mut grid: ResMut<ComputedGrid>,
-    mut replay_manager: ResMut<PacmanReplayManager>,
+    mut replay_manager: ResMut<ReplayManager>,
     mut settings: ResMut<UserSettings>,
 ) {
     let ctx = contexts.ctx_mut();
@@ -56,11 +55,11 @@ pub fn ui_system(
         app.update(
             &ctx,
             &mut pacman_state.0,
-            phys_info.deref(),
+            &phys_info,
             &mut world_to_screen,
             &mut standard_grid.0,
-            grid.deref_mut(),
-            &mut replay_manager.0,
+            &mut grid,
+            &mut replay_manager,
             &mut settings,
         )
     });
@@ -385,7 +384,7 @@ impl GuiApp {
                             }
                             if ui.button("Load").clicked() {
                                 tab_viewer
-                                    .load_replay(pacman_state, replay_manager, settings)
+                                    .load_replay(replay_manager, settings)
                                     .expect("Failed to load replay!");
                             }
                             if ui
