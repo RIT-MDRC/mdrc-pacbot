@@ -12,7 +12,6 @@ pub mod gui;
 pub mod physics;
 pub mod util;
 
-pub mod constants;
 mod high_level;
 pub mod network;
 mod pathing;
@@ -23,6 +22,10 @@ pub mod robot;
 /// The state of Pacman, the game
 #[derive(Default, Resource)]
 pub struct PacmanGameState(GameEngine);
+
+/// The current StandardGrid, which determines the shape of the walls
+#[derive(Default, Resource)]
+pub struct StandardGridResource(StandardGrid);
 
 /// Options that the user can set via the GUI, shared between most processes
 #[derive(Resource)]
@@ -35,11 +38,49 @@ pub struct UserSettings {
     pub replay_save_location: bool,
     pub replay_save_sensors: bool,
     pub replay_save_targets: bool,
+
+    /// The number of guesses tracked by ParticleFilter
+    pub pf_total_points: usize,
+    /// The number of points displayed on the gui
+    pub pf_gui_points: usize,
+    /// The number of top guesses that are kept unchanged for the next generation
+    pub pf_elite: usize,
+    /// The number of worst guesses that are deleted and randomly generated near the best guess
+    pub pf_purge: usize,
+    /// The number of worst guesses that are deleted and randomly generated anywhere
+    pub pf_random: usize,
+
+    pub pf_spread: f32,
+    pub pf_elitism_bias: f32,
+    pub pf_genetic_translation_limit: f32,
+    pub pf_genetic_rotation_limit: f32,
 }
 
-/// The current StandardGrid, which determines the shape of the walls
-#[derive(Default, Resource)]
-pub struct StandardGridResource(StandardGrid);
+impl Default for UserSettings {
+    fn default() -> Self {
+        Self {
+            mode: AppMode::Recording,
+            enable_ai: false,
+            enable_pico: true,
+            pico_address: "127.0.0.1:22222".to_string(),
+
+            replay_save_location: true,
+            replay_save_sensors: true,
+            replay_save_targets: true,
+
+            pf_total_points: 1000,
+            pf_gui_points: 1000,
+            pf_elite: 10,
+            pf_purge: 150,
+            pf_random: 50,
+
+            pf_spread: 2.5,
+            pf_elitism_bias: 1.0,
+            pf_genetic_translation_limit: 0.1,
+            pf_genetic_rotation_limit: 0.1,
+        }
+    }
+}
 
 fn main() {
     App::new()

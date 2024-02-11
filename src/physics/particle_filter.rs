@@ -74,6 +74,10 @@ impl ParticleFilter {
         }
     }
 
+    pub fn set_options(&mut self, particle_filter_options: ParticleFilterOptions) {
+        self.options = particle_filter_options;
+    }
+
     fn random_point_near(&self, point: IntLocation) -> Isometry2<f32> {
         let mut rng = rand::thread_rng();
         let distance = rng.gen_range(0.0..self.options.spread).floor() as usize;

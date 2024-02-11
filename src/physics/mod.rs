@@ -2,10 +2,6 @@
 
 mod particle_filter;
 
-use crate::constants::{
-    NUM_PARTICLE_FILTER_POINTS, PARTICLE_FILTER_ELITE, PARTICLE_FILTER_PURGE,
-    PARTICLE_FILTER_RANDOM,
-};
 use crate::grid::standard_grids::StandardGrid;
 use crate::grid::{ComputedGrid, IntLocation};
 use crate::network::PacbotSensors;
@@ -13,6 +9,7 @@ use crate::pathing::TargetVelocity;
 use crate::physics::particle_filter::{ParticleFilter, ParticleFilterOptions};
 use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
+use crate::UserSettings;
 use bevy::prelude::*;
 use rapier2d::dynamics::{IntegrationParameters, RigidBodySet};
 use rapier2d::geometry::{BroadPhase, NarrowPhase};
@@ -118,7 +115,22 @@ fn run_particle_filter(
     mut simulation: ResMut<PacbotSimulation>,
     mut pf_stopwatch: ResMut<ParticleFilterStopwatch>,
     grid: Local<ComputedGrid>,
+    settings: Res<UserSettings>,
 ) {
+    simulation
+        .particle_filter
+        .set_options(ParticleFilterOptions {
+            points: settings.pf_total_points,
+            elite: settings.pf_elite,
+            purge: settings.pf_purge,
+            random: settings.pf_random,
+
+            spread: settings.pf_spread,
+            elitism_bias: settings.pf_elitism_bias,
+            genetic_translation_limit: settings.pf_genetic_translation_limit,
+            genetic_rotation_limit: settings.pf_genetic_rotation_limit,
+        });
+
     // Estimate game location
     let estimated_location = grid
         .node_nearest(
@@ -226,10 +238,10 @@ impl PacbotSimulation {
             robot_position,
             distance_sensors,
             ParticleFilterOptions {
-                points: NUM_PARTICLE_FILTER_POINTS,
-                elite: PARTICLE_FILTER_ELITE,
-                purge: PARTICLE_FILTER_PURGE,
-                random: PARTICLE_FILTER_RANDOM,
+                points: 10,
+                elite: 0,
+                purge: 0,
+                random: 10,
                 spread: 2.5,
                 elitism_bias: 1.0,
                 genetic_translation_limit: 0.1,
