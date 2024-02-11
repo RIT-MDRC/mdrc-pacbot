@@ -1,27 +1,31 @@
 use crate::gui::colors::{
-    PACMAN_AI_TARGET_LOCATION_COLOR, PACMAN_COLOR, PACMAN_DISTANCE_SENSOR_RAY_COLOR,
-    PACMAN_FACING_INDICATOR_COLOR, PACMAN_GUESS_COLOR, PACMAN_PARTICLE_FILTER_COLOR,
-    PACMAN_REPLAY_COLOR,
+    PACMAN_COLOR, PACMAN_DISTANCE_SENSOR_RAY_COLOR, PACMAN_FACING_INDICATOR_COLOR,
+    PACMAN_GUESS_COLOR, PACMAN_REPLAY_COLOR,
 };
 use crate::gui::transforms::Transform;
 use crate::gui::{AppMode, TabViewer};
-use crate::LightPhysicsInfo;
+use crate::robot::Robot;
+use crate::{LightPhysicsInfo, PacmanReplayManager, UserSettings};
 use eframe::egui::{Painter, Pos2, Stroke};
 use rapier2d::na::Point2;
 
-impl TabViewer {
+impl<'a> TabViewer<'a> {
     pub(super) fn draw_simulation(
         &mut self,
         world_to_screen: &Transform,
         painter: &Painter,
         phys_info: &LightPhysicsInfo,
+        replay: &PacmanReplayManager,
+        settings: &UserSettings,
     ) {
+        let collider_radius = Robot::default().collider_radius;
+
         // pacbot real position
         if let Some(real_pos) = &phys_info.real_pos {
             painter.circle_filled(
                 world_to_screen
                     .map_point(Pos2::new(real_pos.translation.x, real_pos.translation.y)),
-                world_to_screen.map_dist(self.robot.collider_radius),
+                world_to_screen.map_dist(collider_radius),
                 PACMAN_COLOR,
             );
         }
@@ -30,7 +34,7 @@ impl TabViewer {
         if let Some(pf_pos) = &phys_info.pf_pos {
             painter.circle_stroke(
                 world_to_screen.map_point(Pos2::new(pf_pos.translation.x, pf_pos.translation.y)),
-                world_to_screen.map_dist(self.robot.collider_radius),
+                world_to_screen.map_dist(collider_radius),
                 Stroke::new(2.0, PACMAN_GUESS_COLOR),
             );
         }
@@ -52,31 +56,32 @@ impl TabViewer {
             );
         }
 
+        let replay_pacman = replay.0.replay().get_pacbot_location();
+
         // pacbot from the replay
-        if matches!(self.mode, AppMode::Playback) {
+        if matches!(settings.mode, AppMode::Playback) {
             painter.circle_filled(
                 world_to_screen.map_point(Pos2::new(
-                    self.replay_pacman.translation.x,
-                    self.replay_pacman.translation.y,
+                    replay_pacman.translation.x,
+                    replay_pacman.translation.y,
                 )),
-                world_to_screen.map_dist(self.robot.collider_radius),
+                world_to_screen.map_dist(collider_radius),
                 PACMAN_REPLAY_COLOR,
             );
 
-            let pacbot_front = self
-                .replay_pacman
+            let pacbot_front = replay_pacman
                 .rotation
                 .transform_point(&Point2::new(0.45, 0.0));
 
             painter.line_segment(
                 [
                     world_to_screen.map_point(Pos2::new(
-                        self.replay_pacman.translation.x,
-                        self.replay_pacman.translation.y,
+                        replay_pacman.translation.x,
+                        replay_pacman.translation.y,
                     )),
                     world_to_screen.map_point(Pos2::new(
-                        pacbot_front.x + self.replay_pacman.translation.x,
-                        pacbot_front.y + self.replay_pacman.translation.y,
+                        pacbot_front.x + replay_pacman.translation.x,
+                        pacbot_front.y + replay_pacman.translation.y,
                     )),
                 ],
                 Stroke::new(2.0, PACMAN_FACING_INDICATOR_COLOR),

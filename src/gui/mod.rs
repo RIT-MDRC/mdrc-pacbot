@@ -9,14 +9,15 @@ pub mod transforms;
 pub mod utils;
 
 use std::cell::RefMut;
-use std::ops::{Deref, DerefMut};
+use std::ops::DerefMut;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
+use crate::grid::ComputedGrid;
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 use eframe::egui;
-use eframe::egui::{Align, Color32, Frame, Key, Pos2, RichText, Ui, WidgetText};
+use eframe::egui::{Align, Color32, Frame, Pos2, RichText, Ui, WidgetText};
 use egui_dock::{DockArea, DockState, Style};
 use egui_phosphor::regular;
 use pacbot_rs::game_engine::GameEngine;
@@ -25,8 +26,9 @@ use crate::grid::standard_grids::StandardGrid;
 use crate::gui::colors::{
     TRANSLUCENT_GREEN_COLOR, TRANSLUCENT_RED_COLOR, TRANSLUCENT_YELLOW_COLOR,
 };
-use crate::robot::Robot;
+use crate::gui::replay_manager::ReplayManager;
 use crate::util::stopwatch::Stopwatch;
+use crate::{LightPhysicsInfo, UserSettings};
 
 use self::transforms::Transform;
 
@@ -49,7 +51,7 @@ pub enum Tab {
 }
 
 struct TabViewer<'a> {
-    pointer_pos: String,
+    pointer_pos: Option<Pos2>,
     background_color: Color32,
 
     world_to_screen: Option<Transform>,
@@ -57,7 +59,7 @@ struct TabViewer<'a> {
     bevy_world: Option<&'a mut World>,
 }
 
-impl egui_dock::TabViewer for TabViewer {
+impl<'a> egui_dock::TabViewer for TabViewer<'a> {
     type Tab = Tab;
 
     fn title(&mut self, tab: &mut Self::Tab) -> WidgetText {
@@ -88,10 +90,10 @@ impl egui_dock::TabViewer for TabViewer {
     }
 }
 
-impl Default for TabViewer {
+impl<'a> Default for TabViewer<'a> {
     fn default() -> Self {
         Self {
-            pointer_pos: "".to_string(),
+            pointer_pos: None,
             background_color: Color32::BLACK,
 
             world_to_screen: None,
@@ -100,7 +102,7 @@ impl Default for TabViewer {
     }
 }
 
-impl TabViewer {
+impl<'a> TabViewer<'a> {
     fn grid_ui(&mut self, ui: &mut Ui) {
         // let rect = ui.max_rect();
         // let (src_p1, src_p2) = self.selected_grid.get_soft_boundaries();
@@ -148,26 +150,9 @@ pub trait PacbotWidget {
     }
 }
 
-/// Launches the GUI application. Blocks until the application has quit.
-pub fn run_gui() {
-    let native_options = eframe::NativeOptions::default();
-    eframe::run_native(
-        "PacBot simulation",
-        native_options,
-        Box::new(|cc| {
-            let mut fonts = egui::FontDefinitions::default();
-            egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
-
-            cc.egui_ctx.set_fonts(fonts);
-            Box::<App>::default()
-        }),
-    )
-    .expect("eframe::run_native error");
-}
-
 /// Indicates the current meta-state of the app
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum AppMode {
+pub enum AppMode {
     /// Using a game server with physics engine and recording the results to file
     Recording,
     /// Playing information back from a file; no game server but physics should still run
@@ -176,7 +161,6 @@ enum AppMode {
 
 struct App {
     tree: DockState<Tab>,
-    tab_viewer: TabViewer,
 }
 
 fn pretty_print_time_now() -> String {
@@ -188,135 +172,130 @@ impl Default for App {
     fn default() -> Self {
         Self {
             tree: DockState::new(vec![Tab::Grid]),
-            tab_viewer: TabViewer::default(),
         }
     }
 }
 
 impl App {
-    fn update_target_velocity(&mut self, ctx: &egui::Context) {
-        let ai_enabled = *self.tab_viewer.ai_enable.read().unwrap().deref();
-        if !ai_enabled {
-            let mut target_velocity = self.tab_viewer.target_velocity.write().unwrap();
-            target_velocity.0.x = 0.0;
-            target_velocity.0.y = 0.0;
-            target_velocity.1 = 0.0;
-            ctx.input(|i| {
-                let target_speed = if i.modifiers.shift { 2.0 } else { 0.8 };
-                if i.key_down(Key::S) {
-                    target_velocity.0.x = target_speed;
-                }
-                if i.key_down(Key::W) {
-                    target_velocity.0.x = -target_speed;
-                }
-                if i.key_down(Key::A) {
-                    target_velocity.0.y = -target_speed;
-                }
-                if i.key_down(Key::D) {
-                    target_velocity.0.y = target_speed;
-                }
-                if i.key_down(Key::E) {
-                    target_velocity.1 = -1.0;
-                }
-                if i.key_down(Key::Q) {
-                    target_velocity.1 = 1.0;
-                }
-            });
-        }
-    }
+    // TODO
+    // fn update_target_velocity(&mut self, ctx: &egui::Context) {
+    //     let ai_enabled = *self.tab_viewer.ai_enable.read().unwrap().deref();
+    //     if !ai_enabled {
+    //         let mut target_velocity = self.tab_viewer.target_velocity.write().unwrap();
+    //         target_velocity.0.x = 0.0;
+    //         target_velocity.0.y = 0.0;
+    //         target_velocity.1 = 0.0;
+    //         ctx.input(|i| {
+    //             let target_speed = if i.modifiers.shift { 2.0 } else { 0.8 };
+    //             if i.key_down(Key::S) {
+    //                 target_velocity.0.x = target_speed;
+    //             }
+    //             if i.key_down(Key::W) {
+    //                 target_velocity.0.x = -target_speed;
+    //             }
+    //             if i.key_down(Key::A) {
+    //                 target_velocity.0.y = -target_speed;
+    //             }
+    //             if i.key_down(Key::D) {
+    //                 target_velocity.0.y = target_speed;
+    //             }
+    //             if i.key_down(Key::E) {
+    //                 target_velocity.1 = -1.0;
+    //             }
+    //             if i.key_down(Key::Q) {
+    //                 target_velocity.1 = 1.0;
+    //             }
+    //         });
+    //     }
+    // }
 
-    fn add_grid_variants(&mut self, ui: &mut Ui) {
+    fn add_grid_variants(
+        &mut self,
+        ui: &mut Ui,
+        pacman_state: &mut GameEngine,
+        phys_info: &LightPhysicsInfo,
+        replay_manager: &mut ReplayManager,
+        mut computed_grid: &mut ComputedGrid,
+        settings: &mut UserSettings,
+    ) {
         egui::ComboBox::from_label("")
-            .selected_text(format!("{:?}", self.tab_viewer.selected_grid))
+            .selected_text(format!("{:?}", settings.standard_grid))
             .show_ui(ui, |ui| {
                 StandardGrid::get_all().iter().for_each(|grid| {
                     if ui
-                        .selectable_value(
-                            &mut self.tab_viewer.selected_grid,
-                            *grid,
-                            format!("{:?}", grid),
-                        )
+                        .selectable_value(&mut settings.standard_grid, *grid, format!("{:?}", grid))
                         .clicked()
                     {
-                        self.tab_viewer
-                            .pacman_render
-                            .write()
-                            .unwrap()
-                            .pacman_state
-                            .pause();
-                        self.tab_viewer.grid = grid.compute_grid();
-                        // self.tab_viewer.phys_render.write().unwrap().pacbot_pos =
-                        //     self.tab_viewer.selected_grid.get_default_pacbot_isometry();
-                        self.tab_viewer
-                            .phys_restart_send
-                            .send((
-                                self.tab_viewer.selected_grid,
-                                Robot::default(),
-                                self.tab_viewer.selected_grid.get_default_pacbot_isometry(),
-                            ))
-                            .unwrap();
-                        self.tab_viewer.reset_replay();
+                        pacman_state.pause();
+                        *computed_grid = grid.compute_grid();
+                        // todo unwrap
+                        replay_manager.reset_replay(
+                            *grid,
+                            pacman_state,
+                            phys_info.real_pos.unwrap(),
+                        );
                     }
                 });
             });
     }
 
     fn draw_widget_icons(&mut self, ui: &mut Ui) {
-        let widgets: Vec<Box<&mut dyn PacbotWidget>> = vec![
-            Box::new(&mut self.tab_viewer.grid_widget),
-            Box::new(&mut self.tab_viewer.game_widget),
-            Box::new(&mut self.tab_viewer.stopwatch_widget),
-            Box::new(&mut self.tab_viewer.ai_widget),
-            Box::new(&mut self.tab_viewer.sensors_widget),
-        ];
-        for mut widget in widgets {
-            widget.deref_mut().update();
-            let mut button = ui.add(egui::Button::new(widget.button_text()).fill(
-                match widget.overall_status() {
-                    PacbotWidgetStatus::Ok => TRANSLUCENT_GREEN_COLOR,
-                    PacbotWidgetStatus::Warn(_) => TRANSLUCENT_YELLOW_COLOR,
-                    PacbotWidgetStatus::Error(_) => TRANSLUCENT_RED_COLOR,
-                    PacbotWidgetStatus::NotApplicable => Color32::TRANSPARENT,
-                },
-            ));
-            button = button.on_hover_ui(|ui| {
-                ui.label(widget.display_name());
-                for msg in widget.messages() {
-                    ui.label(
-                        RichText::new(format!(
-                            "{} {}",
-                            match msg.1 {
-                                PacbotWidgetStatus::Ok => regular::CHECK,
-                                PacbotWidgetStatus::Warn(_) => regular::WARNING,
-                                PacbotWidgetStatus::Error(_) => regular::X,
-                                PacbotWidgetStatus::NotApplicable => regular::CHECK,
-                            },
-                            msg.0.to_owned()
-                        ))
-                        .color(match msg.1 {
-                            PacbotWidgetStatus::Ok => Color32::GREEN,
-                            PacbotWidgetStatus::Warn(_) => Color32::YELLOW,
-                            PacbotWidgetStatus::Error(_) => Color32::RED,
-                            PacbotWidgetStatus::NotApplicable => Color32::GREEN,
-                        }),
-                    );
-                }
-            });
-            if button.clicked() {
-                match widget.display_name() {
-                    "Game (Click to Reset)" => {
-                        self.tab_viewer.pacman_render.write().unwrap().pacman_state =
-                            GameEngine::default()
-                    }
-                    "AI" => {
-                        let val = *self.tab_viewer.ai_enable.read().unwrap();
-                        *self.tab_viewer.ai_enable.write().unwrap() = !val;
-                    }
-                    "Sensors" => {}
-                    _ => self.tree.push_to_focused_leaf(widget.tab()),
-                }
-            }
-        }
+        // TODO
+        // let widgets: Vec<Box<&mut dyn PacbotWidget>> = vec![
+        //     Box::new(&mut self.tab_viewer.grid_widget),
+        //     Box::new(&mut self.tab_viewer.game_widget),
+        //     Box::new(&mut self.tab_viewer.stopwatch_widget),
+        //     Box::new(&mut self.tab_viewer.ai_widget),
+        //     Box::new(&mut self.tab_viewer.sensors_widget),
+        // ];
+        // for mut widget in widgets {
+        //     widget.deref_mut().update();
+        //     let mut button = ui.add(egui::Button::new(widget.button_text()).fill(
+        //         match widget.overall_status() {
+        //             PacbotWidgetStatus::Ok => TRANSLUCENT_GREEN_COLOR,
+        //             PacbotWidgetStatus::Warn(_) => TRANSLUCENT_YELLOW_COLOR,
+        //             PacbotWidgetStatus::Error(_) => TRANSLUCENT_RED_COLOR,
+        //             PacbotWidgetStatus::NotApplicable => Color32::TRANSPARENT,
+        //         },
+        //     ));
+        //     button = button.on_hover_ui(|ui| {
+        //         ui.label(widget.display_name());
+        //         for msg in widget.messages() {
+        //             ui.label(
+        //                 RichText::new(format!(
+        //                     "{} {}",
+        //                     match msg.1 {
+        //                         PacbotWidgetStatus::Ok => regular::CHECK,
+        //                         PacbotWidgetStatus::Warn(_) => regular::WARNING,
+        //                         PacbotWidgetStatus::Error(_) => regular::X,
+        //                         PacbotWidgetStatus::NotApplicable => regular::CHECK,
+        //                     },
+        //                     msg.0.to_owned()
+        //                 ))
+        //                 .color(match msg.1 {
+        //                     PacbotWidgetStatus::Ok => Color32::GREEN,
+        //                     PacbotWidgetStatus::Warn(_) => Color32::YELLOW,
+        //                     PacbotWidgetStatus::Error(_) => Color32::RED,
+        //                     PacbotWidgetStatus::NotApplicable => Color32::GREEN,
+        //                 }),
+        //             );
+        //         }
+        //     });
+        //     if button.clicked() {
+        //         match widget.display_name() {
+        //             "Game (Click to Reset)" => {
+        //                 self.tab_viewer.pacman_render.write().unwrap().pacman_state =
+        //                     GameEngine::default()
+        //             }
+        //             "AI" => {
+        //                 let val = *self.tab_viewer.ai_enable.read().unwrap();
+        //                 *self.tab_viewer.ai_enable.write().unwrap() = !val;
+        //             }
+        //             "Sensors" => {}
+        //             _ => self.tree.push_to_focused_leaf(widget.tab()),
+        //         }
+        //     }
+        // }
     }
 }
 
@@ -339,50 +318,64 @@ fn draw_stopwatch(stopwatch: &Stopwatch, ui: &mut Ui, id: String) {
         });
 }
 
-impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if let Some(world_to_screen) = &self.tab_viewer.world_to_screen {
-            self.tab_viewer.pointer_pos = match ctx.pointer_latest_pos() {
-                None => "".to_string(),
-                Some(pos) => {
-                    let pos = world_to_screen.inverse().map_point(pos);
-                    format!("({:.1}, {:.1})", pos.x, pos.y)
-                }
-            };
-        }
-        self.tab_viewer.background_color = ctx.style().visuals.panel_fill;
+impl App {
+    fn update(
+        &mut self,
+        ctx: &egui::Context,
+        _frame: &mut eframe::Frame,
+        pacman_state: &mut GameEngine,
+        phys_info: &LightPhysicsInfo,
+        world_to_screen: &mut Transform,
+        grid: &mut ComputedGrid,
+        replay_manager: &mut ReplayManager,
+        settings: &mut UserSettings,
+    ) {
+        let mut tab_viewer = TabViewer {
+            pointer_pos: ctx.pointer_latest_pos(),
+            background_color: ctx.style().visuals.panel_fill,
+            world_to_screen: None,
+            bevy_world: None,
+        };
 
-        self.update_target_velocity(ctx);
+        // TODO
+        // self.update_target_velocity(ctx);
 
-        self.tab_viewer
-            .update_replay_manager()
-            .expect("Error updating replay manager");
+        // TODO
+        // self.tab_viewer
+        //     .update_replay_manager()
+        //     .expect("Error updating replay manager");
 
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(egui::Layout::left_to_right(Align::Center), |ui| {
-                    self.add_grid_variants(ui);
+                    self.add_grid_variants(
+                        ui,
+                        pacman_state,
+                        phys_info,
+                        replay_manager,
+                        grid,
+                        settings,
+                    );
                     egui::menu::bar(ui, |ui| {
                         ui.menu_button("Replay", |ui| {
                             if ui.button("Save").clicked() {
-                                self.tab_viewer
-                                    .save_replay()
+                                tab_viewer
+                                    .save_replay(replay_manager)
                                     .expect("Failed to save replay!");
                             }
                             if ui.button("Load").clicked() {
-                                self.tab_viewer
-                                    .load_replay()
+                                tab_viewer
+                                    .load_replay(pacman_state, replay_manager, settings)
                                     .expect("Failed to load replay!");
                             }
                             if ui
                                 .add(
                                     egui::Button::new("Save Pacbot Location")
-                                        .selected(self.tab_viewer.save_pacbot_location),
+                                        .selected(settings.replay_save_location),
                                 )
                                 .clicked()
                             {
-                                self.tab_viewer.save_pacbot_location =
-                                    !self.tab_viewer.save_pacbot_location;
+                                settings.replay_save_location = !settings.replay_save_location;
                             }
                         });
 
@@ -390,11 +383,19 @@ impl eframe::App for App {
                     })
                 });
                 ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
-                    ui.label(&self.tab_viewer.pointer_pos);
+                    ui.label(
+                        &(match tab_viewer.pointer_pos {
+                            None => "".to_string(),
+                            Some(pos) => {
+                                let pos = world_to_screen.inverse().map_point(pos);
+                                format!("({:.1}, {:.1})", pos.x, pos.y)
+                            }
+                        }),
+                    );
                 });
             });
         });
-        if self.tab_viewer.selected_grid == StandardGrid::Pacman {
+        if settings.standard_grid == StandardGrid::Pacman {
             egui::TopBottomPanel::bottom("playback_controls")
                 .frame(
                     Frame::none()
@@ -402,12 +403,12 @@ impl eframe::App for App {
                         .inner_margin(5.0),
                 )
                 .show(ctx, |ui| {
-                    self.tab_viewer.draw_replay_ui(ctx, ui);
+                    tab_viewer.draw_replay_ui(ctx, ui, pacman_state, replay_manager, settings);
                 });
         }
         DockArea::new(&mut self.tree)
             .style(Style::from_egui(ctx.style().as_ref()))
-            .show(ctx, &mut self.tab_viewer);
+            .show(ctx, &mut tab_viewer);
 
         ctx.request_repaint();
     }

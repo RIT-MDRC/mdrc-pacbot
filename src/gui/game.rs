@@ -1,10 +1,11 @@
-use crate::grid::{facing_direction, IntLocation};
+use crate::grid::{facing_direction, ComputedGrid, IntLocation};
 use crate::gui::colors::{
     GHOST_BLUE_COLOR, GHOST_ORANGE_COLOR, GHOST_PINK_COLOR, GHOST_RED_COLOR,
     PACMAN_DISTANCE_SENSOR_RAY_COLOR, PELLET_COLOR, SUPER_PELLET_COLOR, WALL_COLOR,
 };
 use crate::gui::transforms::Transform;
 use crate::gui::{PacbotWidget, TabViewer};
+use crate::UserSettings;
 use eframe::egui::{Painter, Pos2, Rect, RichText, Rounding, Stroke};
 use pacbot_rs::game_engine::GameEngine;
 use pacbot_rs::location::LocationState;
@@ -98,10 +99,16 @@ pub(super) fn run_game(
     }
 }
 
-impl TabViewer {
-    pub(super) fn draw_grid(&mut self, world_to_screen: &Transform, painter: &Painter) {
+impl<'a> TabViewer<'a> {
+    pub(super) fn draw_grid(
+        &mut self,
+        world_to_screen: &Transform,
+        painter: &Painter,
+        grid: &ComputedGrid,
+        settings: &UserSettings,
+    ) {
         // paint the solid walls
-        for wall in self.grid.walls() {
+        for wall in grid.walls() {
             let (p1, p2) = world_to_screen.map_wall(wall);
             painter.rect(
                 Rect::from_two_pos(p1, p2),
@@ -112,7 +119,7 @@ impl TabViewer {
         }
 
         // make sure the area outside the soft boundary is not drawn on
-        for (p1, p2) in self.selected_grid.get_outside_soft_boundaries() {
+        for (p1, p2) in settings.standard_grid.get_outside_soft_boundaries() {
             painter.rect(
                 Rect::from_two_pos(world_to_screen.map_point(p1), world_to_screen.map_point(p2)),
                 Rounding::ZERO,
@@ -122,10 +129,12 @@ impl TabViewer {
         }
     }
 
-    pub(super) fn draw_pacman_state(&mut self, world_to_screen: &Transform, painter: &Painter) {
-        let pacman_state_info = self.pacman_render.read().unwrap();
-        let pacman_state = &pacman_state_info.pacman_state;
-
+    pub(super) fn draw_pacman_state(
+        &mut self,
+        world_to_screen: &Transform,
+        painter: &Painter,
+        pacman_state: &GameEngine,
+    ) {
         // ghosts
         for ghost in &pacman_state.get_state().ghosts {
             let ghost = ghost.read().unwrap();

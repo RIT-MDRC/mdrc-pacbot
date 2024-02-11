@@ -1,9 +1,9 @@
 use crate::grid::standard_grids::StandardGrid;
 use crate::grid::IntLocation;
 use crate::gui::replay_manager::ReplayManager;
+use crate::gui::AppMode;
 use crate::high_level::run_high_level;
 use crate::network::NetworkPlugin;
-use crate::replay::Replay;
 use crate::util::stopwatch::Stopwatch;
 use bevy::prelude::*;
 use pacbot_rs::game_engine::GameEngine;
@@ -44,6 +44,7 @@ pub struct LightPhysicsInfo {
 /// Options that the user can set via the GUI, shared between most processes
 #[derive(Resource)]
 pub struct UserSettings {
+    pub mode: AppMode,
     pub enable_ai: bool,
     pub enable_pico: bool,
     pub pico_address: String,
@@ -88,6 +89,4 @@ fn main() {
         .add_plugins(NetworkPlugin)
         .add_systems(Update, run_high_level)
         .run();
-
-    gui::run_gui();
 }

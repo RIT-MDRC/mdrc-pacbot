@@ -2,17 +2,16 @@
 
 use crate::{LightPhysicsInfo, TargetVelocity, UserSettings};
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_PI_3;
-use std::time::Instant;
 use std::{io, net::UdpSocket};
 use tokio::net::TcpStream;
 
 /// Stores data from Pacbot
-#[derive(Resource)]
+#[derive(Resource, Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct PacbotSensors {
     pub distance_sensors: [u8; 8],
     pub encoders: [i64; 3],
-    pub received: Instant,
 }
 
 impl Default for PacbotSensors {
@@ -20,7 +19,6 @@ impl Default for PacbotSensors {
         Self {
             distance_sensors: [0; 8],
             encoders: [0; 3],
-            received: Instant::now(),
         }
     }
 }
@@ -143,7 +141,6 @@ fn recv_pico(mut network_data: ResMut<NetworkPluginData>, mut sensors: ResMut<Pa
                         bytes[i * 4 + 11],
                     ]) as i64;
                 }
-                sensors.received = Instant::now();
             } else {
                 eprintln!("Invalid message size from Pico: {size}");
             }
