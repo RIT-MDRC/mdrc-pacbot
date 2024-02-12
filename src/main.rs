@@ -1,13 +1,18 @@
 use crate::grid::standard_grids::StandardGrid;
+use crate::grid::ComputedGrid;
 use crate::gui::game::update_game;
-use crate::gui::{font_setup, ui_system, AppMode};
-use crate::high_level::run_high_level;
-use crate::network::{reconnect_pico, recv_pico, send_motor_commands};
-use crate::pathing::target_path_to_target_vel;
+use crate::gui::{font_setup, ui_system, AppMode, GuiApp, GuiStopwatch};
+use crate::high_level::{run_high_level, AiStopwatch, HighLevelContext};
+use crate::network::{
+    reconnect_pico, recv_pico, send_motor_commands, NetworkPluginData, PacbotSensors,
+    PacbotSensorsRecvTime,
+};
+use crate::pathing::{target_path_to_target_vel, TargetPath, TargetVelocity};
 use crate::physics::{
     run_particle_filter, run_simulation, update_game_state_pacbot_loc, update_physics_info,
+    LightPhysicsInfo, PacbotSimulation, ParticleFilterStopwatch, PhysicsStopwatch,
 };
-use crate::replay_manager::{replay_playback, update_replay_manager_system};
+use crate::replay_manager::{replay_playback, update_replay_manager_system, ReplayManager};
 use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
 use bevy::prelude::*;
@@ -100,6 +105,45 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin)
+        .init_resource::<PacbotSensors>()
+        .init_resource::<PacbotSensorsRecvTime>()
+        .init_resource::<LightPhysicsInfo>()
+        .init_resource::<PacbotSimulation>()
+        .init_resource::<ComputedGrid>()
+        .init_resource::<GuiApp>()
+        .init_resource::<PacmanGameState>()
+        .init_resource::<StandardGridResource>()
+        .init_resource::<UserSettings>()
+        .init_resource::<NetworkPluginData>()
+        .init_resource::<TargetPath>()
+        .init_resource::<TargetVelocity>()
+        .init_resource::<ReplayManager>()
+        .init_non_send_resource::<HighLevelContext>()
+        .insert_resource(PhysicsStopwatch(Stopwatch::new(
+            10,
+            "Physics".to_string(),
+            4.0,
+            6.0,
+        )))
+        .insert_resource(ParticleFilterStopwatch(Stopwatch::new(
+            10,
+            "PF".to_string(),
+            4.0,
+            6.0,
+        )))
+        .insert_resource(GuiStopwatch(Stopwatch::new(
+            10,
+            "Physics".to_string(),
+            1.0,
+            2.0,
+        )))
+        .insert_resource(ScheduleStopwatch(Stopwatch::new(
+            10,
+            "Schedule".to_string(),
+            5.0,
+            7.0,
+        )))
+        .insert_resource(AiStopwatch(Stopwatch::new(10, "AI".to_string(), 5.0, 10.0)))
         .add_systems(Startup, font_setup)
         .add_systems(
             Update,

@@ -87,7 +87,7 @@ pub fn ui_system(
 
     app.update_target_velocity(&ctx, &mut tab_viewer);
 
-    egui::Window::new("Pacbot simulation").show(&ctx, |_| app.update(&ctx, &mut tab_viewer));
+    app.update(&ctx, &mut tab_viewer);
 }
 
 #[derive(Copy, Clone)]
