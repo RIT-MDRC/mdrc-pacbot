@@ -10,7 +10,7 @@ use crate::physics::particle_filter::{ParticleFilter, ParticleFilterOptions};
 use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
 use crate::{PacmanGameState, UserSettings};
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 use pacbot_rs::location::LocationState;
 use rapier2d::dynamics::{IntegrationParameters, RigidBodySet};
 use rapier2d::geometry::{BroadPhase, NarrowPhase};
@@ -88,23 +88,7 @@ impl Default for PacbotSimulation {
     }
 }
 
-pub struct PhysicsPlugin;
-
-impl Plugin for PhysicsPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                run_simulation,
-                run_particle_filter.after(run_simulation),
-                update_physics_info.after(run_particle_filter),
-                update_game_state_pacbot_loc.after(update_physics_info),
-            ),
-        );
-    }
-}
-
-fn update_game_state_pacbot_loc(
+pub fn update_game_state_pacbot_loc(
     simulation: Res<PacbotSimulation>,
     grid: Res<ComputedGrid>,
     mut pacman_state: ResMut<PacmanGameState>,
@@ -133,7 +117,7 @@ fn update_game_state_pacbot_loc(
     }
 }
 
-fn run_simulation(
+pub fn run_simulation(
     mut simulation: ResMut<PacbotSimulation>,
     mut phys_stopwatch: ResMut<PhysicsStopwatch>,
     target_velocity: Res<TargetVelocity>,
@@ -144,7 +128,7 @@ fn run_simulation(
     phys_stopwatch.0.mark_segment("Step simulation");
 }
 
-fn run_particle_filter(
+pub fn run_particle_filter(
     mut simulation: ResMut<PacbotSimulation>,
     mut pf_stopwatch: ResMut<ParticleFilterStopwatch>,
     grid: Local<ComputedGrid>,
@@ -181,7 +165,7 @@ fn run_particle_filter(
     }
 }
 
-fn update_physics_info(
+pub fn update_physics_info(
     mut simulation: ResMut<PacbotSimulation>,
     mut sensors: ResMut<PacbotSensors>,
     mut phys_info: ResMut<LightPhysicsInfo>,

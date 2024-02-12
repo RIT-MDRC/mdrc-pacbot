@@ -26,6 +26,7 @@ impl PacbotWidget for StopwatchWidget {
             &tab_viewer.physics_stopwatch.0,
             &tab_viewer.pf_stopwatch.0,
             &tab_viewer.gui_stopwatch.0,
+            &tab_viewer.schedule_stopwatch.0,
         ] {
             let t = stopwatch.average_process_time() * 1000.0;
             let msg = format!("{:.2} - {}", t, stopwatch.display_name());

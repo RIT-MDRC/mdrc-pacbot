@@ -5,7 +5,7 @@ use crate::grid::IntLocation;
 use crate::pathing::TargetPath;
 use crate::util::stopwatch::Stopwatch;
 use crate::{PacmanGameState, UserSettings};
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 use candle_core::D;
 use candle_core::{Device, Module, Tensor};
 use candle_nn as nn;

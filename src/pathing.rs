@@ -1,7 +1,7 @@
 use crate::grid::IntLocation;
 use crate::physics::LightPhysicsInfo;
 use crate::{PacmanGameState, UserSettings};
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 use rapier2d::na::Vector2;
 
 /// Pacbot's desired path

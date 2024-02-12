@@ -4,7 +4,7 @@ use crate::physics::LightPhysicsInfo;
 use crate::replay::Replay;
 use crate::{PacmanGameState, UserSettings};
 use anyhow::Error;
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 use pacbot_rs::game_engine::GameEngine;
 use rapier2d::math::{Rotation, Translation};
 use rapier2d::na::Isometry2;

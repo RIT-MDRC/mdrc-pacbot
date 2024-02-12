@@ -5,7 +5,7 @@ use crate::gui::colors::{
 use crate::gui::transforms::Transform;
 use crate::gui::{PacbotWidget, TabViewer};
 use crate::PacmanGameState;
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 use eframe::egui::{Painter, Pos2, Rect, RichText, Rounding, Stroke};
 use pacbot_rs::game_engine::GameEngine;
 use serde::{Deserialize, Serialize};

@@ -9,7 +9,7 @@ pub mod transforms;
 pub mod utils;
 
 use crate::grid::ComputedGrid;
-use bevy::prelude::*;
+use bevy_ecs::prelude::*;
 use bevy_egui::EguiContexts;
 use eframe::egui;
 use eframe::egui::{Align, Color32, Frame, Key, Pos2, RichText, Ui, WidgetText};
@@ -29,7 +29,7 @@ use crate::pathing::{TargetPath, TargetVelocity};
 use crate::physics::{LightPhysicsInfo, ParticleFilterStopwatch, PhysicsStopwatch};
 use crate::replay_manager::ReplayManager;
 use crate::util::stopwatch::Stopwatch;
-use crate::{PacmanGameState, StandardGridResource, UserSettings};
+use crate::{PacmanGameState, ScheduleStopwatch, StandardGridResource, UserSettings};
 
 use self::transforms::Transform;
 
@@ -59,8 +59,8 @@ pub fn ui_system(
     pf_stopwatch: ResMut<ParticleFilterStopwatch>,
     physics_stopwatch: ResMut<PhysicsStopwatch>,
     gui_stopwatch: ResMut<GuiStopwatch>,
-    sensors: Res<PacbotSensors>,
-    sensors_recv_time: Res<PacbotSensorsRecvTime>,
+    schedule_stopwatch: ResMut<ScheduleStopwatch>,
+    sensors: (Res<PacbotSensors>, Res<PacbotSensorsRecvTime>),
 ) {
     let ctx = contexts.ctx_mut();
 
@@ -80,8 +80,9 @@ pub fn ui_system(
         pf_stopwatch,
         physics_stopwatch,
         gui_stopwatch,
-        sensors,
-        sensors_recv_time,
+        schedule_stopwatch,
+        sensors: sensors.0,
+        sensors_recv_time: sensors.1,
     };
 
     app.update_target_velocity(&ctx, &mut tab_viewer);
@@ -115,6 +116,7 @@ struct TabViewer<'a> {
     pf_stopwatch: ResMut<'a, ParticleFilterStopwatch>,
     physics_stopwatch: ResMut<'a, PhysicsStopwatch>,
     gui_stopwatch: ResMut<'a, GuiStopwatch>,
+    schedule_stopwatch: ResMut<'a, ScheduleStopwatch>,
 }
 
 impl<'a> egui_dock::TabViewer for TabViewer<'a> {

@@ -1,7 +1,7 @@
 //! Logical grid structs and utilities.
 
 use anyhow::{anyhow, Error};
-use bevy::prelude::Resource;
+use bevy_ecs::prelude::Resource;
 use eframe::epaint::util::OrderedFloat;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use pacbot_rs::location::{DOWN, LEFT, RIGHT, UP};

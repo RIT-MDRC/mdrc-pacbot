@@ -3,10 +3,10 @@
 use crate::pathing::TargetVelocity;
 use crate::physics::LightPhysicsInfo;
 use crate::UserSettings;
-use bevy::prelude::*;
-use bevy::utils::Instant;
+use bevy_ecs::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_PI_3;
+use std::time::Instant;
 use std::{io, net::UdpSocket};
 
 /// Stores data from Pacbot
@@ -34,23 +34,7 @@ pub struct NetworkPluginData {
     pico: Option<PicoConnection>,
 }
 
-/// Network communications with the Pico and the game server.
-pub struct NetworkPlugin;
-
-impl Plugin for NetworkPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                reconnect_pico,
-                send_motor_commands.after(reconnect_pico),
-                recv_pico.after(reconnect_pico),
-            ),
-        );
-    }
-}
-
-fn send_motor_commands(
+pub fn send_motor_commands(
     mut network_data: ResMut<NetworkPluginData>,
     target_velocity: Res<TargetVelocity>,
     phys_info: Res<LightPhysicsInfo>,
@@ -113,7 +97,7 @@ fn send_motor_commands(
     }
 }
 
-fn reconnect_pico(mut network_data: ResMut<NetworkPluginData>, settings: Res<UserSettings>) {
+pub fn reconnect_pico(mut network_data: ResMut<NetworkPluginData>, settings: Res<UserSettings>) {
     if network_data.pico.is_none() {
         if let Some(pico_address) = &settings.pico_address {
             let try_conn = PicoConnection::new(20001, &pico_address);
@@ -131,7 +115,7 @@ fn reconnect_pico(mut network_data: ResMut<NetworkPluginData>, settings: Res<Use
     }
 }
 
-fn recv_pico(mut network_data: ResMut<NetworkPluginData>, mut sensors: ResMut<PacbotSensors>) {
+pub fn recv_pico(mut network_data: ResMut<NetworkPluginData>, mut sensors: ResMut<PacbotSensors>) {
     if let Some(pico) = &mut network_data.pico {
         let mut bytes = [0; 30];
         while let Ok(size) = pico.socket.recv(&mut bytes) {
