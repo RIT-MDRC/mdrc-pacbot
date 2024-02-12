@@ -87,8 +87,8 @@ impl Default for UserSettings {
             pf_total_points: 1000,
             pf_gui_points: 1000,
             pf_elite: 10,
-            pf_purge: 150,
-            pf_random: 0,
+            pf_purge: 0,
+            pf_random: 50,
 
             pf_spread: 2.5,
             pf_elitism_bias: 1.0,

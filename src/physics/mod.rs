@@ -172,8 +172,7 @@ pub fn update_physics_info(
     let rays = simulation.get_distance_sensor_rays(primary_position);
     for i in 0..sensors.distance_sensors.len() {
         let (a, b) = rays[i];
-        sensors.distance_sensors[i] = ((a.x - b.x).powi(2) + (a.y - b.y).powi(2))
-            .sqrt()
+        sensors.distance_sensors[i] = (((a.x - b.x).powi(2) + (a.y - b.y).powi(2)).sqrt() * 88.9)
             .round()
             .min(255.0) as u8;
     }

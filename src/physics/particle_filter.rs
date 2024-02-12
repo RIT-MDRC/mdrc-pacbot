@@ -303,7 +303,7 @@ impl ParticleFilter {
         let distance_sensors: Vec<_> = sensors
             .distance_sensors
             .iter()
-            .map(|x| Some(*x as f32))
+            .map(|x| Some(*x as f32 / 88.9))
             .collect();
         if distance_sensors.len() != self.robot.distance_sensors.len() {
             println!("Uh oh! Particle filter found the wrong number of distance sensors. Unexpected behavior may occur.");
@@ -371,6 +371,8 @@ impl ParticleFilter {
                         collider_set,
                         query_pipeline,
                     );
+
+                    let toi = (toi * 88.9).round() / 88.9;
 
                     (toi - x).abs()
                 }
