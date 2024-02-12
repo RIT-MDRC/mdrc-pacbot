@@ -10,7 +10,8 @@ use crate::physics::{
 use crate::replay_manager::{replay_playback, update_replay_manager_system};
 use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
-use bevy_ecs::prelude::*;
+use bevy::prelude::*;
+use bevy_egui::EguiPlugin;
 use pacbot_rs::game_engine::GameEngine;
 
 pub mod grid;
@@ -96,40 +97,31 @@ impl Default for UserSettings {
 pub struct ScheduleStopwatch(Stopwatch);
 
 fn main() {
-    let mut world = World::new();
-
-    let mut startup_schedule = Schedule::default();
-    startup_schedule.add_systems(font_setup);
-
-    startup_schedule.run(&mut world);
-
-    let mut schedule = Schedule::default();
-    schedule.add_systems((
-        // General
-        run_high_level,
-        update_game,
-        target_path_to_target_vel,
-        // Ui
-        ui_system,
-        update_replay_manager_system,
-        replay_playback,
-        // Networking
-        reconnect_pico,
-        send_motor_commands.after(reconnect_pico),
-        recv_pico.after(reconnect_pico),
-        // Physics
-        run_simulation,
-        run_particle_filter.after(run_simulation),
-        update_physics_info.after(run_particle_filter),
-        update_game_state_pacbot_loc.after(update_physics_info),
-    ));
-
-    loop {
-        world.resource_mut::<ScheduleStopwatch>().0.start();
-        schedule.run(&mut world);
-        world
-            .resource_mut::<ScheduleStopwatch>()
-            .0
-            .mark_segment("Full schedule");
-    }
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugins(EguiPlugin)
+        .add_systems(Startup, font_setup)
+        .add_systems(
+            Update,
+            (
+                // General
+                run_high_level,
+                update_game,
+                target_path_to_target_vel,
+                // Ui
+                ui_system,
+                update_replay_manager_system,
+                replay_playback,
+                // Networking
+                reconnect_pico,
+                send_motor_commands.after(reconnect_pico),
+                recv_pico.after(reconnect_pico),
+                // Physics
+                run_simulation,
+                run_particle_filter.after(run_simulation),
+                update_physics_info.after(run_particle_filter),
+                update_game_state_pacbot_loc.after(update_physics_info),
+            ),
+        )
+        .run();
 }
