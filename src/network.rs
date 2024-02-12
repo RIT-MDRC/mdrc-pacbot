@@ -4,10 +4,10 @@ use crate::pathing::TargetVelocity;
 use crate::physics::LightPhysicsInfo;
 use crate::UserSettings;
 use bevy::prelude::*;
+use bevy::utils::Instant;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_PI_3;
 use std::{io, net::UdpSocket};
-use tokio::net::TcpStream;
 
 /// Stores data from Pacbot
 #[derive(Resource, Copy, Clone, Debug, Serialize, Deserialize)]
@@ -15,6 +15,9 @@ pub struct PacbotSensors {
     pub distance_sensors: [u8; 8],
     pub encoders: [i64; 3],
 }
+
+#[derive(Resource, Default)]
+pub struct PacbotSensorsRecvTime(pub(crate) Option<Instant>);
 
 impl Default for PacbotSensors {
     fn default() -> Self {
@@ -29,7 +32,6 @@ impl Default for PacbotSensors {
 #[derive(Default, Resource)]
 pub struct NetworkPluginData {
     pico: Option<PicoConnection>,
-    game_server: Option<TcpStream>,
 }
 
 /// Network communications with the Pico and the game server.
@@ -156,14 +158,10 @@ fn recv_pico(mut network_data: ResMut<NetworkPluginData>, mut sensors: ResMut<Pa
 #[repr(u8)]
 enum MessageType {
     Motors = 1,
-    Sleep = 2,
-    AccelOffset = 3,
-    DistanceOffset = 4,
 }
 
 struct PicoConnection {
     socket: UdpSocket,
-    next_ack: u16,
 }
 
 #[allow(dead_code)]
@@ -171,10 +169,7 @@ impl PicoConnection {
     fn new(local_port: u16, remote_address: &str) -> io::Result<Self> {
         let socket = UdpSocket::bind(("0.0.0.0", local_port))?;
         socket.connect(remote_address)?;
-        Ok(Self {
-            socket,
-            next_ack: 1,
-        })
+        Ok(Self { socket })
     }
 
     fn send_message(&mut self, message: &[u8]) -> io::Result<()> {

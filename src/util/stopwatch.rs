@@ -14,17 +14,20 @@ pub struct Stopwatch {
 
     process_moving_average: MovingAverage,
     segment_moving_averages: Vec<(String, MovingAverage)>,
-}
 
-impl Default for Stopwatch {
-    fn default() -> Self {
-        Self::new(10)
-    }
+    display_name: String,
+    ok_time_millis: f32,
+    bad_time_millis: f32,
 }
 
 impl Stopwatch {
     /// Creates a new Stopwatch
-    pub fn new(num_samples: usize) -> Self {
+    pub fn new(
+        num_samples: usize,
+        display_name: String,
+        ok_time_millis: f32,
+        bad_time_millis: f32,
+    ) -> Self {
         Stopwatch {
             num_samples,
             last_start_time: None,
@@ -32,7 +35,22 @@ impl Stopwatch {
             segment: 0,
             process_moving_average: MovingAverage::new(num_samples),
             segment_moving_averages: vec![],
+            display_name,
+            ok_time_millis,
+            bad_time_millis,
         }
+    }
+
+    pub fn display_name(&self) -> String {
+        self.display_name.clone()
+    }
+
+    pub fn ok_time_millis(&self) -> f32 {
+        self.ok_time_millis
+    }
+
+    pub fn bad_time_millis(&self) -> f32 {
+        self.bad_time_millis
     }
 
     /// Mark the beginning of the process

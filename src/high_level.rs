@@ -16,7 +16,7 @@ use pacbot_rs::variables;
 use pacbot_rs::variables::GHOST_FRIGHT_STEPS;
 
 /// Tracks the time AI takes to make decisions
-#[derive(Default, Resource)]
+#[derive(Resource)]
 pub struct AiStopwatch(pub Stopwatch);
 
 pub fn run_high_level(

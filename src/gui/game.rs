@@ -9,7 +9,6 @@ use bevy::prelude::*;
 use eframe::egui::{Painter, Pos2, Rect, RichText, Rounding, Stroke};
 use pacbot_rs::game_engine::GameEngine;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 /// Stores state needed to render game state information
@@ -19,12 +18,20 @@ pub struct PacmanStateRenderInfo {
     pub pacman_state: GameEngine,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct GameWidget {
-    pub state: Arc<RwLock<PacmanStateRenderInfo>>,
+    lives: u8,
+    score: u16,
+    ticks: u32,
 }
 
 impl PacbotWidget for GameWidget {
+    fn update(&mut self, tab_viewer: &TabViewer) {
+        self.lives = tab_viewer.pacman_state.0.get_state().curr_lives;
+        self.score = tab_viewer.pacman_state.0.get_state().curr_score;
+        self.ticks = tab_viewer.pacman_state.0.get_state().curr_ticks;
+    }
+
     fn display_name(&self) -> &'static str {
         "Game (Click to Reset)"
     }
@@ -33,26 +40,11 @@ impl PacbotWidget for GameWidget {
         RichText::new(format!(
             "{} {} {} {} {} {}",
             egui_phosphor::regular::HEART,
-            self.state
-                .read()
-                .unwrap()
-                .pacman_state
-                .get_state()
-                .curr_lives,
+            self.lives,
             egui_phosphor::regular::TROPHY,
-            self.state
-                .read()
-                .unwrap()
-                .pacman_state
-                .get_state()
-                .curr_score,
+            self.score,
             egui_phosphor::regular::TIMER,
-            self.state
-                .read()
-                .unwrap()
-                .pacman_state
-                .get_state()
-                .curr_ticks
+            self.ticks
         ))
     }
 }

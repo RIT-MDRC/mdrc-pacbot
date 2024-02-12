@@ -8,9 +8,6 @@ mod stopwatch;
 pub mod transforms;
 pub mod utils;
 
-use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
-
 use crate::grid::ComputedGrid;
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
@@ -19,8 +16,15 @@ use eframe::egui::{Align, Color32, Frame, Key, Pos2, RichText, Ui, WidgetText};
 use egui_dock::{DockArea, DockState, Style};
 use egui_phosphor::regular;
 use pacbot_rs::game_engine::GameEngine;
+use std::time::Duration;
 
 use crate::grid::standard_grids::StandardGrid;
+use crate::gui::colors::{
+    TRANSLUCENT_GREEN_COLOR, TRANSLUCENT_RED_COLOR, TRANSLUCENT_YELLOW_COLOR,
+};
+use crate::gui::game::GameWidget;
+use crate::gui::stopwatch::StopwatchWidget;
+use crate::network::{PacbotSensors, PacbotSensorsRecvTime};
 use crate::pathing::{TargetPath, TargetVelocity};
 use crate::physics::{LightPhysicsInfo, ParticleFilterStopwatch, PhysicsStopwatch};
 use crate::replay_manager::ReplayManager;
@@ -30,7 +34,7 @@ use crate::{PacmanGameState, StandardGridResource, UserSettings};
 use self::transforms::Transform;
 
 /// Tracks the performance of GUI rendering
-#[derive(Default, Resource)]
+#[derive(Resource)]
 pub struct GuiStopwatch(pub Stopwatch);
 
 pub fn font_setup(mut contexts: EguiContexts) {
@@ -55,6 +59,8 @@ pub fn ui_system(
     pf_stopwatch: ResMut<ParticleFilterStopwatch>,
     physics_stopwatch: ResMut<PhysicsStopwatch>,
     gui_stopwatch: ResMut<GuiStopwatch>,
+    sensors: Res<PacbotSensors>,
+    sensors_recv_time: Res<PacbotSensorsRecvTime>,
 ) {
     let ctx = contexts.ctx_mut();
 
@@ -74,6 +80,8 @@ pub fn ui_system(
         pf_stopwatch,
         physics_stopwatch,
         gui_stopwatch,
+        sensors,
+        sensors_recv_time,
     };
 
     app.update_target_velocity(&ctx, &mut tab_viewer);
@@ -101,6 +109,8 @@ struct TabViewer<'a> {
     target_path: Res<'a, TargetPath>,
     grid: ResMut<'a, ComputedGrid>,
     selected_grid: ResMut<'a, StandardGridResource>,
+    sensors: Res<'a, PacbotSensors>,
+    sensors_recv_time: Res<'a, PacbotSensorsRecvTime>,
 
     pf_stopwatch: ResMut<'a, ParticleFilterStopwatch>,
     physics_stopwatch: ResMut<'a, PhysicsStopwatch>,
@@ -166,8 +176,8 @@ pub enum PacbotWidgetStatus {
     NotApplicable,
 }
 
-pub trait PacbotWidget {
-    fn update(&mut self) {}
+trait PacbotWidget {
+    fn update(&mut self, _tab_viewer: &TabViewer) {}
     fn display_name(&self) -> &'static str;
     fn button_text(&self) -> RichText;
     fn tab(&self) -> Tab {
@@ -194,12 +204,24 @@ pub enum AppMode {
 #[derive(Resource)]
 pub struct GuiApp {
     tree: DockState<Tab>,
+
+    grid_widget: GridWidget,
+    game_widget: GameWidget,
+    stopwatch_widget: StopwatchWidget,
+    ai_widget: AiWidget,
+    sensors_widget: PacbotSensorsWidget,
 }
 
 impl Default for GuiApp {
     fn default() -> Self {
         Self {
             tree: DockState::new(vec![Tab::Grid]),
+
+            grid_widget: GridWidget::default(),
+            game_widget: GameWidget::default(),
+            stopwatch_widget: StopwatchWidget::new(),
+            ai_widget: AiWidget::default(),
+            sensors_widget: PacbotSensorsWidget::new(),
         }
     }
 }
@@ -266,63 +288,59 @@ impl GuiApp {
             });
     }
 
-    fn draw_widget_icons(&mut self, ui: &mut Ui) {
+    fn draw_widget_icons(&mut self, ui: &mut Ui, tab_viewer: &mut TabViewer) {
         // TODO widgets
-        // let widgets: Vec<Box<&mut dyn PacbotWidget>> = vec![
-        //     Box::new(&mut self.tab_viewer.grid_widget),
-        //     Box::new(&mut self.tab_viewer.game_widget),
-        //     Box::new(&mut self.tab_viewer.stopwatch_widget),
-        //     Box::new(&mut self.tab_viewer.ai_widget),
-        //     Box::new(&mut self.tab_viewer.sensors_widget),
-        // ];
-        // for mut widget in widgets {
-        //     widget.deref_mut().update();
-        //     let mut button = ui.add(egui::Button::new(widget.button_text()).fill(
-        //         match widget.overall_status() {
-        //             PacbotWidgetStatus::Ok => TRANSLUCENT_GREEN_COLOR,
-        //             PacbotWidgetStatus::Warn(_) => TRANSLUCENT_YELLOW_COLOR,
-        //             PacbotWidgetStatus::Error(_) => TRANSLUCENT_RED_COLOR,
-        //             PacbotWidgetStatus::NotApplicable => Color32::TRANSPARENT,
-        //         },
-        //     ));
-        //     button = button.on_hover_ui(|ui| {
-        //         ui.label(widget.display_name());
-        //         for msg in widget.messages() {
-        //             ui.label(
-        //                 RichText::new(format!(
-        //                     "{} {}",
-        //                     match msg.1 {
-        //                         PacbotWidgetStatus::Ok => regular::CHECK,
-        //                         PacbotWidgetStatus::Warn(_) => regular::WARNING,
-        //                         PacbotWidgetStatus::Error(_) => regular::X,
-        //                         PacbotWidgetStatus::NotApplicable => regular::CHECK,
-        //                     },
-        //                     msg.0.to_owned()
-        //                 ))
-        //                 .color(match msg.1 {
-        //                     PacbotWidgetStatus::Ok => Color32::GREEN,
-        //                     PacbotWidgetStatus::Warn(_) => Color32::YELLOW,
-        //                     PacbotWidgetStatus::Error(_) => Color32::RED,
-        //                     PacbotWidgetStatus::NotApplicable => Color32::GREEN,
-        //                 }),
-        //             );
-        //         }
-        //     });
-        //     if button.clicked() {
-        //         match widget.display_name() {
-        //             "Game (Click to Reset)" => {
-        //                 self.tab_viewer.pacman_render.write().unwrap().pacman_state =
-        //                     GameEngine::default()
-        //             }
-        //             "AI" => {
-        //                 let val = *self.tab_viewer.ai_enable.read().unwrap();
-        //                 *self.tab_viewer.ai_enable.write().unwrap() = !val;
-        //             }
-        //             "Sensors" => {}
-        //             _ => self.tree.push_to_focused_leaf(widget.tab()),
-        //         }
-        //     }
-        // }
+        let widgets: Vec<Box<&mut dyn PacbotWidget>> = vec![
+            Box::new(&mut self.grid_widget),
+            Box::new(&mut self.game_widget),
+            Box::new(&mut self.stopwatch_widget),
+            Box::new(&mut self.ai_widget),
+            Box::new(&mut self.sensors_widget),
+        ];
+        for widget in widgets {
+            widget.update(tab_viewer);
+            let mut button = ui.add(egui::Button::new(widget.button_text()).fill(
+                match widget.overall_status() {
+                    PacbotWidgetStatus::Ok => TRANSLUCENT_GREEN_COLOR,
+                    PacbotWidgetStatus::Warn(_) => TRANSLUCENT_YELLOW_COLOR,
+                    PacbotWidgetStatus::Error(_) => TRANSLUCENT_RED_COLOR,
+                    PacbotWidgetStatus::NotApplicable => Color32::TRANSPARENT,
+                },
+            ));
+            button = button.on_hover_ui(|ui| {
+                ui.label(widget.display_name());
+                for msg in widget.messages() {
+                    ui.label(
+                        RichText::new(format!(
+                            "{} {}",
+                            match msg.1 {
+                                PacbotWidgetStatus::Ok => regular::CHECK,
+                                PacbotWidgetStatus::Warn(_) => regular::WARNING,
+                                PacbotWidgetStatus::Error(_) => regular::X,
+                                PacbotWidgetStatus::NotApplicable => regular::CHECK,
+                            },
+                            msg.0.to_owned()
+                        ))
+                        .color(match msg.1 {
+                            PacbotWidgetStatus::Ok => Color32::GREEN,
+                            PacbotWidgetStatus::Warn(_) => Color32::YELLOW,
+                            PacbotWidgetStatus::Error(_) => Color32::RED,
+                            PacbotWidgetStatus::NotApplicable => Color32::GREEN,
+                        }),
+                    );
+                }
+            });
+            if button.clicked() {
+                match widget.display_name() {
+                    "Game (Click to Reset)" => tab_viewer.pacman_state.0 = GameEngine::default(),
+                    "AI" => {
+                        tab_viewer.settings.enable_ai = !tab_viewer.settings.enable_ai;
+                    }
+                    "Sensors" => {}
+                    _ => self.tree.push_to_focused_leaf(widget.tab()),
+                }
+            }
+        }
     }
 }
 
@@ -378,7 +396,7 @@ impl GuiApp {
                             }
                         });
 
-                        self.draw_widget_icons(ui);
+                        self.draw_widget_icons(ui, tab_viewer);
                     })
                 });
                 ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
@@ -414,7 +432,7 @@ impl GuiApp {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct GridWidget {}
 
 impl PacbotWidget for GridWidget {
@@ -431,12 +449,16 @@ impl PacbotWidget for GridWidget {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct AiWidget {
-    pub ai_enabled: Arc<RwLock<bool>>,
+    ai_enabled: bool,
 }
 
 impl PacbotWidget for AiWidget {
+    fn update(&mut self, tab_viewer: &TabViewer) {
+        self.ai_enabled = tab_viewer.settings.enable_ai;
+    }
+
     fn display_name(&self) -> &'static str {
         "AI"
     }
@@ -446,7 +468,7 @@ impl PacbotWidget for AiWidget {
     }
 
     fn overall_status(&self) -> &PacbotWidgetStatus {
-        if *self.ai_enabled.read().unwrap() {
+        if self.ai_enabled {
             &PacbotWidgetStatus::Ok
         } else {
             &PacbotWidgetStatus::NotApplicable
@@ -456,17 +478,13 @@ impl PacbotWidget for AiWidget {
 
 #[derive(Clone, Debug)]
 pub struct PacbotSensorsWidget {
-    pub sensors: Arc<RwLock<(bool, [u8; 8], [i64; 3], Instant)>>,
-
     pub overall_status: PacbotWidgetStatus,
     pub messages: Vec<(String, PacbotWidgetStatus)>,
 }
 
 impl PacbotSensorsWidget {
-    pub fn new(sensors: Arc<RwLock<(bool, [u8; 8], [i64; 3], Instant)>>) -> Self {
+    pub fn new() -> Self {
         Self {
-            sensors,
-
             overall_status: PacbotWidgetStatus::Ok,
             messages: vec![],
         }
@@ -474,53 +492,45 @@ impl PacbotSensorsWidget {
 }
 
 impl PacbotWidget for PacbotSensorsWidget {
-    fn update(&mut self) {
-        let sensors = self.sensors.read().unwrap();
+    fn update(&mut self, tab_viewer: &TabViewer) {
+        let sensors = &tab_viewer.sensors;
 
         self.messages = vec![];
         self.overall_status = PacbotWidgetStatus::Ok;
 
-        if sensors.0 {
-            self.messages
-                .push(("Sensors enabled".to_string(), PacbotWidgetStatus::Ok));
-        } else {
-            self.messages.push((
-                "Sensors disabled".to_string(),
-                PacbotWidgetStatus::Warn("".to_string()),
-            ));
-        }
-
-        if sensors.3.elapsed() > Duration::from_secs(1) {
-            self.messages.push((
-                format!("Last data age: {:?}", sensors.3.elapsed()),
-                PacbotWidgetStatus::Error("".to_string()),
-            ));
-            self.overall_status =
-                PacbotWidgetStatus::Error(format!("Last data age: {:?}", sensors.3.elapsed()));
-        } else {
-            for i in 0..8 {
-                if sensors.1[i] == 0 {
-                    self.messages.push((
-                        format!("Sensor {i} unresponsive"),
-                        PacbotWidgetStatus::Error("".to_string()),
-                    ));
-                    self.overall_status =
-                        PacbotWidgetStatus::Error(format!("Sensor {i} unresponsive"));
-                }
+        if let Some(t) = tab_viewer.sensors_recv_time.0 {
+            if t.elapsed() > Duration::from_secs(1) {
                 self.messages.push((
-                    format!("{i} => {}", sensors.1[i]),
-                    match sensors.1[i] {
-                        0 => PacbotWidgetStatus::Error("".to_string()),
-                        255 => PacbotWidgetStatus::Warn("".to_string()),
-                        _ => PacbotWidgetStatus::Ok,
-                    },
-                ))
-            }
-            for i in 0..3 {
-                self.messages.push((
-                    format!("Encoder {i}: {}", sensors.2[i]),
-                    PacbotWidgetStatus::Ok,
+                    format!("Last data age: {:?}", t.elapsed()),
+                    PacbotWidgetStatus::Error("".to_string()),
                 ));
+                self.overall_status =
+                    PacbotWidgetStatus::Error(format!("Last data age: {:?}", t.elapsed()));
+            } else {
+                for i in 0..8 {
+                    if sensors.distance_sensors[i] == 0 {
+                        self.messages.push((
+                            format!("Sensor {i} unresponsive"),
+                            PacbotWidgetStatus::Error("".to_string()),
+                        ));
+                        self.overall_status =
+                            PacbotWidgetStatus::Error(format!("Sensor {i} unresponsive"));
+                    }
+                    self.messages.push((
+                        format!("{i} => {}", sensors.distance_sensors[i]),
+                        match sensors.distance_sensors[i] {
+                            0 => PacbotWidgetStatus::Error("".to_string()),
+                            255 => PacbotWidgetStatus::Warn("".to_string()),
+                            _ => PacbotWidgetStatus::Ok,
+                        },
+                    ))
+                }
+                for i in 0..3 {
+                    self.messages.push((
+                        format!("Encoder {i}: {}", sensors.encoders[i]),
+                        PacbotWidgetStatus::Ok,
+                    ));
+                }
             }
         }
     }

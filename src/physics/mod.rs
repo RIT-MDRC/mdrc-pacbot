@@ -41,11 +41,11 @@ pub struct LightPhysicsInfo {
 }
 
 /// Tracks the performance of the physics engine
-#[derive(Default, Resource)]
+#[derive(Resource)]
 pub struct PhysicsStopwatch(pub Stopwatch);
 
 /// Tracks the performance of the particle filter
-#[derive(Default, Resource)]
+#[derive(Resource)]
 pub struct ParticleFilterStopwatch(pub Stopwatch);
 
 /// Handles all physics related operations
