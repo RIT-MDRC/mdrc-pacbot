@@ -1,17 +1,16 @@
-use crate::grid::{facing_direction, IntLocation};
 use crate::gui::colors::{
     GHOST_BLUE_COLOR, GHOST_ORANGE_COLOR, GHOST_PINK_COLOR, GHOST_RED_COLOR,
     PACMAN_DISTANCE_SENSOR_RAY_COLOR, PELLET_COLOR, SUPER_PELLET_COLOR, WALL_COLOR,
 };
 use crate::gui::transforms::Transform;
 use crate::gui::{PacbotWidget, TabViewer};
+use crate::PacmanGameState;
+use bevy::prelude::*;
 use eframe::egui::{Painter, Pos2, Rect, RichText, Rounding, Stroke};
 use pacbot_rs::game_engine::GameEngine;
-use pacbot_rs::location::LocationState;
-use pacbot_rs::variables::PACMAN_SPAWN_LOC;
 use serde::{Deserialize, Serialize};
-use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, RwLock};
+use std::time::{Duration, Instant};
 
 /// Stores state needed to render game state information
 #[derive(Clone, Serialize, Deserialize)]
@@ -58,44 +57,14 @@ impl PacbotWidget for GameWidget {
     }
 }
 
-// TODO bevy-ize run_game
-pub(super) fn run_game(
-    pacman_render: Arc<RwLock<PacmanStateRenderInfo>>,
-    location_receive: Receiver<IntLocation>,
-    replay_send: Sender<()>,
+pub fn update_game(
+    mut pacman_state: ResMut<PacmanGameState>,
+    mut last_update: Local<Option<Instant>>,
 ) {
-    let mut previous_pacman_location = IntLocation::new(PACMAN_SPAWN_LOC.row, PACMAN_SPAWN_LOC.col);
-    {
-        let pacman_render = pacman_render.clone();
-        std::thread::spawn(move || {
-            // fetch updated pacbot position
-            while let Ok(pacbot_location) = location_receive.recv() {
-                let mut state = pacman_render.write().unwrap();
-                state.pacman_state.set_pacman_location(LocationState {
-                    col: pacbot_location.col,
-                    row: pacbot_location.row,
-                    dir: facing_direction(&previous_pacman_location, &pacbot_location) as u8,
-                });
-                previous_pacman_location = pacbot_location;
-                drop(state);
-            }
-        });
-    }
-
-    loop {
-        // {} block to make sure `game` goes out of scope and the RwLockWriteGuard is released
-        {
-            let mut state = pacman_render.write().unwrap();
-
-            // step the game
-            if !state.pacman_state.is_paused() {
-                state.pacman_state.force_step();
-                replay_send.send(()).unwrap()
-            }
-        }
-
-        // Sleep
-        std::thread::sleep(std::time::Duration::from_secs_f32(1.0 / 2.5));
+    let last_update = last_update.get_or_insert(Instant::now());
+    if last_update.elapsed() > Duration::from_secs_f32(1.0 / 2.5) {
+        *last_update = Instant::now();
+        pacman_state.0.force_step()
     }
 }
 

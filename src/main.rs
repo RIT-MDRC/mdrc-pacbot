@@ -1,4 +1,5 @@
 use crate::grid::standard_grids::StandardGrid;
+use crate::gui::game::update_game;
 use crate::gui::{font_setup, ui_system, AppMode};
 use crate::high_level::run_high_level;
 use crate::network::NetworkPlugin;
@@ -99,6 +100,7 @@ fn main() {
                 ui_system,
                 update_replay_manager_system,
                 replay_playback,
+                update_game,
             ),
         )
         .run();

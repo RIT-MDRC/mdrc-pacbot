@@ -3,14 +3,15 @@
 mod particle_filter;
 
 use crate::grid::standard_grids::StandardGrid;
-use crate::grid::{ComputedGrid, IntLocation};
+use crate::grid::{facing_direction, ComputedGrid, IntLocation};
 use crate::network::PacbotSensors;
 use crate::pathing::TargetVelocity;
 use crate::physics::particle_filter::{ParticleFilter, ParticleFilterOptions};
 use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
-use crate::UserSettings;
+use crate::{PacmanGameState, UserSettings};
 use bevy::prelude::*;
+use pacbot_rs::location::LocationState;
 use rapier2d::dynamics::{IntegrationParameters, RigidBodySet};
 use rapier2d::geometry::{BroadPhase, NarrowPhase};
 use rapier2d::na::{Isometry2, Point2, Vector2};
@@ -97,8 +98,38 @@ impl Plugin for PhysicsPlugin {
                 run_simulation,
                 run_particle_filter.after(run_simulation),
                 update_physics_info.after(run_particle_filter),
+                update_game_state_pacbot_loc.after(update_physics_info),
             ),
         );
+    }
+}
+
+fn update_game_state_pacbot_loc(
+    simulation: Res<PacbotSimulation>,
+    grid: Res<ComputedGrid>,
+    mut pacman_state: ResMut<PacmanGameState>,
+    settings: Res<UserSettings>,
+) {
+    if settings.go_server_address.is_none() {
+        let pacbot_location = simulation.get_primary_robot_position();
+        let old_pacbot_location = IntLocation {
+            row: pacman_state.0.get_state().pacman_loc.row,
+            col: pacman_state.0.get_state().pacman_loc.col,
+        };
+        if let Some(pacbot_location) =
+            grid.node_nearest(pacbot_location.translation.x, pacbot_location.translation.y)
+        {
+            pacman_state.0.set_pacman_location(LocationState {
+                row: pacbot_location.row,
+                col: pacbot_location.col,
+                dir: facing_direction(&old_pacbot_location, &pacbot_location) as u8,
+            });
+        } else {
+            eprintln!(
+                "Could not convert location to grid space: {:?}",
+                pacbot_location
+            );
+        }
     }
 }
 

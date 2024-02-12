@@ -1,7 +1,7 @@
 //! Top-level GUI elements and functionality.
 
 mod colors;
-mod game;
+pub mod game;
 pub(crate) mod physics;
 pub mod replay_manager;
 mod stopwatch;
@@ -15,13 +15,13 @@ use crate::grid::ComputedGrid;
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
 use eframe::egui;
-use eframe::egui::{Align, Color32, Frame, Pos2, RichText, Ui, WidgetText};
+use eframe::egui::{Align, Color32, Frame, Key, Pos2, RichText, Ui, WidgetText};
 use egui_dock::{DockArea, DockState, Style};
 use egui_phosphor::regular;
 use pacbot_rs::game_engine::GameEngine;
 
 use crate::grid::standard_grids::StandardGrid;
-use crate::pathing::TargetPath;
+use crate::pathing::{TargetPath, TargetVelocity};
 use crate::physics::{LightPhysicsInfo, ParticleFilterStopwatch, PhysicsStopwatch};
 use crate::replay_manager::ReplayManager;
 use crate::util::stopwatch::Stopwatch;
@@ -50,6 +50,7 @@ pub fn ui_system(
     grid: ResMut<ComputedGrid>,
     replay_manager: ResMut<ReplayManager>,
     settings: ResMut<UserSettings>,
+    target_velocity: ResMut<TargetVelocity>,
     target_path: Res<TargetPath>,
     pf_stopwatch: ResMut<ParticleFilterStopwatch>,
     physics_stopwatch: ResMut<PhysicsStopwatch>,
@@ -66,6 +67,7 @@ pub fn ui_system(
         world_to_screen,
         replay_manager,
         settings,
+        target_velocity,
         target_path,
         grid,
         selected_grid,
@@ -73,6 +75,8 @@ pub fn ui_system(
         physics_stopwatch,
         gui_stopwatch,
     };
+
+    app.update_target_velocity(&ctx, &mut tab_viewer);
 
     egui::Window::new("Pacbot simulation").show(&ctx, |_| app.update(&ctx, &mut tab_viewer));
 }
@@ -93,6 +97,7 @@ struct TabViewer<'a> {
     world_to_screen: Local<'a, Option<Transform>>,
     replay_manager: ResMut<'a, ReplayManager>,
     settings: ResMut<'a, UserSettings>,
+    target_velocity: ResMut<'a, TargetVelocity>,
     target_path: Res<'a, TargetPath>,
     grid: ResMut<'a, ComputedGrid>,
     selected_grid: ResMut<'a, StandardGridResource>,
@@ -200,37 +205,35 @@ impl Default for GuiApp {
 }
 
 impl GuiApp {
-    // TODO keyboard target velocity
-    // fn update_target_velocity(&mut self, ctx: &egui::Context) {
-    //     let ai_enabled = *self.tab_viewer.ai_enable.read().unwrap().deref();
-    //     if !ai_enabled {
-    //         let mut target_velocity = self.tab_viewer.target_velocity.write().unwrap();
-    //         target_velocity.0.x = 0.0;
-    //         target_velocity.0.y = 0.0;
-    //         target_velocity.1 = 0.0;
-    //         ctx.input(|i| {
-    //             let target_speed = if i.modifiers.shift { 2.0 } else { 0.8 };
-    //             if i.key_down(Key::S) {
-    //                 target_velocity.0.x = target_speed;
-    //             }
-    //             if i.key_down(Key::W) {
-    //                 target_velocity.0.x = -target_speed;
-    //             }
-    //             if i.key_down(Key::A) {
-    //                 target_velocity.0.y = -target_speed;
-    //             }
-    //             if i.key_down(Key::D) {
-    //                 target_velocity.0.y = target_speed;
-    //             }
-    //             if i.key_down(Key::E) {
-    //                 target_velocity.1 = -1.0;
-    //             }
-    //             if i.key_down(Key::Q) {
-    //                 target_velocity.1 = 1.0;
-    //             }
-    //         });
-    //     }
-    // }
+    fn update_target_velocity(&mut self, ctx: &egui::Context, tab_viewer: &mut TabViewer) {
+        let ai_enabled = tab_viewer.settings.enable_ai;
+        if !ai_enabled {
+            tab_viewer.target_velocity.0.x = 0.0;
+            tab_viewer.target_velocity.0.y = 0.0;
+            tab_viewer.target_velocity.1 = 0.0;
+            ctx.input(|i| {
+                let target_speed = if i.modifiers.shift { 2.0 } else { 0.8 };
+                if i.key_down(Key::S) {
+                    tab_viewer.target_velocity.0.x = target_speed;
+                }
+                if i.key_down(Key::W) {
+                    tab_viewer.target_velocity.0.x = -target_speed;
+                }
+                if i.key_down(Key::A) {
+                    tab_viewer.target_velocity.0.y = -target_speed;
+                }
+                if i.key_down(Key::D) {
+                    tab_viewer.target_velocity.0.y = target_speed;
+                }
+                if i.key_down(Key::E) {
+                    tab_viewer.target_velocity.1 = -1.0;
+                }
+                if i.key_down(Key::Q) {
+                    tab_viewer.target_velocity.1 = 1.0;
+                }
+            });
+        }
+    }
 
     fn add_grid_variants(
         &mut self,
