@@ -1,6 +1,7 @@
 //! Tracks the robot's position over time
 
 use crate::grid::{ComputedGrid, Direction, IntLocation};
+use crate::network::PacbotSensors;
 use crate::physics::{PacbotSimulation, GROUP_ROBOT, GROUP_WALL};
 use crate::robot::{DistanceSensor, Robot};
 use crate::util::stopwatch::Stopwatch;
@@ -12,7 +13,6 @@ use rapier2d::prelude::{
 };
 use rayon::prelude::*;
 use std::f32::consts::PI;
-use std::sync::{Arc, Mutex};
 
 /// Values that can be tweaked to improve the performance of the particle filter
 pub struct ParticleFilterOptions {
@@ -44,8 +44,6 @@ pub struct ParticleFilter {
     grid: ComputedGrid,
     /// Guesses for the current location, ordered by measured accuracy
     points: Vec<Isometry2<f32>>,
-    /// Cross-thread reference to the current distance sensor readings
-    distance_sensors: Arc<Mutex<Vec<Option<f32>>>>,
     /// The current best guess
     best_guess: Isometry2<f32>,
 
@@ -61,12 +59,10 @@ impl ParticleFilter {
         grid: ComputedGrid,
         robot: Robot,
         start: Isometry2<f32>,
-        distance_sensors: Arc<Mutex<Vec<Option<f32>>>>,
         options: ParticleFilterOptions,
     ) -> Self {
         Self {
             points: Vec::new(),
-            distance_sensors,
             grid,
             robot,
             best_guess: start,
@@ -209,6 +205,7 @@ impl ParticleFilter {
         collider_set: &mut ColliderSet,
         query_pipeline: &QueryPipeline,
         stopwatch: &mut Stopwatch,
+        sensors: &PacbotSensors,
     ) {
         stopwatch.start();
 
@@ -303,11 +300,11 @@ impl ParticleFilter {
         let robot = self.robot.to_owned();
 
         // Sort points
-        let distance_sensors = self
+        let distance_sensors: Vec<_> = sensors
             .distance_sensors
-            .lock()
-            .expect("Failed to acquire distance sensors lock!")
-            .to_owned();
+            .iter()
+            .map(|x| Some(*x as f32))
+            .collect();
         if distance_sensors.len() != self.robot.distance_sensors.len() {
             println!("Uh oh! Particle filter found the wrong number of distance sensors. Unexpected behavior may occur.");
             return;
@@ -455,13 +452,19 @@ impl ParticleFilter {
 
 impl PacbotSimulation {
     /// Update the particle filter
-    pub fn pf_update(&mut self, position: IntLocation, pf_stopwatch: &mut Stopwatch) {
+    pub fn pf_update(
+        &mut self,
+        position: IntLocation,
+        pf_stopwatch: &mut Stopwatch,
+        sensors: &PacbotSensors,
+    ) {
         self.particle_filter.update(
             position,
             &mut self.rigid_body_set,
             &mut self.collider_set,
             &self.query_pipeline,
             pf_stopwatch,
+            sensors,
         );
     }
 }

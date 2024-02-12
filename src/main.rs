@@ -88,7 +88,7 @@ impl Default for UserSettings {
             pf_gui_points: 1000,
             pf_elite: 10,
             pf_purge: 150,
-            pf_random: 50,
+            pf_random: 0,
 
             pf_spread: 2.5,
             pf_elitism_bias: 1.0,
@@ -133,7 +133,7 @@ fn main() {
         )))
         .insert_resource(GuiStopwatch(Stopwatch::new(
             10,
-            "Physics".to_string(),
+            "GUI".to_string(),
             1.0,
             2.0,
         )))

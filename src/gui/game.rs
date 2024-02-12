@@ -54,7 +54,7 @@ pub fn update_game(
     mut last_update: Local<Option<Instant>>,
 ) {
     let last_update = last_update.get_or_insert(Instant::now());
-    if last_update.elapsed() > Duration::from_secs_f32(1.0 / 2.5) {
+    if !pacman_state.0.is_paused() && last_update.elapsed() > Duration::from_secs_f32(1.0 / 2.5) {
         *last_update = Instant::now();
         pacman_state.0.force_step()
     }

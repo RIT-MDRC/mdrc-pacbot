@@ -18,7 +18,6 @@ use rapier2d::na::{Isometry2, Point2, Vector2};
 use rapier2d::prelude::Ray;
 use rapier2d::prelude::Real;
 use rapier2d::prelude::*;
-use std::sync::{Arc, Mutex};
 
 /// Rapier interaction group representing all walls
 const GROUP_WALL: u32 = 1;
@@ -80,10 +79,6 @@ impl Default for PacbotSimulation {
             StandardGrid::Pacman.compute_grid(),
             Robot::default(),
             StandardGrid::Pacman.get_default_pacbot_isometry(),
-            Arc::new(Mutex::new(vec![
-                Some(0.0);
-                Robot::default().distance_sensors.len()
-            ])),
         )
     }
 }
@@ -131,6 +126,7 @@ pub fn run_simulation(
 pub fn run_particle_filter(
     mut simulation: ResMut<PacbotSimulation>,
     mut pf_stopwatch: ResMut<ParticleFilterStopwatch>,
+    sensors: Res<PacbotSensors>,
     grid: Local<ComputedGrid>,
     settings: Res<UserSettings>,
 ) {
@@ -161,7 +157,7 @@ pub fn run_particle_filter(
             .unwrap_or(IntLocation::new(1, 1));
 
         // Update particle filter
-        simulation.pf_update(estimated_location, &mut pf_stopwatch.0);
+        simulation.pf_update(estimated_location, &mut pf_stopwatch.0, &sensors);
     }
 }
 
@@ -215,12 +211,7 @@ impl PacbotSimulation {
     /// let starting_position = Isometry2::new(Vector2::new(PACMAN_SPAWN_LOC.row as f32, PACMAN_SPAWN_LOC.col as f32), 0.0);
     /// let mut simulation = PacbotSimulation::new(grid, robot, starting_position, distance_sensors);
     /// ```
-    pub fn new(
-        grid: ComputedGrid,
-        robot: Robot,
-        robot_position: Isometry2<f32>,
-        distance_sensors: Arc<Mutex<Vec<Option<f32>>>>,
-    ) -> Self {
+    pub fn new(grid: ComputedGrid, robot: Robot, robot_position: Isometry2<f32>) -> Self {
         let mut rigid_body_set = RigidBodySet::new();
         let mut collider_set = ColliderSet::new();
 
@@ -266,7 +257,6 @@ impl PacbotSimulation {
             grid,
             robot.to_owned(),
             robot_position,
-            distance_sensors,
             ParticleFilterOptions {
                 points: 10,
                 elite: 0,

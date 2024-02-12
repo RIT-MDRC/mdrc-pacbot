@@ -16,6 +16,7 @@ use eframe::egui::{Align, Color32, Frame, Key, Pos2, RichText, Ui, WidgetText};
 use egui_dock::{DockArea, DockState, Style};
 use egui_phosphor::regular;
 use pacbot_rs::game_engine::GameEngine;
+use std::ops::Deref;
 use std::time::Duration;
 
 use crate::grid::standard_grids::StandardGrid;
@@ -402,16 +403,17 @@ impl GuiApp {
                     })
                 });
                 ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
-                    ui.label(
-                        &(match tab_viewer.pointer_pos {
-                            None => "".to_string(),
-                            Some(pos) => {
-                                let pos =
-                                    tab_viewer.world_to_screen.unwrap().inverse().map_point(pos);
-                                format!("({:.1}, {:.1})", pos.x, pos.y)
-                            }
-                        }),
-                    );
+                    if let Some(world_to_screen) = tab_viewer.world_to_screen.deref() {
+                        ui.label(
+                            &(match tab_viewer.pointer_pos {
+                                None => "".to_string(),
+                                Some(pos) => {
+                                    let pos = world_to_screen.inverse().map_point(pos);
+                                    format!("({:.1}, {:.1})", pos.x, pos.y)
+                                }
+                            }),
+                        );
+                    }
                 });
             });
         });
