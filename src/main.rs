@@ -3,6 +3,7 @@ use crate::gui::game::update_game;
 use crate::gui::{font_setup, ui_system, AppMode};
 use crate::high_level::run_high_level;
 use crate::network::NetworkPlugin;
+use crate::pathing::target_path_to_target_vel;
 use crate::physics::PhysicsPlugin;
 use crate::replay_manager::{replay_playback, update_replay_manager_system};
 use crate::robot::Robot;
@@ -101,6 +102,7 @@ fn main() {
                 update_replay_manager_system,
                 replay_playback,
                 update_game,
+                target_path_to_target_vel,
             ),
         )
         .run();
