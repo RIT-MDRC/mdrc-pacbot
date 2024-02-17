@@ -5,7 +5,7 @@ use crate::grid::IntLocation;
 use crate::pathing::TargetPath;
 use crate::util::stopwatch::Stopwatch;
 use crate::{PacmanGameState, UserSettings};
-use bevy_ecs::prelude::*;
+use bevy::prelude::*;
 use candle_core::D;
 use candle_core::{Device, Module, Tensor};
 use candle_nn as nn;
@@ -14,6 +14,17 @@ use pacbot_rs::game_modes::GameMode;
 use pacbot_rs::game_state::GameState;
 use pacbot_rs::variables;
 use pacbot_rs::variables::GHOST_FRIGHT_STEPS;
+
+/// Plugin for high level AI functionality.
+pub struct HLPlugin;
+
+impl Plugin for HLPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(AiStopwatch(Stopwatch::new(10, "AI".to_string(), 5.0, 10.0)))
+            .add_systems(Update, run_high_level)
+            .init_non_send_resource::<HighLevelContext>();
+    }
+}
 
 /// Tracks the time AI takes to make decisions
 #[derive(Resource)]
