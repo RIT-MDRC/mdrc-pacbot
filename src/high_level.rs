@@ -12,6 +12,7 @@ use candle_nn as nn;
 use ndarray::{s, Array};
 use pacbot_rs::game_modes::GameMode;
 use pacbot_rs::game_state::GameState;
+use pacbot_rs::location::LocationState;
 use pacbot_rs::variables;
 use pacbot_rs::variables::GHOST_FRIGHT_STEPS;
 
@@ -53,30 +54,42 @@ pub fn run_high_level(
 
         ai_stopwatch.0.start();
 
-        let action = hl_ctx.step(game_state.0.get_state(), &std_grid);
-        let curr_pos = IntLocation {
-            row: game_state.0.get_state().pacman_loc.row,
-            col: game_state.0.get_state().pacman_loc.col,
+        let mut path = vec![];
+        let mut sim_engine = game_state.0.clone();
+        let mut curr_pos = IntLocation {
+            row: sim_engine.get_state().pacman_loc.row,
+            col: sim_engine.get_state().pacman_loc.col,
         };
-        target_path.0 = vec![match action {
-            HLAction::Stay => curr_pos,
-            HLAction::Left => IntLocation {
-                row: curr_pos.row,
-                col: curr_pos.col - 1,
-            },
-            HLAction::Right => IntLocation {
-                row: curr_pos.row,
-                col: curr_pos.col + 1,
-            },
-            HLAction::Up => IntLocation {
-                row: curr_pos.row - 1,
-                col: curr_pos.col,
-            },
-            HLAction::Down => IntLocation {
-                row: curr_pos.row + 1,
-                col: curr_pos.col,
-            },
-        }];
+        for _ in 0..6 {
+            let action = hl_ctx.step(sim_engine.get_state(), &std_grid);
+            let target_pos = match action {
+                HLAction::Stay => curr_pos,
+                HLAction::Left => IntLocation {
+                    row: curr_pos.row,
+                    col: curr_pos.col - 1,
+                },
+                HLAction::Right => IntLocation {
+                    row: curr_pos.row,
+                    col: curr_pos.col + 1,
+                },
+                HLAction::Up => IntLocation {
+                    row: curr_pos.row - 1,
+                    col: curr_pos.col,
+                },
+                HLAction::Down => IntLocation {
+                    row: curr_pos.row + 1,
+                    col: curr_pos.col,
+                },
+            };
+            sim_engine.set_pacman_location(LocationState {
+                row: target_pos.row,
+                col: target_pos.col,
+                dir: 0,
+            });
+            curr_pos = target_pos;
+            path.push(target_pos);
+        }
+        target_path.0 = path;
 
         ai_stopwatch.0.mark_segment("AI");
     }
