@@ -81,9 +81,10 @@ impl Default for Robot {
             })
         }
 
+        let circle_area = PI * robot_radius * robot_radius;
         Self {
             collider_radius: robot_radius,
-            density: 1.0,
+            density: 1.0 / circle_area,
 
             imu: None,
             motors: vec![],

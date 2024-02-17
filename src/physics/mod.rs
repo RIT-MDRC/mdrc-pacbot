@@ -10,6 +10,7 @@ use crate::physics::particle_filter::{ParticleFilter, ParticleFilterOptions};
 use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
 use crate::{PacmanGameState, UserSettings};
+use bevy::time::Time;
 use bevy_ecs::prelude::*;
 use pacbot_rs::location::LocationState;
 use rapier2d::dynamics::{IntegrationParameters, RigidBodySet};
@@ -129,6 +130,8 @@ pub fn run_particle_filter(
     sensors: Res<PacbotSensors>,
     grid: Local<ComputedGrid>,
     settings: Res<UserSettings>,
+    target_velocity: Res<TargetVelocity>,
+    time: Res<Time>,
 ) {
     if settings.enable_pf {
         simulation
@@ -149,15 +152,18 @@ pub fn run_particle_filter(
         simulation.particle_filter.set_robot(settings.robot.clone());
 
         // Estimate game location
-        let estimated_location = grid
-            .node_nearest(
-                simulation.get_primary_robot_position().translation.x,
-                simulation.get_primary_robot_position().translation.y,
-            )
-            .unwrap_or(IntLocation::new(1, 1));
+        // let estimated_location = grid
+        //     .node_nearest(
+        //         simulation.get_primary_robot_position().translation.x,
+        //         simulation.get_primary_robot_position().translation.y,
+        //     )
+        //     .unwrap_or(IntLocation::new(1, 1));
 
         // Update particle filter
-        simulation.pf_update(estimated_location, &mut pf_stopwatch.0, &sensors);
+        let rigid_body = simulation.get_robot_rigid_body();
+        let vel_lin = rigid_body.linvel().clone();
+        let vel_ang = rigid_body.angvel();
+        simulation.pf_update(Isometry2::new(Vector2::new(vel_lin.x, vel_lin.y), vel_ang), time.delta_seconds(), &mut pf_stopwatch.0, &sensors);
     }
 }
 
@@ -323,6 +329,19 @@ impl PacbotSimulation {
         );
 
         self.query_pipeline_updated = false;
+    }
+    
+    pub fn get_robot_rigid_body(&mut self) -> &mut RigidBody {
+        self
+            .rigid_body_set
+            .get_mut(
+                self.collider_set
+                    .get(self.primary_robot)
+                    .unwrap()
+                    .parent()
+                    .unwrap(),
+            )
+            .unwrap()
     }
 
     /// Apply an impulse to the primary robot based on robot_target_velocity

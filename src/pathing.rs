@@ -19,7 +19,7 @@ pub fn target_path_to_target_vel(
     mut target_velocity: ResMut<TargetVelocity>,
     settings: Res<UserSettings>,
 ) {
-    if settings.enable_ai {
+    if settings.enable_ai && false {
         if !pacman_state.0.is_paused() {
             if let Some(target_pos) = target_path.0.get(0) {
                 if let Some(curr_pos) = phys_info.real_pos {
