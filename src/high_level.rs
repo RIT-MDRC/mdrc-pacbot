@@ -39,6 +39,18 @@ pub fn run_high_level(
     mut ai_stopwatch: ResMut<AiStopwatch>,
 ) {
     if settings.enable_ai && !game_state.0.is_paused() && game_state.is_changed() {
+        // If ghosts are in an invalid state, don't run the AI
+        if game_state
+            .0
+            .get_state()
+            .ghosts
+            .iter()
+            .map(|g| g.read().unwrap().loc)
+            .any(|loc| loc.col > 28 || loc.row > 31)
+        {
+            return;
+        }
+
         ai_stopwatch.0.start();
 
         let action = hl_ctx.step(game_state.0.get_state(), &std_grid);
