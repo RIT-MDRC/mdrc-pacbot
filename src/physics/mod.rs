@@ -12,6 +12,7 @@ use crate::util::stopwatch::Stopwatch;
 use crate::{PacmanGameState, UserSettings};
 use bevy::time::Time;
 use bevy_ecs::prelude::*;
+use native_dialog::Filter;
 use pacbot_rs::location::LocationState;
 use rapier2d::dynamics::{IntegrationParameters, RigidBodySet};
 use rapier2d::geometry::{BroadPhase, NarrowPhase};
@@ -19,6 +20,8 @@ use rapier2d::na::{Isometry2, Point2, Vector2};
 use rapier2d::prelude::Ray;
 use rapier2d::prelude::Real;
 use rapier2d::prelude::*;
+
+use self::particle_filter::FilterPoint;
 
 /// Rapier interaction group representing all walls
 const GROUP_WALL: u32 = 1;
@@ -37,7 +40,7 @@ pub struct LightPhysicsInfo {
     /// Simulated distance sensor rays emanating from pf_pos
     pub pf_pos_rays: Vec<(Point2<f32>, Point2<f32>)>,
     /// Exposed particle filter points
-    pub pf_points: Vec<Isometry2<f32>>,
+    pub pf_points: Vec<FilterPoint>,
 }
 
 /// Tracks the performance of the physics engine
@@ -186,9 +189,9 @@ pub fn update_physics_info(
     }
     *phys_info = LightPhysicsInfo {
         real_pos: Some(*simulation.get_primary_robot_position()),
-        pf_pos: Some(simulation.pf_best_guess()),
+        pf_pos: Some(simulation.pf_best_guess().loc),
         real_pos_rays: rays,
-        pf_pos_rays: simulation.get_distance_sensor_rays(pf_position),
+        pf_pos_rays: simulation.get_distance_sensor_rays(pf_position.loc),
         pf_points: if settings.enable_pf {
             simulation.particle_filter.points(settings.pf_gui_points)
         } else {
@@ -558,12 +561,12 @@ impl PacbotSimulation {
     }
 
     /// Get the particle filter's best guess position
-    pub fn pf_best_guess(&self) -> Isometry2<f32> {
+    pub fn pf_best_guess(&self) -> FilterPoint {
         self.particle_filter.best_guess()
     }
 
     /// Get the best 'count' particle filter points
-    pub fn pf_points(&self, count: usize) -> Vec<Isometry2<f32>> {
+    pub fn pf_points(&self, count: usize) -> Vec<FilterPoint> {
         self.particle_filter.points(count)
     }
 }

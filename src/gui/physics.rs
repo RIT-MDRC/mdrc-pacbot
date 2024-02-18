@@ -98,7 +98,7 @@ impl<'a> TabViewer<'a> {
 
         for p in pf_points {
             painter.circle_filled(
-                world_to_screen.map_point(Pos2::new(p.translation.x, p.translation.y)),
+                world_to_screen.map_point(Pos2::new(p.loc.translation.x, p.loc.translation.y)),
                 1.0,
                 PACMAN_PARTICLE_FILTER_COLOR,
             );
