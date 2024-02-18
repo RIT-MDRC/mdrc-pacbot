@@ -117,10 +117,11 @@ pub fn run_simulation(
     mut simulation: ResMut<PacbotSimulation>,
     mut phys_stopwatch: ResMut<PhysicsStopwatch>,
     target_velocity: Res<TargetVelocity>,
+    time: Res<Time>,
 ) {
     phys_stopwatch.0.start();
     simulation.set_target_robot_velocity((target_velocity.0, target_velocity.1));
-    simulation.step();
+    simulation.step(time.delta_seconds());
     phys_stopwatch.0.mark_segment("Step simulation");
 }
 
@@ -160,6 +161,7 @@ pub fn run_particle_filter(
         //     .unwrap_or(IntLocation::new(1, 1));
 
         // Update particle filter
+        println!("framerate: {}", 1.0/time.delta_seconds());
         let rigid_body = simulation.get_robot_rigid_body();
         let vel_lin = rigid_body.linvel().clone();
         let vel_ang = rigid_body.angvel();
@@ -305,11 +307,13 @@ impl PacbotSimulation {
     /// ```
     /// use mdrc_pacbot_util::physics::PacbotSimulation;
     /// let mut simulation = PacbotSimulation::default();
+    /// let dt = 1.0 / 60.0;
     ///
     /// // in an infinite loop
-    /// simulation.step();
+    /// simulation.step(dt);
     /// ```
-    pub fn step(&mut self) {
+    pub fn step(&mut self, dt: f32) {
+        self.integration_parameters.set_inv_dt(1.0/dt);
         self.step_target_velocity();
 
         self.physics_pipeline.step(

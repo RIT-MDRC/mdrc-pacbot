@@ -343,7 +343,7 @@ impl ParticleFilter {
         stopwatch.mark_segment("Sort points");
 
         // TODO: check that this is a good way to do this. Also move 0.9 to a tunable parameter
-        // Remove the last 10% of points
+        // Remove the last percentage of points
         self.points
             .truncate((self.points.len() as f32 * 0.99) as usize);
 

@@ -16,6 +16,7 @@ use crate::replay_manager::{replay_playback, update_replay_manager_system, Repla
 use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
 use bevy::prelude::*;
+use bevy::window::PresentMode;
 use bevy_egui::EguiPlugin;
 use pacbot_rs::game_engine::GameEngine;
 
@@ -84,8 +85,8 @@ impl Default for UserSettings {
             replay_save_targets: true,
 
             enable_pf: true,
-            pf_total_points: 10000,
-            pf_gui_points: 10000,
+            pf_total_points: 1000,
+            pf_gui_points: 1000,
             pf_elite: 10,
             pf_purge: 100,
             pf_random: 200,
@@ -103,7 +104,13 @@ pub struct ScheduleStopwatch(Stopwatch);
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                present_mode: PresentMode::Immediate,
+                ..default()
+            }),
+            ..default()
+        }))
         .add_plugins(EguiPlugin)
         .init_resource::<PacbotSensors>()
         .init_resource::<PacbotSensorsRecvTime>()
