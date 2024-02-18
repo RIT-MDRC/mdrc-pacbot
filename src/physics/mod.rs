@@ -164,7 +164,7 @@ pub fn run_particle_filter(
         //     .unwrap_or(IntLocation::new(1, 1));
 
         // Update particle filter
-        println!("framerate: {}", 1.0/time.delta_seconds());
+        // println!("framerate: {}", 1.0/time.delta_seconds());
         let rigid_body = simulation.get_robot_rigid_body();
         let vel_lin = rigid_body.linvel().clone();
         let vel_ang = rigid_body.angvel();

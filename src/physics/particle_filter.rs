@@ -233,56 +233,6 @@ impl ParticleFilter {
     ) {
         stopwatch.start();
 
-        let elite_boundary = self.options.elite;
-        // let genetic_boundary = self.options.points - self.options.random - self.options.purge;
-        // let random_ish_boundary = self.options.points - self.options.random;
-
-        let _elite_points = 0..elite_boundary;
-        // let genetic_points = elite_boundary..genetic_boundary;
-        // let random_near_cv_points = genetic_boundary..random_ish_boundary;
-        // let random_points = random_ish_boundary..self.options.points;
-
-        // randomize the last 'random' points
-        // for i in random_points {
-        //     let point = self.random_point();
-        //     self.points[i] = point;
-        // }
-
-        // stopwatch.mark_segment("Randomize last points");
-
-        // randomize the last 'purge' points near the given approximate location
-        // let results: Vec<_> = random_near_cv_points
-        //     .clone()
-        //     .into_par_iter()
-        //     .map(|_| self.random_point_near(cv_position))
-        //     .collect();
-        // self.points[random_near_cv_points].copy_from_slice(&results);
-        // for i in random_near_cv_points {
-        //     self.points[i] = self.random_point_near(cv_position);
-        // }
-
-        // stopwatch.mark_segment("Randomize last points near cv location");
-
-        // let mut rng = rand::thread_rng();
-
-        // for i in genetic_points {
-        //     // Generate a biased index based on the configured strength
-        //     let mut weighted_index =
-        //         (rng.gen::<f32>().powf(self.options.elitism_bias) * elite_boundary as f32) as usize;
-
-        //     // Ensure the weighted_index does not exceed the last index
-        //     weighted_index = weighted_index.min(self.options.points);
-
-        //     // Retrieve the selected point and apply a mutation
-        //     let point = self.points[weighted_index];
-        //     let new_point = self.modify_point(point);
-
-        //     // Replace the current point with the new one
-        //     self.points[i] = new_point;
-        // }
-
-        // stopwatch.mark_segment("Genetic points");
-
         // retain points that are not inside walls
         self.points.retain(|&point| {
             // if the virtual distance sensor reads 0, it is inside a wall, so discard it
@@ -357,6 +307,11 @@ impl ParticleFilter {
 
         stopwatch.mark_segment("Calculate distance sensor errors");
 
+        // go through every point and remove all that have an error greater than a certain threshold
+        // TODO:_make tunable parameter
+        paired_points_and_errors.retain(|(_, error)| *error < 2.0);
+        stopwatch.mark_segment("Remove points with large error");
+
         // Sort the paired vector based on the error values
         paired_points_and_errors
             .sort_unstable_by(|(_, error_a), (_, error_b)| error_a.total_cmp(error_b));
@@ -371,8 +326,8 @@ impl ParticleFilter {
 
         // TODO: check that this is a good way to do this. Also move to a tunable parameter
         // Remove the last percentage of points
-        self.points
-            .truncate((self.points.len() as f32 * 0.99) as usize);
+        // self.points
+        //     .truncate((self.points.len() as f32 * 0.99) as usize);
 
         stopwatch.mark_segment("Remove least accurate points");
 
