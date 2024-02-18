@@ -79,9 +79,9 @@ impl Default for UserSettings {
             go_server_address: None,
             robot: Robot::default(),
 
-            replay_save_location: true,
-            replay_save_sensors: true,
-            replay_save_targets: true,
+            replay_save_location: false,
+            replay_save_sensors: false,
+            replay_save_targets: false,
 
             enable_pf: true,
             pf_total_points: 1000,

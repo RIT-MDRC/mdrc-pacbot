@@ -98,6 +98,9 @@ pub fn update_game_state_pacbot_loc(
         if let Some(pacbot_location) =
             grid.node_nearest(pacbot_location.translation.x, pacbot_location.translation.y)
         {
+            if old_pacbot_location == pacbot_location {
+                return;
+            }
             pacman_state.0.set_pacman_location(LocationState {
                 row: pacbot_location.row,
                 col: pacbot_location.col,

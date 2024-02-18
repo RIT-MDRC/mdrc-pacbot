@@ -237,7 +237,7 @@ impl GuiApp {
             tab_viewer.target_velocity.0.y = 0.0;
             tab_viewer.target_velocity.1 = 0.0;
             ctx.input(|i| {
-                let target_speed = if i.modifiers.shift { 2.0 } else { 0.8 };
+                let target_speed = if i.modifiers.shift { 10.0 } else { 4.0 };
                 if i.key_down(Key::S) {
                     tab_viewer.target_velocity.0.x = target_speed;
                 }

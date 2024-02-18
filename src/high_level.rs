@@ -6,10 +6,12 @@ use crate::pathing::TargetPath;
 use crate::util::stopwatch::Stopwatch;
 use crate::{PacmanGameState, UserSettings};
 use bevy::prelude::*;
+use bincode::{deserialize, serialize};
 use candle_core::D;
 use candle_core::{Device, Module, Tensor};
 use candle_nn as nn;
 use ndarray::{s, Array};
+use pacbot_rs::game_engine::GameEngine;
 use pacbot_rs::game_modes::GameMode;
 use pacbot_rs::game_state::GameState;
 use pacbot_rs::location::LocationState;
@@ -55,7 +57,8 @@ pub fn run_high_level(
         ai_stopwatch.0.start();
 
         let mut path = vec![];
-        let mut sim_engine = game_state.0.clone();
+        let sim_engine = serialize(&game_state.0).unwrap();
+        let mut sim_engine: GameEngine = deserialize(&sim_engine).unwrap();
         let mut curr_pos = IntLocation {
             row: sim_engine.get_state().pacman_loc.row,
             col: sim_engine.get_state().pacman_loc.col,

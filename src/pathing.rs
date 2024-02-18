@@ -1,7 +1,6 @@
 use crate::grid::IntLocation;
 use crate::physics::LightPhysicsInfo;
 use crate::{PacmanGameState, UserSettings};
-use bevy_ecs::prelude::*;
 use bevy::prelude::*;
 use rapier2d::na::Vector2;
 
@@ -26,7 +25,7 @@ pub fn target_path_to_target_vel(
                 let curr_pos = curr_pos.translation.vector.xy();
                 let target_pos = Vector2::new(target_pos.row as f32, target_pos.col as f32);
 
-                let max_speed = 20.;
+                let max_speed = 6.;
                 let mut delta_pos = target_pos - curr_pos;
 
                 let mut barrel_through = false;
@@ -41,11 +40,9 @@ pub fn target_path_to_target_vel(
                 }
                 if barrel_through || delta_pos.magnitude() > max_speed {
                     delta_pos = delta_pos.normalize() * max_speed;
-                }
-                else {
+                } else {
                     delta_pos *= 4.;
                 }
-
 
                 target_velocity.0 = delta_pos;
                 return;
