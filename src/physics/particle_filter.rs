@@ -267,7 +267,12 @@ impl ParticleFilter {
             // if the virtual distance sensor reads 0, it is inside a wall, so discard it
             !(Self::distance_sensor_ray(
                 *point,
-                self.robot.distance_sensors[0],
+                DistanceSensor {
+                    relative_position: Point2::new(0.0, 0.0),
+                    relative_direction: 0.0,
+                    noise_std: 0.0,
+                    max_range: 1.0,
+                },
                 rigid_body_set,
                 collider_set,
                 query_pipeline,
