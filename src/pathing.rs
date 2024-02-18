@@ -2,6 +2,7 @@ use crate::grid::IntLocation;
 use crate::physics::LightPhysicsInfo;
 use crate::{PacmanGameState, UserSettings};
 use bevy_ecs::prelude::*;
+use bevy::prelude::*;
 use rapier2d::na::Vector2;
 
 /// Pacbot's desired path
@@ -19,23 +20,35 @@ pub fn target_path_to_target_vel(
     mut target_velocity: ResMut<TargetVelocity>,
     settings: Res<UserSettings>,
 ) {
-    if settings.enable_ai {
-        if !pacman_state.0.is_paused() {
-            if let Some(target_pos) = target_path.0.get(0) {
-                if let Some(curr_pos) = phys_info.real_pos {
-                    let curr_pos = curr_pos.translation.vector.xy();
-                    let target_pos = Vector2::new(target_pos.row as f32, target_pos.col as f32);
+    if settings.enable_ai && !pacman_state.0.is_paused() {
+        if let Some(target_pos) = target_path.0.first() {
+            if let Some(curr_pos) = phys_info.real_pos {
+                let curr_pos = curr_pos.translation.vector.xy();
+                let target_pos = Vector2::new(target_pos.row as f32, target_pos.col as f32);
 
-                    let max_speed = 20.;
-                    let mut delta_pos = target_pos - curr_pos;
-                    if delta_pos.magnitude() > max_speed {
-                        delta_pos = delta_pos.normalize() * max_speed;
+                let max_speed = 20.;
+                let mut delta_pos = target_pos - curr_pos;
+
+                let mut barrel_through = false;
+                if let Some(target_pos_next) = target_path.0.get(1) {
+                    // Barrel through if next position is in the same direction
+                    let delta_pos_next =
+                        Vector2::new(target_pos_next.row as f32, target_pos_next.col as f32)
+                            - curr_pos;
+                    if delta_pos_next.normalize().dot(&delta_pos.normalize()) > 0.95 {
+                        barrel_through = true;
                     }
-                    delta_pos *= 2.;
-
-                    target_velocity.0 = delta_pos;
-                    return;
                 }
+                if barrel_through || delta_pos.magnitude() > max_speed {
+                    delta_pos = delta_pos.normalize() * max_speed;
+                }
+                else {
+                    delta_pos *= 4.;
+                }
+
+
+                target_velocity.0 = delta_pos;
+                return;
             }
         }
     }
