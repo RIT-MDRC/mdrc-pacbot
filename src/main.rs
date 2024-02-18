@@ -84,8 +84,8 @@ impl Default for UserSettings {
             replay_save_targets: true,
 
             enable_pf: true,
-            pf_total_points: 1000,
-            pf_gui_points: 1000,
+            pf_total_points: 10000,
+            pf_gui_points: 10000,
             pf_elite: 10,
             pf_purge: 100,
             pf_random: 200,

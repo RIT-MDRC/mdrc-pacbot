@@ -345,15 +345,15 @@ impl ParticleFilter {
         // TODO: check that this is a good way to do this. Also move 0.9 to a tunable parameter
         // Remove the last 10% of points
         self.points
-            .truncate((self.points.len() as f32 * 0.9) as usize);
+            .truncate((self.points.len() as f32 * 0.99) as usize);
 
         stopwatch.mark_segment("Remove least accurate points");
 
         // extend the points to the correct length since some have been pruned
         while self.points.len() < self.options.points {
-            // 50% chance to uniformly add a random point, 50% chance to add a point around an existing point
+            // chance to uniformly add a random point or do one around an existing point
             // TODO: make this a tunable parameter
-            let point = if rand::thread_rng().gen_bool(0.5) && self.points.len() > 0 {
+            let point = if rand::thread_rng().gen_bool(0.99) && self.points.len() > 0 {
                 // grab random point to generate a point near. grab point from self.points
                 let random_index = rand::thread_rng().gen_range(0..self.points.len());
                 // let int_location = IntLocation::new(
@@ -362,14 +362,21 @@ impl ParticleFilter {
                 // );
 
                 let chosen_point = self.points[random_index];
-                self.random_point_near(
-                    self.grid
-                        .node_nearest(
-                            chosen_point.translation.x,
-                            chosen_point.translation.y,
-                        )
-                        .unwrap_or(IntLocation::new(1, 1)),
-                )
+                // generate a new point some random distance around this chosen point by adding a random x, y and angle
+                // TODO: make this a tunable parameter
+                let new_x = chosen_point.translation.x + rand::thread_rng().gen_range(-0.3..0.3);
+                let new_y = chosen_point.translation.y + rand::thread_rng().gen_range(-0.3..0.3);
+                let new_angle = chosen_point.rotation.angle() + rand::thread_rng().gen_range(-0.3..0.3);
+                Isometry2::new(Vector2::new(new_x, new_y), new_angle)
+
+                // self.random_point_near(
+                //     self.grid
+                //         .node_nearest(
+                //             chosen_point.translation.x,
+                //             chosen_point.translation.y,
+                //         )
+                //         .unwrap_or(IntLocation::new(1, 1)),
+                // )
             } else {
                 self.random_point_uniform()
             };
