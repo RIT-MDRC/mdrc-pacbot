@@ -10,7 +10,9 @@ use crate::physics::particle_filter::{ParticleFilter, ParticleFilterOptions};
 use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
 use crate::{PacmanGameState, UserSettings};
+use bevy::time::Time;
 use bevy_ecs::prelude::*;
+use native_dialog::Filter;
 use pacbot_rs::location::LocationState;
 use rapier2d::dynamics::{IntegrationParameters, RigidBodySet};
 use rapier2d::geometry::{BroadPhase, NarrowPhase};
@@ -18,6 +20,8 @@ use rapier2d::na::{Isometry2, Point2, Vector2};
 use rapier2d::prelude::Ray;
 use rapier2d::prelude::Real;
 use rapier2d::prelude::*;
+
+use self::particle_filter::FilterPoint;
 
 /// Rapier interaction group representing all walls
 const GROUP_WALL: u32 = 1;
@@ -36,7 +40,7 @@ pub struct LightPhysicsInfo {
     /// Simulated distance sensor rays emanating from pf_pos
     pub pf_pos_rays: Vec<(Point2<f32>, Point2<f32>)>,
     /// Exposed particle filter points
-    pub pf_points: Vec<Isometry2<f32>>,
+    pub pf_points: Vec<FilterPoint>,
 }
 
 /// Tracks the performance of the physics engine
@@ -119,10 +123,11 @@ pub fn run_simulation(
     mut simulation: ResMut<PacbotSimulation>,
     mut phys_stopwatch: ResMut<PhysicsStopwatch>,
     target_velocity: Res<TargetVelocity>,
+    time: Res<Time>,
 ) {
     phys_stopwatch.0.start();
     simulation.set_target_robot_velocity((target_velocity.0, target_velocity.1));
-    simulation.step();
+    simulation.step(time.delta_seconds());
     phys_stopwatch.0.mark_segment("Step simulation");
 }
 
@@ -132,6 +137,8 @@ pub fn run_particle_filter(
     sensors: Res<PacbotSensors>,
     grid: Local<ComputedGrid>,
     settings: Res<UserSettings>,
+    target_velocity: Res<TargetVelocity>,
+    time: Res<Time>,
 ) {
     if settings.enable_pf {
         simulation
@@ -152,15 +159,19 @@ pub fn run_particle_filter(
         simulation.particle_filter.set_robot(settings.robot.clone());
 
         // Estimate game location
-        let estimated_location = grid
-            .node_nearest(
-                simulation.get_primary_robot_position().translation.x,
-                simulation.get_primary_robot_position().translation.y,
-            )
-            .unwrap_or(IntLocation::new(1, 1));
+        // let estimated_location = grid
+        //     .node_nearest(
+        //         simulation.get_primary_robot_position().translation.x,
+        //         simulation.get_primary_robot_position().translation.y,
+        //     )
+        //     .unwrap_or(IntLocation::new(1, 1));
 
         // Update particle filter
-        simulation.pf_update(estimated_location, &mut pf_stopwatch.0, &sensors);
+        // println!("framerate: {}", 1.0/time.delta_seconds());
+        let rigid_body = simulation.get_robot_rigid_body();
+        let vel_lin = rigid_body.linvel().clone();
+        let vel_ang = rigid_body.angvel();
+        simulation.pf_update(Isometry2::new(Vector2::new(vel_lin.x, vel_lin.y), vel_ang), time.delta_seconds(), &mut pf_stopwatch.0, &sensors);
     }
 }
 
@@ -181,9 +192,9 @@ pub fn update_physics_info(
     }
     *phys_info = LightPhysicsInfo {
         real_pos: Some(*simulation.get_primary_robot_position()),
-        pf_pos: Some(simulation.pf_best_guess()),
+        pf_pos: Some(simulation.pf_best_guess().loc),
         real_pos_rays: rays,
-        pf_pos_rays: simulation.get_distance_sensor_rays(pf_position),
+        pf_pos_rays: simulation.get_distance_sensor_rays(pf_position.loc),
         pf_points: if settings.enable_pf {
             simulation.particle_filter.points(settings.pf_gui_points)
         } else {
@@ -302,11 +313,13 @@ impl PacbotSimulation {
     /// ```
     /// use mdrc_pacbot_util::physics::PacbotSimulation;
     /// let mut simulation = PacbotSimulation::default();
+    /// let dt = 1.0 / 60.0;
     ///
     /// // in an infinite loop
-    /// simulation.step();
+    /// simulation.step(dt);
     /// ```
-    pub fn step(&mut self) {
+    pub fn step(&mut self, dt: f32) {
+        self.integration_parameters.set_inv_dt(1.0/dt);
         self.step_target_velocity();
 
         self.physics_pipeline.step(
@@ -326,6 +339,19 @@ impl PacbotSimulation {
         );
 
         self.query_pipeline_updated = false;
+    }
+    
+    pub fn get_robot_rigid_body(&mut self) -> &mut RigidBody {
+        self
+            .rigid_body_set
+            .get_mut(
+                self.collider_set
+                    .get(self.primary_robot)
+                    .unwrap()
+                    .parent()
+                    .unwrap(),
+            )
+            .unwrap()
     }
 
     /// Apply an impulse to the primary robot based on robot_target_velocity
@@ -538,12 +564,12 @@ impl PacbotSimulation {
     }
 
     /// Get the particle filter's best guess position
-    pub fn pf_best_guess(&self) -> Isometry2<f32> {
+    pub fn pf_best_guess(&self) -> FilterPoint {
         self.particle_filter.best_guess()
     }
 
     /// Get the best 'count' particle filter points
-    pub fn pf_points(&self, count: usize) -> Vec<Isometry2<f32>> {
+    pub fn pf_points(&self, count: usize) -> Vec<FilterPoint> {
         self.particle_filter.points(count)
     }
 }
