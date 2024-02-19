@@ -5,15 +5,29 @@ use crate::grid::IntLocation;
 use crate::pathing::TargetPath;
 use crate::util::stopwatch::Stopwatch;
 use crate::{PacmanGameState, UserSettings};
-use bevy_ecs::prelude::*;
+use bevy::prelude::*;
+use bincode::{deserialize, serialize};
 use candle_core::D;
 use candle_core::{Device, Module, Tensor};
 use candle_nn as nn;
 use ndarray::{s, Array};
+use pacbot_rs::game_engine::GameEngine;
 use pacbot_rs::game_modes::GameMode;
 use pacbot_rs::game_state::GameState;
+use pacbot_rs::location::LocationState;
 use pacbot_rs::variables;
 use pacbot_rs::variables::GHOST_FRIGHT_STEPS;
+
+/// Plugin for high level AI functionality.
+pub struct HLPlugin;
+
+impl Plugin for HLPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(AiStopwatch(Stopwatch::new(10, "AI".to_string(), 5.0, 10.0)))
+            .add_systems(Update, run_high_level)
+            .init_non_send_resource::<HighLevelContext>();
+    }
+}
 
 /// Tracks the time AI takes to make decisions
 #[derive(Resource)]
@@ -28,32 +42,57 @@ pub fn run_high_level(
     mut ai_stopwatch: ResMut<AiStopwatch>,
 ) {
     if settings.enable_ai && !game_state.0.is_paused() && game_state.is_changed() {
+        // If ghosts are in an invalid state, don't run the AI
+        if game_state
+            .0
+            .get_state()
+            .ghosts
+            .iter()
+            .map(|g| g.read().unwrap().loc)
+            .any(|loc| loc.col > 28 || loc.row > 31)
+        {
+            return;
+        }
+
         ai_stopwatch.0.start();
 
-        let action = hl_ctx.step(game_state.0.get_state(), &std_grid);
-        let curr_pos = IntLocation {
-            row: game_state.0.get_state().pacman_loc.row,
-            col: game_state.0.get_state().pacman_loc.col,
+        let mut path = vec![];
+        let sim_engine = serialize(&game_state.0).unwrap();
+        let mut sim_engine: GameEngine = deserialize(&sim_engine).unwrap();
+        let mut curr_pos = IntLocation {
+            row: sim_engine.get_state().pacman_loc.row,
+            col: sim_engine.get_state().pacman_loc.col,
         };
-        target_path.0 = vec![match action {
-            HLAction::Stay => curr_pos,
-            HLAction::Left => IntLocation {
-                row: curr_pos.row,
-                col: curr_pos.col - 1,
-            },
-            HLAction::Right => IntLocation {
-                row: curr_pos.row,
-                col: curr_pos.col + 1,
-            },
-            HLAction::Up => IntLocation {
-                row: curr_pos.row - 1,
-                col: curr_pos.col,
-            },
-            HLAction::Down => IntLocation {
-                row: curr_pos.row + 1,
-                col: curr_pos.col,
-            },
-        }];
+        for _ in 0..6 {
+            let action = hl_ctx.step(sim_engine.get_state(), &std_grid);
+            let target_pos = match action {
+                HLAction::Stay => curr_pos,
+                HLAction::Left => IntLocation {
+                    row: curr_pos.row,
+                    col: curr_pos.col - 1,
+                },
+                HLAction::Right => IntLocation {
+                    row: curr_pos.row,
+                    col: curr_pos.col + 1,
+                },
+                HLAction::Up => IntLocation {
+                    row: curr_pos.row - 1,
+                    col: curr_pos.col,
+                },
+                HLAction::Down => IntLocation {
+                    row: curr_pos.row + 1,
+                    col: curr_pos.col,
+                },
+            };
+            sim_engine.set_pacman_location(LocationState {
+                row: target_pos.row,
+                col: target_pos.col,
+                dir: 0,
+            });
+            curr_pos = target_pos;
+            path.push(target_pos);
+        }
+        target_path.0 = path;
 
         ai_stopwatch.0.mark_segment("AI");
     }

@@ -2,7 +2,7 @@ use crate::grid::standard_grids::StandardGrid;
 use crate::grid::ComputedGrid;
 use crate::gui::game::update_game;
 use crate::gui::{font_setup, ui_system, AppMode, GuiApp, GuiStopwatch};
-use crate::high_level::{run_high_level, AiStopwatch, HighLevelContext};
+use crate::high_level::HLPlugin;
 use crate::network::{
     reconnect_pico, recv_pico, send_motor_commands, NetworkPluginData, PacbotSensors,
     PacbotSensorsRecvTime,
@@ -80,9 +80,9 @@ impl Default for UserSettings {
             go_server_address: None,
             robot: Robot::default(),
 
-            replay_save_location: true,
-            replay_save_sensors: true,
-            replay_save_targets: true,
+            replay_save_location: false,
+            replay_save_sensors: false,
+            replay_save_targets: false,
 
             enable_pf: true,
             pf_total_points: 1000,
@@ -112,6 +112,7 @@ fn main() {
             ..default()
         }))
         .add_plugins(EguiPlugin)
+        .add_plugins(HLPlugin)
         .init_resource::<PacbotSensors>()
         .init_resource::<PacbotSensorsRecvTime>()
         .init_resource::<LightPhysicsInfo>()
@@ -125,7 +126,6 @@ fn main() {
         .init_resource::<TargetPath>()
         .init_resource::<TargetVelocity>()
         .init_resource::<ReplayManager>()
-        .init_non_send_resource::<HighLevelContext>()
         .insert_resource(PhysicsStopwatch(Stopwatch::new(
             10,
             "Physics".to_string(),
@@ -150,13 +150,11 @@ fn main() {
             5.0,
             7.0,
         )))
-        .insert_resource(AiStopwatch(Stopwatch::new(10, "AI".to_string(), 5.0, 10.0)))
         .add_systems(Startup, font_setup)
         .add_systems(
             Update,
             (
                 // General
-                run_high_level,
                 update_game,
                 target_path_to_target_vel,
                 // Ui

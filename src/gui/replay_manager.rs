@@ -33,14 +33,14 @@ impl<'a> TabViewer<'a> {
             if ui
                 .add_enabled(advanced_controls, icon_button("⏮"))
                 .clicked()
-                || (k_left && k_shift)
+                || (advanced_controls && k_left && k_shift)
             {
                 self.replay_manager.replay.go_to_beginning();
             }
             if ui
                 .add_enabled(advanced_controls, icon_button("⏪"))
                 .clicked()
-                || (k_left && !k_shift)
+                || (advanced_controls && k_left && !k_shift)
             {
                 self.replay_manager
                     .replay
@@ -78,7 +78,7 @@ impl<'a> TabViewer<'a> {
                     icon_button("⏩"),
                 )
                 .clicked()
-                || (k_right && !k_shift)
+                || ((advanced_controls || (!playback_mode && game_paused)) && k_right && !k_shift)
             {
                 if playback_mode {
                     self.replay_manager
@@ -100,7 +100,7 @@ impl<'a> TabViewer<'a> {
             if ui
                 .add_enabled(advanced_controls, icon_button("⏭"))
                 .clicked()
-                || (k_right && k_shift)
+                || (advanced_controls && k_right && k_shift)
             {
                 self.replay_manager.replay.go_to_end();
             }
