@@ -2,18 +2,18 @@
 
 use crate::grid::{ComputedGrid, Direction, IntLocation};
 use crate::network::PacbotSensors;
-use crate::physics::{PacbotSimulation, GROUP_ROBOT, GROUP_WALL};
+use crate::physics::PacbotSimulation;
 use crate::robot::{DistanceSensor, Robot};
 use crate::util::stopwatch::Stopwatch;
 use crate::UserSettings;
 use rand::rngs::ThreadRng;
 use rand::Rng;
 use rapier2d::na::{Isometry2, Point2, Vector2};
-use rapier2d::prelude::{
-    ColliderSet, InteractionGroups, QueryFilter, QueryPipeline, Ray, RigidBodySet, Rotation,
-};
+use rapier2d::prelude::{Ray, Rotation};
 use rayon::prelude::*;
 use std::f32::consts::PI;
+
+use super::raycast_grid::RaycastGrid;
 
 /// Values that can be tweaked to improve the performance of the particle filter
 pub struct ParticleFilterOptions {
@@ -43,6 +43,8 @@ pub struct ParticleFilter {
     robot: Robot,
     /// The grid used to find empty spaces; to change this, create a new particle filter
     grid: ComputedGrid,
+    /// The data structure for performing raycasts on the physical grid.
+    raycast_grid: RaycastGrid,
     /// Guesses for the current location, ordered by measured accuracy
     points: Vec<FilterPoint>,
     /// The current best guess
@@ -65,6 +67,7 @@ impl ParticleFilter {
         let start_point = FilterPoint::new(start);
         Self {
             points: vec![start_point],
+            raycast_grid: RaycastGrid::new(&grid),
             grid,
             robot,
             best_guess: start_point.clone(),
@@ -78,6 +81,10 @@ impl ParticleFilter {
 
     pub fn set_robot(&mut self, robot: Robot) {
         self.robot = robot;
+    }
+
+    pub fn raycast_grid(&self) -> &RaycastGrid {
+        &self.raycast_grid
     }
 
     /// Generate a completely random walkable point
@@ -192,9 +199,6 @@ impl ParticleFilter {
         &mut self,
         velocity: Isometry2<f32>,
         dt: f32,
-        rigid_body_set: &mut RigidBodySet,
-        collider_set: &mut ColliderSet,
-        query_pipeline: &QueryPipeline,
         stopwatch: &mut Stopwatch,
         sensors: &PacbotSensors,
         settings: &UserSettings,
@@ -203,21 +207,9 @@ impl ParticleFilter {
 
         // retain points that are not inside walls
         self.points.retain(|&point| {
-            // if the virtual distance sensor reads 0, it is inside a wall, so discard it
-            !(Self::distance_sensor_ray(
-                point.loc,
-                DistanceSensor {
-                    relative_position: Point2::new(0.0, 0.0),
-                    relative_direction: 0.0,
-                    noise_std: 0.0,
-                    max_range: 1.0,
-                },
-                rigid_body_set,
-                collider_set,
-                query_pipeline,
-            )
-            .abs()
-                < 0.05
+            !(self
+                .raycast_grid
+                .is_in_wall(point.loc.translation.x, point.loc.translation.y)
                 || point.loc.translation.x < 0.0
                 || point.loc.translation.y < 0.0
                 || point.loc.translation.x > 32.0
@@ -265,14 +257,7 @@ impl ParticleFilter {
             .map(|p| {
                 (
                     p,
-                    Self::distance_sensor_diff(
-                        &robot,
-                        (*p).loc,
-                        &actual_sensor_readings,
-                        rigid_body_set,
-                        collider_set,
-                        query_pipeline,
-                    ),
+                    self.distance_sensor_diff(&robot, p.loc, &actual_sensor_readings),
                 )
             })
             .collect();
@@ -343,12 +328,10 @@ impl ParticleFilter {
 
     /// Given a location guess, measure the absolute difference against the real values
     fn distance_sensor_diff(
+        &self,
         robot: &Robot,
         point: Isometry2<f32>,
         actual_values: &Vec<Option<f32>>,
-        rigid_body_set: &RigidBodySet,
-        collider_set: &ColliderSet,
-        query_pipeline: &QueryPipeline,
     ) -> f32 {
         (0..actual_values.len())
             .map(|i| match actual_values[i] {
@@ -356,13 +339,7 @@ impl ParticleFilter {
                 Some(x) => {
                     let sensor = robot.distance_sensors[i];
 
-                    let toi = Self::distance_sensor_ray(
-                        point,
-                        sensor,
-                        rigid_body_set,
-                        collider_set,
-                        query_pipeline,
-                    );
+                    let toi = self.distance_sensor_ray(point, sensor);
 
                     let toi = (toi * 88.9).round() / 88.9;
 
@@ -373,38 +350,12 @@ impl ParticleFilter {
     }
 
     /// Given a location guess, measure one sensor
-    fn distance_sensor_ray(
-        point: Isometry2<f32>,
-        sensor: DistanceSensor,
-        rigid_body_set: &RigidBodySet,
-        collider_set: &ColliderSet,
-        query_pipeline: &QueryPipeline,
-    ) -> f32 {
-        let filter = QueryFilter::new().groups(InteractionGroups::new(
-            GROUP_ROBOT.into(),
-            GROUP_WALL.into(),
-        ));
+    fn distance_sensor_ray(&self, point: Isometry2<f32>, sensor: DistanceSensor) -> f32 {
+        let origin = point.transform_point(&sensor.relative_position);
+        let dir = point.rotation * Rotation::new(sensor.relative_direction);
+        let ray = Ray::new(origin, [dir.re, dir.im].into());
 
-        let ray = Ray::new(
-            point
-                .translation
-                .transform_point(&point.rotation.transform_point(&sensor.relative_position)),
-            (point.rotation * Rotation::new(sensor.relative_direction))
-                .transform_vector(&Vector2::new(1.0, 0.0)),
-        );
-
-        if let Some((_, toi)) = query_pipeline.cast_ray(
-            rigid_body_set,
-            collider_set,
-            &ray,
-            sensor.max_range,
-            true,
-            filter,
-        ) {
-            toi
-        } else {
-            sensor.max_range
-        }
+        self.raycast_grid.raycast(ray, sensor.max_range)
     }
 
     /// Get the best 'count' particle filter points
@@ -432,15 +383,7 @@ impl PacbotSimulation {
         sensors: &PacbotSensors,
         settings: &UserSettings,
     ) {
-        self.particle_filter.update(
-            velocity,
-            dt,
-            &mut self.rigid_body_set,
-            &mut self.collider_set,
-            &self.query_pipeline,
-            pf_stopwatch,
-            sensors,
-            settings,
-        );
+        self.particle_filter
+            .update(velocity, dt, pf_stopwatch, sensors, settings);
     }
 }
