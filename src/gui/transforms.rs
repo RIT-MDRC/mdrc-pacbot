@@ -5,6 +5,7 @@ use eframe::egui::Pos2;
 use crate::grid::Wall;
 
 /// A 2D transform consisting of per-axis scale and translation.
+#[derive(Copy, Clone)]
 pub struct Transform {
     scale_x: f32,
     scale_y: f32,
@@ -66,18 +67,18 @@ impl Transform {
         assert!(self.scale_x != 0.0);
         assert!(self.scale_y != 0.0);
         Self {
-            scale_x: self.scale_x.recip(),
-            scale_y: self.scale_y.recip(),
-            offset_x: -self.offset_x / self.scale_x,
-            offset_y: -self.offset_y / self.scale_y,
+            scale_x: self.scale_y.recip(),
+            scale_y: self.scale_x.recip(),
+            offset_x: -self.offset_y / self.scale_y,
+            offset_y: -self.offset_x / self.scale_x,
         }
     }
 
     /// Applies the transformation to a point.
     pub fn map_point(&self, p: Pos2) -> Pos2 {
         Pos2::new(
-            p.x * self.scale_x + self.offset_x,
             p.y * self.scale_y + self.offset_y,
+            p.x * self.scale_x + self.offset_x,
         )
     }
 
@@ -93,25 +94,25 @@ impl Transform {
     /// ```
     /// use rapier2d::na::Point2;
     /// use eframe::egui::Pos2;
-    /// use mdrc_pacbot_util::grid::Wall;
+    /// use mdrc_pacbot_util::grid::{IntLocation, Wall};
     /// use mdrc_pacbot_util::gui::transforms::Transform;
     ///
     /// let world_to_screen = Transform::new_letterboxed(
-    ///     Pos2::new(-1.0, 32.0),
-    ///     Pos2::new(32.0, -1.0),
+    ///     Pos2::new(-1.0, -1.0),
+    ///     Pos2::new(32.0, 32.0),
     ///     Pos2::new(0.0, 0.0),
     ///     Pos2::new(330.0, 330.0),
     /// );
     /// let wall = Wall {
-    ///     left_bottom: Point2::new(1.0, 1.0),
-    ///     right_top: Point2::new(2.0, 2.0),
+    ///     top_left: IntLocation::new(1, 2),
+    ///     bottom_right: IntLocation::new(2, 2),
     /// };
-    /// let (left_bottom, right_top) = world_to_screen.map_wall(&wall);
-    /// assert_eq!(left_bottom, Pos2::new(20.0, 310.0));
+    /// let (top_left, bottom_right) = world_to_screen.map_wall(&wall);
+    /// assert_eq!(top_left, Pos2::new(30.0, 20.0));
     /// ```
     pub fn map_wall(&self, wall: &Wall) -> (Pos2, Pos2) {
-        let left_bottom = Pos2::new(wall.left_bottom.x, wall.left_bottom.y);
-        let right_top = Pos2::new(wall.right_top.x, wall.right_top.y);
-        (self.map_point(left_bottom), self.map_point(right_top))
+        let top_left = Pos2::new(wall.top_left.row as f32, wall.top_left.col as f32);
+        let bottom_right = Pos2::new(wall.bottom_right.row as f32, wall.bottom_right.col as f32);
+        (self.map_point(top_left), self.map_point(bottom_right))
     }
 }

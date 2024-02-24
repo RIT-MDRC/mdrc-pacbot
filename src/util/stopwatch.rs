@@ -4,6 +4,7 @@ use crate::util::moving_average::MovingAverage;
 use std::time::Instant;
 
 /// Keeps track of time elapsed for a process that may have multiple parts
+#[derive(Clone, Debug)]
 pub struct Stopwatch {
     num_samples: usize,
 
@@ -13,11 +14,20 @@ pub struct Stopwatch {
 
     process_moving_average: MovingAverage,
     segment_moving_averages: Vec<(String, MovingAverage)>,
+
+    display_name: String,
+    ok_time_millis: f32,
+    bad_time_millis: f32,
 }
 
 impl Stopwatch {
     /// Creates a new Stopwatch
-    pub fn new(num_samples: usize) -> Self {
+    pub fn new(
+        num_samples: usize,
+        display_name: String,
+        ok_time_millis: f32,
+        bad_time_millis: f32,
+    ) -> Self {
         Stopwatch {
             num_samples,
             last_start_time: None,
@@ -25,7 +35,25 @@ impl Stopwatch {
             segment: 0,
             process_moving_average: MovingAverage::new(num_samples),
             segment_moving_averages: vec![],
+            display_name,
+            ok_time_millis,
+            bad_time_millis,
         }
+    }
+
+    /// Get this stopwatch's name
+    pub fn display_name(&self) -> String {
+        self.display_name.clone()
+    }
+
+    /// Get the amount of time under which the stopwatch is green
+    pub fn ok_time_millis(&self) -> f32 {
+        self.ok_time_millis
+    }
+
+    /// Get the amount of time under which the stopwatch is yellow
+    pub fn bad_time_millis(&self) -> f32 {
+        self.bad_time_millis
     }
 
     /// Mark the beginning of the process

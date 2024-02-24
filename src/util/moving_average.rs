@@ -1,6 +1,7 @@
 //! Keeps track of the average of a frequently changing value
 
 /// Keeps track of the average of a frequently changing value
+#[derive(Clone, Debug)]
 pub struct MovingAverage {
     /// The number of samples to keep in the average
     num_samples: usize,

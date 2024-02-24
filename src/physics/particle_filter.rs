@@ -1,9 +1,11 @@
 //! Tracks the robot's position over time
 
-use crate::grid::{ComputedGrid, Direction};
+use crate::grid::{ComputedGrid, Direction, IntLocation};
+use crate::network::PacbotSensors;
 use crate::physics::{PacbotSimulation, GROUP_ROBOT, GROUP_WALL};
 use crate::robot::{DistanceSensor, Robot};
 use crate::util::stopwatch::Stopwatch;
+use crate::UserSettings;
 use rand::rngs::ThreadRng;
 use rand::Rng;
 use rapier2d::na::{Isometry2, Point2, Vector2};
@@ -12,28 +14,27 @@ use rapier2d::prelude::{
 };
 use rayon::prelude::*;
 use std::f32::consts::PI;
-use std::sync::{Arc, Mutex};
 
 /// Values that can be tweaked to improve the performance of the particle filter
 pub struct ParticleFilterOptions {
     /// The total number of points tracked
-    ///
-    /// Any points not included in elite, purge, or random will be moved slightly
     pub points: usize,
+}
 
-    /// The number of top guesses that are kept unchanged for the next generation
-    pub elite: usize,
-    /// The number of worst guesses that are deleted and randomly generated near the best guess
-    pub purge: usize,
-    /// The number of worst guesses that are deleted and randomly generated anywhere
-    pub random: usize,
+#[derive(Clone, Copy)]
+pub struct FilterPoint {
+    pub loc: Isometry2<f32>,
+    time_alive: u16, // time alive in frames (has a maximum that should be taken into account)
+}
 
-    /// Standard deviation of the distance from the current best known location
-    pub spread: f32,
-    /// 1 for no bias, greater than 1 for bias towards more elite points
-    pub elitism_bias: f32,
-    pub genetic_translation_limit: f32,
-    pub genetic_rotation_limit: f32,
+impl FilterPoint {
+    pub fn new(loc: Isometry2<f32>) -> Self {
+        Self { loc, time_alive: 0 }
+    }
+
+    pub fn update_time_alive(&mut self) {
+        self.time_alive = self.time_alive.saturating_add(1);
+    }
 }
 
 /// Tracks the robot's position over time
@@ -43,11 +44,9 @@ pub struct ParticleFilter {
     /// The grid used to find empty spaces; to change this, create a new particle filter
     grid: ComputedGrid,
     /// Guesses for the current location, ordered by measured accuracy
-    points: Vec<Isometry2<f32>>,
-    /// Cross-thread reference to the current distance sensor readings
-    distance_sensors: Arc<Mutex<Vec<Option<f32>>>>,
+    points: Vec<FilterPoint>,
     /// The current best guess
-    best_guess: Isometry2<f32>,
+    best_guess: FilterPoint,
 
     /// Values that can be tweaked to improve the performance of the particle filter
     options: ParticleFilterOptions,
@@ -61,33 +60,28 @@ impl ParticleFilter {
         grid: ComputedGrid,
         robot: Robot,
         start: Isometry2<f32>,
-        distance_sensors: Arc<Mutex<Vec<Option<f32>>>>,
         options: ParticleFilterOptions,
     ) -> Self {
+        let start_point = FilterPoint::new(start);
         Self {
-            points: Vec::new(),
-            distance_sensors,
+            points: vec![start_point],
             grid,
             robot,
-            best_guess: start,
+            best_guess: start_point.clone(),
             options,
         }
     }
 
-    fn random_point_near(&self, point: Point2<u8>) -> Isometry2<f32> {
-        let mut rng = rand::thread_rng();
-        let distance = rng.gen_range(0.0..self.options.spread).floor() as usize;
-        let mut node = point;
-        for _ in 0..distance {
-            let neighbors = self.grid.neighbors(&node);
-            node = neighbors[rng.gen_range(0..neighbors.len())];
-        }
+    pub fn set_options(&mut self, particle_filter_options: ParticleFilterOptions) {
+        self.options = particle_filter_options;
+    }
 
-        self.random_point_at(node, rng)
+    pub fn set_robot(&mut self, robot: Robot) {
+        self.robot = robot;
     }
 
     /// Generate a completely random walkable point
-    fn random_point(&self) -> Isometry2<f32> {
+    fn random_point_uniform(&self) -> Isometry2<f32> {
         let mut rng = rand::thread_rng();
 
         let node = rng.gen_range(0..self.grid.walkable_nodes().len());
@@ -97,30 +91,30 @@ impl ParticleFilter {
     }
 
     /// Generate a random valid point around a certain walkable square
-    fn random_point_at(&self, node: Point2<u8>, mut rng: ThreadRng) -> Isometry2<f32> {
+    fn random_point_at(&self, node: IntLocation, mut rng: ThreadRng) -> Isometry2<f32> {
         // the central square (radius r) is where pacbot could be placed if there were walls all around
         let r = 1.0 - self.robot.collider_radius;
 
         // if r > 0.5, some of the cells are overlapping - cut off the edges of the central square
         if r >= 0.5 {
-            let mut left_bottom = Point2::new(node.x as f32 - r, node.y as f32 - r);
-            let mut right_top = Point2::new(node.x as f32 + r, node.y as f32 + r);
+            let mut top_left = Point2::new(node.row as f32 - r, node.col as f32 - r);
+            let mut bottom_right = Point2::new(node.row as f32 + r, node.col as f32 + r);
 
             if self.grid.next(&node, &Direction::Up).is_some() {
-                right_top.y = node.y as f32 + 0.5;
+                top_left.x = node.row as f32 - 0.5;
             }
             if self.grid.next(&node, &Direction::Down).is_some() {
-                left_bottom.y = node.y as f32 - 0.5;
+                bottom_right.x = node.row as f32 + 0.5;
             }
             if self.grid.next(&node, &Direction::Left).is_some() {
-                left_bottom.x = node.x as f32 - 0.5;
+                top_left.y = node.col as f32 - 0.5;
             }
             if self.grid.next(&node, &Direction::Right).is_some() {
-                right_top.x = node.x as f32 + 0.5;
+                bottom_right.y = node.col as f32 + 0.5;
             }
 
-            let rand_x = rng.gen_range(left_bottom.x..right_top.x);
-            let rand_y = rng.gen_range(left_bottom.y..right_top.y);
+            let rand_x = rng.gen_range(top_left.x..bottom_right.x);
+            let rand_y = rng.gen_range(top_left.y..bottom_right.y);
 
             Isometry2::new(Vector2::new(rand_x, rand_y), rng.gen_range(0.0..2.0 * PI))
         } else {
@@ -151,8 +145,8 @@ impl ParticleFilter {
             if area_selector < center_square_area {
                 return Isometry2::new(
                     Vector2::new(
-                        node.x as f32 + rng.gen_range(-r..r),
-                        node.y as f32 + rng.gen_range(-r..r),
+                        node.row as f32 + rng.gen_range(-r..r),
+                        node.col as f32 + rng.gen_range(-r..r),
                     ),
                     rng.gen_range(0.0..2.0 * PI),
                 );
@@ -163,29 +157,29 @@ impl ParticleFilter {
             match direction {
                 Direction::Up => Isometry2::new(
                     Vector2::new(
-                        node.x as f32 + rng.gen_range(-r..r),
-                        node.y as f32 + rng.gen_range(r..0.5),
+                        node.row as f32 + rng.gen_range(-0.5..-r),
+                        node.col as f32 + rng.gen_range(-r..r),
                     ),
                     rng.gen_range(0.0..2.0 * PI),
                 ),
                 Direction::Down => Isometry2::new(
                     Vector2::new(
-                        node.x as f32 + rng.gen_range(-r..r),
-                        node.y as f32 + rng.gen_range(-0.5..-r),
+                        node.row as f32 + rng.gen_range(r..0.5),
+                        node.col as f32 + rng.gen_range(-r..r),
                     ),
                     rng.gen_range(0.0..2.0 * PI),
                 ),
                 Direction::Left => Isometry2::new(
                     Vector2::new(
-                        node.x as f32 + rng.gen_range(-0.5..-r),
-                        node.y as f32 + rng.gen_range(-r..r),
+                        node.row as f32 + rng.gen_range(-r..r),
+                        node.col as f32 + rng.gen_range(-0.5..-r),
                     ),
                     rng.gen_range(0.0..2.0 * PI),
                 ),
                 Direction::Right => Isometry2::new(
                     Vector2::new(
-                        node.x as f32 + rng.gen_range(r..0.5),
-                        node.y as f32 + rng.gen_range(-r..r),
+                        node.row as f32 + rng.gen_range(-r..r),
+                        node.col as f32 + rng.gen_range(r..0.5),
                     ),
                     rng.gen_range(0.0..2.0 * PI),
                 ),
@@ -196,135 +190,76 @@ impl ParticleFilter {
     /// Update the particle filter, using the same rigid body set as the start
     pub fn update(
         &mut self,
-        cv_position: Point2<u8>,
+        velocity: Isometry2<f32>,
+        dt: f32,
         rigid_body_set: &mut RigidBodySet,
         collider_set: &mut ColliderSet,
         query_pipeline: &QueryPipeline,
-        stopwatch: &Arc<Mutex<Stopwatch>>,
+        stopwatch: &mut Stopwatch,
+        sensors: &PacbotSensors,
+        settings: &UserSettings,
     ) {
-        stopwatch.lock().unwrap().start();
+        stopwatch.start();
 
-        // extend the points to the correct length
-        while self.points.len() < self.options.points {
-            let point = self.random_point();
-            self.points.push(point);
-        }
-
-        stopwatch.lock().unwrap().mark_segment("Extend points");
-
-        // cut off any extra points
-        while self.points.len() > self.options.points {
-            self.points.pop();
-        }
-
-        stopwatch
-            .lock()
-            .unwrap()
-            .mark_segment("Cut off extra points");
-
-        let elite_boundary = self.options.elite;
-        let genetic_boundary = self.options.points - self.options.random - self.options.purge;
-        let random_ish_boundary = self.options.points - self.options.random;
-
-        let _elite_points = 0..elite_boundary;
-        let genetic_points = elite_boundary..genetic_boundary;
-        let random_near_cv_points = genetic_boundary..random_ish_boundary;
-        let random_points = random_ish_boundary..self.options.points;
-
-        // randomize the last 'random' points
-        for i in random_points {
-            let point = self.random_point();
-            self.points[i] = point;
-        }
-
-        stopwatch
-            .lock()
-            .unwrap()
-            .mark_segment("Randomize last points");
-
-        // randomize the last 'purge' points near the given approximate location
-        let results: Vec<_> = random_near_cv_points
-            .clone()
-            .into_par_iter()
-            .map(|_| self.random_point_near(cv_position))
-            .collect();
-        self.points[random_near_cv_points].copy_from_slice(&results);
-        // for i in random_near_cv_points {
-        //     self.points[i] = self.random_point_near(cv_position);
-        // }
-
-        stopwatch
-            .lock()
-            .unwrap()
-            .mark_segment("Randomize last points near cv location");
-
-        let mut rng = rand::thread_rng();
-
-        for i in genetic_points {
-            // Generate a biased index based on the configured strength
-            let mut weighted_index =
-                (rng.gen::<f32>().powf(self.options.elitism_bias) * elite_boundary as f32) as usize;
-
-            // Ensure the weighted_index does not exceed the last index
-            weighted_index = weighted_index.min(self.options.points);
-
-            // Retrieve the selected point and apply a mutation
-            let point = self.points[weighted_index];
-            let new_point = self.modify_point(point);
-
-            // Replace the current point with the new one
-            self.points[i] = new_point;
-        }
-
-        stopwatch.lock().unwrap().mark_segment("Genetic points");
-
-        // randomize any points that are within a wall or out of bounds
-        for i in 0..self.options.points {
-            // if the virtual distance sensor reads 0, it is inside a wall
-            if Self::distance_sensor_ray(
-                self.points[i],
-                self.robot.distance_sensors[0],
+        // retain points that are not inside walls
+        self.points.retain(|&point| {
+            // if the virtual distance sensor reads 0, it is inside a wall, so discard it
+            !(Self::distance_sensor_ray(
+                point.loc,
+                DistanceSensor {
+                    relative_position: Point2::new(0.0, 0.0),
+                    relative_direction: 0.0,
+                    noise_std: 0.0,
+                    max_range: 1.0,
+                },
                 rigid_body_set,
                 collider_set,
                 query_pipeline,
             )
             .abs()
                 < 0.05
-                || self.points[i].translation.x < 0.0
-                || self.points[i].translation.y < 0.0
-                || self.points[i].translation.x > 32.0
-                || self.points[i].translation.y > 32.0
-            {
-                self.points[i] = self.random_point();
-            }
-        }
+                || point.loc.translation.x < 0.0
+                || point.loc.translation.y < 0.0
+                || point.loc.translation.x > 32.0
+                || point.loc.translation.y > 32.0)
+        });
 
-        stopwatch
-            .lock()
-            .unwrap()
-            .mark_segment("Randomize out of bounds or in wall points");
+        stopwatch.mark_segment("Remove invalid points inside walls");
 
         let robot = self.robot.to_owned();
 
+        // multiply velocity by dt to get the distance moved
+        let delta_x = velocity.translation.x * dt;
+        let delta_y = velocity.translation.y * dt;
+        let delta_theta = velocity.rotation.angle() * dt;
+        for point in &mut self.points {
+            let angle = point.loc.rotation.angle();
+            let delta_x_rotated = delta_x * angle.cos() - delta_y * angle.sin();
+            let delta_y_rotated = delta_x * angle.sin() + delta_y * angle.cos();
+            point.loc.translation.x += delta_x_rotated;
+            point.loc.translation.y += delta_y_rotated;
+            point.loc.rotation = Rotation::new(angle + delta_theta);
+            point.update_time_alive();
+        }
+
+        stopwatch.mark_segment("Move each point by pacbot velocity");
+
         // Sort points
-        let distance_sensors = self
+        let actual_sensor_readings: Vec<_> = sensors
             .distance_sensors
-            .lock()
-            .expect("Failed to acquire distance sensors lock!")
-            .to_owned();
-        if distance_sensors.len() != self.robot.distance_sensors.len() {
+            .iter()
+            .map(|x| Some(*x as f32 / 88.9))
+            .collect();
+        if actual_sensor_readings.len() != self.robot.distance_sensors.len() {
             println!("Uh oh! Particle filter found the wrong number of distance sensors. Unexpected behavior may occur.");
             return;
         }
 
-        stopwatch
-            .lock()
-            .unwrap()
-            .mark_segment("Lock distance sensors");
+        stopwatch.mark_segment("Get distance sensors");
 
         // Calculate distance sensor errors
         // Calculate distance sensor errors and pair with points
-        let mut paired_points_and_errors: Vec<(&Isometry2<f32>, f32)> = self
+        let mut paired_points_and_errors: Vec<(&FilterPoint, f32)> = self
             .points
             .par_iter()
             .map(|p| {
@@ -332,8 +267,8 @@ impl ParticleFilter {
                     p,
                     Self::distance_sensor_diff(
                         &robot,
-                        *p,
-                        &distance_sensors,
+                        (*p).loc,
+                        &actual_sensor_readings,
                         rigid_body_set,
                         collider_set,
                         query_pipeline,
@@ -342,10 +277,11 @@ impl ParticleFilter {
             })
             .collect();
 
-        stopwatch
-            .lock()
-            .unwrap()
-            .mark_segment("Calculate distance sensor errors");
+        stopwatch.mark_segment("Calculate distance sensor errors");
+
+        // go through every point and remove all that have an error greater than a certain threshold
+        paired_points_and_errors.retain(|(_, error)| *error < settings.pf_error_threshold);
+        stopwatch.mark_segment("Remove points with large error");
 
         // Sort the paired vector based on the error values
         paired_points_and_errors
@@ -357,9 +293,52 @@ impl ParticleFilter {
             .map(|(point, _)| *point)
             .collect();
 
-        stopwatch.lock().unwrap().mark_segment("Sort points");
+        stopwatch.mark_segment("Sort points");
 
-        self.best_guess = self.points[0];
+        // extend the points to the correct length since some have been pruned
+        while self.points.len() < self.options.points {
+            // chance to uniformly add a random point or do one around an existing point
+            let point = if rand::thread_rng().gen_bool(settings.pf_chance_near_other as f64)
+                && self.points.len() > 0
+            {
+                // grab random point to generate a point near. grab point from self.points
+                let random_index = rand::thread_rng().gen_range(0..self.points.len());
+                let chosen_point = self.points[random_index];
+                // generate a new point some random distance around this chosen point by adding a random x, y and angle.
+                let new_x = chosen_point.loc.translation.x
+                    + rand::thread_rng()
+                        .gen_range(-settings.pf_translation_limit..settings.pf_translation_limit);
+                let new_y = chosen_point.loc.translation.y
+                    + rand::thread_rng()
+                        .gen_range(-settings.pf_translation_limit..settings.pf_translation_limit);
+                let new_angle = chosen_point.loc.rotation.angle()
+                    + rand::thread_rng()
+                        .gen_range(-settings.pf_rotation_limit..settings.pf_rotation_limit);
+                Isometry2::new(Vector2::new(new_x, new_y), new_angle)
+            } else {
+                self.random_point_uniform()
+            };
+            self.points.push(FilterPoint::new(point));
+        }
+
+        stopwatch.mark_segment("Add new points to fill up points list");
+
+        // cut off any extra points
+        while self.points.len() > self.options.points {
+            self.points.pop();
+        }
+
+        stopwatch.mark_segment("Cut off extra points");
+
+        // search for the point that has been around the longest
+        self.best_guess = self
+            .points
+            .iter()
+            .max_by_key(|x| x.time_alive)
+            .unwrap()
+            .clone();
+
+        stopwatch.mark_segment("Calculate best guess");
     }
 
     /// Given a location guess, measure the absolute difference against the real values
@@ -384,6 +363,8 @@ impl ParticleFilter {
                         collider_set,
                         query_pipeline,
                     );
+
+                    let toi = (toi * 88.9).round() / 88.9;
 
                     (toi - x).abs()
                 }
@@ -426,30 +407,8 @@ impl ParticleFilter {
         }
     }
 
-    /// a small random translation and a small random rotation to the point
-    fn modify_point(&mut self, point: Isometry2<f32>) -> Isometry2<f32> {
-        let mut rng = rand::thread_rng();
-
-        let translation_mutation_range =
-            -self.options.genetic_translation_limit..self.options.genetic_translation_limit;
-        let rotation_mutation_range =
-            -self.options.genetic_rotation_limit..self.options.genetic_rotation_limit;
-
-        let translation_mutation = Vector2::new(
-            rng.gen_range(translation_mutation_range.clone()),
-            rng.gen_range(translation_mutation_range),
-        );
-
-        let rotation_mutation = rng.gen_range(rotation_mutation_range);
-
-        Isometry2::new(
-            point.translation.vector + translation_mutation,
-            point.rotation.angle() + rotation_mutation,
-        )
-    }
-
     /// Get the best 'count' particle filter points
-    pub fn points(&self, count: usize) -> Vec<Isometry2<f32>> {
+    pub fn points(&self, count: usize) -> Vec<FilterPoint> {
         self.points
             .iter()
             .map(|p| p.to_owned())
@@ -458,20 +417,30 @@ impl ParticleFilter {
     }
 
     /// Get the best guess
-    pub fn best_guess(&self) -> Isometry2<f32> {
+    pub fn best_guess(&self) -> FilterPoint {
         self.best_guess
     }
 }
 
 impl PacbotSimulation {
     /// Update the particle filter
-    pub fn pf_update(&mut self, position: Point2<u8>, pf_stopwatch: &Arc<Mutex<Stopwatch>>) {
+    pub fn pf_update(
+        &mut self,
+        velocity: Isometry2<f32>,
+        dt: f32,
+        pf_stopwatch: &mut Stopwatch,
+        sensors: &PacbotSensors,
+        settings: &UserSettings,
+    ) {
         self.particle_filter.update(
-            position,
+            velocity,
+            dt,
             &mut self.rigid_body_set,
             &mut self.collider_set,
             &self.query_pipeline,
             pf_stopwatch,
+            sensors,
+            settings,
         );
     }
 }
