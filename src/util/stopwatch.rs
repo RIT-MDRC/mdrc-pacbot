@@ -41,14 +41,17 @@ impl Stopwatch {
         }
     }
 
+    /// Get this stopwatch's name
     pub fn display_name(&self) -> String {
         self.display_name.clone()
     }
 
+    /// Get the amount of time under which the stopwatch is green
     pub fn ok_time_millis(&self) -> f32 {
         self.ok_time_millis
     }
 
+    /// Get the amount of time under which the stopwatch is yellow
     pub fn bad_time_millis(&self) -> f32 {
         self.bad_time_millis
     }

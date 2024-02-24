@@ -1,7 +1,11 @@
+//! Utilities for writing blazingly fast Pacbot code
+
+#![warn(missing_docs)]
+
 use crate::grid::standard_grids::StandardGrid;
 use crate::grid::ComputedGrid;
 use crate::gui::game::update_game;
-use crate::gui::{font_setup, ui_system, AppMode, GuiApp, GuiStopwatch};
+use crate::gui::{ui_system, AppMode, GuiPlugin};
 use crate::high_level::HLPlugin;
 use crate::network::{
     reconnect_pico, recv_pico, send_motor_commands, NetworkPluginData, PacbotSensors,
@@ -12,7 +16,7 @@ use crate::physics::{
     run_particle_filter, run_simulation, update_game_state_pacbot_loc, update_physics_info,
     LightPhysicsInfo, PacbotSimulation, ParticleFilterStopwatch, PhysicsStopwatch,
 };
-use crate::replay_manager::{replay_playback, update_replay_manager_system, ReplayManager};
+use crate::replay_manager::ReplayManager;
 use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
 use bevy::prelude::*;
@@ -43,16 +47,25 @@ pub struct StandardGridResource(StandardGrid);
 /// Options that the user can set via the GUI, shared between most processes
 #[derive(Resource)]
 pub struct UserSettings {
+    /// Whether the app is recording (normal) or playback for a replay
     pub mode: AppMode,
+    /// Whether AI actions should be calculatede
     pub enable_ai: bool,
+    /// Optional IP for the pico
     pub pico_address: Option<String>,
+    /// Optional IP for the game server
     pub go_server_address: Option<String>,
+    /// Physical characteristics of the robot
     pub robot: Robot,
 
+    /// Whether physical location should be saved in the replay
     pub replay_save_location: bool,
+    /// Whether pacbot sensors should be saved in the replay
     pub replay_save_sensors: bool,
+    /// Whether target paths and velocities should be saved in the replay
     pub replay_save_targets: bool,
 
+    /// Currently always true
     pub enable_pf: bool,
     /// The number of guesses tracked by ParticleFilter
     pub pf_total_points: usize,
@@ -63,7 +76,9 @@ pub struct UserSettings {
     /// Chance 0.0-1.0 that a new point will spawn near an existing one instead of randomly
     pub pf_chance_near_other: f32,
 
+    /// When generating a point based on an existing point, how far can it be moved in x and y?
     pub pf_translation_limit: f32,
+    /// When generating a point based on an existing point, how far can it be moved in rotation?
     pub pf_rotation_limit: f32,
 }
 
@@ -92,6 +107,7 @@ impl Default for UserSettings {
     }
 }
 
+/// Keeps track of how long it takes to run the whole schedule
 #[derive(Resource)]
 pub struct ScheduleStopwatch(Stopwatch);
 
@@ -113,13 +129,12 @@ fn main() {
             ..default()
         }))
         .add_plugins(EguiPlugin)
-        .add_plugins(HLPlugin)
+        .add_plugins((HLPlugin, GuiPlugin))
         .init_resource::<PacbotSensors>()
         .init_resource::<PacbotSensorsRecvTime>()
         .init_resource::<LightPhysicsInfo>()
         .init_resource::<PacbotSimulation>()
         .init_resource::<ComputedGrid>()
-        .init_resource::<GuiApp>()
         .init_resource::<PacmanGameState>()
         .init_resource::<StandardGridResource>()
         .init_resource::<UserSettings>()
@@ -139,19 +154,12 @@ fn main() {
             4.0,
             6.0,
         )))
-        .insert_resource(GuiStopwatch(Stopwatch::new(
-            10,
-            "GUI".to_string(),
-            1.0,
-            2.0,
-        )))
         .insert_resource(ScheduleStopwatch(Stopwatch::new(
             10,
             "Schedule".to_string(),
             5.0,
             7.0,
         )))
-        .add_systems(Startup, font_setup)
         .add_systems(PreUpdate, start_schedule_stopwatch)
         .add_systems(PostUpdate, end_schedule_stopwatch)
         .add_systems(
@@ -160,10 +168,6 @@ fn main() {
                 // General
                 update_game,
                 target_path_to_target_vel,
-                // Ui
-                ui_system,
-                update_replay_manager_system,
-                replay_playback,
                 // Networking
                 reconnect_pico,
                 send_motor_commands.after(reconnect_pico),

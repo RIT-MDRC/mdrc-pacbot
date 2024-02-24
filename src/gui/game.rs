@@ -1,3 +1,5 @@
+//! Displays the Pacman game state
+
 use crate::gui::colors::{
     GHOST_BLUE_COLOR, GHOST_ORANGE_COLOR, GHOST_PINK_COLOR, GHOST_RED_COLOR,
     PACMAN_DISTANCE_SENSOR_RAY_COLOR, PELLET_COLOR, SUPER_PELLET_COLOR, WALL_COLOR,
@@ -18,10 +20,14 @@ pub struct PacmanStateRenderInfo {
     pub pacman_state: GameEngine,
 }
 
+/// Displays information about the Pacman game
 #[derive(Clone, Default)]
 pub struct GameWidget {
+    /// current lives
     lives: u8,
+    /// current score
     score: u16,
+    /// current ticks
     ticks: u32,
 }
 
@@ -49,6 +55,7 @@ impl PacbotWidget for GameWidget {
     }
 }
 
+/// Steps ghosts at a steady rate
 pub fn update_game(
     mut pacman_state: ResMut<PacmanGameState>,
     mut last_update: Local<Option<Instant>>,

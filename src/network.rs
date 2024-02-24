@@ -13,10 +13,13 @@ use std::{io, net::UdpSocket};
 /// Stores data from Pacbot
 #[derive(Resource, Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct PacbotSensors {
+    /// Distance sensor readings, mm
     pub distance_sensors: [u8; 8],
+    /// Encoder positions
     pub encoders: [i64; 3],
 }
 
+/// Holds the last time when sensor information was received from Pacbot
 #[derive(Resource, Default)]
 pub struct PacbotSensorsRecvTime(pub(crate) Option<Instant>);
 
@@ -32,9 +35,11 @@ impl Default for PacbotSensors {
 /// Stores connections for the NetworkPlugin
 #[derive(Default, Resource)]
 pub struct NetworkPluginData {
+    /// Connection to the Pico
     pico: Option<PicoConnection>,
 }
 
+/// Sends current motor commands to the pico
 pub fn send_motor_commands(
     mut network_data: ResMut<NetworkPluginData>,
     target_velocity: Res<TargetVelocity>,
@@ -98,6 +103,7 @@ pub fn send_motor_commands(
     }
 }
 
+/// Attempts to reconnect to the pico if not currently connected
 pub fn reconnect_pico(mut network_data: ResMut<NetworkPluginData>, settings: Res<UserSettings>) {
     if network_data.pico.is_none() {
         if let Some(pico_address) = &settings.pico_address {
@@ -116,6 +122,7 @@ pub fn reconnect_pico(mut network_data: ResMut<NetworkPluginData>, settings: Res
     }
 }
 
+/// Attempts to receive data from the pico connection if any is available
 pub fn recv_pico(mut network_data: ResMut<NetworkPluginData>, mut sensors: ResMut<PacbotSensors>) {
     if let Some(pico) = &mut network_data.pico {
         let mut bytes = [0; 30];

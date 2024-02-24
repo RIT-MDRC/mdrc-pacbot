@@ -10,6 +10,8 @@ pub mod transforms;
 pub mod utils;
 
 use crate::grid::ComputedGrid;
+use bevy::app::{App, Startup};
+use bevy::prelude::{Plugin, Update};
 use bevy_ecs::prelude::*;
 use bevy_egui::EguiContexts;
 use eframe::egui;
@@ -31,23 +33,45 @@ use crate::high_level::AiStopwatch;
 use crate::network::{PacbotSensors, PacbotSensorsRecvTime};
 use crate::pathing::{TargetPath, TargetVelocity};
 use crate::physics::{LightPhysicsInfo, ParticleFilterStopwatch, PhysicsStopwatch};
-use crate::replay_manager::ReplayManager;
+use crate::replay_manager::{replay_playback, update_replay_manager_system, ReplayManager};
 use crate::util::stopwatch::Stopwatch;
 use crate::{PacmanGameState, ScheduleStopwatch, StandardGridResource, UserSettings};
 
 use self::transforms::Transform;
 
+/// Builds resources and systems related to the GUI
+pub struct GuiPlugin;
+
+impl Plugin for GuiPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<GuiApp>()
+            .insert_resource(GuiStopwatch(Stopwatch::new(
+                10,
+                "GUI".to_string(),
+                1.0,
+                2.0,
+            )))
+            .add_systems(Startup, font_setup)
+            .add_systems(
+                Update,
+                (ui_system, update_replay_manager_system, replay_playback),
+            );
+    }
+}
+
 /// Tracks the performance of GUI rendering
 #[derive(Resource)]
 pub struct GuiStopwatch(pub Stopwatch);
 
-pub fn font_setup(mut contexts: EguiContexts) {
+/// Adds Phosphor to Egui for icons
+fn font_setup(mut contexts: EguiContexts) {
     let mut fonts = egui::FontDefinitions::default();
     egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
 
     contexts.ctx_mut().set_fonts(fonts);
 }
 
+/// Updates Egui and any actions from the user
 pub fn ui_system(
     mut contexts: EguiContexts,
     mut app: Local<GuiApp>,
@@ -105,11 +129,16 @@ pub fn ui_system(
     app.update(&ctx, &mut tab_viewer);
 }
 
+/// Options for different kinds of tabs
 #[derive(Copy, Clone)]
 pub enum Tab {
+    /// Main game grid
     Grid,
+    /// Detailed timings
     Stopwatch,
+    /// User settings
     Settings,
+    /// For widgets that don't have corresponding tabs
     Unknown,
 }
 
@@ -197,11 +226,16 @@ impl<'a> TabViewer<'a> {
     }
 }
 
+/// A generic status indication
 #[derive(Clone, Debug)]
 pub enum PacbotWidgetStatus {
+    /// Green
     Ok,
+    /// Yellow
     Warn(String),
+    /// Red
     Error(String),
+    /// Grey
     NotApplicable,
 }
 
@@ -230,15 +264,23 @@ pub enum AppMode {
     Playback,
 }
 
+/// Holds information about the tabs and widgets over time
 #[derive(Resource)]
 pub struct GuiApp {
+    /// Tab configuration
     tree: DockState<Tab>,
 
+    /// grid
     grid_widget: GridWidget,
+    /// game
     game_widget: GameWidget,
+    /// timings
     stopwatch_widget: StopwatchWidget,
+    /// ai
     ai_widget: AiWidget,
+    /// sensors
     sensors_widget: PacbotSensorsWidget,
+    /// settings
     settings_widget: PacbotSettingsWidget,
 }
 
@@ -320,7 +362,7 @@ impl GuiApp {
     }
 
     fn draw_widget_icons(&mut self, ui: &mut Ui, tab_viewer: &mut TabViewer) {
-        let widgets: Vec<Box<&mut dyn PacbotWidget>> = vec![
+        let mut widgets: [Box<&mut dyn PacbotWidget>; 6] = [
             Box::new(&mut self.grid_widget),
             Box::new(&mut self.game_widget),
             Box::new(&mut self.stopwatch_widget),
@@ -328,7 +370,7 @@ impl GuiApp {
             Box::new(&mut self.sensors_widget),
             Box::new(&mut self.settings_widget),
         ];
-        for widget in widgets {
+        for widget in &mut widgets {
             widget.update(tab_viewer);
             let mut button = ui.add(egui::Button::new(widget.button_text()).fill(
                 match widget.overall_status() {
@@ -473,7 +515,7 @@ impl GuiApp {
 }
 
 #[derive(Copy, Clone, Debug, Default)]
-pub struct GridWidget {}
+struct GridWidget {}
 
 impl PacbotWidget for GridWidget {
     fn display_name(&self) -> &'static str {
@@ -489,6 +531,7 @@ impl PacbotWidget for GridWidget {
     }
 }
 
+/// Shows information about the AI
 #[derive(Clone, Debug, Default)]
 pub struct AiWidget {
     ai_enabled: bool,
@@ -516,13 +559,17 @@ impl PacbotWidget for AiWidget {
     }
 }
 
+/// Displays information about pacbot sensors
 #[derive(Clone, Debug)]
 pub struct PacbotSensorsWidget {
+    /// Status of the connection/sensors
     pub overall_status: PacbotWidgetStatus,
+    /// Messages for each sensor
     pub messages: Vec<(String, PacbotWidgetStatus)>,
 }
 
 impl PacbotSensorsWidget {
+    /// Make a new PacbotSensorsWidget
     pub fn new() -> Self {
         Self {
             overall_status: PacbotWidgetStatus::Ok,

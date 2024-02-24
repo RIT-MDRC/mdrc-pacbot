@@ -86,6 +86,7 @@ impl Default for PacbotSimulation {
     }
 }
 
+/// Updates Pacbot's location from the simulation to the game engine
 pub fn update_game_state_pacbot_loc(
     simulation: Res<PacbotSimulation>,
     grid: Res<ComputedGrid>,
@@ -118,6 +119,7 @@ pub fn update_game_state_pacbot_loc(
     }
 }
 
+/// Steps the simulation
 pub fn run_simulation(
     mut simulation: ResMut<PacbotSimulation>,
     mut phys_stopwatch: ResMut<PhysicsStopwatch>,
@@ -130,6 +132,7 @@ pub fn run_simulation(
     phys_stopwatch.0.mark_segment("Step simulation");
 }
 
+/// Steps the particle filter
 pub fn run_particle_filter(
     mut simulation: ResMut<PacbotSimulation>,
     mut pf_stopwatch: ResMut<ParticleFilterStopwatch>,
@@ -161,6 +164,7 @@ pub fn run_particle_filter(
     }
 }
 
+/// Transfers information from the simulation to the shared phys_info resource
 pub fn update_physics_info(
     mut simulation: ResMut<PacbotSimulation>,
     mut sensors: ResMut<PacbotSensors>,
@@ -318,6 +322,7 @@ impl PacbotSimulation {
         self.query_pipeline_updated = false;
     }
 
+    /// Get the primary robot's rigid body
     pub fn get_robot_rigid_body(&mut self) -> &mut RigidBody {
         self.rigid_body_set
             .get_mut(
