@@ -154,8 +154,11 @@ pub fn run_particle_filter(
         let rigid_body = simulation.get_robot_rigid_body();
         let vel_lin = rigid_body.linvel().clone();
         let vel_ang = rigid_body.angvel();
+        let angle = rigid_body.rotation().angle();
+        // Rotate vel_lin to align with robot rotation
+        let local_vel = Vector2::new(vel_lin.x * (-angle).cos() - vel_lin.y * (-angle).sin(), vel_lin.x * (-angle).sin() + vel_lin.y * (-angle).cos());
         simulation.pf_update(
-            Isometry2::new(Vector2::new(vel_lin.x, vel_lin.y), vel_ang),
+            Isometry2::new(local_vel, vel_ang),
             time.delta_seconds(),
             &mut pf_stopwatch.0,
             &sensors,

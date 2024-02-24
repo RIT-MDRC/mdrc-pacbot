@@ -233,9 +233,12 @@ impl ParticleFilter {
         let delta_y = velocity.translation.y * dt;
         let delta_theta = velocity.rotation.angle() * dt;
         for point in &mut self.points {
-            point.loc.translation.x += delta_x;
-            point.loc.translation.y += delta_y;
-            point.loc.rotation = Rotation::new(point.loc.rotation.angle() + delta_theta);
+            let angle = point.loc.rotation.angle();
+            let delta_x_rotated = delta_x * angle.cos() - delta_y * angle.sin();
+            let delta_y_rotated = delta_x * angle.sin() + delta_y * angle.cos();
+            point.loc.translation.x += delta_x_rotated;
+            point.loc.translation.y += delta_y_rotated;
+            point.loc.rotation = Rotation::new(angle + delta_theta);
             point.update_time_alive();
         }
 
