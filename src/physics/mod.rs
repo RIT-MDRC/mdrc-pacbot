@@ -12,7 +12,6 @@ use crate::util::stopwatch::Stopwatch;
 use crate::{PacmanGameState, UserSettings};
 use bevy::time::Time;
 use bevy_ecs::prelude::*;
-use native_dialog::Filter;
 use pacbot_rs::location::LocationState;
 use rapier2d::dynamics::{IntegrationParameters, RigidBodySet};
 use rapier2d::geometry::{BroadPhase, NarrowPhase};
@@ -135,9 +134,7 @@ pub fn run_particle_filter(
     mut simulation: ResMut<PacbotSimulation>,
     mut pf_stopwatch: ResMut<ParticleFilterStopwatch>,
     sensors: Res<PacbotSensors>,
-    grid: Local<ComputedGrid>,
     settings: Res<UserSettings>,
-    target_velocity: Res<TargetVelocity>,
     time: Res<Time>,
 ) {
     if settings.enable_pf {
@@ -158,20 +155,16 @@ pub fn run_particle_filter(
         simulation.robot_specifications = settings.robot.clone();
         simulation.particle_filter.set_robot(settings.robot.clone());
 
-        // Estimate game location
-        // let estimated_location = grid
-        //     .node_nearest(
-        //         simulation.get_primary_robot_position().translation.x,
-        //         simulation.get_primary_robot_position().translation.y,
-        //     )
-        //     .unwrap_or(IntLocation::new(1, 1));
-
         // Update particle filter
-        // println!("framerate: {}", 1.0/time.delta_seconds());
         let rigid_body = simulation.get_robot_rigid_body();
         let vel_lin = rigid_body.linvel().clone();
         let vel_ang = rigid_body.angvel();
-        simulation.pf_update(Isometry2::new(Vector2::new(vel_lin.x, vel_lin.y), vel_ang), time.delta_seconds(), &mut pf_stopwatch.0, &sensors);
+        simulation.pf_update(
+            Isometry2::new(Vector2::new(vel_lin.x, vel_lin.y), vel_ang),
+            time.delta_seconds(),
+            &mut pf_stopwatch.0,
+            &sensors,
+        );
     }
 }
 
@@ -319,7 +312,7 @@ impl PacbotSimulation {
     /// simulation.step(dt);
     /// ```
     pub fn step(&mut self, dt: f32) {
-        self.integration_parameters.set_inv_dt(1.0/dt);
+        self.integration_parameters.set_inv_dt(1.0 / dt);
         self.step_target_velocity();
 
         self.physics_pipeline.step(
@@ -340,10 +333,9 @@ impl PacbotSimulation {
 
         self.query_pipeline_updated = false;
     }
-    
+
     pub fn get_robot_rigid_body(&mut self) -> &mut RigidBody {
-        self
-            .rigid_body_set
+        self.rigid_body_set
             .get_mut(
                 self.collider_set
                     .get(self.primary_robot)

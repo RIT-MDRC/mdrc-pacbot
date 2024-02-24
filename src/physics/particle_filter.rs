@@ -2,14 +2,11 @@
 
 use crate::grid::{ComputedGrid, Direction, IntLocation};
 use crate::network::PacbotSensors;
-use crate::pathing::TargetVelocity;
 use crate::physics::{PacbotSimulation, GROUP_ROBOT, GROUP_WALL};
 use crate::robot::{DistanceSensor, Robot};
 use crate::util::stopwatch::Stopwatch;
-use native_dialog::Filter;
 use rand::rngs::ThreadRng;
-use rand::{random, Rng};
-use rapier2d::math::Isometry;
+use rand::Rng;
 use rapier2d::na::{Isometry2, Point2, Vector2};
 use rapier2d::prelude::{
     ColliderSet, InteractionGroups, QueryFilter, QueryPipeline, Ray, RigidBodySet, Rotation,
@@ -47,12 +44,9 @@ pub struct FilterPoint {
 
 impl FilterPoint {
     pub fn new(loc: Isometry2<f32>) -> Self {
-        Self {
-            loc,
-            time_alive: 0,
-        }
+        Self { loc, time_alive: 0 }
     }
-    
+
     pub fn update_time_alive(&mut self) {
         self.time_alive = self.time_alive.saturating_add(1);
     }
@@ -99,18 +93,6 @@ impl ParticleFilter {
 
     pub fn set_robot(&mut self, robot: Robot) {
         self.robot = robot;
-    }
-
-    fn random_point_near(&self, point: IntLocation) -> Isometry2<f32> {
-        let mut rng = rand::thread_rng();
-        let distance = rng.gen_range(0.0..self.options.spread).floor() as usize;
-        let mut node = point;
-        for _ in 0..distance {
-            let neighbors = self.grid.neighbors(&node);
-            node = neighbors[rng.gen_range(0..neighbors.len())];
-        }
-
-        self.random_point_at(node, rng)
     }
 
     /// Generate a completely random walkable point
@@ -339,11 +321,14 @@ impl ParticleFilter {
                 // grab random point to generate a point near. grab point from self.points
                 let random_index = rand::thread_rng().gen_range(0..self.points.len());
                 let chosen_point = self.points[random_index];
-                // generate a new point some random distance around this chosen point by adding a random x, y and angle. 
+                // generate a new point some random distance around this chosen point by adding a random x, y and angle.
                 // TODO: make this a tunable parameter, and mess with distribution of random spread
-                let new_x = chosen_point.loc.translation.x + rand::thread_rng().gen_range(-0.3..0.3);
-                let new_y = chosen_point.loc.translation.y + rand::thread_rng().gen_range(-0.3..0.3);
-                let new_angle = chosen_point.loc.rotation.angle() + rand::thread_rng().gen_range(-0.3..0.3);
+                let new_x =
+                    chosen_point.loc.translation.x + rand::thread_rng().gen_range(-0.3..0.3);
+                let new_y =
+                    chosen_point.loc.translation.y + rand::thread_rng().gen_range(-0.3..0.3);
+                let new_angle =
+                    chosen_point.loc.rotation.angle() + rand::thread_rng().gen_range(-0.3..0.3);
                 Isometry2::new(Vector2::new(new_x, new_y), new_angle)
             } else {
                 self.random_point_uniform()
@@ -362,7 +347,12 @@ impl ParticleFilter {
 
         // TODO: this is slow
         // search for the point that has been around the longest
-        self.best_guess = self.points.iter().max_by_key(|x| x.time_alive).unwrap().clone();
+        self.best_guess = self
+            .points
+            .iter()
+            .max_by_key(|x| x.time_alive)
+            .unwrap()
+            .clone();
     }
 
     /// Given a location guess, measure the absolute difference against the real values
@@ -429,28 +419,6 @@ impl ParticleFilter {
         } else {
             sensor.max_range
         }
-    }
-
-    /// a small random translation and a small random rotation to the point
-    fn modify_point(&mut self, point: Isometry2<f32>) -> Isometry2<f32> {
-        let mut rng = rand::thread_rng();
-
-        let translation_mutation_range =
-            -self.options.genetic_translation_limit..self.options.genetic_translation_limit;
-        let rotation_mutation_range =
-            -self.options.genetic_rotation_limit..self.options.genetic_rotation_limit;
-
-        let translation_mutation = Vector2::new(
-            rng.gen_range(translation_mutation_range.clone()),
-            rng.gen_range(translation_mutation_range),
-        );
-
-        let rotation_mutation = rng.gen_range(rotation_mutation_range);
-
-        Isometry2::new(
-            point.translation.vector + translation_mutation,
-            point.rotation.angle() + rotation_mutation,
-        )
     }
 
     /// Get the best 'count' particle filter points
