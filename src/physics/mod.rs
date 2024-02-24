@@ -1,6 +1,7 @@
 //! Handles all physics related operations
 
 mod particle_filter;
+mod raycast_grid;
 
 use crate::grid::standard_grids::StandardGrid;
 use crate::grid::{facing_direction, ComputedGrid, IntLocation};
@@ -156,7 +157,10 @@ pub fn run_particle_filter(
         let vel_ang = rigid_body.angvel();
         let angle = rigid_body.rotation().angle();
         // Rotate vel_lin to align with robot rotation
-        let local_vel = Vector2::new(vel_lin.x * (-angle).cos() - vel_lin.y * (-angle).sin(), vel_lin.x * (-angle).sin() + vel_lin.y * (-angle).cos());
+        let local_vel = Vector2::new(
+            vel_lin.x * (-angle).cos() - vel_lin.y * (-angle).sin(),
+            vel_lin.x * (-angle).sin() + vel_lin.y * (-angle).cos(),
+        );
         simulation.pf_update(
             Isometry2::new(local_vel, vel_ang),
             time.delta_seconds(),
@@ -418,25 +422,8 @@ impl PacbotSimulation {
                 .update(&self.rigid_body_set, &self.collider_set);
         }
 
-        let filter = QueryFilter::new().groups(InteractionGroups::new(
-            GROUP_ROBOT.into(),
-            GROUP_WALL.into(),
-        ));
-
-        if let Some((_, toi)) = self.query_pipeline.cast_ray(
-            &self.rigid_body_set,
-            &self.collider_set,
-            &ray,
-            max_toi,
-            true,
-            filter,
-        ) {
-            // The first collider hit has the handle `handle` and it hit after
-            // the ray travelled a distance equal to `ray.dir * toi`.
-            return ray.point_at(toi); // Same as: `ray.origin + ray.dir * toi`
-        }
-
-        ray.point_at(max_toi)
+        let toi = self.particle_filter.raycast_grid().raycast(ray, max_toi);
+        ray.point_at(toi)
     }
 
     /// Get the collider for the primary robot
