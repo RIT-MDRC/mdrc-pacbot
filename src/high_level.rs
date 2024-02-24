@@ -23,9 +23,14 @@ pub struct HLPlugin;
 
 impl Plugin for HLPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(AiStopwatch(Stopwatch::new(10, "AI".to_string(), 5.0, 10.0)))
-            .add_systems(Update, run_high_level)
-            .init_non_send_resource::<HighLevelContext>();
+        app.insert_resource(AiStopwatch(Stopwatch::new(
+            10,
+            "AI".to_string(),
+            30.0,
+            40.0,
+        )))
+        .add_systems(Update, run_high_level)
+        .init_non_send_resource::<HighLevelContext>();
     }
 }
 

@@ -25,6 +25,7 @@ use crate::gui::colors::{
 };
 use crate::gui::game::GameWidget;
 use crate::gui::stopwatch::StopwatchWidget;
+use crate::high_level::AiStopwatch;
 use crate::network::{PacbotSensors, PacbotSensorsRecvTime};
 use crate::pathing::{TargetPath, TargetVelocity};
 use crate::physics::{LightPhysicsInfo, ParticleFilterStopwatch, PhysicsStopwatch};
@@ -57,10 +58,13 @@ pub fn ui_system(
     settings: ResMut<UserSettings>,
     target_velocity: ResMut<TargetVelocity>,
     target_path: Res<TargetPath>,
-    pf_stopwatch: ResMut<ParticleFilterStopwatch>,
-    physics_stopwatch: ResMut<PhysicsStopwatch>,
-    gui_stopwatch: ResMut<GuiStopwatch>,
-    schedule_stopwatch: ResMut<ScheduleStopwatch>,
+    stopwatches: (
+        ResMut<ParticleFilterStopwatch>,
+        ResMut<PhysicsStopwatch>,
+        ResMut<GuiStopwatch>,
+        ResMut<ScheduleStopwatch>,
+        ResMut<AiStopwatch>,
+    ),
     sensors: (Res<PacbotSensors>, Res<PacbotSensorsRecvTime>),
 ) {
     let ctx = contexts.ctx_mut();
@@ -78,15 +82,23 @@ pub fn ui_system(
         target_path,
         grid,
         selected_grid,
-        pf_stopwatch,
-        physics_stopwatch,
-        gui_stopwatch,
-        schedule_stopwatch,
+        pf_stopwatch: stopwatches.0,
+        physics_stopwatch: stopwatches.1,
+        gui_stopwatch: stopwatches.2,
+        schedule_stopwatch: stopwatches.3,
+        ai_stopwatch: stopwatches.4,
         sensors: sensors.0,
         sensors_recv_time: sensors.1,
     };
 
+    tab_viewer.gui_stopwatch.0.start();
+
     app.update_target_velocity(&ctx, &mut tab_viewer);
+
+    tab_viewer
+        .gui_stopwatch
+        .0
+        .mark_segment("Update target velocity");
 
     app.update(&ctx, &mut tab_viewer);
 }
@@ -118,6 +130,7 @@ struct TabViewer<'a> {
     physics_stopwatch: ResMut<'a, PhysicsStopwatch>,
     gui_stopwatch: ResMut<'a, GuiStopwatch>,
     schedule_stopwatch: ResMut<'a, ScheduleStopwatch>,
+    ai_stopwatch: ResMut<'a, AiStopwatch>,
 }
 
 impl<'a> egui_dock::TabViewer for TabViewer<'a> {
@@ -140,6 +153,8 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                 ui.separator();
                 ui.label("Physics");
                 draw_stopwatch(&self.physics_stopwatch.0, ui, "ph_sw".to_string());
+                ui.separator();
+                ui.label("GUI");
                 draw_stopwatch(&self.gui_stopwatch.0, ui, "ui_sw".to_string());
             }
             _ => panic!("Widget did not declare a tab!"),
@@ -263,7 +278,7 @@ impl GuiApp {
     fn add_grid_variants(
         &mut self,
         ui: &mut Ui,
-        pacman_state: &mut GameEngine,
+        pacman_state: &mut ResMut<PacmanGameState>,
         phys_info: &LightPhysicsInfo,
         replay_manager: &mut ReplayManager,
         standard_grid: &mut StandardGrid,
@@ -277,11 +292,11 @@ impl GuiApp {
                         .selectable_value(standard_grid, *grid, format!("{:?}", grid))
                         .clicked()
                     {
-                        pacman_state.pause();
+                        pacman_state.0.pause();
                         *computed_grid = grid.compute_grid();
                         replay_manager.reset_replay(
                             *grid,
-                            pacman_state,
+                            &pacman_state.0,
                             phys_info
                                 .real_pos
                                 .unwrap_or(grid.get_default_pacbot_isometry()),
@@ -373,7 +388,7 @@ impl GuiApp {
                 ui.with_layout(egui::Layout::left_to_right(Align::Center), |ui| {
                     self.add_grid_variants(
                         ui,
-                        &mut tab_viewer.pacman_state.0,
+                        &mut tab_viewer.pacman_state,
                         &tab_viewer.phys_info,
                         &mut tab_viewer.replay_manager,
                         &mut tab_viewer.selected_grid.0,
@@ -417,6 +432,9 @@ impl GuiApp {
                 });
             });
         });
+
+        tab_viewer.gui_stopwatch.0.mark_segment("Draw top bar");
+
         if tab_viewer.selected_grid.0 == StandardGrid::Pacman {
             egui::TopBottomPanel::bottom("playback_controls")
                 .frame(
@@ -428,9 +446,14 @@ impl GuiApp {
                     tab_viewer.draw_replay_ui(ctx, ui);
                 });
         }
+
+        tab_viewer.gui_stopwatch.0.mark_segment("Draw replay UI");
+
         DockArea::new(&mut self.tree)
             .style(Style::from_egui(ctx.style().as_ref()))
             .show(ctx, tab_viewer);
+
+        tab_viewer.gui_stopwatch.0.mark_segment("Draw tabs");
 
         ctx.request_repaint();
     }

@@ -102,6 +102,14 @@ impl Default for UserSettings {
 #[derive(Resource)]
 pub struct ScheduleStopwatch(Stopwatch);
 
+fn start_schedule_stopwatch(mut stopwatch: ResMut<ScheduleStopwatch>) {
+    stopwatch.0.start();
+}
+
+fn end_schedule_stopwatch(mut stopwatch: ResMut<ScheduleStopwatch>) {
+    stopwatch.0.mark_segment("Update Finish");
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -151,6 +159,8 @@ fn main() {
             7.0,
         )))
         .add_systems(Startup, font_setup)
+        .add_systems(PreUpdate, start_schedule_stopwatch)
+        .add_systems(PostUpdate, end_schedule_stopwatch)
         .add_systems(
             Update,
             (
