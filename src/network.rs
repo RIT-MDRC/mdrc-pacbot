@@ -3,6 +3,7 @@
 use crate::pathing::TargetVelocity;
 use crate::physics::LightPhysicsInfo;
 use crate::UserSettings;
+use bevy::prelude::trace;
 use bevy_ecs::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_PI_3;
@@ -102,12 +103,12 @@ pub fn reconnect_pico(mut network_data: ResMut<NetworkPluginData>, settings: Res
         if let Some(pico_address) = &settings.pico_address {
             let try_conn = PicoConnection::new(20001, &pico_address);
             if let Err(ref e) = try_conn {
-                eprintln!("{:?}", e);
+                trace!("{:?}", e);
             }
             network_data.pico = try_conn.ok();
             if let Some(pico) = &mut network_data.pico {
                 if let Err(e) = pico.socket.set_nonblocking(true) {
-                    eprintln!("{:?}", e);
+                    trace!("{:?}", e);
                     network_data.pico = None;
                 }
             }

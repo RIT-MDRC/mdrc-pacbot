@@ -58,17 +58,13 @@ pub struct UserSettings {
     pub pf_total_points: usize,
     /// The number of points displayed on the gui
     pub pf_gui_points: usize,
-    /// The number of top guesses that are kept unchanged for the next generation
-    pub pf_elite: usize,
-    /// The number of worst guesses that are deleted and randomly generated near the best guess
-    pub pf_purge: usize,
-    /// The number of worst guesses that are deleted and randomly generated anywhere
-    pub pf_random: usize,
+    /// All points with a larger error are removed
+    pub pf_error_threshold: f32,
+    /// Chance 0.0-1.0 that a new point will spawn near an existing one instead of randomly
+    pub pf_chance_near_other: f32,
 
-    pub pf_spread: f32,
-    pub pf_elitism_bias: f32,
-    pub pf_genetic_translation_limit: f32,
-    pub pf_genetic_rotation_limit: f32,
+    pub pf_translation_limit: f32,
+    pub pf_rotation_limit: f32,
 }
 
 impl Default for UserSettings {
@@ -87,14 +83,11 @@ impl Default for UserSettings {
             enable_pf: true,
             pf_total_points: 1000,
             pf_gui_points: 1000,
-            pf_elite: 10,
-            pf_purge: 100,
-            pf_random: 200,
+            pf_error_threshold: 2.0,
+            pf_chance_near_other: 0.99,
 
-            pf_spread: 2.5,
-            pf_elitism_bias: 1.0,
-            pf_genetic_translation_limit: 0.1,
-            pf_genetic_rotation_limit: 0.1,
+            pf_translation_limit: 0.3,
+            pf_rotation_limit: 0.3,
         }
     }
 }

@@ -4,6 +4,7 @@ mod colors;
 pub mod game;
 pub(crate) mod physics;
 pub mod replay_manager;
+mod settings;
 mod stopwatch;
 pub mod transforms;
 pub mod utils;
@@ -24,6 +25,7 @@ use crate::gui::colors::{
     TRANSLUCENT_GREEN_COLOR, TRANSLUCENT_RED_COLOR, TRANSLUCENT_YELLOW_COLOR,
 };
 use crate::gui::game::GameWidget;
+use crate::gui::settings::PacbotSettingsWidget;
 use crate::gui::stopwatch::StopwatchWidget;
 use crate::high_level::AiStopwatch;
 use crate::network::{PacbotSensors, PacbotSensorsRecvTime};
@@ -107,6 +109,7 @@ pub fn ui_system(
 pub enum Tab {
     Grid,
     Stopwatch,
+    Settings,
     Unknown,
 }
 
@@ -140,6 +143,7 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
         match tab {
             Tab::Grid => WidgetText::from("Main Grid"),
             Tab::Stopwatch => WidgetText::from("Stopwatch"),
+            Tab::Settings => WidgetText::from("Settings"),
             _ => panic!("Widget did not declare a tab!"),
         }
     }
@@ -156,7 +160,14 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                 ui.separator();
                 ui.label("GUI");
                 draw_stopwatch(&self.gui_stopwatch.0, ui, "ui_sw".to_string());
+                ui.separator();
+                ui.label("AI");
+                draw_stopwatch(&self.ai_stopwatch.0, ui, "ai_sw".to_string());
+                ui.separator();
+                ui.label("Schedule");
+                draw_stopwatch(&self.schedule_stopwatch.0, ui, "sch_sw".to_string());
             }
+            Tab::Settings => self.draw_settings(ui),
             _ => panic!("Widget did not declare a tab!"),
         }
     }
@@ -228,6 +239,7 @@ pub struct GuiApp {
     stopwatch_widget: StopwatchWidget,
     ai_widget: AiWidget,
     sensors_widget: PacbotSensorsWidget,
+    settings_widget: PacbotSettingsWidget,
 }
 
 impl Default for GuiApp {
@@ -240,6 +252,7 @@ impl Default for GuiApp {
             stopwatch_widget: StopwatchWidget::new(),
             ai_widget: AiWidget::default(),
             sensors_widget: PacbotSensorsWidget::new(),
+            settings_widget: PacbotSettingsWidget::default(),
         }
     }
 }
@@ -307,13 +320,13 @@ impl GuiApp {
     }
 
     fn draw_widget_icons(&mut self, ui: &mut Ui, tab_viewer: &mut TabViewer) {
-        // TODO widgets
         let widgets: Vec<Box<&mut dyn PacbotWidget>> = vec![
             Box::new(&mut self.grid_widget),
             Box::new(&mut self.game_widget),
             Box::new(&mut self.stopwatch_widget),
             Box::new(&mut self.ai_widget),
             Box::new(&mut self.sensors_widget),
+            Box::new(&mut self.settings_widget),
         ];
         for widget in widgets {
             widget.update(tab_viewer);

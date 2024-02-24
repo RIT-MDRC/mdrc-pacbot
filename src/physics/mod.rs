@@ -142,14 +142,6 @@ pub fn run_particle_filter(
             .particle_filter
             .set_options(ParticleFilterOptions {
                 points: settings.pf_total_points,
-                elite: settings.pf_elite,
-                purge: settings.pf_purge,
-                random: settings.pf_random,
-
-                spread: settings.pf_spread,
-                elitism_bias: settings.pf_elitism_bias,
-                genetic_translation_limit: settings.pf_genetic_translation_limit,
-                genetic_rotation_limit: settings.pf_genetic_rotation_limit,
             });
 
         simulation.robot_specifications = settings.robot.clone();
@@ -164,6 +156,7 @@ pub fn run_particle_filter(
             time.delta_seconds(),
             &mut pf_stopwatch.0,
             &sensors,
+            &settings,
         );
     }
 }
@@ -263,16 +256,7 @@ impl PacbotSimulation {
             grid,
             robot.to_owned(),
             robot_position,
-            ParticleFilterOptions {
-                points: 10,
-                elite: 0,
-                purge: 0,
-                random: 10,
-                spread: 2.5,
-                elitism_bias: 1.0,
-                genetic_translation_limit: 0.1,
-                genetic_rotation_limit: 0.1,
-            },
+            ParticleFilterOptions { points: 10 },
         );
 
         Self {

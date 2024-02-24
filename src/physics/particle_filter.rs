@@ -5,6 +5,7 @@ use crate::network::PacbotSensors;
 use crate::physics::{PacbotSimulation, GROUP_ROBOT, GROUP_WALL};
 use crate::robot::{DistanceSensor, Robot};
 use crate::util::stopwatch::Stopwatch;
+use crate::UserSettings;
 use rand::rngs::ThreadRng;
 use rand::Rng;
 use rapier2d::na::{Isometry2, Point2, Vector2};
@@ -17,23 +18,7 @@ use std::f32::consts::PI;
 /// Values that can be tweaked to improve the performance of the particle filter
 pub struct ParticleFilterOptions {
     /// The total number of points tracked
-    ///
-    /// Any points not included in elite, purge, or random will be moved slightly
     pub points: usize,
-
-    /// The number of top guesses that are kept unchanged for the next generation
-    pub elite: usize,
-    /// The number of worst guesses that are deleted and randomly generated near the best guess
-    pub purge: usize,
-    /// The number of worst guesses that are deleted and randomly generated anywhere
-    pub random: usize,
-
-    /// Standard deviation of the distance from the current best known location
-    pub spread: f32,
-    /// 1 for no bias, greater than 1 for bias towards more elite points
-    pub elitism_bias: f32,
-    pub genetic_translation_limit: f32,
-    pub genetic_rotation_limit: f32,
 }
 
 #[derive(Clone, Copy)]
@@ -212,6 +197,7 @@ impl ParticleFilter {
         query_pipeline: &QueryPipeline,
         stopwatch: &mut Stopwatch,
         sensors: &PacbotSensors,
+        settings: &UserSettings,
     ) {
         stopwatch.start();
 
@@ -242,7 +228,6 @@ impl ParticleFilter {
 
         let robot = self.robot.to_owned();
 
-        // TODO: go through each point and update it according to the velocity and angular velocity of the robot
         // multiply velocity by dt to get the distance moved
         let delta_x = velocity.translation.x * dt;
         let delta_y = velocity.translation.y * dt;
@@ -290,8 +275,7 @@ impl ParticleFilter {
         stopwatch.mark_segment("Calculate distance sensor errors");
 
         // go through every point and remove all that have an error greater than a certain threshold
-        // TODO:_make tunable parameter
-        paired_points_and_errors.retain(|(_, error)| *error < 2.0);
+        paired_points_and_errors.retain(|(_, error)| *error < settings.pf_error_threshold);
         stopwatch.mark_segment("Remove points with large error");
 
         // Sort the paired vector based on the error values
@@ -306,29 +290,27 @@ impl ParticleFilter {
 
         stopwatch.mark_segment("Sort points");
 
-        // TODO: check that this is a good way to do this. Also move to a tunable parameter
-        // Remove the last percentage of points
-        // self.points
-        //     .truncate((self.points.len() as f32 * 0.99) as usize);
-
         stopwatch.mark_segment("Remove least accurate points");
 
         // extend the points to the correct length since some have been pruned
         while self.points.len() < self.options.points {
             // chance to uniformly add a random point or do one around an existing point
-            // TODO: make this a tunable parameter
-            let point = if rand::thread_rng().gen_bool(0.99) && self.points.len() > 0 {
+            let point = if rand::thread_rng().gen_bool(settings.pf_chance_near_other as f64)
+                && self.points.len() > 0
+            {
                 // grab random point to generate a point near. grab point from self.points
                 let random_index = rand::thread_rng().gen_range(0..self.points.len());
                 let chosen_point = self.points[random_index];
                 // generate a new point some random distance around this chosen point by adding a random x, y and angle.
-                // TODO: make this a tunable parameter, and mess with distribution of random spread
-                let new_x =
-                    chosen_point.loc.translation.x + rand::thread_rng().gen_range(-0.3..0.3);
-                let new_y =
-                    chosen_point.loc.translation.y + rand::thread_rng().gen_range(-0.3..0.3);
-                let new_angle =
-                    chosen_point.loc.rotation.angle() + rand::thread_rng().gen_range(-0.3..0.3);
+                let new_x = chosen_point.loc.translation.x
+                    + rand::thread_rng()
+                        .gen_range(-settings.pf_translation_limit..settings.pf_translation_limit);
+                let new_y = chosen_point.loc.translation.y
+                    + rand::thread_rng()
+                        .gen_range(-settings.pf_translation_limit..settings.pf_translation_limit);
+                let new_angle = chosen_point.loc.rotation.angle()
+                    + rand::thread_rng()
+                        .gen_range(-settings.pf_rotation_limit..settings.pf_rotation_limit);
                 Isometry2::new(Vector2::new(new_x, new_y), new_angle)
             } else {
                 self.random_point_uniform()
@@ -444,6 +426,7 @@ impl PacbotSimulation {
         dt: f32,
         pf_stopwatch: &mut Stopwatch,
         sensors: &PacbotSensors,
+        settings: &UserSettings,
     ) {
         self.particle_filter.update(
             velocity,
@@ -453,6 +436,7 @@ impl PacbotSimulation {
             &self.query_pipeline,
             pf_stopwatch,
             sensors,
+            settings,
         );
     }
 }
