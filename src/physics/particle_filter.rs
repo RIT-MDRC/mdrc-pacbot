@@ -25,11 +25,13 @@ pub struct ParticleFilterOptions {
 pub struct FilterPoint {
     pub loc: Isometry2<f32>,
     time_alive: u16, // time alive in frames (has a maximum that should be taken into account)
+    noise_loc: Vector2<f32>,
+    noise_angular: f32,
 }
 
 impl FilterPoint {
-    pub fn new(loc: Isometry2<f32>) -> Self {
-        Self { loc, time_alive: 0 }
+    pub fn new(loc: Isometry2<f32>, noise_loc: Vector2<f32>, noise_angular: f32) -> Self {
+        Self { loc, time_alive: 0, noise_loc, noise_angular }
     }
 
     pub fn update_time_alive(&mut self) {
@@ -62,7 +64,8 @@ impl ParticleFilter {
         start: Isometry2<f32>,
         options: ParticleFilterOptions,
     ) -> Self {
-        let start_point = FilterPoint::new(start);
+        // no noise at the start
+        let start_point = FilterPoint::new(start, Vector2::new(0.0, 0.0), 0.0);
         Self {
             points: vec![start_point],
             grid,
@@ -233,12 +236,17 @@ impl ParticleFilter {
         let delta_y = velocity.translation.y * dt;
         let delta_theta = velocity.rotation.angle() * dt;
         for point in &mut self.points {
+            // rotate into the frame the point thinks the robot is in
             let angle = point.loc.rotation.angle();
-            let delta_x_rotated = delta_x * angle.cos() - delta_y * angle.sin();
-            let delta_y_rotated = delta_x * angle.sin() + delta_y * angle.cos();
+            let mut delta_x_rotated = delta_x * angle.cos() - delta_y * angle.sin();
+            let mut delta_y_rotated = delta_x * angle.sin() + delta_y * angle.cos();
+            // add noise
+            delta_x_rotated += point.noise_loc.x * velocity.translation.vector.norm();
+            delta_y_rotated += point.noise_loc.y * velocity.translation.vector.norm();
+            // update point
             point.loc.translation.x += delta_x_rotated;
             point.loc.translation.y += delta_y_rotated;
-            point.loc.rotation = Rotation::new(angle + delta_theta);
+            point.loc.rotation = Rotation::new(angle + delta_theta + point.noise_angular * velocity.translation.vector.norm());
             point.update_time_alive();
         }
 
@@ -318,7 +326,9 @@ impl ParticleFilter {
             } else {
                 self.random_point_uniform()
             };
-            self.points.push(FilterPoint::new(point));
+            let noise_loc = Vector2::new(rand::thread_rng().gen_range(-settings.pf_position_noise..settings.pf_position_noise), rand::thread_rng().gen_range(-settings.pf_position_noise..settings.pf_position_noise));
+            let noise_angular = rand::thread_rng().gen_range(-settings.pf_angular_noise..settings.pf_angular_noise);
+            self.points.push(FilterPoint::new(point, noise_loc, noise_angular));
         }
 
         stopwatch.mark_segment("Add new points to fill up points list");

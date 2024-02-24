@@ -71,6 +71,10 @@ pub struct UserSettings {
     pub pf_total_points: usize,
     /// The number of points displayed on the gui
     pub pf_gui_points: usize,
+    /// +/- error to apply to the position of particles in the particle filter
+    pub pf_position_noise: f32, // +/-
+    /// +/- error to apply to the rotation of particles in the particle filter
+    pub pf_angular_noise: f32, // +/-
     /// All points with a larger error are removed
     pub pf_error_threshold: f32,
     /// Chance 0.0-1.0 that a new point will spawn near an existing one instead of randomly
@@ -98,6 +102,8 @@ impl Default for UserSettings {
             enable_pf: true,
             pf_total_points: 1000,
             pf_gui_points: 1000,
+            pf_position_noise: 0.0001, // +/-
+            pf_angular_noise: 0.0001, // +/-
             pf_error_threshold: 2.0,
             pf_chance_near_other: 0.99,
 
