@@ -552,7 +552,7 @@ mod test {
 
         replay.record_pacman_location(Isometry2::default()).unwrap();
         replay.record_pacman_location(Isometry2::default()).unwrap();
-        replay.record_pacman_state(GameEngine::default()).unwrap();
+        replay.record_pacman_state(&GameEngine::default()).unwrap();
         replay.record_pacman_location(Isometry2::default()).unwrap();
         replay.record_pacman_location(Isometry2::default()).unwrap();
 
