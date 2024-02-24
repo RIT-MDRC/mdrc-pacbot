@@ -239,6 +239,8 @@ impl ParticleFilter {
             point.update_time_alive();
         }
 
+        stopwatch.mark_segment("Move each point by pacbot velocity");
+
         // Sort points
         let actual_sensor_readings: Vec<_> = sensors
             .distance_sensors
@@ -250,7 +252,7 @@ impl ParticleFilter {
             return;
         }
 
-        stopwatch.mark_segment("Lock distance sensors");
+        stopwatch.mark_segment("Get distance sensors");
 
         // Calculate distance sensor errors
         // Calculate distance sensor errors and pair with points
@@ -290,8 +292,6 @@ impl ParticleFilter {
 
         stopwatch.mark_segment("Sort points");
 
-        stopwatch.mark_segment("Remove least accurate points");
-
         // extend the points to the correct length since some have been pruned
         while self.points.len() < self.options.points {
             // chance to uniformly add a random point or do one around an existing point
@@ -327,7 +327,6 @@ impl ParticleFilter {
 
         stopwatch.mark_segment("Cut off extra points");
 
-        // TODO: this is slow
         // search for the point that has been around the longest
         self.best_guess = self
             .points
@@ -335,6 +334,8 @@ impl ParticleFilter {
             .max_by_key(|x| x.time_alive)
             .unwrap()
             .clone();
+
+        stopwatch.mark_segment("Calculate best guess");
     }
 
     /// Given a location guess, measure the absolute difference against the real values
