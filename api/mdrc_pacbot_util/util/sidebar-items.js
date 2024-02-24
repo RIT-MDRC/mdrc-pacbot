@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["moving_average","stopwatch"]};

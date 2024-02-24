@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["run_physics"],"struct":["PhysicsRenderInfo"]};
