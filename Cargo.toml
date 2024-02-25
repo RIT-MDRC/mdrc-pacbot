@@ -29,9 +29,20 @@ pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "2601948d
 egui-phosphor = "=0.3.1"
 bevy_egui = "0.24.0"
 bevy_ecs = { version = "0.12.1", features = ["multi-threaded"] }
-bevy = { version = "0.12.1", features = ["dynamic_linking"] }
 num-traits = "0.2.18"
 # rerun = "0.12.1"
+
+[dependencies.bevy]
+version = "0.12.1"
+default-features = false
+features = [
+    # Bevy functionality:
+    "multi-threaded",     # Run with multithreading
+    "bevy_winit",         # Window management (cross-platform Winit backend)
+
+    # Development/Debug features:
+    "dynamic_linking",   # Dynamic linking for faster compile-times
+]
 
 
 # Enable a small amount of optimization in debug mode
