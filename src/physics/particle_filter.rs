@@ -213,7 +213,9 @@ impl ParticleFilter {
 
         let mut rng = rand::thread_rng();
 
-        let noise_mag = 0.03 * velocity.0.norm() + 0.02 * velocity.1.abs() + 0.02;
+        let noise_mag = settings.pf_simulated_translation_noise * velocity.0.norm()
+            + settings.pf_simulated_rotation_noise * velocity.1.abs()
+            + settings.pf_generic_noise;
         let noise_dist = rand_distr::Normal::new(0.0, noise_mag * dt.sqrt()).unwrap();
         let mut gen_noise_value = || rng.sample(noise_dist);
         // multiply velocity by dt to get the distance moved

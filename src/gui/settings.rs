@@ -60,6 +60,24 @@ impl<'a> TabViewer<'a> {
         ui.label("Robot settings coming soon!");
         ui.separator();
 
+        f32_edit(
+            ui,
+            "Noise proportional to translation",
+            &mut self.settings.pf_simulated_translation_noise,
+        );
+        f32_edit(
+            ui,
+            "Noise proportional to rotation",
+            &mut self.settings.pf_simulated_rotation_noise,
+        );
+        f32_edit(
+            ui,
+            "Noise for movement in general",
+            &mut self.settings.pf_generic_noise,
+        );
+
+        ui.separator();
+
         ui.checkbox(
             &mut self.settings.replay_save_location,
             "Save physical location to replay",

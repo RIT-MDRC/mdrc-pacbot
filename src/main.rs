@@ -80,6 +80,13 @@ pub struct UserSettings {
     pub pf_translation_limit: f32,
     /// When generating a point based on an existing point, how far can it be moved in rotation?
     pub pf_rotation_limit: f32,
+
+    /// When moving particles by Rapier-reported distance, add noise proportional to translation
+    pub pf_simulated_translation_noise: f32,
+    /// When moving particles by Rapier-reported distance, add noise proportional to rotation
+    pub pf_simulated_rotation_noise: f32,
+    /// When moving particles by Rapier-reported distance, add noise
+    pub pf_generic_noise: f32,
 }
 
 impl Default for UserSettings {
@@ -103,6 +110,10 @@ impl Default for UserSettings {
 
             pf_translation_limit: 0.3,
             pf_rotation_limit: 0.3,
+
+            pf_simulated_translation_noise: 0.03,
+            pf_simulated_rotation_noise: 0.02,
+            pf_generic_noise: 0.02,
         }
     }
 }
