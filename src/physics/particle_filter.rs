@@ -306,9 +306,13 @@ impl ParticleFilter {
             sum_pos += point.loc.translation.vector * weight;
             sum_dir += point.loc.rotation.into_inner() * weight;
         }
-        sum_pos /= total_weight;
-        let sum_dir = UnitComplex::new_normalize(sum_dir);
-        self.best_guess = FilterPoint::new(Isometry2::from_parts(sum_pos.into(), sum_dir));
+        if total_weight.is_finite() && total_weight > 0.0 {
+            sum_pos /= total_weight;
+            let sum_dir = UnitComplex::new_normalize(sum_dir);
+            self.best_guess = FilterPoint::new(Isometry2::from_parts(sum_pos.into(), sum_dir));
+        } else {
+            eprintln!("Particle filter: total_weight={total_weight}, so not updating best_guess");
+        }
 
         stopwatch.mark_segment("Compute mean point");
 
