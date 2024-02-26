@@ -6,12 +6,16 @@ use crate::physics::PacbotSimulation;
 use crate::robot::{DistanceSensor, Robot};
 use crate::util::stopwatch::Stopwatch;
 use crate::UserSettings;
+use num_traits::Zero;
+use ordered_float::NotNan;
 use rand::rngs::ThreadRng;
 use rand::Rng;
-use rapier2d::na::{Isometry2, Point2, Vector2};
+use rand_distr::{Distribution, WeightedError};
+use rapier2d::na::{Complex, Isometry2, Point2, UnitComplex, Vector2};
 use rapier2d::prelude::{Ray, Rotation};
 use rayon::prelude::*;
 use std::f32::consts::PI;
+use std::iter;
 
 use super::raycast_grid::RaycastGrid;
 
@@ -70,7 +74,7 @@ impl ParticleFilter {
             raycast_grid: RaycastGrid::new(&grid),
             grid,
             robot,
-            best_guess: start_point.clone(),
+            best_guess: start_point,
             options,
         }
     }
@@ -197,7 +201,7 @@ impl ParticleFilter {
     /// Update the particle filter, using the same rigid body set as the start
     pub fn update(
         &mut self,
-        velocity: Isometry2<f32>,
+        velocity: (Vector2<f32>, f32),
         dt: f32,
         stopwatch: &mut Stopwatch,
         sensors: &PacbotSensors,
@@ -205,43 +209,49 @@ impl ParticleFilter {
     ) {
         stopwatch.start();
 
-        // retain points that are not inside walls
-        self.points.retain(|&point| {
-            !(self
-                .raycast_grid
-                .is_in_wall(point.loc.translation.x, point.loc.translation.y)
-                || point.loc.translation.x < 0.0
-                || point.loc.translation.y < 0.0
-                || point.loc.translation.x > 32.0
-                || point.loc.translation.y > 32.0)
-        });
-
-        stopwatch.mark_segment("Remove invalid points inside walls");
-
         let robot = self.robot.to_owned();
 
+        let mut rng = rand::thread_rng();
+
+        let noise_mag = 0.03 * velocity.0.norm() + 0.02 * velocity.1.abs() + 0.02;
+        let noise_dist = rand_distr::Normal::new(0.0, noise_mag * dt.sqrt()).unwrap();
+        let mut gen_noise_value = || rng.sample(noise_dist);
         // multiply velocity by dt to get the distance moved
-        let delta_x = velocity.translation.x * dt;
-        let delta_y = velocity.translation.y * dt;
-        let delta_theta = velocity.rotation.angle() * dt;
+        let delta_x = velocity.0.x * dt;
+        let delta_y = velocity.0.y * dt;
+        let delta_theta = velocity.1 * dt;
         for point in &mut self.points {
+            let delta_x = delta_x + gen_noise_value();
+            let delta_y = delta_y + gen_noise_value();
+            let delta_theta = delta_theta + gen_noise_value() * 1.0;
             let angle = point.loc.rotation.angle();
-            let delta_x_rotated = delta_x * angle.cos() - delta_y * angle.sin();
-            let delta_y_rotated = delta_x * angle.sin() + delta_y * angle.cos();
+            let mut delta_x_rotated = delta_x * angle.cos() - delta_y * angle.sin();
+            let mut delta_y_rotated = delta_x * angle.sin() + delta_y * angle.cos();
+
+            // Raycast along the delta vector. If the point would have translated into a wall,
+            // have it move a shorter distance that does not intersect (as much).
+            let delta = Vector2::new(delta_x_rotated, delta_y_rotated);
+            if delta.norm() > 1e-5 {
+                let origin = point.loc.translation.vector.into();
+                let dir = delta.normalize();
+                let ray = Ray::new(origin, dir);
+                let dist =
+                    self.raycast_grid.raycast(ray, f32::INFINITY) - self.robot.collider_radius;
+                if dist < delta.norm() {
+                    [delta_x_rotated, delta_y_rotated] = (dir * dist).into();
+                }
+            }
+
             point.loc.translation.x += delta_x_rotated;
             point.loc.translation.y += delta_y_rotated;
             point.loc.rotation = Rotation::new(angle + delta_theta);
-            point.update_time_alive();
+            point.update_time_alive(); // TODO: this is now unused.
         }
 
-        stopwatch.mark_segment("Move each point by pacbot velocity");
+        stopwatch.mark_segment("Move each point by pacbot velocity + noise");
 
-        // Sort points
-        let actual_sensor_readings: Vec<_> = sensors
-            .distance_sensors
-            .iter()
-            .map(|x| Some(*x as f32 / 88.9))
-            .collect();
+        // Get the sensor measurements.
+        let actual_sensor_readings = sensors.distance_sensors.map(|x| Some(x as f32 / 88.9));
         if actual_sensor_readings.len() != self.robot.distance_sensors.len() {
             println!("Uh oh! Particle filter found the wrong number of distance sensors. Unexpected behavior may occur.");
             return;
@@ -249,56 +259,92 @@ impl ParticleFilter {
 
         stopwatch.mark_segment("Get distance sensors");
 
-        // Calculate distance sensor errors
-        // Calculate distance sensor errors and pair with points
-        let mut paired_points_and_errors: Vec<(&FilterPoint, f32)> = self
+        // Compute the weight for each particle using the sensor measurement model.
+        // First, compute the log-likelihoods.
+        let mut point_weights: Vec<f32> = self
             .points
             .par_iter()
             .map(|p| {
-                (
-                    p,
-                    self.distance_sensor_diff(&robot, p.loc, &actual_sensor_readings),
-                )
+                let [x, y] = p.loc.translation.into();
+                if self.raycast_grid.is_in_wall(x, y) {
+                    // This point is in a wall, so its likelihood is zero (log-likelihood = -inf).
+                    f32::NEG_INFINITY
+                } else {
+                    // The log-likelihood is the negative sum of the sensor errors.
+                    // This corresponds to modeling the sensor noise as independent Laplace
+                    // distributions with scale parameter = 1.
+                    // See: https://en.wikipedia.org/wiki/Laplace_distribution
+                    -self.distance_sensor_diff(&robot, p.loc, &actual_sensor_readings)
+                }
             })
             .collect();
 
-        stopwatch.mark_segment("Calculate distance sensor errors");
+        // Next, transform the log-likelihoods into (non-log) likelihood weights,
+        // all scaled by a constant to avoid underflow from very small probabilities.
+        if !point_weights.is_empty() {
+            let mut max_log_likelihood = *point_weights
+                .iter()
+                .max_by_key(|&&w| NotNan::new(w).unwrap())
+                .unwrap();
+            if max_log_likelihood == f32::NEG_INFINITY {
+                max_log_likelihood = 0.0; // Avoid computing (-inf) - (-inf) = NaN.
+            }
+            for w in &mut point_weights {
+                *w = (*w - max_log_likelihood).exp();
+            }
+        }
+        let point_weights = point_weights; // Make the weights immutable from this point forward.
 
-        // go through every point and remove all that have an error greater than a certain threshold
-        paired_points_and_errors.retain(|(_, error)| *error < settings.pf_error_threshold);
-        stopwatch.mark_segment("Remove points with large error");
+        stopwatch.mark_segment("Calculate particle weights (scaled likelihoods)");
 
-        // Sort the paired vector based on the error values
-        paired_points_and_errors
-            .sort_unstable_by(|(_, error_a), (_, error_b)| error_a.total_cmp(error_b));
+        // Set self.best_guess to the (weighted) mean particle.
+        let mut total_weight = 0.0;
+        let mut sum_pos = Vector2::zeros();
+        let mut sum_dir = Complex::zero();
+        for (point, &weight) in iter::zip(&self.points, &point_weights) {
+            total_weight += weight;
+            sum_pos += point.loc.translation.vector * weight;
+            sum_dir += point.loc.rotation.into_inner() * weight;
+        }
+        sum_pos /= total_weight;
+        let sum_dir = UnitComplex::new_normalize(sum_dir);
+        self.best_guess = FilterPoint::new(Isometry2::from_parts(sum_pos.into(), sum_dir));
 
-        // Extract the sorted points from the pairs
-        self.points = paired_points_and_errors
-            .into_iter()
-            .map(|(point, _)| *point)
-            .collect();
+        stopwatch.mark_segment("Compute mean point");
 
-        stopwatch.mark_segment("Sort points");
+        // Resample particles using the likelihood weights.
+        match rand_distr::WeightedAliasIndex::new(point_weights) {
+            Ok(index_distribution) => {
+                self.points = index_distribution
+                    .sample_iter(&mut rng)
+                    .take(self.points.len()) // TODO: should this immediately resample to n = self.options.points?
+                    .map(|i| self.points[i])
+                    .collect();
+            }
+            Err(WeightedError::NoItem | WeightedError::AllWeightsZero) => {
+                // There are no particles with nonzero likelihood, so just skip resampling?
+            }
+            Err(err) => panic!("Failed to create WeightedAliasIndex: {err}"),
+        }
 
-        // extend the points to the correct length since some have been pruned
+        stopwatch.mark_segment("Resample points");
+
+        // extend the points to the correct length
         while self.points.len() < self.options.points {
             // chance to uniformly add a random point or do one around an existing point
-            let point = if rand::thread_rng().gen_bool(settings.pf_chance_near_other as f64)
-                && self.points.len() > 0
+            let point = if rng.gen_bool(settings.pf_chance_near_other as f64)
+                && !self.points.is_empty()
             {
                 // grab random point to generate a point near. grab point from self.points
-                let random_index = rand::thread_rng().gen_range(0..self.points.len());
+                let random_index = rng.gen_range(0..self.points.len());
                 let chosen_point = self.points[random_index];
                 // generate a new point some random distance around this chosen point by adding a random x, y and angle.
                 let new_x = chosen_point.loc.translation.x
-                    + rand::thread_rng()
-                        .gen_range(-settings.pf_translation_limit..settings.pf_translation_limit);
+                    + rng.gen_range(-settings.pf_translation_limit..settings.pf_translation_limit);
                 let new_y = chosen_point.loc.translation.y
-                    + rand::thread_rng()
-                        .gen_range(-settings.pf_translation_limit..settings.pf_translation_limit);
+                    + rng.gen_range(-settings.pf_translation_limit..settings.pf_translation_limit);
                 let new_angle = chosen_point.loc.rotation.angle()
-                    + rand::thread_rng()
-                        .gen_range(-settings.pf_rotation_limit..settings.pf_rotation_limit);
+                    + rng.gen_range(-settings.pf_rotation_limit..settings.pf_rotation_limit);
                 Isometry2::new(Vector2::new(new_x, new_y), new_angle)
             } else {
                 self.random_point_uniform()
@@ -309,21 +355,9 @@ impl ParticleFilter {
         stopwatch.mark_segment("Add new points to fill up points list");
 
         // cut off any extra points
-        while self.points.len() > self.options.points {
-            self.points.pop();
-        }
+        self.points.truncate(self.options.points);
 
         stopwatch.mark_segment("Cut off extra points");
-
-        // search for the point that has been around the longest
-        self.best_guess = self
-            .points
-            .iter()
-            .max_by_key(|x| x.time_alive)
-            .unwrap()
-            .clone();
-
-        stopwatch.mark_segment("Calculate best guess");
     }
 
     /// Given a location guess, measure the absolute difference against the real values
@@ -331,7 +365,7 @@ impl ParticleFilter {
         &self,
         robot: &Robot,
         point: Isometry2<f32>,
-        actual_values: &Vec<Option<f32>>,
+        actual_values: &[Option<f32>],
     ) -> f32 {
         (0..actual_values.len())
             .map(|i| match actual_values[i] {
@@ -377,7 +411,7 @@ impl PacbotSimulation {
     /// Update the particle filter
     pub fn pf_update(
         &mut self,
-        velocity: Isometry2<f32>,
+        velocity: (Vector2<f32>, f32),
         dt: f32,
         pf_stopwatch: &mut Stopwatch,
         sensors: &PacbotSensors,

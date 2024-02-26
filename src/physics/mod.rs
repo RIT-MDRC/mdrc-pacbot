@@ -162,7 +162,7 @@ pub fn run_particle_filter(
             vel_lin.x * (-angle).sin() + vel_lin.y * (-angle).cos(),
         );
         simulation.pf_update(
-            Isometry2::new(local_vel, vel_ang),
+            (local_vel, vel_ang),
             time.delta_seconds(),
             &mut pf_stopwatch.0,
             &sensors,
