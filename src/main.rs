@@ -3,7 +3,7 @@
 #![warn(missing_docs)]
 
 use crate::grid::standard_grids::StandardGrid;
-use crate::grid::ComputedGrid;
+use crate::grid::{ComputedGrid, IntLocation};
 use crate::gui::game::update_game;
 use crate::gui::{ui_system, AppMode, GuiPlugin};
 use crate::high_level::HLPlugin;
@@ -58,6 +58,9 @@ pub struct UserSettings {
     /// Physical characteristics of the robot
     pub robot: Robot,
 
+    /// When the user clicks on a location where the simulated robot should be teleported
+    pub kidnap_position: Option<IntLocation>,
+
     /// Whether physical location should be saved in the replay
     pub replay_save_location: bool,
     /// Whether pacbot sensors should be saved in the replay
@@ -97,6 +100,8 @@ impl Default for UserSettings {
             pico_address: None,
             go_server_address: None,
             robot: Robot::default(),
+
+            kidnap_position: None,
 
             replay_save_location: false,
             replay_save_sensors: false,

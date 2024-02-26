@@ -126,7 +126,18 @@ pub fn run_simulation(
     mut phys_stopwatch: ResMut<PhysicsStopwatch>,
     target_velocity: Res<TargetVelocity>,
     time: Res<Time>,
+    mut settings: ResMut<UserSettings>,
 ) {
+    if let Some(pos) = settings.kidnap_position.take() {
+        let rigid_body = simulation.get_robot_rigid_body();
+        rigid_body.set_position(
+            Isometry2::new(
+                Vector2::new(pos.row as f32, pos.col as f32),
+                rigid_body.rotation().angle(),
+            ),
+            true,
+        );
+    }
     phys_stopwatch.0.start();
     simulation.set_target_robot_velocity((target_velocity.0, target_velocity.1));
     simulation.step(time.delta_seconds());

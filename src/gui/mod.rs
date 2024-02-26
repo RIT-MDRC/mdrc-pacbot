@@ -9,7 +9,7 @@ mod stopwatch;
 pub mod transforms;
 pub mod utils;
 
-use crate::grid::ComputedGrid;
+use crate::grid::{ComputedGrid, IntLocation};
 use bevy::app::{App, Startup};
 use bevy::prelude::{Plugin, Update};
 use bevy_ecs::prelude::*;
@@ -483,6 +483,18 @@ impl GuiApp {
                                 }
                             }),
                         );
+                        if ctx.input(|i| i.pointer.primary_clicked()) {
+                            if let Some(pos) = tab_viewer.pointer_pos {
+                                let pos = world_to_screen.inverse().map_point(pos);
+                                let int_pos = IntLocation {
+                                    row: pos.x.round() as i8,
+                                    col: pos.y.round() as i8,
+                                };
+                                if !tab_viewer.grid.wall_at(&int_pos) {
+                                    tab_viewer.settings.kidnap_position = Some(int_pos);
+                                }
+                            }
+                        }
                     }
                 });
             });
