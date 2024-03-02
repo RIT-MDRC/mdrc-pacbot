@@ -622,6 +622,12 @@ impl PacbotWidget for PacbotSensorsWidget {
                         PacbotWidgetStatus::Ok,
                     ));
                 }
+                for i in 0..3 {
+                    self.messages.push((
+                        format!("Velocity {i}: {:.2}", sensors.encoder_velocities[i]),
+                        PacbotWidgetStatus::Ok,
+                    ));
+                }
             }
         }
     }

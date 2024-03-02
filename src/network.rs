@@ -3,8 +3,9 @@
 use crate::pathing::TargetVelocity;
 use crate::physics::LightPhysicsInfo;
 use crate::UserSettings;
-use bevy::prelude::{info, trace};
+use bevy::log::info;
 use bevy_ecs::prelude::*;
+use bincode;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_PI_3;
 use std::time::{Duration, Instant};
@@ -17,6 +18,8 @@ pub struct PacbotSensors {
     pub distance_sensors: [u8; 8],
     /// Encoder positions
     pub encoders: [i64; 3],
+    /// Velocity of the encoders
+    pub encoder_velocities: [f32; 3],
 }
 
 /// Holds the last time when sensor information was received from Pacbot
@@ -28,6 +31,7 @@ impl Default for PacbotSensors {
         Self {
             distance_sensors: [0; 8],
             encoders: [0; 3],
+            encoder_velocities: [0.0; 3],
         }
     }
 }
@@ -82,10 +86,9 @@ pub fn send_motor_commands(
                 (motor_angles[2] * (255.0 / 11.6) * scale + rotate_adjust * (255.0 / 11.6)) as i16,
             ];
 
-            let mut motors = [(0, true); 3];
+            let mut motors = [0.0; 3];
             for i in 0..3 {
-                motors[i].0 = motors_i16[i].abs() as u8;
-                motors[i].1 = motors_i16[i] >= 0;
+                motors[i] = motors_i16[i].abs() as f32;
             }
 
             if let Err(e) = pico.send_motors_message(motors) {
@@ -95,7 +98,7 @@ pub fn send_motor_commands(
 
             thread::sleep(Duration::from_millis(5));
         } else {
-            let motors = [(0, true); 3];
+            let motors = [0.0; 3];
 
             if let Err(e) = pico.send_motors_message(motors) {
                 eprintln!("{:?}", e);
@@ -141,18 +144,11 @@ pub fn recv_pico(
         let mut bytes = [0; 30];
         while let Ok(size) = pico.socket.recv(&mut bytes) {
             if settings.sensors_from_robot {
-                if size == 20 {
-                    for i in 0..8 {
-                        sensors.distance_sensors[i] = bytes[i];
-                    }
-                    for i in 0..3 {
-                        sensors.encoders[i] = i32::from_le_bytes([
-                            bytes[i * 4 + 8],
-                            bytes[i * 4 + 9],
-                            bytes[i * 4 + 10],
-                            bytes[i * 4 + 11],
-                        ]) as i64;
-                    }
+                if let Ok((message, _)) = bincode::serde::decode_from_slice::<PacbotSensors, _>(
+                    &bytes,
+                    bincode::config::standard(),
+                ) {
+                    *sensors = message;
                     recv_time.0 = Some(Instant::now());
                 } else {
                     eprintln!("Invalid message size from Pico: {size}");
@@ -163,12 +159,6 @@ pub fn recv_pico(
     if recv_time.0.unwrap_or(Instant::now()).elapsed() > Duration::from_secs(1) {
         network_data.pico = None;
     }
-}
-
-/// Types of messages sent to the Pico.
-#[repr(u8)]
-enum MessageType {
-    Motors = 1,
 }
 
 struct PicoConnection {
@@ -188,18 +178,24 @@ impl PicoConnection {
         Ok(())
     }
 
-    fn send_motors_message(&mut self, motors: [(u8, bool); 3]) -> io::Result<()> {
-        let mut message = [0; 7];
-        message[0] = MessageType::Motors as u8;
-        message[1] = motors[0].0;
-        message[2] = motors[1].0;
-        message[3] = motors[2].0;
-        message[4] = if motors[0].1 { 2 } else { 0 };
-        message[5] = if motors[1].1 { 2 } else { 0 };
-        message[6] = if motors[2].1 { 2 } else { 0 };
+    fn send_motors_message(&mut self, motors: [f32; 3]) -> io::Result<()> {
+        let message = PacbotCommand {
+            velocities: motors,
+            pid: [1000.0, 0.0, 0.0],
+            pid_limits: [10000.0, 10000.0, 10000.0],
+        };
         self.socket.set_nonblocking(false).unwrap();
-        let r = self.send_message(&message);
+        let r = self.send_message(
+            &bincode::serde::encode_to_vec(&message, bincode::config::standard()).unwrap(),
+        );
         self.socket.set_nonblocking(true).unwrap();
         r
     }
+}
+
+#[derive(Copy, Clone, Serialize)]
+struct PacbotCommand {
+    pub velocities: [f32; 3],
+    pub pid: [f32; 3],
+    pub pid_limits: [f32; 3],
 }
