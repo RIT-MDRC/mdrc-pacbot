@@ -57,6 +57,8 @@ pub struct UserSettings {
     pub go_server_address: Option<String>,
     /// Physical characteristics of the robot
     pub robot: Robot,
+    /// Whether sensor values should come from the robot, versus rapier
+    pub sensors_from_robot: bool,
 
     /// Whether physical location should be saved in the replay
     pub replay_save_location: bool,
@@ -90,6 +92,7 @@ impl Default for UserSettings {
             pico_address: None,
             go_server_address: None,
             robot: Robot::default(),
+            sensors_from_robot: false,
 
             replay_save_location: false,
             replay_save_sensors: false,

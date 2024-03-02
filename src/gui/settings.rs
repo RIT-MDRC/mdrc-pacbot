@@ -39,6 +39,7 @@ impl<'a> TabViewer<'a> {
             ui.text_edit_singleline(&mut pico_addr);
             self.settings.pico_address = Some(pico_addr);
         }
+        self.settings.sensors_from_robot = self.settings.pico_address.is_some();
 
         ui.separator();
 

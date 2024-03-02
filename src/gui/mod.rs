@@ -588,12 +588,16 @@ impl PacbotWidget for PacbotSensorsWidget {
         if let Some(t) = tab_viewer.sensors_recv_time.0 {
             if t.elapsed() > Duration::from_secs(1) {
                 self.messages.push((
-                    format!("Last data age: {:?}", t.elapsed()),
+                    format!("Last data age: {:.2?}", t.elapsed()),
                     PacbotWidgetStatus::Error("".to_string()),
                 ));
                 self.overall_status =
-                    PacbotWidgetStatus::Error(format!("Last data age: {:?}", t.elapsed()));
+                    PacbotWidgetStatus::Error(format!("Last data age: {:.2?}", t.elapsed()));
             } else {
+                self.messages.push((
+                    format!("Last data age: {:.2?}", t.elapsed()),
+                    PacbotWidgetStatus::Ok,
+                ));
                 for i in 0..8 {
                     if sensors.distance_sensors[i] == 0 {
                         self.messages.push((

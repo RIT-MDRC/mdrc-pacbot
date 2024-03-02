@@ -3,12 +3,12 @@
 use crate::pathing::TargetVelocity;
 use crate::physics::LightPhysicsInfo;
 use crate::UserSettings;
-use bevy::prelude::trace;
+use bevy::prelude::{info, trace};
 use bevy_ecs::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_PI_3;
-use std::time::Instant;
-use std::{io, net::UdpSocket};
+use std::time::{Duration, Instant};
+use std::{io, net::UdpSocket, thread};
 
 /// Stores data from Pacbot
 #[derive(Resource, Copy, Clone, Debug, Serialize, Deserialize)]
@@ -92,6 +92,8 @@ pub fn send_motor_commands(
                 eprintln!("{:?}", e);
                 network_data.pico = None;
             }
+
+            thread::sleep(Duration::from_millis(5));
         } else {
             let motors = [(0, true); 3];
 
@@ -105,16 +107,22 @@ pub fn send_motor_commands(
 
 /// Attempts to reconnect to the pico if not currently connected
 pub fn reconnect_pico(mut network_data: ResMut<NetworkPluginData>, settings: Res<UserSettings>) {
+    if settings.pico_address.is_none() {
+        network_data.pico = None;
+    }
     if network_data.pico.is_none() {
         if let Some(pico_address) = &settings.pico_address {
-            let try_conn = PicoConnection::new(20001, &pico_address);
+            if pico_address.len() == 0 {
+                return;
+            }
+            let try_conn = PicoConnection::new(20002, &pico_address);
             if let Err(ref e) = try_conn {
-                trace!("{:?}", e);
+                info!("{:?}", e);
             }
             network_data.pico = try_conn.ok();
             if let Some(pico) = &mut network_data.pico {
                 if let Err(e) = pico.socket.set_nonblocking(true) {
-                    trace!("{:?}", e);
+                    info!("{:?}", e);
                     network_data.pico = None;
                 }
             }
@@ -123,26 +131,37 @@ pub fn reconnect_pico(mut network_data: ResMut<NetworkPluginData>, settings: Res
 }
 
 /// Attempts to receive data from the pico connection if any is available
-pub fn recv_pico(mut network_data: ResMut<NetworkPluginData>, mut sensors: ResMut<PacbotSensors>) {
+pub fn recv_pico(
+    mut network_data: ResMut<NetworkPluginData>,
+    mut sensors: ResMut<PacbotSensors>,
+    mut recv_time: ResMut<PacbotSensorsRecvTime>,
+    settings: Res<UserSettings>,
+) {
     if let Some(pico) = &mut network_data.pico {
         let mut bytes = [0; 30];
         while let Ok(size) = pico.socket.recv(&mut bytes) {
-            if size == 20 {
-                for i in 0..8 {
-                    sensors.distance_sensors[i] = bytes[i];
+            if settings.sensors_from_robot {
+                if size == 20 {
+                    for i in 0..8 {
+                        sensors.distance_sensors[i] = bytes[i];
+                    }
+                    for i in 0..3 {
+                        sensors.encoders[i] = i32::from_le_bytes([
+                            bytes[i * 4 + 8],
+                            bytes[i * 4 + 9],
+                            bytes[i * 4 + 10],
+                            bytes[i * 4 + 11],
+                        ]) as i64;
+                    }
+                    recv_time.0 = Some(Instant::now());
+                } else {
+                    eprintln!("Invalid message size from Pico: {size}");
                 }
-                for i in 0..3 {
-                    sensors.encoders[i] = i32::from_le_bytes([
-                        bytes[i * 4 + 8],
-                        bytes[i * 4 + 9],
-                        bytes[i * 4 + 10],
-                        bytes[i * 4 + 11],
-                    ]) as i64;
-                }
-            } else {
-                eprintln!("Invalid message size from Pico: {size}");
             }
         }
+    }
+    if recv_time.0.unwrap_or(Instant::now()).elapsed() > Duration::from_secs(1) {
+        network_data.pico = None;
     }
 }
 
