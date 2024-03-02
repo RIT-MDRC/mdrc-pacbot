@@ -28,16 +28,11 @@ pub struct ParticleFilterOptions {
 #[derive(Clone, Copy)]
 pub struct FilterPoint {
     pub loc: Isometry2<f32>,
-    time_alive: u16, // time alive in frames (has a maximum that should be taken into account)
 }
 
 impl FilterPoint {
     pub fn new(loc: Isometry2<f32>) -> Self {
-        Self { loc, time_alive: 0 }
-    }
-
-    pub fn update_time_alive(&mut self) {
-        self.time_alive = self.time_alive.saturating_add(1);
+        Self { loc }
     }
 }
 
@@ -217,15 +212,17 @@ impl ParticleFilter {
             + settings.pf_simulated_rotation_noise * velocity.1.abs()
             + settings.pf_generic_noise;
         let noise_dist = rand_distr::Normal::new(0.0, noise_mag * dt.sqrt()).unwrap();
-        let mut gen_noise_value = || rng.sample(noise_dist);
+        let gen_noise_value = |rng: &mut ThreadRng| rng.sample(noise_dist);
         // multiply velocity by dt to get the distance moved
         let delta_x = velocity.0.x * dt;
         let delta_y = velocity.0.y * dt;
         let delta_theta = velocity.1 * dt;
-        for point in &mut self.points {
-            let delta_x = delta_x + gen_noise_value();
-            let delta_y = delta_y + gen_noise_value();
-            let delta_theta = delta_theta + gen_noise_value() * 1.0;
+        // for point in &mut self.points {
+        for i in 0..self.points.len() {
+            let point = &mut self.points[i];
+            let delta_x = delta_x + gen_noise_value(&mut rng);
+            let delta_y = delta_y + gen_noise_value(&mut rng);
+            let delta_theta = delta_theta + gen_noise_value(&mut rng) * 1.0;
             let angle = point.loc.rotation.angle();
             let mut delta_x_rotated = delta_x * angle.cos() - delta_y * angle.sin();
             let mut delta_y_rotated = delta_x * angle.sin() + delta_y * angle.cos();
@@ -243,11 +240,16 @@ impl ParticleFilter {
                     [delta_x_rotated, delta_y_rotated] = (dir * dist).into();
                 }
             }
+            
 
-            point.loc.translation.x += delta_x_rotated;
-            point.loc.translation.y += delta_y_rotated;
-            point.loc.rotation = Rotation::new(angle + delta_theta);
-            point.update_time_alive(); // TODO: this is now unused.
+            if rng.gen_bool(settings.pf_kidnapping_chance.into()) {
+                self.points[i] = FilterPoint::new(self.random_point_uniform());
+
+            } else {
+                point.loc.translation.x += delta_x_rotated;
+                point.loc.translation.y += delta_y_rotated;
+                point.loc.rotation = Rotation::new(angle + delta_theta);
+            }
         }
 
         stopwatch.mark_segment("Move each point by pacbot velocity + noise");

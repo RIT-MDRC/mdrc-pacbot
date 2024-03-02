@@ -14,11 +14,7 @@ use crate::{PacmanGameState, UserSettings};
 use bevy::time::Time;
 use bevy_ecs::prelude::*;
 use pacbot_rs::location::LocationState;
-use rapier2d::dynamics::{IntegrationParameters, RigidBodySet};
-use rapier2d::geometry::{BroadPhase, NarrowPhase};
 use rapier2d::na::{Isometry2, Point2, Vector2};
-use rapier2d::prelude::Ray;
-use rapier2d::prelude::Real;
 use rapier2d::prelude::*;
 
 use self::particle_filter::FilterPoint;
