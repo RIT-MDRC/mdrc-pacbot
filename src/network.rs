@@ -4,15 +4,12 @@ use crate::pathing::TargetVelocity;
 use crate::physics::LightPhysicsInfo;
 use crate::{PacmanGameState, UserSettings};
 use bevy::prelude::*;
-use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemId;
-use futures_util::TryFutureExt;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_PI_3;
-use std::io::Read;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use std::{io, net::UdpSocket};
-use websocket::stream::sync::{NetworkStream, TcpStream};
+use websocket::stream::sync::TcpStream;
 use websocket::sync::Client;
 
 /// Stores data from Pacbot
@@ -70,9 +67,6 @@ pub fn create_gs_conn(mut gs_conn: NonSendMut<GameServerConn>, settings: Res<Use
                 .unwrap()
                 .connect_insecure()
                 .unwrap();
-        // stream
-        //     .set_read_timeout(Some(Duration::from_millis(10)))
-        //     .unwrap();
         gs_conn.client = Some(client);
         info!("Connected!");
     }
