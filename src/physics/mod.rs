@@ -147,6 +147,7 @@ pub fn run_particle_filter(
     sensors: Res<PacbotSensors>,
     settings: Res<UserSettings>,
     time: Res<Time>,
+    game_engine: Res<PacmanGameState>,
 ) {
     if settings.enable_pf {
         simulation
@@ -174,6 +175,7 @@ pub fn run_particle_filter(
             &mut pf_stopwatch.0,
             &sensors,
             &settings,
+            game_engine.0.get_state().pacman_loc,
         );
     }
 }

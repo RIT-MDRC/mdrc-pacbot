@@ -8,6 +8,7 @@ use crate::util::stopwatch::Stopwatch;
 use crate::UserSettings;
 use num_traits::Zero;
 use ordered_float::NotNan;
+use pacbot_rs::location::LocationState;
 use rand::rngs::ThreadRng;
 use rand::Rng;
 use rand_distr::{Distribution, WeightedError};
@@ -201,6 +202,7 @@ impl ParticleFilter {
         stopwatch: &mut Stopwatch,
         sensors: &PacbotSensors,
         settings: &UserSettings,
+        cv_location: LocationState,
     ) {
         stopwatch.start();
 
@@ -217,35 +219,38 @@ impl ParticleFilter {
         let delta_x = velocity.0.x * dt;
         let delta_y = velocity.0.y * dt;
         let delta_theta = velocity.1 * dt;
-        // for point in &mut self.points {
         for i in 0..self.points.len() {
-            let point = &mut self.points[i];
-            let delta_x = delta_x + gen_noise_value(&mut rng);
-            let delta_y = delta_y + gen_noise_value(&mut rng);
-            let delta_theta = delta_theta + gen_noise_value(&mut rng) * 1.0;
-            let angle = point.loc.rotation.angle();
-            let mut delta_x_rotated = delta_x * angle.cos() - delta_y * angle.sin();
-            let mut delta_y_rotated = delta_x * angle.sin() + delta_y * angle.cos();
-
-            // Raycast along the delta vector. If the point would have translated into a wall,
-            // have it move a shorter distance that does not intersect (as much).
-            let delta = Vector2::new(delta_x_rotated, delta_y_rotated);
-            if delta.norm() > 1e-5 {
-                let origin = point.loc.translation.vector.into();
-                let dir = delta.normalize();
-                let ray = Ray::new(origin, dir);
-                let dist =
-                    self.raycast_grid.raycast(ray, f32::INFINITY) - self.robot.collider_radius;
-                if dist < delta.norm() {
-                    [delta_x_rotated, delta_y_rotated] = (dir * dist).into();
-                }
-            }
-            
-
-            if rng.gen_bool(settings.pf_kidnapping_chance.into()) {
+            // To handle the potential for kidnapping, we model the robot as teleporting a certain
+            // number of times per second on average (following a Poisson distribution).
+            // Using the PMF of the Poisson distribution, the probability that the robot teleported
+            // at least once during the last tick is 1 - e^-(average # of teleports per tick).
+            let avg_num_teleports_per_tick = settings.pf_avg_kidnaps_per_sec * dt;
+            let teleport_prob = 1.0 - (-avg_num_teleports_per_tick).exp();
+            if rng.gen_bool(teleport_prob.into()) {
                 self.points[i] = FilterPoint::new(self.random_point_uniform());
-
             } else {
+                let point = &mut self.points[i];
+                let delta_x = delta_x + gen_noise_value(&mut rng);
+                let delta_y = delta_y + gen_noise_value(&mut rng);
+                let delta_theta = delta_theta + gen_noise_value(&mut rng) * 1.0;
+                let angle = point.loc.rotation.angle();
+                let mut delta_x_rotated = delta_x * angle.cos() - delta_y * angle.sin();
+                let mut delta_y_rotated = delta_x * angle.sin() + delta_y * angle.cos();
+
+                // Raycast along the delta vector. If the point would have translated into a wall,
+                // have it move a shorter distance that does not intersect (as much).
+                let delta = Vector2::new(delta_x_rotated, delta_y_rotated);
+                if delta.norm() > 1e-5 {
+                    let origin = point.loc.translation.vector.into();
+                    let dir = delta.normalize();
+                    let ray = Ray::new(origin, dir);
+                    let dist =
+                        self.raycast_grid.raycast(ray, f32::INFINITY) - self.robot.collider_radius;
+                    if dist < delta.norm() {
+                        [delta_x_rotated, delta_y_rotated] = (dir * dist).into();
+                    }
+                }
+
                 point.loc.translation.x += delta_x_rotated;
                 point.loc.translation.y += delta_y_rotated;
                 point.loc.rotation = Rotation::new(angle + delta_theta);
@@ -274,11 +279,27 @@ impl ParticleFilter {
                     // This point is in a wall, so its likelihood is zero (log-likelihood = -inf).
                     f32::NEG_INFINITY
                 } else {
-                    // The log-likelihood is the negative sum of the sensor errors.
+                    // We model the log-likelihood of the distance sensor measurements as the
+                    // negative sum of the absolute sensor errors.
                     // This corresponds to modeling the sensor noise as independent Laplace
-                    // distributions with scale parameter = 1.
+                    // random variables with scale parameter = 1.
                     // See: https://en.wikipedia.org/wiki/Laplace_distribution
-                    -self.distance_sensor_diff(&robot, p.loc, &actual_sensor_readings)
+                    let dist_sensor_ll =
+                        -self.distance_sensor_diff(&robot, p.loc, &actual_sensor_readings);
+
+                    // We model the CV-reported coordinates as having Gaussian error (not entirely
+                    // accurate, since the CV coordinates are discrete integers, but not *that*
+                    // unreasonable if the standard deviation is large enough).
+                    // The log-likelihood of those coordinates is then proportional to the squared
+                    // distance from the robot location to the CV location.
+                    let cv_dist_squared =
+                        (x - cv_location.row as f32).powi(2) + (y - cv_location.col as f32).powi(2);
+                    let cv_ll = cv_dist_squared * (-0.5 / settings.pf_cv_error_std.powi(2))
+                        - (settings.pf_cv_error_std * (2.0 * PI).sqrt()).ln();
+
+                    // The overall likelihood is the product of the individual likelihoods, so
+                    // The overall log-likelihood is the sum of the individual log-likelihoods.
+                    dist_sensor_ll + cv_ll
                 }
             })
             .collect();
@@ -424,8 +445,9 @@ impl PacbotSimulation {
         pf_stopwatch: &mut Stopwatch,
         sensors: &PacbotSensors,
         settings: &UserSettings,
+        cv_location: LocationState,
     ) {
         self.particle_filter
-            .update(velocity, dt, pf_stopwatch, sensors, settings);
+            .update(velocity, dt, pf_stopwatch, sensors, settings, cv_location);
     }
 }

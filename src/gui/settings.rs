@@ -75,6 +75,16 @@ impl<'a> TabViewer<'a> {
             "Noise for movement in general",
             &mut self.settings.pf_generic_noise,
         );
+        f32_edit(
+            ui,
+            "The average number of times the robot is kidnapped per second, in our theoretical motion model",
+            &mut self.settings.pf_avg_kidnaps_per_sec,
+        );
+        f32_edit(
+            ui,
+            "The standard deviation of the CV position error, in our theoretical sensor model",
+            &mut self.settings.pf_cv_error_std,
+        );
 
         ui.separator();
 

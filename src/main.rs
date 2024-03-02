@@ -78,8 +78,12 @@ pub struct UserSettings {
     pub pf_error_threshold: f32,
     /// Chance 0.0-1.0 that a new point will spawn near an existing one instead of randomly
     pub pf_chance_near_other: f32,
-    /// Chance 0.0-1.0 that a new point will spawn at a random position on the board
-    pub pf_kidnapping_chance: f32,
+    /// The average number of times the robot is kidnapped per second, in our theoretical motion
+    /// model. This determines the probability that a particle will be teleported to a random
+    /// position.
+    pub pf_avg_kidnaps_per_sec: f32,
+    /// The standard deviation of the CV position error, in our theoretical sensor model.
+    pub pf_cv_error_std: f32,
 
     /// When generating a point based on an existing point, how far can it be moved in x and y?
     pub pf_translation_limit: f32,
@@ -114,7 +118,8 @@ impl Default for UserSettings {
             pf_gui_points: 10000,
             pf_error_threshold: 2.0,
             pf_chance_near_other: 0.99,
-            pf_kidnapping_chance: 0.10,
+            pf_avg_kidnaps_per_sec: 50.0,
+            pf_cv_error_std: 5.0,
 
             pf_translation_limit: 0.3,
             pf_rotation_limit: 0.3,
