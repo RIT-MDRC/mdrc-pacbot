@@ -2,13 +2,18 @@
 
 use crate::pathing::TargetVelocity;
 use crate::physics::LightPhysicsInfo;
-use crate::UserSettings;
-use bevy::prelude::trace;
+use crate::{PacmanGameState, UserSettings};
+use bevy::prelude::*;
 use bevy_ecs::prelude::*;
+use bevy_ecs::system::SystemId;
+use futures_util::TryFutureExt;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_PI_3;
-use std::time::Instant;
+use std::io::Read;
+use std::time::{Duration, Instant};
 use std::{io, net::UdpSocket};
+use websocket::stream::sync::{NetworkStream, TcpStream};
+use websocket::sync::Client;
 
 /// Stores data from Pacbot
 #[derive(Resource, Copy, Clone, Debug, Serialize, Deserialize)]
@@ -37,6 +42,49 @@ impl Default for PacbotSensors {
 pub struct NetworkPluginData {
     /// Connection to the Pico
     pico: Option<PicoConnection>,
+}
+
+/// Stores a connection to the game server.
+#[derive(Default)]
+pub struct GameServerConn {
+    /// Stores the connection to the game server.
+    pub client: Option<Client<TcpStream>>,
+}
+
+/// Stores the system ID of the game server spawn system.
+#[derive(Resource)]
+pub struct GSSpawnConnId(pub SystemId);
+
+/// Sets up the GSSpawnConnID.
+pub fn setup_gs_spawn(world: &mut World) {
+    let id = world.register_system(create_gs_conn);
+    world.insert_resource(GSSpawnConnId(id));
+}
+
+/// Creates a new game server connection based on the current user settings.
+pub fn create_gs_conn(mut gs_conn: NonSendMut<GameServerConn>, settings: Res<UserSettings>) {
+    if let Some(gs_address) = &settings.go_server_address {
+        info!("Connecting to {gs_address}");
+        let client: Client<TcpStream> =
+            websocket::ClientBuilder::new(&format!("ws://{gs_address}"))
+                .unwrap()
+                .connect_insecure()
+                .unwrap();
+        // stream
+        //     .set_read_timeout(Some(Duration::from_millis(10)))
+        //     .unwrap();
+        gs_conn.client = Some(client);
+        info!("Connected!");
+    }
+}
+
+/// Polls the game server connection and updates the game state.
+pub fn poll_gs(mut gs_conn: NonSendMut<GameServerConn>, mut game_state: ResMut<PacmanGameState>) {
+    if let Some(client) = &mut gs_conn.client {
+        if let Ok(websocket::OwnedMessage::Binary(msg)) = client.recv_message() {
+            game_state.0.update(&msg);
+        }
+    }
 }
 
 /// Sends current motor commands to the pico

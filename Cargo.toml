@@ -30,6 +30,7 @@ egui-phosphor = "=0.3.1"
 bevy_egui = "0.24.0"
 bevy_ecs = { version = "0.12.1", features = ["multi-threaded"] }
 num-traits = "0.2.18"
+websocket = "0.27.0"
 # rerun = "0.12.1"
 
 [dependencies.bevy]

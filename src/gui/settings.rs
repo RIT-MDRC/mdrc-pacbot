@@ -55,6 +55,12 @@ impl<'a> TabViewer<'a> {
             ui.text_edit_singleline(&mut go_addr);
             self.settings.go_server_address = Some(go_addr);
         }
+        self.reconnect = ui.button("Connect").clicked();
+        ui.label(if self.connected {
+            "Connected"
+        } else {
+            "Not Connected"
+        });
 
         ui.separator();
         ui.label("Robot settings coming soon!");
