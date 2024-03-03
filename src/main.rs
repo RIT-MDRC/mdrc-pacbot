@@ -22,7 +22,7 @@ use crate::util::stopwatch::Stopwatch;
 use bevy::prelude::*;
 use bevy::window::PresentMode;
 use bevy_egui::EguiPlugin;
-use network::{poll_gs, setup_gs_spawn, GSSpawnConnId, GameServerConn};
+use network::{poll_gs, GameServerConn};
 use pacbot_rs::game_engine::GameEngine;
 
 pub mod grid;
@@ -186,7 +186,6 @@ fn main() {
             5.0,
             7.0,
         )))
-        .add_systems(Startup, setup_gs_spawn)
         .add_systems(PreUpdate, start_schedule_stopwatch)
         .add_systems(PostUpdate, end_schedule_stopwatch)
         .add_systems(

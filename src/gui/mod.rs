@@ -30,9 +30,7 @@ use crate::gui::game::GameWidget;
 use crate::gui::settings::PacbotSettingsWidget;
 use crate::gui::stopwatch::StopwatchWidget;
 use crate::high_level::AiStopwatch;
-use crate::network::{
-    create_gs_conn, GSSpawnConnId, GameServerConn, PacbotSensors, PacbotSensorsRecvTime,
-};
+use crate::network::{GSConnState, GameServerConn, PacbotSensors, PacbotSensorsRecvTime};
 use crate::pathing::{TargetPath, TargetVelocity};
 use crate::physics::{LightPhysicsInfo, ParticleFilterStopwatch, PhysicsStopwatch};
 use crate::replay_manager::{replay_playback, update_replay_manager_system, ReplayManager};
@@ -94,9 +92,7 @@ pub fn ui_system(
         ResMut<AiStopwatch>,
     ),
     sensors: (Res<PacbotSensors>, Res<PacbotSensorsRecvTime>),
-    gs_conn: NonSend<GameServerConn>,
-    mut commands: Commands,
-    gs_sys: Res<GSSpawnConnId>,
+    mut gs_conn: NonSendMut<GameServerConn>,
 ) {
     let ctx = contexts.ctx_mut();
 
@@ -121,7 +117,7 @@ pub fn ui_system(
         sensors: sensors.0,
         sensors_recv_time: sensors.1,
 
-        connected: gs_conn.client.is_some(),
+        connected: gs_conn.client.is_connected(),
         reconnect: false,
     };
 
@@ -135,9 +131,9 @@ pub fn ui_system(
         .mark_segment("Update target velocity");
 
     app.update(&ctx, &mut tab_viewer);
-    
+
     if tab_viewer.reconnect {
-        commands.run_system(gs_sys.0);
+        gs_conn.client = GSConnState::Connecting;
     }
 }
 

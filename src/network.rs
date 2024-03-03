@@ -41,42 +41,66 @@ pub struct NetworkPluginData {
     pico: Option<PicoConnection>,
 }
 
+/// The current state of our game server connection.
+#[derive(Default)]
+pub enum GSConnState {
+    /// We are not connected, and we don't want to connect.
+    #[default]
+    Disconnected,
+    /// We are currently trying to connect.
+    Connecting,
+    /// We are connected.
+    Connected(Client<TcpStream>),
+}
+
+impl GSConnState {
+    /// Returns true if we're connected.
+    pub fn is_connected(&self) -> bool {
+        matches!(self, GSConnState::Connected(_))
+    }
+}
+
 /// Stores a connection to the game server.
 #[derive(Default)]
 pub struct GameServerConn {
     /// Stores the connection to the game server.
-    pub client: Option<Client<TcpStream>>,
-}
-
-/// Stores the system ID of the game server spawn system.
-#[derive(Resource)]
-pub struct GSSpawnConnId(pub SystemId);
-
-/// Sets up the GSSpawnConnID.
-pub fn setup_gs_spawn(world: &mut World) {
-    let id = world.register_system(create_gs_conn);
-    world.insert_resource(GSSpawnConnId(id));
-}
-
-/// Creates a new game server connection based on the current user settings.
-pub fn create_gs_conn(mut gs_conn: NonSendMut<GameServerConn>, settings: Res<UserSettings>) {
-    if let Some(gs_address) = &settings.go_server_address {
-        info!("Connecting to {gs_address}");
-        let client: Client<TcpStream> =
-            websocket::ClientBuilder::new(&format!("ws://{gs_address}"))
-                .unwrap()
-                .connect_insecure()
-                .unwrap();
-        gs_conn.client = Some(client);
-        info!("Connected!");
-    }
+    pub client: GSConnState,
 }
 
 /// Polls the game server connection and updates the game state.
-pub fn poll_gs(mut gs_conn: NonSendMut<GameServerConn>, mut game_state: ResMut<PacmanGameState>) {
-    if let Some(client) = &mut gs_conn.client {
-        if let Ok(websocket::OwnedMessage::Binary(msg)) = client.recv_message() {
-            game_state.0.update(&msg);
+/// If we're currently connecting, it tries to connect to the server instead.
+pub fn poll_gs(
+    settings: Res<UserSettings>,
+    mut gs_conn: NonSendMut<GameServerConn>,
+    mut game_state: ResMut<PacmanGameState>,
+) {
+    match &mut gs_conn.client {
+        GSConnState::Disconnected => (),
+        GSConnState::Connecting => {
+            if let Some(gs_address) = &settings.go_server_address {
+                info!("Connecting to {gs_address}...");
+                if let Ok(client) = websocket::ClientBuilder::new(&format!("ws://{gs_address}"))
+                    .unwrap()
+                    .connect_insecure()
+                {
+                    gs_conn.client = GSConnState::Connected(client);
+                    info!("Connected!");
+                } else {
+                    warn!("Unable to connect. Retrying...");
+                }
+            } else {
+                warn!("No address supplied.")
+            }
+        }
+        GSConnState::Connected(client) => {
+            if let Ok(msg) = client.recv_message() {
+                if let websocket::OwnedMessage::Binary(msg) = msg {
+                    game_state.0.update(&msg);
+                }
+            } else {
+                warn!("Disconnected from game server. Attempting to reconnect...");
+                gs_conn.client = GSConnState::Connecting;
+            }
         }
     }
 }
