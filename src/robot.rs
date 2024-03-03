@@ -77,7 +77,7 @@ impl Default for Robot {
                 relative_direction: angle,
 
                 noise_std: 0.0,
-                max_range: 3.0,
+                max_range: 255.0 / 88.9,
             })
         }
 
