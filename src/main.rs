@@ -68,7 +68,7 @@ pub struct UserSettings {
     /// Whether target paths and velocities should be saved in the replay
     pub replay_save_targets: bool,
 
-    /// Currently always true
+    /// Whether particle filter is calculated
     pub enable_pf: bool,
     /// The number of guesses tracked by ParticleFilter
     pub pf_total_points: usize,
@@ -113,7 +113,7 @@ impl Default for UserSettings {
             replay_save_sensors: false,
             replay_save_targets: false,
 
-            enable_pf: true,
+            enable_pf: false,
             pf_total_points: 50000,
             pf_gui_points: 10000,
             pf_error_threshold: 2.0,

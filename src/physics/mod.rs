@@ -196,11 +196,21 @@ pub fn update_physics_info(
             .round()
             .min(255.0) as u8;
     }
+    let best_guess = if settings.enable_pf {
+        simulation.pf_best_guess().loc
+    } else {
+        *simulation.get_primary_robot_position()
+    };
+    let pf_pos_rays = if settings.enable_pf {
+        simulation.get_distance_sensor_rays(pf_position.loc)
+    } else {
+        rays.clone()
+    };
     *phys_info = LightPhysicsInfo {
         real_pos: Some(*simulation.get_primary_robot_position()),
-        pf_pos: Some(simulation.pf_best_guess().loc),
+        pf_pos: Some(best_guess),
         real_pos_rays: rays,
-        pf_pos_rays: simulation.get_distance_sensor_rays(pf_position.loc),
+        pf_pos_rays,
         pf_points: if settings.enable_pf {
             simulation.particle_filter.points(settings.pf_gui_points)
         } else {

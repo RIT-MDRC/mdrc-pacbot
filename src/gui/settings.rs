@@ -28,6 +28,7 @@ impl<'a> TabViewer<'a> {
         ui.label("Settings");
         ui.separator();
         ui.checkbox(&mut self.settings.enable_ai, "AI enabled");
+        ui.checkbox(&mut self.settings.enable_pf, "PF enabled");
         ui.separator();
 
         let mut pico_enabled = self.settings.pico_address.is_some();
