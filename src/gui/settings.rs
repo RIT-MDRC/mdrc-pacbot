@@ -28,6 +28,7 @@ impl<'a> TabViewer<'a> {
         ui.label("Settings");
         ui.separator();
         ui.checkbox(&mut self.settings.enable_ai, "AI enabled");
+        ui.checkbox(&mut self.settings.enable_pf, "PF enabled");
         ui.separator();
 
         let mut pico_enabled = self.settings.pico_address.is_some();
@@ -58,6 +59,34 @@ impl<'a> TabViewer<'a> {
 
         ui.separator();
         ui.label("Robot settings coming soon!");
+        ui.separator();
+
+        f32_edit(
+            ui,
+            "Noise proportional to translation",
+            &mut self.settings.pf_simulated_translation_noise,
+        );
+        f32_edit(
+            ui,
+            "Noise proportional to rotation",
+            &mut self.settings.pf_simulated_rotation_noise,
+        );
+        f32_edit(
+            ui,
+            "Noise for movement in general",
+            &mut self.settings.pf_generic_noise,
+        );
+        f32_edit(
+            ui,
+            "The average number of times the robot is kidnapped per second, in our theoretical motion model",
+            &mut self.settings.pf_avg_kidnaps_per_sec,
+        );
+        f32_edit(
+            ui,
+            "The standard deviation of the CV position error, in our theoretical sensor model",
+            &mut self.settings.pf_cv_error_std,
+        );
+
         ui.separator();
 
         ui.checkbox(

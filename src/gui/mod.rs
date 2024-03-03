@@ -9,14 +9,14 @@ mod stopwatch;
 pub mod transforms;
 pub mod utils;
 
-use crate::grid::ComputedGrid;
+use crate::grid::{ComputedGrid, IntLocation};
 use bevy::app::{App, Startup};
 use bevy::prelude::{Plugin, Update};
 use bevy_ecs::prelude::*;
 use bevy_egui::EguiContexts;
 use eframe::egui;
 use eframe::egui::{Align, Color32, Frame, Key, Pos2, RichText, Ui, WidgetText};
-use egui_dock::{DockArea, DockState, Style};
+use egui_dock::{DockArea, DockState, NodeIndex, Style};
 use egui_phosphor::regular;
 use pacbot_rs::game_engine::GameEngine;
 use std::ops::Deref;
@@ -286,8 +286,12 @@ pub struct GuiApp {
 
 impl Default for GuiApp {
     fn default() -> Self {
+        let mut dock_state = DockState::new(vec![Tab::Grid]);
+        let surface = dock_state.main_surface_mut();
+        surface.split_right(NodeIndex::root(), 0.75, vec![Tab::Settings]);
+
         Self {
-            tree: DockState::new(vec![Tab::Grid]),
+            tree: dock_state,
 
             grid_widget: GridWidget::default(),
             game_widget: GameWidget::default(),
@@ -483,6 +487,18 @@ impl GuiApp {
                                 }
                             }),
                         );
+                        if ctx.input(|i| i.pointer.primary_clicked()) {
+                            if let Some(pos) = tab_viewer.pointer_pos {
+                                let pos = world_to_screen.inverse().map_point(pos);
+                                let int_pos = IntLocation {
+                                    row: pos.x.round() as i8,
+                                    col: pos.y.round() as i8,
+                                };
+                                if !tab_viewer.grid.wall_at(&int_pos) {
+                                    tab_viewer.settings.kidnap_position = Some(int_pos);
+                                }
+                            }
+                        }
                     }
                 });
             });
