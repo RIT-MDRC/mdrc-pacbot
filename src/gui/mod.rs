@@ -16,7 +16,7 @@ use bevy_ecs::prelude::*;
 use bevy_egui::EguiContexts;
 use eframe::egui;
 use eframe::egui::{Align, Color32, Frame, Key, Pos2, RichText, Ui, WidgetText};
-use egui_dock::{DockArea, DockState, Style};
+use egui_dock::{DockArea, DockState, NodeIndex, Style};
 use egui_phosphor::regular;
 use pacbot_rs::game_engine::GameEngine;
 use std::ops::Deref;
@@ -286,8 +286,12 @@ pub struct GuiApp {
 
 impl Default for GuiApp {
     fn default() -> Self {
+        let mut dock_state = DockState::new(vec![Tab::Grid]);
+        let surface = dock_state.main_surface_mut();
+        surface.split_right(NodeIndex::root(), 0.75, vec![Tab::Settings]);
+
         Self {
-            tree: DockState::new(vec![Tab::Grid]),
+            tree: dock_state,
 
             grid_widget: GridWidget::default(),
             game_widget: GameWidget::default(),
