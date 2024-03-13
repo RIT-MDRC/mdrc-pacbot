@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["end_schedule_stopwatch","main","start_schedule_stopwatch"],"mod":["grid","gui","high_level","network","pathing","physics","replay","replay_manager","robot","util"],"struct":["PacmanGameState","ScheduleStopwatch","StandardGridResource","UserSettings"]};
