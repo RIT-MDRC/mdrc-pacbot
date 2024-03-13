@@ -20,6 +20,8 @@ pub struct PacbotSensors {
     pub encoders: [i64; 3],
     /// Velocity of the encoders
     pub encoder_velocities: [f32; 3],
+    /// Output from PID
+    pub pid_output: [f32; 3],
 }
 
 /// Holds the last time when sensor information was received from Pacbot
@@ -32,6 +34,7 @@ impl Default for PacbotSensors {
             distance_sensors: [0; 8],
             encoders: [0; 3],
             encoder_velocities: [0.0; 3],
+            pid_output: [0.0; 3],
         }
     }
 }
@@ -62,7 +65,7 @@ pub fn send_motor_commands(
 
             let mut scale = (x.powi(2) + y.powi(2)).sqrt();
             if scale != 0.0 {
-                scale = 7.0;
+                scale = 30.0;
             }
 
             let motor_angles = [
@@ -72,23 +75,23 @@ pub fn send_motor_commands(
             ];
 
             let rotate_adjust = if target_velocity.1 > 0.0 {
-                3.0
+                -10.0
             } else if target_velocity.1 < 0.0 {
-                -3.0
+                10.0
             } else {
                 0.0
             };
 
             let motors_i16 = [
                 // constant is like max speed - can go up to 255.0
-                (motor_angles[0] * (255.0 / 11.6) * scale + rotate_adjust * (255.0 / 11.6)) as i16,
-                (motor_angles[1] * (255.0 / 11.6) * scale + rotate_adjust * (255.0 / 11.6)) as i16,
-                (motor_angles[2] * (255.0 / 11.6) * scale + rotate_adjust * (255.0 / 11.6)) as i16,
+                -(motor_angles[0] * scale + rotate_adjust),
+                (motor_angles[1] * scale + rotate_adjust),
+                -(motor_angles[2] * scale + rotate_adjust),
             ];
 
             let mut motors = [0.0; 3];
             for i in 0..3 {
-                motors[i] = motors_i16[i].abs() as f32;
+                motors[i] = motors_i16[i];
             }
 
             if let Err(e) = pico.send_motors_message(motors) {
@@ -141,7 +144,7 @@ pub fn recv_pico(
     settings: Res<UserSettings>,
 ) {
     if let Some(pico) = &mut network_data.pico {
-        let mut bytes = [0; 30];
+        let mut bytes = [0; 90];
         while let Ok(size) = pico.socket.recv(&mut bytes) {
             if settings.sensors_from_robot {
                 if let Ok((message, _)) = bincode::serde::decode_from_slice::<PacbotSensors, _>(
@@ -151,7 +154,7 @@ pub fn recv_pico(
                     *sensors = message;
                     recv_time.0 = Some(Instant::now());
                 } else {
-                    eprintln!("Invalid message size from Pico: {size}");
+                    eprintln!("Invalid message from Pico: {size}");
                 }
             }
         }
@@ -181,7 +184,7 @@ impl PicoConnection {
     fn send_motors_message(&mut self, motors: [f32; 3]) -> io::Result<()> {
         let message = PacbotCommand {
             velocities: motors,
-            pid: [1000.0, 0.0, 0.0],
+            pid: [5.0, 0.1, 0.0],
             pid_limits: [10000.0, 10000.0, 10000.0],
         };
         self.socket.set_nonblocking(false).unwrap();

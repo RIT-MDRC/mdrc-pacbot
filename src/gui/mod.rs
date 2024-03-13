@@ -307,7 +307,7 @@ impl GuiApp {
             tab_viewer.target_velocity.0.y = 0.0;
             tab_viewer.target_velocity.1 = 0.0;
             ctx.input(|i| {
-                let target_speed = if i.modifiers.shift { 4.0 } else { 10.0 };
+                let target_speed = if i.modifiers.shift { 4.0 } else { 6.0 };
                 if i.key_down(Key::S) {
                     tab_viewer.target_velocity.0.x = target_speed;
                 }
@@ -621,10 +621,12 @@ impl PacbotWidget for PacbotSensorsWidget {
                         format!("Encoder {i}: {}", sensors.encoders[i]),
                         PacbotWidgetStatus::Ok,
                     ));
-                }
-                for i in 0..3 {
                     self.messages.push((
                         format!("Velocity {i}: {:.2}", sensors.encoder_velocities[i]),
+                        PacbotWidgetStatus::Ok,
+                    ));
+                    self.messages.push((
+                        format!("PID {i}: {:.2}", sensors.pid_output[i]),
                         PacbotWidgetStatus::Ok,
                     ));
                 }
