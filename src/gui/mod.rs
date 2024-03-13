@@ -48,8 +48,8 @@ impl Plugin for GuiPlugin {
             .insert_resource(GuiStopwatch(Stopwatch::new(
                 10,
                 "GUI".to_string(),
-                1.0,
-                2.0,
+                3.0,
+                4.0,
             )))
             .add_systems(Startup, font_setup)
             .add_systems(
