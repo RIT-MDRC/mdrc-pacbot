@@ -9,7 +9,7 @@ fn int_edit(ui: &mut Ui, label: &str, initial: &mut usize) {
     ui.label(label);
     let mut mutint = (*initial).to_string();
     ui.text_edit_singleline(&mut mutint);
-    if let Ok(i) = usize::from_str_radix(mutint.as_str(), 10) {
+    if let Ok(i) = mutint.as_str().parse::<usize>() {
         *initial = i;
     }
 }
@@ -135,7 +135,7 @@ impl PacbotWidget for PacbotSettingsWidget {
     }
 
     fn button_text(&self) -> RichText {
-        RichText::new(format!("{}", regular::GEAR,))
+        RichText::new(regular::GEAR.to_string())
     }
 
     fn tab(&self) -> Tab {

@@ -72,6 +72,7 @@ fn font_setup(mut contexts: EguiContexts) {
 }
 
 /// Updates Egui and any actions from the user
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn ui_system(
     mut contexts: EguiContexts,
     mut app: Local<GuiApp>,
@@ -119,14 +120,14 @@ pub fn ui_system(
 
     tab_viewer.gui_stopwatch.0.start();
 
-    app.update_target_velocity(&ctx, &mut tab_viewer);
+    app.update_target_velocity(ctx, &mut tab_viewer);
 
     tab_viewer
         .gui_stopwatch
         .0
         .mark_segment("Update target velocity");
 
-    app.update(&ctx, &mut tab_viewer);
+    app.update(ctx, &mut tab_viewer);
 }
 
 /// Options for different kinds of tabs
@@ -297,8 +298,8 @@ impl Default for GuiApp {
             game_widget: GameWidget::default(),
             stopwatch_widget: StopwatchWidget::new(),
             ai_widget: AiWidget::default(),
-            sensors_widget: PacbotSensorsWidget::new(),
-            settings_widget: PacbotSettingsWidget::default(),
+            sensors_widget: PacbotSensorsWidget::default(),
+            settings_widget: PacbotSettingsWidget,
         }
     }
 }
@@ -539,7 +540,7 @@ impl PacbotWidget for GridWidget {
     }
 
     fn button_text(&self) -> RichText {
-        RichText::new(format!("{}", regular::GRID_FOUR,))
+        RichText::new(regular::GRID_FOUR.to_string())
     }
 
     fn tab(&self) -> Tab {
@@ -563,7 +564,7 @@ impl PacbotWidget for AiWidget {
     }
 
     fn button_text(&self) -> RichText {
-        RichText::new(format!("{}", regular::BRAIN,))
+        RichText::new(regular::BRAIN.to_string())
     }
 
     fn overall_status(&self) -> &PacbotWidgetStatus {
@@ -584,9 +585,8 @@ pub struct PacbotSensorsWidget {
     pub messages: Vec<(String, PacbotWidgetStatus)>,
 }
 
-impl PacbotSensorsWidget {
-    /// Make a new PacbotSensorsWidget
-    pub fn new() -> Self {
+impl Default for PacbotSensorsWidget {
+    fn default() -> Self {
         Self {
             overall_status: PacbotWidgetStatus::Ok,
             messages: vec![],
@@ -643,7 +643,7 @@ impl PacbotWidget for PacbotSensorsWidget {
     }
 
     fn button_text(&self) -> RichText {
-        RichText::new(format!("{}", regular::RULER,))
+        RichText::new(regular::RULER.to_string())
     }
 
     fn overall_status(&self) -> &PacbotWidgetStatus {

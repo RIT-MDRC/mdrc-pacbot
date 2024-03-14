@@ -110,7 +110,7 @@ impl<'a> TabViewer<'a> {
                 let target = self
                     .target_path
                     .0
-                    .get(0)
+                    .first()
                     .unwrap_or(&IntLocation { row: 0, col: 0 });
                 painter.line_segment(
                     [

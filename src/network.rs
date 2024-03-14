@@ -11,7 +11,7 @@ use std::time::Instant;
 use std::{io, net::UdpSocket};
 
 /// Stores data from Pacbot
-#[derive(Resource, Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Resource, Copy, Clone, Debug, Serialize, Deserialize, Default)]
 pub struct PacbotSensors {
     /// Distance sensor readings, mm
     pub distance_sensors: [u8; 8],
@@ -22,15 +22,6 @@ pub struct PacbotSensors {
 /// Holds the last time when sensor information was received from Pacbot
 #[derive(Resource, Default)]
 pub struct PacbotSensorsRecvTime(pub(crate) Option<Instant>);
-
-impl Default for PacbotSensors {
-    fn default() -> Self {
-        Self {
-            distance_sensors: [0; 8],
-            encoders: [0; 3],
-        }
-    }
-}
 
 /// Stores connections for the NetworkPlugin
 #[derive(Default, Resource)]
@@ -84,7 +75,7 @@ pub fn send_motor_commands(
 
             let mut motors = [(0, true); 3];
             for i in 0..3 {
-                motors[i].0 = motors_i16[i].abs() as u8;
+                motors[i].0 = motors_i16[i].unsigned_abs() as u8;
                 motors[i].1 = motors_i16[i] >= 0;
             }
 
@@ -107,7 +98,7 @@ pub fn send_motor_commands(
 pub fn reconnect_pico(mut network_data: ResMut<NetworkPluginData>, settings: Res<UserSettings>) {
     if network_data.pico.is_none() {
         if let Some(pico_address) = &settings.pico_address {
-            let try_conn = PicoConnection::new(20001, &pico_address);
+            let try_conn = PicoConnection::new(20001, pico_address);
             if let Err(ref e) = try_conn {
                 trace!("{:?}", e);
             }
@@ -128,9 +119,7 @@ pub fn recv_pico(mut network_data: ResMut<NetworkPluginData>, mut sensors: ResMu
         let mut bytes = [0; 30];
         while let Ok(size) = pico.socket.recv(&mut bytes) {
             if size == 20 {
-                for i in 0..8 {
-                    sensors.distance_sensors[i] = bytes[i];
-                }
+                sensors.distance_sensors.copy_from_slice(&bytes[..8]);
                 for i in 0..3 {
                     sensors.encoders[i] = i32::from_le_bytes([
                         bytes[i * 4 + 8],

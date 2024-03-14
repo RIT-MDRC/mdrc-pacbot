@@ -318,7 +318,7 @@ impl HighLevelContext {
             .unwrap()
             .to_scalar::<u32>()
             .unwrap() as usize;
-        let mut argmax = vec![0.; 5];
+        let mut argmax = [0.; 5];
         argmax[argmax_idx] = 1.;
 
         let actions = [
