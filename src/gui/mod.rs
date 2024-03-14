@@ -135,6 +135,10 @@ pub fn ui_system(
     if tab_viewer.reconnect {
         gs_conn.client = GSConnState::Connecting;
     }
+
+    if tab_viewer.settings.go_server_address.is_none() {
+        gs_conn.client = GSConnState::Disconnected;
+    }
 }
 
 /// Options for different kinds of tabs
