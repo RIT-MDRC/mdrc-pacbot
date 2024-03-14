@@ -98,8 +98,6 @@ pub fn send_motor_commands(
                 eprintln!("{:?}", e);
                 network_data.pico = None;
             }
-
-            thread::sleep(Duration::from_millis(5));
         } else {
             let motors = [0.0; 3];
 
