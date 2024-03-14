@@ -4,13 +4,13 @@ use crate::pathing::TargetVelocity;
 use crate::physics::LightPhysicsInfo;
 use crate::{PacmanGameState, UserSettings};
 use bevy::prelude::*;
-use bevy_ecs::system::SystemId;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_PI_3;
+use std::net::TcpStream;
 use std::time::Instant;
 use std::{io, net::UdpSocket};
-use websocket::stream::sync::TcpStream;
-use websocket::sync::Client;
+use tungstenite::stream::MaybeTlsStream;
+use tungstenite::{connect, Message, WebSocket};
 
 /// Stores data from Pacbot
 #[derive(Resource, Copy, Clone, Debug, Serialize, Deserialize)]
@@ -50,7 +50,7 @@ pub enum GSConnState {
     /// We are currently trying to connect.
     Connecting,
     /// We are connected.
-    Connected(Client<TcpStream>),
+    Connected(WebSocket<MaybeTlsStream<TcpStream>>),
 }
 
 impl GSConnState {
@@ -79,11 +79,8 @@ pub fn poll_gs(
         GSConnState::Connecting => {
             if let Some(gs_address) = &settings.go_server_address {
                 info!("Connecting to {gs_address}...");
-                if let Ok(client) = websocket::ClientBuilder::new(&format!("ws://{gs_address}"))
-                    .unwrap()
-                    .connect_insecure()
-                {
-                    gs_conn.client = GSConnState::Connected(client);
+                if let Ok(stream) = connect(format!("ws://{gs_address}")) {
+                    gs_conn.client = GSConnState::Connected(stream.0);
                     info!("Connected!");
                 } else {
                     warn!("Unable to connect. Retrying...");
@@ -93,8 +90,8 @@ pub fn poll_gs(
             }
         }
         GSConnState::Connected(client) => {
-            if let Ok(msg) = client.recv_message() {
-                if let websocket::OwnedMessage::Binary(msg) = msg {
+            if let Ok(msg) = client.read() {
+                if let Message::Binary(msg) = msg {
                     game_state.0.update(&msg);
                 }
             } else {
