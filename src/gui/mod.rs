@@ -327,7 +327,7 @@ impl GuiApp {
             tab_viewer.target_velocity.0.y = 0.0;
             tab_viewer.target_velocity.1 = 0.0;
             ctx.input(|i| {
-                let target_speed = if i.modifiers.shift { 4.0 } else { 10.0 };
+                let target_speed = if i.modifiers.shift { 4.0 } else { 6.0 };
                 if i.key_down(Key::S) {
                     tab_viewer.target_velocity.0.x = target_speed;
                 }
@@ -619,12 +619,16 @@ impl PacbotWidget for PacbotSensorsWidget {
         if let Some(t) = tab_viewer.sensors_recv_time.0 {
             if t.elapsed() > Duration::from_secs(1) {
                 self.messages.push((
-                    format!("Last data age: {:?}", t.elapsed()),
+                    format!("Last data age: {:.2?}", t.elapsed()),
                     PacbotWidgetStatus::Error("".to_string()),
                 ));
                 self.overall_status =
-                    PacbotWidgetStatus::Error(format!("Last data age: {:?}", t.elapsed()));
+                    PacbotWidgetStatus::Error(format!("Last data age: {:.2?}", t.elapsed()));
             } else {
+                self.messages.push((
+                    format!("Last data age: {:.2?}", t.elapsed()),
+                    PacbotWidgetStatus::Ok,
+                ));
                 for i in 0..8 {
                     if sensors.distance_sensors[i] == 0 {
                         self.messages.push((
@@ -646,6 +650,14 @@ impl PacbotWidget for PacbotSensorsWidget {
                 for i in 0..3 {
                     self.messages.push((
                         format!("Encoder {i}: {}", sensors.encoders[i]),
+                        PacbotWidgetStatus::Ok,
+                    ));
+                    self.messages.push((
+                        format!("Velocity {i}: {:.2}", sensors.encoder_velocities[i]),
+                        PacbotWidgetStatus::Ok,
+                    ));
+                    self.messages.push((
+                        format!("PID {i}: {:.2}", sensors.pid_output[i]),
                         PacbotWidgetStatus::Ok,
                     ));
                 }

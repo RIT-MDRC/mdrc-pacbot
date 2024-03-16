@@ -144,7 +144,7 @@ impl<'a> TabViewer<'a> {
             let replay = Replay::from_bytes(&buffer)?;
 
             self.settings.mode = AppMode::Playback;
-            self.replay_manager.replay = replay;
+            self.replay_manager.replay = replay.0;
             self.replay_manager.playback_paused = true;
         }
 

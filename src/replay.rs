@@ -4,7 +4,6 @@ use crate::grid::standard_grids::StandardGrid;
 use crate::grid::IntLocation;
 use crate::network::PacbotSensors;
 use anyhow::{anyhow, Error};
-use bincode::{deserialize, serialize};
 use pacbot_rs::game_engine::GameEngine;
 use rapier2d::na::{Isometry2, Vector2};
 use serde::{Deserialize, Serialize};
@@ -208,8 +207,8 @@ impl Replay {
     /// let replay_bytes = replay.to_bytes().expect("Failed to serialize replay!");
     /// let replay2 = Replay::from_bytes(&replay_bytes).expect("Failed to deserialize replay!");
     /// ```
-    pub fn from_bytes(bytes: &[u8]) -> Result<Replay, bincode::Error> {
-        bincode::deserialize(bytes)
+    pub fn from_bytes(bytes: &[u8]) -> Result<(Replay, usize), bincode::error::DecodeError> {
+        bincode::serde::decode_from_slice(bytes, bincode::config::standard())
     }
 
     /// Get the bytes associated with the Replay
@@ -223,8 +222,8 @@ impl Replay {
     /// let replay_bytes = replay.to_bytes().expect("Failed to serialize replay!");
     /// let replay2 = Replay::from_bytes(&replay_bytes).expect("Failed to deserialize replay!");
     /// ```
-    pub fn to_bytes(&self) -> Result<Vec<u8>, bincode::Error> {
-        bincode::serialize(self)
+    pub fn to_bytes(&self) -> Result<Vec<u8>, bincode::error::EncodeError> {
+        bincode::serde::encode_to_vec(self, bincode::config::standard())
     }
 
     /// Returns whether the replay has played its last frame
@@ -479,8 +478,11 @@ impl Replay {
     /// assert!(replay.record_pacman_location(Isometry2::default()).is_err());
     /// ```
     pub fn record_pacman_state(&mut self, state: &GameEngine) -> Result<(), Error> {
-        let state = serialize(state).unwrap();
-        let state: GameEngine = deserialize(&state).unwrap();
+        let state = bincode::serde::encode_to_vec(&state, bincode::config::standard()).unwrap();
+        let state: GameEngine =
+            bincode::serde::decode_from_slice(&state, bincode::config::standard())
+                .unwrap()
+                .0;
         if !self.is_at_end() {
             Err(anyhow!("Tried to record to replay that was mid-playback"))
         } else {

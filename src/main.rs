@@ -58,6 +58,8 @@ pub struct UserSettings {
     pub go_server_address: Option<String>,
     /// Physical characteristics of the robot
     pub robot: Robot,
+    /// Whether sensor values should come from the robot, versus rapier
+    pub sensors_from_robot: bool,
 
     /// When the user clicks on a location where the simulated robot should be teleported
     pub kidnap_position: Option<IntLocation>,
@@ -107,6 +109,7 @@ impl Default for UserSettings {
             pico_address: None,
             go_server_address: None,
             robot: Robot::default(),
+            sensors_from_robot: false,
 
             kidnap_position: None,
 

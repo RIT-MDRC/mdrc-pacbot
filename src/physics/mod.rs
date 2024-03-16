@@ -190,11 +190,14 @@ pub fn update_physics_info(
     let primary_position = *simulation.get_primary_robot_position();
     let pf_position = simulation.pf_best_guess();
     let rays = simulation.get_distance_sensor_rays(primary_position);
-    for (i, sensor) in sensors.distance_sensors.iter_mut().enumerate() {
-        let (a, b) = rays[i];
-        *sensor = (((a.x - b.x).powi(2) + (a.y - b.y).powi(2)).sqrt() * 88.9)
-            .round()
-            .min(255.0) as u8;
+    if !settings.sensors_from_robot {
+        for i in 0..sensors.distance_sensors.len() {
+            let (a, b) = rays[i];
+            sensors.distance_sensors[i] = (((a.x - b.x).powi(2) + (a.y - b.y).powi(2)).sqrt()
+                * 88.9)
+                .round()
+                .min(255.0) as u8;
+        }
     }
     let best_guess = if settings.enable_pf {
         simulation.pf_best_guess().loc
