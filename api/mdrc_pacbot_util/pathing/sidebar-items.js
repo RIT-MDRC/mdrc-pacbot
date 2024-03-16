@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["target_path_to_target_vel"],"struct":["TargetPath","TargetVelocity"]};
