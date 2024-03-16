@@ -1,5 +1,5 @@
 [package]
-name = "mdrc-pacbot-util"
+name = "mdrc-pacbot"
 version = "0.1.0"
 edition = "2021"
 documentation = "https://rit-mdrc.github.io/mdrc-pacbot-util/"
@@ -33,7 +33,6 @@ num-traits = "0.2.18"
 rand_distr = "0.4.3"
 ordered-float = "4.2.0"
 tungstenite = "0.21.0"
-# rerun = "0.12.1"
 
 [dependencies.bevy]
 version = "0.12.1"
