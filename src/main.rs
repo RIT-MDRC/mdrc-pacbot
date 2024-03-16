@@ -171,20 +171,20 @@ fn main() {
         .insert_resource(PhysicsStopwatch(Stopwatch::new(
             10,
             "Physics".to_string(),
-            4.0,
-            6.0,
+            1.0,
+            2.0,
         )))
         .insert_resource(ParticleFilterStopwatch(Stopwatch::new(
             10,
             "PF".to_string(),
-            4.0,
-            6.0,
+            15.0,
+            20.0,
         )))
         .insert_resource(ScheduleStopwatch(Stopwatch::new(
             10,
             "Schedule".to_string(),
-            5.0,
-            7.0,
+            15.0,
+            20.0,
         )))
         .add_systems(PreUpdate, start_schedule_stopwatch)
         .add_systems(PostUpdate, end_schedule_stopwatch)

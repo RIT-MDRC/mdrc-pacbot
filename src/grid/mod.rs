@@ -28,9 +28,9 @@ impl IntLocation {
     }
 }
 
-impl Into<Point2<i8>> for IntLocation {
-    fn into(self) -> Point2<i8> {
-        Point2::new(self.row, self.col)
+impl From<IntLocation> for Point2<i8> {
+    fn from(val: IntLocation) -> Self {
+        Point2::new(val.row, val.col)
     }
 }
 
@@ -269,7 +269,7 @@ impl TryFrom<Grid> for ComputedGrid {
                 if part.row < 0 || part.col < 0 {
                     true
                 } else {
-                    g.wall_at(&part)
+                    g.wall_at(part)
                 }
             })
         }

@@ -210,6 +210,7 @@ impl ParticleFilter {
 
         let mut rng = rand::thread_rng();
 
+        // Move/update each particle according to the motion model and encoder velocity.
         let noise_mag = settings.pf_simulated_translation_noise * velocity.0.norm()
             + settings.pf_simulated_rotation_noise * velocity.1.abs()
             + settings.pf_generic_noise;
@@ -219,7 +220,7 @@ impl ParticleFilter {
         let delta_x = velocity.0.x * dt;
         let delta_y = velocity.0.y * dt;
         let delta_theta = velocity.1 * dt;
-        for i in 0..self.points.len() {
+        let move_point = |rng: &mut ThreadRng, mut point: FilterPoint| -> FilterPoint {
             // To handle the potential for kidnapping, we model the robot as teleporting a certain
             // number of times per second on average (following a Poisson distribution).
             // Using the PMF of the Poisson distribution, the probability that the robot teleported
@@ -227,12 +228,11 @@ impl ParticleFilter {
             let avg_num_teleports_per_tick = settings.pf_avg_kidnaps_per_sec * dt;
             let teleport_prob = 1.0 - (-avg_num_teleports_per_tick).exp();
             if rng.gen_bool(teleport_prob.into()) {
-                self.points[i] = FilterPoint::new(self.random_point_uniform());
+                FilterPoint::new(self.random_point_uniform())
             } else {
-                let point = &mut self.points[i];
-                let delta_x = delta_x + gen_noise_value(&mut rng);
-                let delta_y = delta_y + gen_noise_value(&mut rng);
-                let delta_theta = delta_theta + gen_noise_value(&mut rng) * 1.0;
+                let delta_x = delta_x + gen_noise_value(rng);
+                let delta_y = delta_y + gen_noise_value(rng);
+                let delta_theta = delta_theta + gen_noise_value(rng) * 1.0;
                 let angle = point.loc.rotation.angle();
                 let mut delta_x_rotated = delta_x * angle.cos() - delta_y * angle.sin();
                 let mut delta_y_rotated = delta_x * angle.sin() + delta_y * angle.cos();
@@ -254,8 +254,15 @@ impl ParticleFilter {
                 point.loc.translation.x += delta_x_rotated;
                 point.loc.translation.y += delta_y_rotated;
                 point.loc.rotation = Rotation::new(angle + delta_theta);
+                point
             }
-        }
+        };
+
+        self.points = self
+            .points
+            .par_iter()
+            .map_init(rand::thread_rng, |rng, &point| move_point(rng, point))
+            .collect();
 
         stopwatch.mark_segment("Move each point by pacbot velocity + noise");
 
@@ -344,10 +351,14 @@ impl ParticleFilter {
         // Resample particles using the likelihood weights.
         match rand_distr::WeightedAliasIndex::new(point_weights) {
             Ok(index_distribution) => {
-                self.points = index_distribution
-                    .sample_iter(&mut rng)
-                    .take(self.points.len()) // TODO: should this immediately resample to n = self.options.points?
-                    .map(|i| self.points[i])
+                stopwatch.mark_segment("Initialize weighted index sampler");
+
+                self.points = (0..self.points.len()) // TODO: should this immediately resample to n = self.options.points?
+                    .into_par_iter()
+                    .map_init(rand::thread_rng, |rng, _| {
+                        let i = index_distribution.sample(rng);
+                        self.points[i]
+                    })
                     .collect();
             }
             Err(WeightedError::NoItem | WeightedError::AllWeightsZero) => {

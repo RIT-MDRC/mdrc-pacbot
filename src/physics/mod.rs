@@ -161,7 +161,7 @@ pub fn run_particle_filter(
 
         // Update particle filter
         let rigid_body = simulation.get_robot_rigid_body();
-        let vel_lin = rigid_body.linvel().clone();
+        let vel_lin = *rigid_body.linvel();
         let vel_ang = rigid_body.angvel();
         let angle = rigid_body.rotation().angle();
         // Rotate vel_lin to align with robot rotation
@@ -190,9 +190,9 @@ pub fn update_physics_info(
     let primary_position = *simulation.get_primary_robot_position();
     let pf_position = simulation.pf_best_guess();
     let rays = simulation.get_distance_sensor_rays(primary_position);
-    for i in 0..sensors.distance_sensors.len() {
+    for (i, sensor) in sensors.distance_sensors.iter_mut().enumerate() {
         let (a, b) = rays[i];
-        sensors.distance_sensors[i] = (((a.x - b.x).powi(2) + (a.y - b.y).powi(2)).sqrt() * 88.9)
+        *sensor = (((a.x - b.x).powi(2) + (a.y - b.y).powi(2)).sqrt() * 88.9)
             .round()
             .min(255.0) as u8;
     }
