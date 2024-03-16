@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["f32_edit","int_edit"],"struct":["PacbotSettingsWidget"]};
