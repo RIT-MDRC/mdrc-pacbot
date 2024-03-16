@@ -6,7 +6,7 @@ use crate::gui::colors::{
 };
 use crate::gui::transforms::Transform;
 use crate::gui::{PacbotWidget, TabViewer};
-use crate::PacmanGameState;
+use crate::{PacmanGameState, UserSettings};
 use bevy_ecs::prelude::*;
 use eframe::egui::{Painter, Pos2, Rect, RichText, Rounding, Stroke};
 use pacbot_rs::game_engine::GameEngine;
@@ -59,11 +59,15 @@ impl PacbotWidget for GameWidget {
 pub fn update_game(
     mut pacman_state: ResMut<PacmanGameState>,
     mut last_update: Local<Option<Instant>>,
+    settings: Res<UserSettings>,
 ) {
-    let last_update = last_update.get_or_insert(Instant::now());
-    if !pacman_state.0.is_paused() && last_update.elapsed() > Duration::from_secs_f32(1.0 / 2.5) {
-        *last_update = Instant::now();
-        pacman_state.0.force_step()
+    if settings.go_server_address.is_none() {
+        let last_update = last_update.get_or_insert(Instant::now());
+        if !pacman_state.0.is_paused() && last_update.elapsed() > Duration::from_secs_f32(1.0 / 2.5)
+        {
+            *last_update = Instant::now();
+            pacman_state.0.force_step()
+        }
     }
 }
 

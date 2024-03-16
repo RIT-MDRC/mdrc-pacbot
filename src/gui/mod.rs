@@ -9,14 +9,14 @@ mod stopwatch;
 pub mod transforms;
 pub mod utils;
 
-use crate::grid::ComputedGrid;
+use crate::grid::{ComputedGrid, IntLocation};
 use bevy::app::{App, Startup};
 use bevy::prelude::{Plugin, Update};
 use bevy_ecs::prelude::*;
 use bevy_egui::EguiContexts;
 use eframe::egui;
 use eframe::egui::{Align, Color32, Frame, Key, Pos2, RichText, Ui, WidgetText};
-use egui_dock::{DockArea, DockState, Style};
+use egui_dock::{DockArea, DockState, NodeIndex, Style};
 use egui_phosphor::regular;
 use pacbot_rs::game_engine::GameEngine;
 use std::ops::Deref;
@@ -30,7 +30,7 @@ use crate::gui::game::GameWidget;
 use crate::gui::settings::PacbotSettingsWidget;
 use crate::gui::stopwatch::StopwatchWidget;
 use crate::high_level::AiStopwatch;
-use crate::network::{PacbotSensors, PacbotSensorsRecvTime};
+use crate::network::{GSConnState, GameServerConn, PacbotSensors, PacbotSensorsRecvTime};
 use crate::pathing::{TargetPath, TargetVelocity};
 use crate::physics::{LightPhysicsInfo, ParticleFilterStopwatch, PhysicsStopwatch};
 use crate::replay_manager::{replay_playback, update_replay_manager_system, ReplayManager};
@@ -48,8 +48,8 @@ impl Plugin for GuiPlugin {
             .insert_resource(GuiStopwatch(Stopwatch::new(
                 10,
                 "GUI".to_string(),
-                1.0,
-                2.0,
+                3.0,
+                4.0,
             )))
             .add_systems(Startup, font_setup)
             .add_systems(
@@ -72,6 +72,7 @@ fn font_setup(mut contexts: EguiContexts) {
 }
 
 /// Updates Egui and any actions from the user
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn ui_system(
     mut contexts: EguiContexts,
     mut app: Local<GuiApp>,
@@ -92,6 +93,7 @@ pub fn ui_system(
         ResMut<AiStopwatch>,
     ),
     sensors: (Res<PacbotSensors>, Res<PacbotSensorsRecvTime>),
+    mut gs_conn: NonSendMut<GameServerConn>,
 ) {
     let ctx = contexts.ctx_mut();
 
@@ -115,18 +117,29 @@ pub fn ui_system(
         ai_stopwatch: stopwatches.4,
         sensors: sensors.0,
         sensors_recv_time: sensors.1,
+
+        connected: gs_conn.client.is_connected(),
+        reconnect: false,
     };
 
     tab_viewer.gui_stopwatch.0.start();
 
-    app.update_target_velocity(&ctx, &mut tab_viewer);
+    app.update_target_velocity(ctx, &mut tab_viewer);
 
     tab_viewer
         .gui_stopwatch
         .0
         .mark_segment("Update target velocity");
 
-    app.update(&ctx, &mut tab_viewer);
+    app.update(ctx, &mut tab_viewer);
+
+    if tab_viewer.reconnect {
+        gs_conn.client = GSConnState::Connecting;
+    }
+
+    if tab_viewer.settings.go_server_address.is_none() {
+        gs_conn.client = GSConnState::Disconnected;
+    }
 }
 
 /// Options for different kinds of tabs
@@ -163,6 +176,9 @@ struct TabViewer<'a> {
     gui_stopwatch: ResMut<'a, GuiStopwatch>,
     schedule_stopwatch: ResMut<'a, ScheduleStopwatch>,
     ai_stopwatch: ResMut<'a, AiStopwatch>,
+
+    reconnect: bool,
+    connected: bool,
 }
 
 impl<'a> egui_dock::TabViewer for TabViewer<'a> {
@@ -286,15 +302,19 @@ pub struct GuiApp {
 
 impl Default for GuiApp {
     fn default() -> Self {
+        let mut dock_state = DockState::new(vec![Tab::Grid]);
+        let surface = dock_state.main_surface_mut();
+        surface.split_right(NodeIndex::root(), 0.75, vec![Tab::Settings]);
+
         Self {
-            tree: DockState::new(vec![Tab::Grid]),
+            tree: dock_state,
 
             grid_widget: GridWidget::default(),
             game_widget: GameWidget::default(),
             stopwatch_widget: StopwatchWidget::new(),
             ai_widget: AiWidget::default(),
-            sensors_widget: PacbotSensorsWidget::new(),
-            settings_widget: PacbotSettingsWidget::default(),
+            sensors_widget: PacbotSensorsWidget::default(),
+            settings_widget: PacbotSettingsWidget,
         }
     }
 }
@@ -483,6 +503,18 @@ impl GuiApp {
                                 }
                             }),
                         );
+                        if ctx.input(|i| i.pointer.primary_clicked()) {
+                            if let Some(pos) = tab_viewer.pointer_pos {
+                                let pos = world_to_screen.inverse().map_point(pos);
+                                let int_pos = IntLocation {
+                                    row: pos.x.round() as i8,
+                                    col: pos.y.round() as i8,
+                                };
+                                if !tab_viewer.grid.wall_at(&int_pos) {
+                                    tab_viewer.settings.kidnap_position = Some(int_pos);
+                                }
+                            }
+                        }
                     }
                 });
             });
@@ -523,7 +555,7 @@ impl PacbotWidget for GridWidget {
     }
 
     fn button_text(&self) -> RichText {
-        RichText::new(format!("{}", regular::GRID_FOUR,))
+        RichText::new(regular::GRID_FOUR.to_string())
     }
 
     fn tab(&self) -> Tab {
@@ -547,7 +579,7 @@ impl PacbotWidget for AiWidget {
     }
 
     fn button_text(&self) -> RichText {
-        RichText::new(format!("{}", regular::BRAIN,))
+        RichText::new(regular::BRAIN.to_string())
     }
 
     fn overall_status(&self) -> &PacbotWidgetStatus {
@@ -568,9 +600,8 @@ pub struct PacbotSensorsWidget {
     pub messages: Vec<(String, PacbotWidgetStatus)>,
 }
 
-impl PacbotSensorsWidget {
-    /// Make a new PacbotSensorsWidget
-    pub fn new() -> Self {
+impl Default for PacbotSensorsWidget {
+    fn default() -> Self {
         Self {
             overall_status: PacbotWidgetStatus::Ok,
             messages: vec![],
@@ -639,7 +670,7 @@ impl PacbotWidget for PacbotSensorsWidget {
     }
 
     fn button_text(&self) -> RichText {
-        RichText::new(format!("{}", regular::RULER,))
+        RichText::new(regular::RULER.to_string())
     }
 
     fn overall_status(&self) -> &PacbotWidgetStatus {

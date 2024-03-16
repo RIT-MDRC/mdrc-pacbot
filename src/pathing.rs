@@ -23,8 +23,7 @@ pub fn target_path_to_target_vel(
         if pacman_state.0.is_paused() {
             target_velocity.0 = Vector2::new(0.0, 0.0);
             target_velocity.1 = 0.0;
-        } else if let (Some(target_pos), Some(curr_pos)) =
-            (target_path.0.first(), phys_info.real_pos)
+        } else if let (Some(target_pos), Some(curr_pos)) = (target_path.0.first(), phys_info.pf_pos)
         {
             let curr_pos = curr_pos.translation.vector.xy();
             let target_pos = Vector2::new(target_pos.row as f32, target_pos.col as f32);

@@ -60,7 +60,15 @@ impl RaycastGrid {
     ///  - the distance from the ray origin to the point where it intersects a wall, or
     ///  - `max_dist`,
     /// whichever is smaller.
+    ///
+    /// Assumes that `ray.dir` is unit length.
     pub fn raycast(&self, ray: Ray, max_dist: f32) -> f32 {
+        debug_assert!(
+            (1.0 - ray.dir.norm()).abs() < 1e-4,
+            "raycast requries a normalized ray, but ray.dir.norm() = {}",
+            ray.dir.norm()
+        );
+
         let get_helpers = |pos: f32, dir: f32| {
             let i = pos.floor() as i8;
             let step = if dir > 0.0 { 1 } else { -1 };

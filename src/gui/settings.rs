@@ -9,7 +9,7 @@ fn int_edit(ui: &mut Ui, label: &str, initial: &mut usize) {
     ui.label(label);
     let mut mutint = (*initial).to_string();
     ui.text_edit_singleline(&mut mutint);
-    if let Ok(i) = usize::from_str_radix(mutint.as_str(), 10) {
+    if let Ok(i) = mutint.as_str().parse::<usize>() {
         *initial = i;
     }
 }
@@ -28,6 +28,7 @@ impl<'a> TabViewer<'a> {
         ui.label("Settings");
         ui.separator();
         ui.checkbox(&mut self.settings.enable_ai, "AI enabled");
+        ui.checkbox(&mut self.settings.enable_pf, "PF enabled");
         ui.separator();
 
         let mut pico_enabled = self.settings.pico_address.is_some();
@@ -55,10 +56,44 @@ impl<'a> TabViewer<'a> {
                 .unwrap_or("".to_string());
             ui.text_edit_singleline(&mut go_addr);
             self.settings.go_server_address = Some(go_addr);
+            self.reconnect = ui.button("Connect").clicked();
+            ui.label(if self.connected {
+                "Connected"
+            } else {
+                "Not Connected"
+            });
         }
 
         ui.separator();
         ui.label("Robot settings coming soon!");
+        ui.separator();
+
+        f32_edit(
+            ui,
+            "Noise proportional to translation",
+            &mut self.settings.pf_simulated_translation_noise,
+        );
+        f32_edit(
+            ui,
+            "Noise proportional to rotation",
+            &mut self.settings.pf_simulated_rotation_noise,
+        );
+        f32_edit(
+            ui,
+            "Noise for movement in general",
+            &mut self.settings.pf_generic_noise,
+        );
+        f32_edit(
+            ui,
+            "The average number of times the robot is kidnapped per second, in our theoretical motion model",
+            &mut self.settings.pf_avg_kidnaps_per_sec,
+        );
+        f32_edit(
+            ui,
+            "The standard deviation of the CV position error, in our theoretical sensor model",
+            &mut self.settings.pf_cv_error_std,
+        );
+
         ui.separator();
 
         ui.checkbox(
@@ -107,7 +142,7 @@ impl PacbotWidget for PacbotSettingsWidget {
     }
 
     fn button_text(&self) -> RichText {
-        RichText::new(format!("{}", regular::GEAR,))
+        RichText::new(regular::GEAR.to_string())
     }
 
     fn tab(&self) -> Tab {

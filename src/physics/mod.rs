@@ -14,11 +14,7 @@ use crate::{PacmanGameState, UserSettings};
 use bevy::time::Time;
 use bevy_ecs::prelude::*;
 use pacbot_rs::location::LocationState;
-use rapier2d::dynamics::{IntegrationParameters, RigidBodySet};
-use rapier2d::geometry::{BroadPhase, NarrowPhase};
 use rapier2d::na::{Isometry2, Point2, Vector2};
-use rapier2d::prelude::Ray;
-use rapier2d::prelude::Real;
 use rapier2d::prelude::*;
 
 use self::particle_filter::FilterPoint;
@@ -126,7 +122,18 @@ pub fn run_simulation(
     mut phys_stopwatch: ResMut<PhysicsStopwatch>,
     target_velocity: Res<TargetVelocity>,
     time: Res<Time>,
+    mut settings: ResMut<UserSettings>,
 ) {
+    if let Some(pos) = settings.kidnap_position.take() {
+        let rigid_body = simulation.get_robot_rigid_body();
+        rigid_body.set_position(
+            Isometry2::new(
+                Vector2::new(pos.row as f32, pos.col as f32),
+                rigid_body.rotation().angle(),
+            ),
+            true,
+        );
+    }
     phys_stopwatch.0.start();
     simulation.set_target_robot_velocity((target_velocity.0, target_velocity.1));
     simulation.step(time.delta_seconds());
@@ -140,6 +147,7 @@ pub fn run_particle_filter(
     sensors: Res<PacbotSensors>,
     settings: Res<UserSettings>,
     time: Res<Time>,
+    game_engine: Res<PacmanGameState>,
 ) {
     if settings.enable_pf {
         simulation
@@ -153,7 +161,7 @@ pub fn run_particle_filter(
 
         // Update particle filter
         let rigid_body = simulation.get_robot_rigid_body();
-        let vel_lin = rigid_body.linvel().clone();
+        let vel_lin = *rigid_body.linvel();
         let vel_ang = rigid_body.angvel();
         let angle = rigid_body.rotation().angle();
         // Rotate vel_lin to align with robot rotation
@@ -162,11 +170,12 @@ pub fn run_particle_filter(
             vel_lin.x * (-angle).sin() + vel_lin.y * (-angle).cos(),
         );
         simulation.pf_update(
-            Isometry2::new(local_vel, vel_ang),
+            (local_vel, vel_ang),
             time.delta_seconds(),
             &mut pf_stopwatch.0,
             &sensors,
             &settings,
+            game_engine.0.get_state().pacman_loc,
         );
     }
 }
@@ -190,11 +199,21 @@ pub fn update_physics_info(
                 .min(255.0) as u8;
         }
     }
+    let best_guess = if settings.enable_pf {
+        simulation.pf_best_guess().loc
+    } else {
+        *simulation.get_primary_robot_position()
+    };
+    let pf_pos_rays = if settings.enable_pf {
+        simulation.get_distance_sensor_rays(pf_position.loc)
+    } else {
+        rays.clone()
+    };
     *phys_info = LightPhysicsInfo {
         real_pos: Some(*simulation.get_primary_robot_position()),
-        pf_pos: Some(simulation.pf_best_guess().loc),
+        pf_pos: Some(best_guess),
         real_pos_rays: rays,
-        pf_pos_rays: simulation.get_distance_sensor_rays(pf_position.loc),
+        pf_pos_rays,
         pf_points: if settings.enable_pf {
             simulation.particle_filter.points(settings.pf_gui_points)
         } else {
