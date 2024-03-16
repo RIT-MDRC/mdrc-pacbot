@@ -2,16 +2,15 @@
 
 use crate::pathing::TargetVelocity;
 use crate::physics::LightPhysicsInfo;
-use bevy::log::info;
-use bevy_ecs::prelude::*;
-use bincode;
 use crate::{PacmanGameState, UserSettings};
+use bevy::log::info;
 use bevy::prelude::*;
+use bincode;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_PI_3;
-use std::time::{Duration, Instant};
-use std::{io, net::UdpSocket, thread};
 use std::net::TcpStream;
+use std::time::{Duration, Instant};
+use std::{io, net::UdpSocket};
 use tungstenite::stream::MaybeTlsStream;
 use tungstenite::{connect, Message, WebSocket};
 
