@@ -30,7 +30,7 @@ use crate::gui::game::GameWidget;
 use crate::gui::settings::PacbotSettingsWidget;
 use crate::gui::stopwatch::StopwatchWidget;
 use crate::high_level::AiStopwatch;
-use crate::network::{PacbotSensors, PacbotSensorsRecvTime};
+use crate::network::{GSConnState, GameServerConn, PacbotSensors, PacbotSensorsRecvTime};
 use crate::pathing::{TargetPath, TargetVelocity};
 use crate::physics::{LightPhysicsInfo, ParticleFilterStopwatch, PhysicsStopwatch};
 use crate::replay_manager::{replay_playback, update_replay_manager_system, ReplayManager};
@@ -93,6 +93,7 @@ pub fn ui_system(
         ResMut<AiStopwatch>,
     ),
     sensors: (Res<PacbotSensors>, Res<PacbotSensorsRecvTime>),
+    mut gs_conn: NonSendMut<GameServerConn>,
 ) {
     let ctx = contexts.ctx_mut();
 
@@ -116,6 +117,9 @@ pub fn ui_system(
         ai_stopwatch: stopwatches.4,
         sensors: sensors.0,
         sensors_recv_time: sensors.1,
+
+        connected: gs_conn.client.is_connected(),
+        reconnect: false,
     };
 
     tab_viewer.gui_stopwatch.0.start();
@@ -128,6 +132,14 @@ pub fn ui_system(
         .mark_segment("Update target velocity");
 
     app.update(ctx, &mut tab_viewer);
+
+    if tab_viewer.reconnect {
+        gs_conn.client = GSConnState::Connecting;
+    }
+
+    if tab_viewer.settings.go_server_address.is_none() {
+        gs_conn.client = GSConnState::Disconnected;
+    }
 }
 
 /// Options for different kinds of tabs
@@ -164,6 +176,9 @@ struct TabViewer<'a> {
     gui_stopwatch: ResMut<'a, GuiStopwatch>,
     schedule_stopwatch: ResMut<'a, ScheduleStopwatch>,
     ai_stopwatch: ResMut<'a, AiStopwatch>,
+
+    reconnect: bool,
+    connected: bool,
 }
 
 impl<'a> egui_dock::TabViewer for TabViewer<'a> {

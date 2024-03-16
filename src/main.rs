@@ -22,6 +22,7 @@ use crate::util::stopwatch::Stopwatch;
 use bevy::prelude::*;
 use bevy::window::PresentMode;
 use bevy_egui::EguiPlugin;
+use network::{poll_gs, GameServerConn};
 use pacbot_rs::game_engine::GameEngine;
 
 pub mod grid;
@@ -147,7 +148,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                present_mode: PresentMode::Immediate,
+                present_mode: PresentMode::Fifo, //PresentMode::Immediate,
                 ..default()
             }),
             ..default()
@@ -166,6 +167,7 @@ fn main() {
         .init_resource::<TargetPath>()
         .init_resource::<TargetVelocity>()
         .init_resource::<ReplayManager>()
+        .init_non_send_resource::<GameServerConn>()
         .insert_resource(PhysicsStopwatch(Stopwatch::new(
             10,
             "Physics".to_string(),
@@ -196,6 +198,7 @@ fn main() {
                 reconnect_pico,
                 send_motor_commands.after(reconnect_pico),
                 recv_pico.after(reconnect_pico),
+                poll_gs,
                 // Physics
                 run_simulation.after(ui_system),
                 run_particle_filter.after(run_simulation),

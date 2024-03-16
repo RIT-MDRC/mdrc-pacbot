@@ -2,13 +2,15 @@
 
 use crate::pathing::TargetVelocity;
 use crate::physics::LightPhysicsInfo;
-use crate::UserSettings;
-use bevy::prelude::trace;
-use bevy_ecs::prelude::*;
+use crate::{PacmanGameState, UserSettings};
+use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_PI_3;
+use std::net::TcpStream;
 use std::time::Instant;
 use std::{io, net::UdpSocket};
+use tungstenite::stream::MaybeTlsStream;
+use tungstenite::{connect, Message, WebSocket};
 
 /// Stores data from Pacbot
 #[derive(Resource, Copy, Clone, Debug, Serialize, Deserialize, Default)]
@@ -28,6 +30,67 @@ pub struct PacbotSensorsRecvTime(pub(crate) Option<Instant>);
 pub struct NetworkPluginData {
     /// Connection to the Pico
     pico: Option<PicoConnection>,
+}
+
+/// The current state of our game server connection.
+#[derive(Default)]
+pub enum GSConnState {
+    /// We are not connected, and we don't want to connect.
+    #[default]
+    Disconnected,
+    /// We are currently trying to connect.
+    Connecting,
+    /// We are connected.
+    Connected(WebSocket<MaybeTlsStream<TcpStream>>),
+}
+
+impl GSConnState {
+    /// Returns true if we're connected.
+    pub fn is_connected(&self) -> bool {
+        matches!(self, GSConnState::Connected(_))
+    }
+}
+
+/// Stores a connection to the game server.
+#[derive(Default)]
+pub struct GameServerConn {
+    /// Stores the connection to the game server.
+    pub client: GSConnState,
+}
+
+/// Polls the game server connection and updates the game state.
+/// If we're currently connecting, it tries to connect to the server instead.
+pub fn poll_gs(
+    settings: Res<UserSettings>,
+    mut gs_conn: NonSendMut<GameServerConn>,
+    mut game_state: ResMut<PacmanGameState>,
+) {
+    match &mut gs_conn.client {
+        GSConnState::Disconnected => (),
+        GSConnState::Connecting => {
+            if let Some(gs_address) = &settings.go_server_address {
+                info!("Connecting to {gs_address}...");
+                if let Ok(stream) = connect(format!("ws://{gs_address}")) {
+                    gs_conn.client = GSConnState::Connected(stream.0);
+                    info!("Connected!");
+                } else {
+                    warn!("Unable to connect. Retrying...");
+                }
+            } else {
+                warn!("No address supplied.")
+            }
+        }
+        GSConnState::Connected(client) => {
+            if let Ok(msg) = client.read() {
+                if let Message::Binary(msg) = msg {
+                    game_state.0.update(&msg);
+                }
+            } else {
+                warn!("Disconnected from game server. Attempting to reconnect...");
+                gs_conn.client = GSConnState::Connecting;
+            }
+        }
+    }
 }
 
 /// Sends current motor commands to the pico
