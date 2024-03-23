@@ -128,18 +128,18 @@ pub fn send_motor_commands(
             ];
 
             let rotate_adjust = if target_velocity.1 > 0.0 {
-                -10.0
-            } else if target_velocity.1 < 0.0 {
                 10.0
+            } else if target_velocity.1 < 0.0 {
+                -10.0
             } else {
                 0.0
             };
 
             let motors_i16 = [
                 // constant is like max speed - can go up to 255.0
-                -(motor_angles[0] * scale + rotate_adjust),
-                (motor_angles[1] * scale + rotate_adjust),
-                -(motor_angles[2] * scale + rotate_adjust),
+                motor_angles[0] * scale + rotate_adjust,
+                motor_angles[1] * scale + rotate_adjust,
+                motor_angles[2] * scale + rotate_adjust,
             ];
 
             let mut motors = [0.0; 3];
@@ -234,7 +234,11 @@ impl PicoConnection {
 
     fn send_motors_message(&mut self, motors: [f32; 3]) -> io::Result<()> {
         let message = PacbotCommand {
-            velocities: motors,
+            motors: [
+                MotorRequest::Velocity(motors[0]),
+                MotorRequest::Velocity(motors[1]),
+                MotorRequest::Velocity(motors[2]),
+            ],
             pid: [5.0, 0.1, 0.0],
             pid_limits: [10000.0, 10000.0, 10000.0],
         };
@@ -247,9 +251,19 @@ impl PicoConnection {
     }
 }
 
+/// Messages from the client
 #[derive(Copy, Clone, Serialize)]
-struct PacbotCommand {
-    pub velocities: [f32; 3],
-    pub pid: [f32; 3],
-    pub pid_limits: [f32; 3],
+pub struct PacbotCommand {
+    motors: [MotorRequest; 3],
+    pid: [f32; 3],
+    pid_limits: [f32; 3],
+}
+
+/// The way the client wants the motor to be controlled
+#[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Serialize)]
+pub enum MotorRequest {
+    /// Use PID to move the motor to this velocity
+    Velocity(f32),
+    /// Set PWM to these values directly
+    Pwm(u16, u16),
 }
