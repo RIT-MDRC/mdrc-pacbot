@@ -60,6 +60,9 @@ pub struct UserSettings {
     pub robot: Robot,
     /// Whether sensor values should come from the robot, versus rapier
     pub sensors_from_robot: bool,
+    /// When giving motor commands to the robot, should they be adjusted with the particle
+    /// filter's current rotation?
+    pub motors_ignore_phys_angle: bool,
 
     /// When the user clicks on a location where the simulated robot should be teleported
     pub kidnap_position: Option<IntLocation>,
@@ -110,6 +113,7 @@ impl Default for UserSettings {
             go_server_address: None,
             robot: Robot::default(),
             sensors_from_robot: false,
+            motors_ignore_phys_angle: true,
 
             kidnap_position: None,
 

@@ -105,13 +105,17 @@ pub fn send_motor_commands(
     mut network_data: ResMut<NetworkPluginData>,
     target_velocity: Res<TargetVelocity>,
     phys_info: Res<LightPhysicsInfo>,
+    settings: Res<UserSettings>,
 ) {
     if let Some(pico) = &mut network_data.pico {
         if let Some(loc) = phys_info.pf_pos {
             let x = target_velocity.0.x;
             let y = target_velocity.0.y;
 
-            let current_angle = loc.rotation.angle();
+            let mut current_angle = loc.rotation.angle();
+            if settings.motors_ignore_phys_angle {
+                current_angle = 0.0;
+            }
 
             // use x and y to find the desired angle
             let angle = y.atan2(x);

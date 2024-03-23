@@ -41,6 +41,10 @@ impl<'a> TabViewer<'a> {
             self.settings.pico_address = Some(pico_addr);
         }
         self.settings.sensors_from_robot = self.settings.pico_address.is_some();
+        ui.checkbox(
+            &mut self.settings.motors_ignore_phys_angle,
+            "Motor commands ignore physics angle",
+        );
 
         ui.separator();
 
