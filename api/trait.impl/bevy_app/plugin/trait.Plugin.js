@@ -1,3 +1,0 @@
-(function() {var implementors = {
-"mdrc_pacbot":[["impl Plugin for <a class=\"struct\" href=\"mdrc_pacbot/gui/struct.GuiPlugin.html\" title=\"struct mdrc_pacbot::gui::GuiPlugin\">GuiPlugin</a>"],["impl Plugin for <a class=\"struct\" href=\"mdrc_pacbot/high_level/struct.HLPlugin.html\" title=\"struct mdrc_pacbot::high_level::HLPlugin\">HLPlugin</a>"]]
-};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

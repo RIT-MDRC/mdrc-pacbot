@@ -1,3 +1,0 @@
-(function() {var implementors = {
-"mdrc_pacbot":[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.76.0/core/hash/trait.Hash.html\" title=\"trait core::hash::Hash\">Hash</a> for <a class=\"enum\" href=\"mdrc_pacbot/grid/standard_grids/enum.StandardGrid.html\" title=\"enum mdrc_pacbot::grid::standard_grids::StandardGrid\">StandardGrid</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.76.0/core/hash/trait.Hash.html\" title=\"trait core::hash::Hash\">Hash</a> for <a class=\"struct\" href=\"mdrc_pacbot/grid/struct.IntLocation.html\" title=\"struct mdrc_pacbot::grid::IntLocation\">IntLocation</a>"]]
-};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
