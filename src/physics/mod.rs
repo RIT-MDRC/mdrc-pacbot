@@ -191,6 +191,7 @@ pub fn update_physics_info(
     let pf_position = simulation.pf_best_guess();
     let rays = simulation.get_distance_sensor_rays(primary_position);
     if !settings.sensors_from_robot {
+        #[allow(clippy::needless_range_loop)]
         for i in 0..sensors.distance_sensors.len() {
             let (a, b) = rays[i];
             sensors.distance_sensors[i] = (((a.x - b.x).powi(2) + (a.y - b.y).powi(2)).sqrt()

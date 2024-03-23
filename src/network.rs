@@ -39,6 +39,7 @@ pub struct NetworkPluginData {
 }
 
 /// The current state of our game server connection.
+#[allow(clippy::large_enum_variant)]
 #[derive(Default)]
 pub enum GSConnState {
     /// We are not connected, and we don't want to connect.
@@ -135,17 +136,12 @@ pub fn send_motor_commands(
                 0.0
             };
 
-            let motors_i16 = [
+            let motors = [
                 // constant is like max speed - can go up to 255.0
                 motor_angles[0] * scale + rotate_adjust,
                 motor_angles[1] * scale + rotate_adjust,
                 motor_angles[2] * scale + rotate_adjust,
             ];
-
-            let mut motors = [0.0; 3];
-            for i in 0..3 {
-                motors[i] = motors_i16[i];
-            }
 
             if let Err(e) = pico.send_motors_message(motors) {
                 eprintln!("{:?}", e);
@@ -169,10 +165,10 @@ pub fn reconnect_pico(mut network_data: ResMut<NetworkPluginData>, settings: Res
     }
     if network_data.pico.is_none() {
         if let Some(pico_address) = &settings.pico_address {
-            if pico_address.len() == 0 {
+            if pico_address.is_empty() {
                 return;
             }
-            let try_conn = PicoConnection::new(20002, &pico_address);
+            let try_conn = PicoConnection::new(20002, pico_address);
             if let Err(ref e) = try_conn {
                 info!("{:?}", e);
             }
@@ -244,7 +240,7 @@ impl PicoConnection {
         };
         self.socket.set_nonblocking(false).unwrap();
         let r = self.send_message(
-            &bincode::serde::encode_to_vec(&message, bincode::config::standard()).unwrap(),
+            &bincode::serde::encode_to_vec(message, bincode::config::standard()).unwrap(),
         );
         self.socket.set_nonblocking(true).unwrap();
         r

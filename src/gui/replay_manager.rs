@@ -122,7 +122,11 @@ impl<'a> TabViewer<'a> {
 
         if let Some(path) = path {
             let bytes = self.replay_manager.replay.to_bytes()?;
-            let mut file = fs::OpenOptions::new().write(true).create(true).open(path)?;
+            let mut file = fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(path)?;
             file.write_all(&bytes)?;
         }
 

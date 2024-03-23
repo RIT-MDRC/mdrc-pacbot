@@ -478,7 +478,7 @@ impl Replay {
     /// assert!(replay.record_pacman_location(Isometry2::default()).is_err());
     /// ```
     pub fn record_pacman_state(&mut self, state: &GameEngine) -> Result<(), Error> {
-        let state = bincode::serde::encode_to_vec(&state, bincode::config::standard()).unwrap();
+        let state = bincode::serde::encode_to_vec(state, bincode::config::standard()).unwrap();
         let state: GameEngine =
             bincode::serde::decode_from_slice(&state, bincode::config::standard())
                 .unwrap()
