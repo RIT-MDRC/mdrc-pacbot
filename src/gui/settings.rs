@@ -28,6 +28,9 @@ impl<'a> TabViewer<'a> {
         ui.label("Settings");
         ui.separator();
         ui.checkbox(&mut self.settings.enable_ai, "AI enabled");
+        if self.settings.enable_ai {
+            self.settings.test_path_position = None;
+        }
         ui.checkbox(&mut self.settings.enable_pf, "PF enabled");
         ui.separator();
 

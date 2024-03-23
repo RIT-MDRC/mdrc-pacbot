@@ -503,7 +503,9 @@ impl GuiApp {
                                 }
                             }),
                         );
-                        if ctx.input(|i| i.pointer.primary_clicked()) {
+                        if ctx
+                            .input(|i| i.pointer.primary_clicked() || i.pointer.secondary_clicked())
+                        {
                             if let Some(pos) = tab_viewer.pointer_pos {
                                 let pos = world_to_screen.inverse().map_point(pos);
                                 let int_pos = IntLocation {
@@ -511,7 +513,11 @@ impl GuiApp {
                                     col: pos.y.round() as i8,
                                 };
                                 if !tab_viewer.grid.wall_at(&int_pos) {
-                                    tab_viewer.settings.kidnap_position = Some(int_pos);
+                                    if ctx.input(|i| i.pointer.primary_clicked()) {
+                                        tab_viewer.settings.kidnap_position = Some(int_pos);
+                                    } else if !tab_viewer.settings.enable_ai {
+                                        tab_viewer.settings.test_path_position = Some(int_pos);
+                                    }
                                 }
                             }
                         }

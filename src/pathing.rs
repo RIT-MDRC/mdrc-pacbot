@@ -12,6 +12,15 @@ pub struct TargetPath(pub Vec<IntLocation>);
 #[derive(Default, Resource)]
 pub struct TargetVelocity(pub Vector2<f32>, pub f32);
 
+// pub fn test_path_position_to_target_path(
+//     pacman_state: Res<PacmanGameState>,
+//     phys_info: Res<LightPhysicsInfo>,
+//     target_path: ResMut<TargetPath>,
+//     settings: Res<UserSettings>,
+// ) {
+//     if !settings.enable_ai && (pacman_state.is_changed() || target_path.0.is_empty()) {}
+// }
+
 pub fn target_path_to_target_vel(
     pacman_state: Res<PacmanGameState>,
     phys_info: Res<LightPhysicsInfo>,

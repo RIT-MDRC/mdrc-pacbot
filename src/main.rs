@@ -64,8 +64,10 @@ pub struct UserSettings {
     /// filter's current rotation?
     pub motors_ignore_phys_angle: bool,
 
-    /// When the user clicks on a location where the simulated robot should be teleported
+    /// When the user left-clicks on a location where the simulated robot should be teleported
     pub kidnap_position: Option<IntLocation>,
+    /// When the user right-clicks on a location that should be used as a target location
+    pub test_path_position: Option<IntLocation>,
 
     /// Whether physical location should be saved in the replay
     pub replay_save_location: bool,
@@ -116,6 +118,7 @@ impl Default for UserSettings {
             motors_ignore_phys_angle: true,
 
             kidnap_position: None,
+            test_path_position: None,
 
             replay_save_location: false,
             replay_save_sensors: false,
