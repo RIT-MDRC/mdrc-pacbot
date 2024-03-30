@@ -45,6 +45,9 @@ pub fn run_high_level(
     settings: Res<UserSettings>,
     mut ai_stopwatch: ResMut<AiStopwatch>,
 ) {
+    if settings.enable_ai && game_state.0.is_paused() {
+        *target_path = TargetPath(vec![]);
+    }
     if settings.enable_ai && !game_state.0.is_paused() && game_state.is_changed() {
         // If ghosts are in an invalid state, don't run the AI
         if game_state

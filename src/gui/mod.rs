@@ -328,7 +328,7 @@ impl Default for GuiApp {
 impl GuiApp {
     fn update_target_velocity(&mut self, ctx: &egui::Context, tab_viewer: &mut TabViewer) {
         let ai_enabled = tab_viewer.settings.enable_ai;
-        if !ai_enabled {
+        if !ai_enabled && tab_viewer.target_path.0.is_empty() {
             tab_viewer.target_velocity.0.x = 0.0;
             tab_viewer.target_velocity.0.y = 0.0;
             tab_viewer.target_velocity.1 = 0.0;
@@ -533,6 +533,18 @@ impl GuiApp {
                                     }
                                 }
                             }
+                        }
+                        // reset test_path_position if necessary
+                        if let Some(Some(curr_pos)) = tab_viewer.phys_info.pf_pos.map(|x| {
+                            tab_viewer
+                                .grid
+                                .node_nearest(x.translation.x, x.translation.y)
+                        }) {
+                            if Some(curr_pos) == tab_viewer.settings.test_path_position {
+                                tab_viewer.settings.test_path_position = None;
+                            }
+                        } else {
+                            tab_viewer.settings.test_path_position = None;
                         }
                     }
                 });

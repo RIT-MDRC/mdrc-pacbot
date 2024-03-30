@@ -8,7 +8,7 @@ use pacbot_rs::location::{DOWN, LEFT, RIGHT, UP};
 use rapier2d::na::Point2;
 use rapier2d::prelude::Rotation;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 pub mod standard_grids;
 
@@ -573,6 +573,34 @@ impl ComputedGrid {
             let dy = node.col as f32 - y;
             OrderedFloat::from(dx * dx + dy * dy)
         })
+    }
+
+    /// Returns the shortest path, if one exists, from start to finish
+    /// The path includes path the start and the finish
+    pub fn bfs_path(&self, start: IntLocation, finish: IntLocation) -> Option<Vec<IntLocation>> {
+        let mut prev: HashMap<IntLocation, Option<IntLocation>> = HashMap::new();
+        let mut queue: VecDeque<IntLocation> = VecDeque::new();
+        prev.insert(start, None);
+        queue.push_back(start);
+        while let Some(current) = queue.pop_front() {
+            if current == finish {
+                let mut path = vec![finish];
+                let mut next = finish;
+                while let Some(Some(before_next)) = prev.get(&next) {
+                    path.insert(0, *before_next);
+                    next = *before_next;
+                }
+                return Some(path);
+            }
+            let neighbors = self.neighbors(&current);
+            for n in &neighbors {
+                if prev.get(n).is_none() {
+                    prev.insert(*n, Some(current));
+                    queue.push_back(*n);
+                }
+            }
+        }
+        None
     }
 }
 
