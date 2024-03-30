@@ -66,7 +66,7 @@ pub struct Robot {
 impl Default for Robot {
     fn default() -> Self {
         let mut distance_sensors = vec![];
-        let robot_radius = 0.45;
+        let robot_radius = 0.715;
 
         for i in 0..8 {
             let angle = i as f32 * PI / 4.0;
