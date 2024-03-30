@@ -32,8 +32,11 @@ use crate::gui::stopwatch::StopwatchWidget;
 use crate::high_level::AiStopwatch;
 use crate::network::{GSConnState, GameServerConn, PacbotSensors, PacbotSensorsRecvTime};
 use crate::pathing::{TargetPath, TargetVelocity};
-use crate::physics::{LightPhysicsInfo, ParticleFilterStopwatch, PhysicsStopwatch};
+use crate::physics::{
+    LightPhysicsInfo, PacbotSimulation, ParticleFilterStopwatch, PhysicsStopwatch,
+};
 use crate::replay_manager::{replay_playback, update_replay_manager_system, ReplayManager};
+use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
 use crate::{PacmanGameState, ScheduleStopwatch, StandardGridResource, UserSettings};
 
@@ -78,6 +81,7 @@ pub fn ui_system(
     mut app: Local<GuiApp>,
     world_to_screen: Local<Option<Transform>>,
     pacman_state: ResMut<PacmanGameState>,
+    simulation: ResMut<PacbotSimulation>,
     phys_info: ResMut<LightPhysicsInfo>,
     selected_grid: ResMut<StandardGridResource>,
     grid: ResMut<ComputedGrid>,
@@ -102,6 +106,7 @@ pub fn ui_system(
         background_color: ctx.style().visuals.panel_fill,
 
         pacman_state,
+        simulation,
         phys_info,
         world_to_screen,
         replay_manager,
@@ -160,6 +165,7 @@ struct TabViewer<'a> {
     background_color: Color32,
 
     pacman_state: ResMut<'a, PacmanGameState>,
+    simulation: ResMut<'a, PacbotSimulation>,
     phys_info: ResMut<'a, LightPhysicsInfo>,
     world_to_screen: Local<'a, Option<Transform>>,
     replay_manager: ResMut<'a, ReplayManager>,
@@ -322,7 +328,7 @@ impl Default for GuiApp {
 impl GuiApp {
     fn update_target_velocity(&mut self, ctx: &egui::Context, tab_viewer: &mut TabViewer) {
         let ai_enabled = tab_viewer.settings.enable_ai;
-        if !ai_enabled {
+        if !ai_enabled && tab_viewer.target_path.0.is_empty() {
             tab_viewer.target_velocity.0.x = 0.0;
             tab_viewer.target_velocity.0.y = 0.0;
             tab_viewer.target_velocity.1 = 0.0;
@@ -358,6 +364,7 @@ impl GuiApp {
         replay_manager: &mut ReplayManager,
         standard_grid: &mut StandardGrid,
         computed_grid: &mut ComputedGrid,
+        simulation: &mut PacbotSimulation,
     ) {
         egui::ComboBox::from_label("")
             .selected_text(format!("{:?}", standard_grid))
@@ -375,6 +382,11 @@ impl GuiApp {
                             phys_info
                                 .real_pos
                                 .unwrap_or(grid.get_default_pacbot_isometry()),
+                        );
+                        *simulation = PacbotSimulation::new(
+                            grid.compute_grid(),
+                            Robot::default(),
+                            grid.get_default_pacbot_isometry(),
                         );
                     }
                 });
@@ -468,6 +480,7 @@ impl GuiApp {
                         &mut tab_viewer.replay_manager,
                         &mut tab_viewer.selected_grid.0,
                         &mut tab_viewer.grid,
+                        &mut tab_viewer.simulation,
                     );
                     egui::menu::bar(ui, |ui| {
                         ui.menu_button("Replay", |ui| {
@@ -520,6 +533,18 @@ impl GuiApp {
                                     }
                                 }
                             }
+                        }
+                        // reset test_path_position if necessary
+                        if let Some(Some(curr_pos)) = tab_viewer.phys_info.pf_pos.map(|x| {
+                            tab_viewer
+                                .grid
+                                .node_nearest(x.translation.x, x.translation.y)
+                        }) {
+                            if Some(curr_pos) == tab_viewer.settings.test_path_position {
+                                tab_viewer.settings.test_path_position = None;
+                            }
+                        } else {
+                            tab_viewer.settings.test_path_position = None;
                         }
                     }
                 });

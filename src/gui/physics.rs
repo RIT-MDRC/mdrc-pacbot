@@ -1,4 +1,3 @@
-use crate::grid::IntLocation;
 use crate::gui::colors::{
     PACMAN_AI_TARGET_LOCATION_COLOR, PACMAN_COLOR, PACMAN_DISTANCE_SENSOR_RAY_COLOR,
     PACMAN_FACING_INDICATOR_COLOR, PACMAN_GUESS_COLOR, PACMAN_PARTICLE_FILTER_COLOR,
@@ -105,13 +104,8 @@ impl<'a> TabViewer<'a> {
         }
 
         // AI target path
-        if self.settings.enable_ai {
-            if let Some(pacbot_pos) = self.phys_info.real_pos {
-                let target = self
-                    .target_path
-                    .0
-                    .first()
-                    .unwrap_or(&IntLocation { row: 0, col: 0 });
+        if let Some(pacbot_pos) = self.phys_info.real_pos {
+            if let Some(target) = self.target_path.0.first() {
                 painter.line_segment(
                     [
                         world_to_screen.map_point(Pos2::new(

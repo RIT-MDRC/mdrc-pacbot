@@ -11,7 +11,9 @@ use crate::network::{
     reconnect_pico, recv_pico, send_motor_commands, NetworkPluginData, PacbotSensors,
     PacbotSensorsRecvTime,
 };
-use crate::pathing::{target_path_to_target_vel, TargetPath, TargetVelocity};
+use crate::pathing::{
+    target_path_to_target_vel, test_path_position_to_target_path, TargetPath, TargetVelocity,
+};
 use crate::physics::{
     run_particle_filter, run_simulation, update_game_state_pacbot_loc, update_physics_info,
     LightPhysicsInfo, PacbotSimulation, ParticleFilterStopwatch, PhysicsStopwatch,
@@ -204,6 +206,7 @@ fn main() {
                 // General
                 update_game,
                 target_path_to_target_vel,
+                test_path_position_to_target_path,
                 // Networking
                 reconnect_pico,
                 send_motor_commands.after(reconnect_pico),
