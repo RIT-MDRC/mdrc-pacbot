@@ -234,6 +234,13 @@ impl PicoConnection {
     fn new(local_port: u16, remote_address: &str) -> io::Result<Self> {
         let socket = UdpSocket::bind(("0.0.0.0", local_port))?;
         socket.connect(remote_address)?;
+        socket.send(
+            &bincode::serde::encode_to_vec(
+                GuiToRobotMsg::Config(PacbotConfig::default()),
+                bincode::config::standard(),
+            )
+            .unwrap(),
+        )?;
         Ok(Self { socket })
     }
 
@@ -254,10 +261,50 @@ impl PicoConnection {
         };
         self.socket.set_nonblocking(false).unwrap();
         let r = self.send_message(
-            &bincode::serde::encode_to_vec(message, bincode::config::standard()).unwrap(),
+            &bincode::serde::encode_to_vec(
+                GuiToRobotMsg::Command(message),
+                bincode::config::standard(),
+            )
+            .unwrap(),
         );
         self.socket.set_nonblocking(true).unwrap();
         r
+    }
+}
+
+#[derive(Copy, Clone, Serialize)]
+enum GuiToRobotMsg {
+    Config(PacbotConfig),
+    Command(PacbotCommand),
+}
+
+/// Holds the order of the motor/encoder pins
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+struct PacbotConfig {
+    distance_sensors: [usize; 8],
+    encoders: [(usize, usize); 3],
+    motors: [(usize, usize); 3],
+
+    /// If some, will attempt to request the (static ip) from the (gateway)
+    /// Only has an effect in code on robot side, cannot be updated through message
+    #[allow(clippy::type_complexity)]
+    pub static_ip: Option<((u8, u8, u8, u8), (u8, u8, u8, u8))>,
+    pub udp_port: usize,
+    pub i2c_enabled: bool,
+    pub motors_enabled: bool,
+}
+
+impl Default for PacbotConfig {
+    fn default() -> Self {
+        Self {
+            distance_sensors: [3, 2, 1, 0, 7, 6, 5, 4],
+            encoders: [(1, 0), (2, 3), (4, 5)],
+            motors: [(5, 4), (0, 1), (3, 2)],
+            static_ip: Some(((192, 168, 4, 209), (192, 168, 4, 1))),
+            udp_port: 20002,
+            i2c_enabled: true,
+            motors_enabled: true,
+        }
     }
 }
 
