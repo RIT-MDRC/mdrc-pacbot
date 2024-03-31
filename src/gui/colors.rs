@@ -17,6 +17,7 @@ pub const GHOST_RED_COLOR: Color32 = Color32::RED;
 pub const GHOST_PINK_COLOR: Color32 = Color32::from_rgb(255, 192, 203);
 pub const GHOST_ORANGE_COLOR: Color32 = Color32::from_rgb(255, 140, 0);
 pub const GHOST_BLUE_COLOR: Color32 = Color32::BLUE;
+pub const GHOST_FRIGHTENED_COLOR: Color32 = Color32::LIGHT_YELLOW;
 
 pub const TRANSLUCENT_GREEN_COLOR: Color32 = Color32::from_rgba_premultiplied(0, 50, 0, 50);
 pub const TRANSLUCENT_YELLOW_COLOR: Color32 = Color32::from_rgba_premultiplied(50, 50, 0, 50);

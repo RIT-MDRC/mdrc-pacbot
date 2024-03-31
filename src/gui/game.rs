@@ -1,8 +1,9 @@
 //! Displays the Pacman game state
 
 use crate::gui::colors::{
-    GHOST_BLUE_COLOR, GHOST_ORANGE_COLOR, GHOST_PINK_COLOR, GHOST_RED_COLOR,
-    PACMAN_DISTANCE_SENSOR_RAY_COLOR, PELLET_COLOR, SUPER_PELLET_COLOR, WALL_COLOR,
+    GHOST_BLUE_COLOR, GHOST_FRIGHTENED_COLOR, GHOST_ORANGE_COLOR, GHOST_PINK_COLOR,
+    GHOST_RED_COLOR, PACMAN_DISTANCE_SENSOR_RAY_COLOR, PELLET_COLOR, SUPER_PELLET_COLOR,
+    WALL_COLOR,
 };
 use crate::gui::transforms::Transform;
 use crate::gui::{PacbotWidget, TabViewer};
@@ -111,7 +112,15 @@ impl<'a> TabViewer<'a> {
                     pacbot_rs::ghost_state::CYAN => GHOST_BLUE_COLOR,
                     _ => panic!("Invalid ghost color!"),
                 },
-            )
+            );
+            if ghost.fright_steps > 0 {
+                painter.circle_stroke(
+                    world_to_screen
+                        .map_point(Pos2::new(ghost.loc.row as f32, ghost.loc.col as f32)),
+                    world_to_screen.map_dist(0.45),
+                    Stroke::new(2.0, GHOST_FRIGHTENED_COLOR),
+                )
+            }
         }
 
         // pellets
