@@ -49,18 +49,6 @@ pub fn run_high_level(
         *target_path = TargetPath(vec![]);
     }
     if settings.enable_ai && !game_state.0.is_paused() && game_state.is_changed() {
-        // If ghosts are in an invalid state, don't run the AI
-        if game_state
-            .0
-            .get_state()
-            .ghosts
-            .iter()
-            .map(|g| g.read().unwrap().loc)
-            .any(|loc| loc.col > 28 || loc.row > 31)
-        {
-            return;
-        }
-
         ai_stopwatch.0.start();
 
         let mut path = vec![];
@@ -132,10 +120,12 @@ pub struct HighLevelContext {
     // These `cached` variables contain the last observed positions.
     // Once these cached positions are different from the next observed positions, the `last_variables`
     // are updated with these.
-    pos_cached: (usize, usize),
-    ghost_pos_cached: Vec<(usize, usize)>,
-    last_pos: (usize, usize),
-    last_ghost_pos: Vec<(usize, usize)>,
+    // "cached" and "last" variables have their second coordinate flipped from the original game state,
+    // so you shouldn't need to transform it again.
+    pos_cached: Option<(usize, usize)>,
+    ghost_pos_cached: Vec<Option<(usize, usize)>>,
+    last_pos: Option<(usize, usize)>,
+    last_ghost_pos: Vec<Option<(usize, usize)>>,
 }
 
 impl Default for HighLevelContext {
@@ -160,10 +150,10 @@ impl HighLevelContext {
 
         Self {
             net,
-            last_pos: (0, 0),
-            last_ghost_pos: vec![(0, 0), (0, 0), (0, 0), (0, 0)],
-            pos_cached: (0, 0),
-            ghost_pos_cached: vec![(0, 0), (0, 0), (0, 0), (0, 0)],
+            last_pos: Some((0, 0)),
+            last_ghost_pos: vec![Some((0, 0)); 4],
+            pos_cached: Some((0, 0)),
+            ghost_pos_cached: vec![Some((0, 0)); 4],
         }
     }
 
@@ -225,23 +215,35 @@ impl HighLevelContext {
             }
         }
 
-        let pac_pos = game_state.pacman_loc;
-
-        // Save last positions.
-        let new_pos_cached = (pac_pos.col as usize, 31 - pac_pos.row as usize - 1);
+        // Compute new pacman and ghost positions
+        let new_pos_cached = {
+            let pac_pos = game_state.pacman_loc;
+            if pac_pos.col != 32 {
+                Some((pac_pos.col as usize, 31 - pac_pos.row as usize - 1))
+            } else {
+                None
+            }
+        };
         let new_ghost_pos_cached: Vec<_> = game_state
             .ghosts
             .iter()
             .map(|g| g.read().unwrap())
-            .map(|g| (g.loc.col as usize, 31 - g.loc.row as usize - 1))
+            .map(|g| {
+                if g.loc.col != 32 {
+                    Some((g.loc.col as usize, ((31 - g.loc.row - 1) as usize)))
+                } else {
+                    None
+                }
+            })
             .collect();
 
-        if self.pos_cached == (32, 32) {
+        // Save last positions.
+        if self.pos_cached.is_none() {
             self.last_pos = new_pos_cached;
             self.pos_cached = new_pos_cached;
         }
 
-        if self.ghost_pos_cached.contains(&(32, 32)) {
+        if self.ghost_pos_cached.contains(&None) {
             self.last_ghost_pos = new_ghost_pos_cached.clone();
             self.ghost_pos_cached = new_ghost_pos_cached.clone();
         }
@@ -253,46 +255,46 @@ impl HighLevelContext {
 
         if new_ghost_pos_cached != self.ghost_pos_cached {
             self.last_ghost_pos = self.ghost_pos_cached.clone();
-            self.ghost_pos_cached = new_ghost_pos_cached;
+            self.ghost_pos_cached = new_ghost_pos_cached.clone();
         }
 
-        // I think (32, 32) is the shadow realm
-        if pac_pos.col != 32 && self.last_pos.0 != 32 {
-            pacman[(0, self.last_pos.0, self.last_pos.1)] = 1.0;
-            pacman[(1, pac_pos.col as usize, 31 - pac_pos.row as usize - 1)] = 1.0;
+        if let Some(last_pos) = self.last_pos {
+            pacman[(0, last_pos.0, last_pos.1)] = 1.0;
+        }
+        if let Some(new_pos_cached) = new_pos_cached {
+            pacman[(1, new_pos_cached.0, new_pos_cached.1)] = 1.0;
+        }
 
-            for (i, g) in game_state.ghosts.iter().enumerate() {
-                let g = g.read().unwrap();
-                let pos = g.loc;
-                let col = pos.col as usize;
-                let row = 31 - pos.row as usize - 1;
-                if pos.col != 32 {
-                    ghost[(i, col, row)] = 1.0;
-                    if g.is_frightened() {
-                        state[(2, col, row)] = g.fright_steps as f32 / GHOST_FRIGHT_STEPS as f32;
-                        reward[(col, row)] += 1.;
+        for (i, g) in game_state.ghosts.iter().enumerate() {
+            let g = g.read().unwrap();
+            if let Some((col, row)) = new_ghost_pos_cached[i] {
+                ghost[(i, col, row)] = 1.0;
+                if g.is_frightened() {
+                    state[(2, col, row)] = g.fright_steps as f32 / GHOST_FRIGHT_STEPS as f32;
+                    reward[(col, row)] += 1.;
+                } else {
+                    let state_index = if game_state.mode == GameMode::CHASE {
+                        1
                     } else {
-                        let state_index = if game_state.mode == GameMode::CHASE {
-                            1
-                        } else {
-                            0
-                        };
-                        state[(state_index, col, row)] = 1.0;
-                    }
+                        0
+                    };
+                    state[(state_index, col, row)] = 1.0;
                 }
             }
         }
 
         for (i, pos) in self.last_ghost_pos.iter().enumerate() {
-            if pos.0 != 32 {
+            if let Some(pos) = pos {
                 last_ghost[(i, pos.0, pos.1)] = 1.0;
             }
         }
 
         // Create action mask.
         let mut action_mask = [false, false, false, false, false];
-        if let Some(valid_actions) = grid.valid_actions(IntLocation::new(pac_pos.row, pac_pos.col))
-        {
+        if let Some(valid_actions) = grid.valid_actions(IntLocation::new(
+            game_state.pacman_loc.row,
+            game_state.pacman_loc.col,
+        )) {
             // The order of valid actions is stay, up, left, down, right
             action_mask = [
                 !valid_actions[0],
