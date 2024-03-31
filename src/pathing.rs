@@ -53,8 +53,6 @@ pub fn target_path_to_target_vel(
     target_path: Res<TargetPath>,
     mut target_velocity: ResMut<TargetVelocity>,
 ) {
-    target_velocity.0 = Vector2::new(0.0, 0.0);
-    target_velocity.1 = 0.0;
     if let (Some(target_pos), Some(curr_pos)) = (target_path.0.first(), phys_info.pf_pos) {
         let curr_pos = curr_pos.translation.vector.xy();
         let target_pos = Vector2::new(target_pos.row as f32, target_pos.col as f32);

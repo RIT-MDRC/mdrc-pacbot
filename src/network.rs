@@ -100,63 +100,73 @@ pub fn poll_gs(
     }
 }
 
+#[derive(Copy, Clone, Debug, Resource, Default)]
+/// Holds information about the last velocities sent to the motors
+pub struct LastMotorCommands {
+    /// the last velocities sent to the motors
+    pub motors: [f32; 3],
+}
+
 /// Sends current motor commands to the pico
 pub fn send_motor_commands(
     mut network_data: ResMut<NetworkPluginData>,
     target_velocity: Res<TargetVelocity>,
     phys_info: Res<LightPhysicsInfo>,
     settings: Res<UserSettings>,
+    mut last_motor_commands: ResMut<LastMotorCommands>,
 ) {
-    if let Some(pico) = &mut network_data.pico {
-        if let Some(loc) = phys_info.pf_pos {
-            let x = target_velocity.0.x;
-            let y = target_velocity.0.y;
+    if let Some(loc) = phys_info.pf_pos {
+        let x = target_velocity.0.x;
+        let y = target_velocity.0.y;
 
-            let mut current_angle = loc.rotation.angle();
-            if settings.motors_ignore_phys_angle {
-                current_angle = 0.0;
-            }
+        let mut current_angle = loc.rotation.angle();
+        if settings.motors_ignore_phys_angle {
+            current_angle = 0.0;
+        }
 
-            // use x and y to find the desired angle
-            let angle = y.atan2(x);
-            let angle = angle - current_angle;
+        // use x and y to find the desired angle
+        let angle = y.atan2(x);
+        let angle = angle - current_angle;
 
-            let mut scale = (x.powi(2) + y.powi(2)).sqrt();
-            if scale != 0.0 {
-                scale = 30.0;
-            }
+        let mut scale = (x.powi(2) + y.powi(2)).sqrt();
+        if scale != 0.0 {
+            scale = 30.0;
+        }
 
-            let motor_angles = [
-                angle.cos(),
-                (angle - (2.0 * FRAC_PI_3)).cos(),
-                (angle + (2.0 * FRAC_PI_3)).cos(),
-            ];
+        let motor_angles = [
+            angle.sin(),
+            (angle + (2.0 * FRAC_PI_3)).sin(),
+            (angle + (4.0 * FRAC_PI_3)).sin(),
+        ];
 
-            let rotate_adjust = if target_velocity.1 > 0.0 {
-                10.0
-            } else if target_velocity.1 < 0.0 {
-                -10.0
-            } else {
-                0.0
-            };
-
-            let motors = [
-                // constant is like max speed - can go up to 255.0
-                motor_angles[0] * scale + rotate_adjust,
-                motor_angles[1] * scale + rotate_adjust,
-                motor_angles[2] * scale + rotate_adjust,
-            ];
-
-            if let Err(e) = pico.send_motors_message(motors) {
-                eprintln!("{:?}", e);
-                network_data.pico = None;
-            }
+        let rotate_adjust = if target_velocity.1 > 0.0 {
+            -10.0
+        } else if target_velocity.1 < 0.0 {
+            10.0
         } else {
-            let motors = [0.0; 3];
+            0.0
+        };
 
+        let motors = [
+            // constant is like max speed - can go up to 255.0
+            motor_angles[0] * scale + rotate_adjust,
+            motor_angles[1] * scale + rotate_adjust,
+            motor_angles[2] * scale + rotate_adjust,
+        ];
+
+        last_motor_commands.motors = motors;
+
+        if let Some(pico) = &mut network_data.pico {
             if let Err(e) = pico.send_motors_message(motors) {
                 eprintln!("{:?}", e);
                 network_data.pico = None;
+            } else {
+                let motors = [0.0; 3];
+
+                if let Err(e) = pico.send_motors_message(motors) {
+                    eprintln!("{:?}", e);
+                    network_data.pico = None;
+                }
             }
         }
     }

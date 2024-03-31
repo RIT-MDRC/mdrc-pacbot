@@ -8,8 +8,8 @@ use crate::gui::game::update_game;
 use crate::gui::{ui_system, AppMode, GuiPlugin};
 use crate::high_level::HLPlugin;
 use crate::network::{
-    reconnect_pico, recv_pico, send_motor_commands, NetworkPluginData, PacbotSensors,
-    PacbotSensorsRecvTime,
+    reconnect_pico, recv_pico, send_motor_commands, LastMotorCommands, NetworkPluginData,
+    PacbotSensors, PacbotSensorsRecvTime,
 };
 use crate::pathing::{
     target_path_to_target_vel, test_path_position_to_target_path, TargetPath, TargetVelocity,
@@ -179,6 +179,7 @@ fn main() {
         .init_resource::<TargetPath>()
         .init_resource::<TargetVelocity>()
         .init_resource::<ReplayManager>()
+        .init_resource::<LastMotorCommands>()
         .init_non_send_resource::<GameServerConn>()
         .insert_resource(PhysicsStopwatch(Stopwatch::new(
             10,

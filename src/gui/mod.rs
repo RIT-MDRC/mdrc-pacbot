@@ -4,6 +4,7 @@ mod colors;
 pub mod game;
 pub(crate) mod physics;
 pub mod replay_manager;
+mod robot;
 mod settings;
 mod stopwatch;
 pub mod transforms;
@@ -27,10 +28,13 @@ use crate::gui::colors::{
     TRANSLUCENT_GREEN_COLOR, TRANSLUCENT_RED_COLOR, TRANSLUCENT_YELLOW_COLOR,
 };
 use crate::gui::game::GameWidget;
+use crate::gui::robot::RobotWidget;
 use crate::gui::settings::PacbotSettingsWidget;
 use crate::gui::stopwatch::StopwatchWidget;
 use crate::high_level::AiStopwatch;
-use crate::network::{GSConnState, GameServerConn, PacbotSensors, PacbotSensorsRecvTime};
+use crate::network::{
+    GSConnState, GameServerConn, LastMotorCommands, PacbotSensors, PacbotSensorsRecvTime,
+};
 use crate::pathing::{TargetPath, TargetVelocity};
 use crate::physics::{
     LightPhysicsInfo, PacbotSimulation, ParticleFilterStopwatch, PhysicsStopwatch,
@@ -97,6 +101,7 @@ pub fn ui_system(
         ResMut<AiStopwatch>,
     ),
     sensors: (Res<PacbotSensors>, Res<PacbotSensorsRecvTime>),
+    last_motor_commands: Res<LastMotorCommands>,
     mut gs_conn: NonSendMut<GameServerConn>,
 ) {
     let ctx = contexts.ctx_mut();
@@ -122,6 +127,7 @@ pub fn ui_system(
         ai_stopwatch: stopwatches.4,
         sensors: sensors.0,
         sensors_recv_time: sensors.1,
+        last_motor_commands,
 
         connected: gs_conn.client.is_connected(),
         reconnect: false,
@@ -156,6 +162,8 @@ pub enum Tab {
     Stopwatch,
     /// User settings
     Settings,
+    /// Robot view
+    Robot,
     /// For widgets that don't have corresponding tabs
     Unknown,
 }
@@ -176,6 +184,7 @@ struct TabViewer<'a> {
     selected_grid: ResMut<'a, StandardGridResource>,
     sensors: Res<'a, PacbotSensors>,
     sensors_recv_time: Res<'a, PacbotSensorsRecvTime>,
+    last_motor_commands: Res<'a, LastMotorCommands>,
 
     pf_stopwatch: ResMut<'a, ParticleFilterStopwatch>,
     physics_stopwatch: ResMut<'a, PhysicsStopwatch>,
@@ -195,6 +204,7 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
             Tab::Grid => WidgetText::from("Main Grid"),
             Tab::Stopwatch => WidgetText::from("Stopwatch"),
             Tab::Settings => WidgetText::from("Settings"),
+            Tab::Robot => WidgetText::from("Robot"),
             _ => panic!("Widget did not declare a tab!"),
         }
     }
@@ -219,6 +229,7 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
                 draw_stopwatch(&self.schedule_stopwatch.0, ui, "sch_sw".to_string());
             }
             Tab::Settings => self.draw_settings(ui),
+            Tab::Robot => self.draw_robot(ui),
             _ => panic!("Widget did not declare a tab!"),
         }
     }
@@ -304,11 +315,13 @@ pub struct GuiApp {
     sensors_widget: PacbotSensorsWidget,
     /// settings
     settings_widget: PacbotSettingsWidget,
+    /// robot
+    robot_widget: RobotWidget,
 }
 
 impl Default for GuiApp {
     fn default() -> Self {
-        let mut dock_state = DockState::new(vec![Tab::Grid]);
+        let mut dock_state = DockState::new(vec![Tab::Robot, Tab::Grid]);
         let surface = dock_state.main_surface_mut();
         surface.split_right(NodeIndex::root(), 0.75, vec![Tab::Settings]);
 
@@ -321,6 +334,7 @@ impl Default for GuiApp {
             ai_widget: AiWidget::default(),
             sensors_widget: PacbotSensorsWidget::default(),
             settings_widget: PacbotSettingsWidget,
+            robot_widget: RobotWidget::default(),
         }
     }
 }
@@ -394,9 +408,10 @@ impl GuiApp {
     }
 
     fn draw_widget_icons(&mut self, ui: &mut Ui, tab_viewer: &mut TabViewer) {
-        let mut widgets: [Box<&mut dyn PacbotWidget>; 6] = [
+        let mut widgets: [Box<&mut dyn PacbotWidget>; 7] = [
             Box::new(&mut self.grid_widget),
             Box::new(&mut self.game_widget),
+            Box::new(&mut self.robot_widget),
             Box::new(&mut self.stopwatch_widget),
             Box::new(&mut self.ai_widget),
             Box::new(&mut self.sensors_widget),
