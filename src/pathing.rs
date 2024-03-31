@@ -41,6 +41,8 @@ pub fn test_path_position_to_target_path(
             if let Some(mut path) = grid.bfs_path(current_loc, target_loc) {
                 path.remove(0);
                 *target_path = TargetPath(path);
+            } else {
+                *target_path = TargetPath(vec![]);
             }
         }
     }
