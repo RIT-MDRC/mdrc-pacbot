@@ -7,7 +7,7 @@ use bevy::log::info;
 use bevy::prelude::*;
 use bincode;
 use serde::{Deserialize, Serialize};
-use std::f32::consts::FRAC_PI_3;
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_3};
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
 use std::{io, net::UdpSocket};
@@ -121,7 +121,7 @@ pub fn send_motor_commands(
 
         let mut current_angle = loc.rotation.angle();
         if settings.motors_ignore_phys_angle {
-            current_angle = 0.0;
+            current_angle = FRAC_PI_2;
         }
 
         // use x and y to find the desired angle
@@ -135,14 +135,14 @@ pub fn send_motor_commands(
 
         let motor_angles = [
             angle.sin(),
-            (angle + (2.0 * FRAC_PI_3)).sin(),
             (angle + (4.0 * FRAC_PI_3)).sin(),
+            (angle + (2.0 * FRAC_PI_3)).sin(),
         ];
 
         let rotate_adjust = if target_velocity.1 > 0.0 {
-            -10.0
-        } else if target_velocity.1 < 0.0 {
             10.0
+        } else if target_velocity.1 < 0.0 {
+            -10.0
         } else {
             0.0
         };
@@ -155,6 +155,7 @@ pub fn send_motor_commands(
         ];
 
         last_motor_commands.motors = motors;
+        info!("{} {:?}", angle, motors);
 
         if let Some(pico) = &mut network_data.pico {
             if let Err(e) = pico.send_motors_message(motors) {

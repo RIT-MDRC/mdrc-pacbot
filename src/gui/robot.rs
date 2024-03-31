@@ -111,7 +111,7 @@ impl<'a> TabViewer<'a> {
                 // motor force indicator
                 let motor_speed = self.last_motor_commands.motors[i];
                 let distance = 3.0 * motor_speed / motor_max_speed;
-                let other_pos = Rotation::new(angle + pf_pos.rotation.angle() + PI / -2.0)
+                let other_pos = Rotation::new(angle + pf_pos.rotation.angle() + PI / 2.0)
                     .transform_point(&Point2::new(distance, 0.0));
                 painter.line_segment(
                     [
