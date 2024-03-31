@@ -155,7 +155,6 @@ pub fn send_motor_commands(
         ];
 
         last_motor_commands.motors = motors;
-        info!("{} {:?}", angle, motors);
 
         if let Some(pico) = &mut network_data.pico {
             if let Err(e) = pico.send_motors_message(motors) {
