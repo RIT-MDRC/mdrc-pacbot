@@ -57,11 +57,14 @@ pub fn target_path_to_target_vel(
         let curr_pos = curr_pos.translation.vector.xy();
         let target_pos = Vector2::new(target_pos.row as f32, target_pos.col as f32);
 
+        // The final speed will be min(max_speed, base_speed + speed_mul * num_straight_moves)
         let base_speed = 4.;
         let speed_mul = 1.5;
+        let max_speed = 10.;
         let mut delta_pos = target_pos - curr_pos;
 
-        // Check how many of the next moves are in the same direction
+        // Check how many of the next moves are in the same direction.
+        // For each one, we slightly increase the speed.
         let mut adj_nodes = 0;
         let mut prev_pos = curr_pos;
         for target_pos_next in &target_path.0.as_slice()[1..] {
@@ -75,7 +78,7 @@ pub fn target_path_to_target_vel(
             prev_pos = target_pos_next;
         }
         if delta_pos.magnitude_squared() > 0.1 {
-            delta_pos = delta_pos.normalize() * (base_speed + speed_mul * adj_nodes as f32);
+            delta_pos = delta_pos.normalize() * f32::min(max_speed, base_speed + speed_mul * adj_nodes as f32);
         }
 
         target_velocity.0 = delta_pos;
