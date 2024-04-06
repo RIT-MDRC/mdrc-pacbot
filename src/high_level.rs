@@ -51,7 +51,7 @@ pub fn run_high_level(
     if settings.enable_ai && !game_state.0.is_paused() && game_state.is_changed() {
         ai_stopwatch.0.start();
 
-        let mut path = vec![];
+        let mut path_nodes = std::collections::HashSet::new();
         let mut sim_engine = game_state.0.clone();
         let mut curr_pos = IntLocation {
             row: sim_engine.get_state().pacman_loc.row,
@@ -84,7 +84,33 @@ pub fn run_high_level(
                 dir: 0,
             });
             curr_pos = target_pos;
-            path.push(target_pos);
+            path_nodes.insert(target_pos);
+        }
+
+        // Construct minimum path
+        // Path must have at least 3 nodes, otherwise just stay in place
+        let pacman_loc = game_state.0.get_state().pacman_loc;
+        let mut curr_pos = IntLocation {
+            row: pacman_loc.row,
+            col: pacman_loc.col,
+        };
+        let mut path = Vec::new();
+        path_nodes.remove(&curr_pos);
+        for _ in 0..path_nodes.len() {
+            if let Some(next_pos) = path_nodes
+                .iter()
+                .find(|p| ((p.col - curr_pos.col).abs() + (p.row - curr_pos.row).abs()) == 1)
+            {
+                curr_pos = *next_pos;
+                path.push(curr_pos);
+                path_nodes.remove(&curr_pos);
+            }
+            else {
+                break;
+            }
+        }
+        if path.len() < 3 {
+            path = vec![curr_pos];
         }
         target_path.0 = path;
 
