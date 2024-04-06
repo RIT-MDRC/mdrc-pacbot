@@ -57,6 +57,8 @@ pub fn run_high_level(
             row: sim_engine.get_state().pacman_loc.row,
             col: sim_engine.get_state().pacman_loc.col,
         };
+        let is_frightened = sim_engine.get_state().ghosts[0].is_frightened();
+        let mut became_frightened = false;
         for _ in 0..6 {
             let action = hl_ctx.step(sim_engine.get_state(), &std_grid);
             let target_pos = match action {
@@ -83,17 +85,24 @@ pub fn run_high_level(
                 col: target_pos.col,
                 dir: 0,
             });
+            sim_engine.step();
+            became_frightened |= sim_engine.get_state().ghosts[0].is_frightened();
             curr_pos = target_pos;
             path_nodes.insert(target_pos);
+            if sim_engine.is_paused() {
+                break;
+            }
         }
 
         // Construct minimum path
-        // Path must have at least 3 nodes, otherwise just stay in place
+        // Path must have at least 2 nodes, otherwise just stay in place
+        // If a ghost becomes frightned, just use the normal path, since pathing becomes weird
         let pacman_loc = game_state.0.get_state().pacman_loc;
-        let mut curr_pos = IntLocation {
+        let start_pos = IntLocation {
             row: pacman_loc.row,
             col: pacman_loc.col,
         };
+        let mut curr_pos = start_pos;
         let mut path = Vec::new();
         path_nodes.remove(&curr_pos);
         for _ in 0..path_nodes.len() {
@@ -104,13 +113,12 @@ pub fn run_high_level(
                 curr_pos = *next_pos;
                 path.push(curr_pos);
                 path_nodes.remove(&curr_pos);
-            }
-            else {
+            } else {
                 break;
             }
         }
-        if path.len() < 3 {
-            path = vec![curr_pos];
+        if (!became_frightened || is_frightened) && path.len() < 2 {
+            path = vec![start_pos];
         }
         target_path.0 = path;
 
