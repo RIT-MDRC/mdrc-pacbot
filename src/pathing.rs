@@ -57,22 +57,28 @@ pub fn target_path_to_target_vel(
         let curr_pos = curr_pos.translation.vector.xy();
         let target_pos = Vector2::new(target_pos.row as f32, target_pos.col as f32);
 
-        let max_speed = 6.;
+        // The final speed will be min(max_speed, base_speed + speed_mul * num_straight_moves)
+        let base_speed = 4.;
+        let speed_mul = 1.5;
+        let max_speed = 10.;
         let mut delta_pos = target_pos - curr_pos;
 
-        let mut barrel_through = false;
-        if let Some(target_pos_next) = target_path.0.get(1) {
-            // Barrel through if next position is in the same direction
-            let delta_pos_next =
-                Vector2::new(target_pos_next.row as f32, target_pos_next.col as f32) - curr_pos;
-            if delta_pos_next.normalize().dot(&delta_pos.normalize()) > 0.95 {
-                barrel_through = true;
+        // Check how many of the next moves are in the same direction.
+        // For each one, we slightly increase the speed.
+        let mut adj_nodes = 0;
+        let mut prev_pos = curr_pos;
+        for target_pos_next in &target_path.0.as_slice()[1..] {
+            let target_pos_next =
+                Vector2::new(target_pos_next.row as f32, target_pos_next.col as f32);
+            let delta_pos_next = target_pos_next - prev_pos;
+            if delta_pos_next.normalize().dot(&delta_pos.normalize()) <= 0.95 {
+                break;
             }
+            adj_nodes += 1;
+            prev_pos = target_pos_next;
         }
-        if barrel_through || delta_pos.magnitude() > max_speed {
-            delta_pos = delta_pos.normalize() * max_speed;
-        } else {
-            delta_pos *= 4.;
+        if delta_pos.magnitude_squared() > 0.1 {
+            delta_pos = delta_pos.normalize() * f32::min(max_speed, base_speed + speed_mul * adj_nodes as f32);
         }
 
         target_velocity.0 = delta_pos;
