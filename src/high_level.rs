@@ -52,12 +52,7 @@ pub fn run_high_level(
         ai_stopwatch.0.start();
 
         let mut path = vec![];
-        let sim_engine =
-            bincode::serde::encode_to_vec(&game_state.0, bincode::config::standard()).unwrap();
-        let mut sim_engine: GameEngine =
-            bincode::serde::decode_from_slice(&sim_engine, bincode::config::standard())
-                .unwrap()
-                .0;
+        let mut sim_engine = game_state.0.clone();
         let mut curr_pos = IntLocation {
             row: sim_engine.get_state().pacman_loc.row,
             col: sim_engine.get_state().pacman_loc.col,
@@ -227,7 +222,6 @@ impl HighLevelContext {
         let new_ghost_pos_cached: Vec<_> = game_state
             .ghosts
             .iter()
-            .map(|g| g.read().unwrap())
             .map(|g| {
                 if g.loc.col != 32 {
                     Some((g.loc.col as usize, ((31 - g.loc.row - 1) as usize)))
@@ -266,7 +260,6 @@ impl HighLevelContext {
         }
 
         for (i, g) in game_state.ghosts.iter().enumerate() {
-            let g = g.read().unwrap();
             if let Some((col, row)) = new_ghost_pos_cached[i] {
                 ghost[(i, col, row)] = 1.0;
                 if g.is_frightened() {

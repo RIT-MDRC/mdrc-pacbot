@@ -25,7 +25,7 @@ tokio = { version = "1.32.0", features = ["macros", "parking_lot", "rt", "time",
 tokio-tungstenite = "0.20.1"
 array-init = "2.1.0"
 ndarray = "0.15.6"
-pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "2601948dac7b7debabbb61322a453a770ae83240" }
+pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "f6b10808a6ad820408aa2602e536ba7985c59b1c" }
 egui-phosphor = "=0.3.1"
 bevy_egui = "0.24.0"
 bevy_ecs = { version = "0.12.1", features = ["multi-threaded"] }
