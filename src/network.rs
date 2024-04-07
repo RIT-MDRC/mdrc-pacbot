@@ -191,17 +191,6 @@ pub fn reconnect_pico(mut network_data: ResMut<NetworkPluginData>, settings: Res
             }
             network_data.pico = try_conn.ok();
             if let Some(pico) = &mut network_data.pico {
-                for _ in 0..10 {
-                    if let Err(e) = pico.socket.send(
-                        &bincode::serde::encode_to_vec(
-                            GuiToRobotMsg::Config(PacbotConfig::default()),
-                            bincode::config::standard(),
-                        )
-                        .unwrap(),
-                    ) {
-                        warn!("sending config {:?}", e);
-                    }
-                }
                 if let Err(e) = pico.socket.set_nonblocking(true) {
                     info!("{:?}", e);
                     network_data.pico = None;
@@ -248,15 +237,6 @@ impl PicoConnection {
     fn new(local_port: u16, remote_address: &str) -> io::Result<Self> {
         let socket = UdpSocket::bind(("0.0.0.0", local_port))?;
         socket.connect(remote_address)?;
-        for _ in 0..10 {
-            socket.send(
-                &bincode::serde::encode_to_vec(
-                    GuiToRobotMsg::Config(PacbotConfig::default()),
-                    bincode::config::standard(),
-                )
-                .unwrap(),
-            )?;
-        }
         Ok(Self { socket })
     }
 
@@ -307,6 +287,7 @@ impl PicoConnection {
 }
 
 #[derive(Copy, Clone, Serialize)]
+#[allow(dead_code)]
 enum GuiToRobotMsg {
     Config(PacbotConfig),
     Command(PacbotCommand),
@@ -331,9 +312,9 @@ struct PacbotConfig {
 impl Default for PacbotConfig {
     fn default() -> Self {
         Self {
-            distance_sensors: [3, 2, 1, 0, 7, 6, 5, 4],
-            encoders: [(0, 1), (3, 2), (4, 5)],
-            motors: [(4, 5), (1, 0), (2, 3)],
+            distance_sensors: [0, 1, 2, 3, 4, 5, 6, 7],
+            encoders: [(0, 1), (2, 3), (4, 5)],
+            motors: [(0, 1), (2, 3), (4, 5)],
             static_ip: Some(((192, 168, 4, 209), (192, 168, 4, 1))),
             udp_port: 20002,
             i2c_enabled: true,
