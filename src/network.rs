@@ -140,7 +140,7 @@ pub fn send_motor_commands(
 
         let mut scale = (x.powi(2) + y.powi(2)).sqrt();
         if scale != 0.0 {
-            scale = 1.0;
+            scale = 30.0;
         }
 
         let motor_angles = [
@@ -252,8 +252,8 @@ impl PicoConnection {
                 MotorRequest::Velocity(motors[1]),
                 MotorRequest::Velocity(motors[2]),
             ],
-            pid: [5.0, 0.1, 0.0],
-            pid_limits: [10000.0, 10000.0, 10000.0],
+            pid: [10.0, 0.1, 0.01],
+            pid_limits: [0x8000 as f32; 3],
         };
         self.socket.set_nonblocking(false).unwrap();
         let r = self.send_message(
