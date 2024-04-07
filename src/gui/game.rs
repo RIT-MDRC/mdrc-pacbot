@@ -13,7 +13,6 @@ use eframe::egui::{Painter, Pos2, Rect, RichText, Rounding, Stroke};
 use pacbot_rs::game_engine::GameEngine;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
-use bevy::utils::tracing::info;
 
 /// Stores state needed to render game state information
 #[derive(Clone, Serialize, Deserialize)]

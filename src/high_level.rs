@@ -10,7 +10,6 @@ use candle_core::D;
 use candle_core::{Device, Module, Tensor};
 use candle_nn as nn;
 use ndarray::{s, Array};
-use pacbot_rs::game_engine::GameEngine;
 use pacbot_rs::game_modes::GameMode;
 use pacbot_rs::game_state::GameState;
 use pacbot_rs::location::LocationState;
