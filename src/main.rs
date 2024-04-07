@@ -8,8 +8,8 @@ use crate::gui::game::update_game;
 use crate::gui::{ui_system, AppMode, GuiPlugin};
 use crate::high_level::HLPlugin;
 use crate::network::{
-    reconnect_pico, recv_pico, send_motor_commands, LastMotorCommands, NetworkPluginData,
-    PacbotSensors, PacbotSensorsRecvTime,
+    reconnect_pico, recv_pico, send_motor_commands, LastMotorCommands, MotorRequest,
+    NetworkPluginData, PacbotSensors, PacbotSensorsRecvTime,
 };
 use crate::pathing::{
     target_path_to_target_vel, test_path_position_to_target_path, TargetPath, TargetVelocity,
@@ -65,6 +65,8 @@ pub struct UserSettings {
     /// When giving motor commands to the robot, should they be adjusted with the particle
     /// filter's current rotation?
     pub motors_ignore_phys_angle: bool,
+    /// Non-PID pwm control, usually for testing configuration
+    pub pwm_override: Option<[MotorRequest; 3]>,
 
     /// When the user left-clicks on a location where the simulated robot should be teleported
     pub kidnap_position: Option<IntLocation>,
@@ -118,6 +120,7 @@ impl Default for UserSettings {
             robot: Robot::default(),
             sensors_from_robot: false,
             motors_ignore_phys_angle: true,
+            pwm_override: None,
 
             kidnap_position: None,
             test_path_position: None,

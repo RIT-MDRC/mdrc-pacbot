@@ -33,7 +33,8 @@ use crate::gui::settings::PacbotSettingsWidget;
 use crate::gui::stopwatch::StopwatchWidget;
 use crate::high_level::AiStopwatch;
 use crate::network::{
-    GSConnState, GameServerConn, LastMotorCommands, PacbotSensors, PacbotSensorsRecvTime,
+    GSConnState, GameServerConn, LastMotorCommands, MotorRequest, PacbotSensors,
+    PacbotSensorsRecvTime,
 };
 use crate::pathing::{TargetPath, TargetVelocity};
 use crate::physics::{
@@ -365,6 +366,45 @@ impl GuiApp {
                 }
                 if i.key_down(Key::Q) {
                     tab_viewer.target_velocity.1 = 1.0;
+                }
+
+                let mut pwm_override_motor: Option<usize> = None;
+                let mut pwm_override_forward = false;
+                if i.key_down(Key::U) {
+                    pwm_override_motor = Some(0);
+                    pwm_override_forward = true;
+                }
+                if i.key_down(Key::J) {
+                    pwm_override_motor = Some(0);
+                }
+                if i.key_down(Key::I) {
+                    pwm_override_motor = Some(1);
+                    pwm_override_forward = true;
+                }
+                if i.key_down(Key::K) {
+                    pwm_override_motor = Some(1);
+                }
+                if i.key_down(Key::O) {
+                    pwm_override_motor = Some(2);
+                    pwm_override_forward = true;
+                }
+                if i.key_down(Key::L) {
+                    pwm_override_motor = Some(2);
+                }
+                if let Some(motor) = pwm_override_motor {
+                    let mut command = [
+                        MotorRequest::Pwm(0, 0),
+                        MotorRequest::Pwm(0, 0),
+                        MotorRequest::Pwm(0, 0),
+                    ];
+                    command[motor] = if pwm_override_forward {
+                        MotorRequest::Pwm(0x8000, 0)
+                    } else {
+                        MotorRequest::Pwm(0, 0x8000)
+                    };
+                    tab_viewer.settings.pwm_override = Some(command);
+                } else {
+                    tab_viewer.settings.pwm_override = None;
                 }
             });
         }

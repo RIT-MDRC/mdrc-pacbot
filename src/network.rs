@@ -115,6 +115,16 @@ pub fn send_motor_commands(
     settings: Res<UserSettings>,
     mut last_motor_commands: ResMut<LastMotorCommands>,
 ) {
+    if let Some(pwm_override) = settings.pwm_override {
+        last_motor_commands.motors = [0.0; 3];
+        if let Some(pico) = &mut network_data.pico {
+            if let Err(e) = pico.send_pwm_message(pwm_override) {
+                eprintln!("{:?}", e);
+                network_data.pico = None;
+            }
+        }
+        return;
+    }
     if let Some(loc) = phys_info.pf_pos {
         let x = target_velocity.0.x;
         let y = target_velocity.0.y;
@@ -130,7 +140,7 @@ pub fn send_motor_commands(
 
         let mut scale = (x.powi(2) + y.powi(2)).sqrt();
         if scale != 0.0 {
-            scale = 30.0;
+            scale = 1.0;
         }
 
         let motor_angles = [
@@ -262,6 +272,24 @@ impl PicoConnection {
                 MotorRequest::Velocity(motors[1]),
                 MotorRequest::Velocity(motors[2]),
             ],
+            pid: [5.0, 0.1, 0.0],
+            pid_limits: [10000.0, 10000.0, 10000.0],
+        };
+        self.socket.set_nonblocking(false).unwrap();
+        let r = self.send_message(
+            &bincode::serde::encode_to_vec(
+                GuiToRobotMsg::Command(message),
+                bincode::config::standard(),
+            )
+            .unwrap(),
+        );
+        self.socket.set_nonblocking(true).unwrap();
+        r
+    }
+
+    fn send_pwm_message(&mut self, motors: [MotorRequest; 3]) -> io::Result<()> {
+        let message = PacbotCommand {
+            motors,
             pid: [5.0, 0.1, 0.0],
             pid_limits: [10000.0, 10000.0, 10000.0],
         };
