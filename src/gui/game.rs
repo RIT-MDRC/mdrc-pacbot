@@ -13,6 +13,7 @@ use eframe::egui::{Painter, Pos2, Rect, RichText, Rounding, Stroke};
 use pacbot_rs::game_engine::GameEngine;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
+use bevy::utils::tracing::info;
 
 /// Stores state needed to render game state information
 #[derive(Clone, Serialize, Deserialize)]
@@ -67,7 +68,7 @@ pub fn update_game(
         if !pacman_state.0.is_paused() && last_update.elapsed() > Duration::from_secs_f32(1.0 / 2.5)
         {
             *last_update = Instant::now();
-            pacman_state.0.force_step()
+            pacman_state.0.force_step();
         }
     }
 }
@@ -101,7 +102,6 @@ impl<'a> TabViewer<'a> {
 
         // ghosts
         for ghost in &pacman_state.get_state().ghosts {
-            let ghost = ghost.read().unwrap();
             painter.circle_filled(
                 world_to_screen.map_point(Pos2::new(ghost.loc.row as f32, ghost.loc.col as f32)),
                 world_to_screen.map_dist(0.45),
