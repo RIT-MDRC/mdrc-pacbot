@@ -321,7 +321,7 @@ pub struct GuiApp {
 
 impl Default for GuiApp {
     fn default() -> Self {
-        let mut dock_state = DockState::new(vec![Tab::Robot, Tab::Grid]);
+        let mut dock_state = DockState::new(vec![Tab::Grid, Tab::Robot]);
         let surface = dock_state.main_surface_mut();
         surface.split_right(NodeIndex::root(), 0.75, vec![Tab::Settings]);
 
