@@ -178,10 +178,10 @@ impl HighLevelContext {
 
         Self {
             net,
-            last_pos: Some((0, 0)),
-            last_ghost_pos: vec![Some((0, 0)); 4],
-            pos_cached: Some((0, 0)),
-            ghost_pos_cached: vec![Some((0, 0)); 4],
+            last_pos: None,
+            last_ghost_pos: vec![None; 4],
+            pos_cached: None,
+            ghost_pos_cached: vec![None; 4],
         }
     }
 
@@ -247,7 +247,7 @@ impl HighLevelContext {
         let new_pos_cached = {
             let pac_pos = game_state.pacman_loc;
             if pac_pos.col != 32 {
-                Some((pac_pos.col as usize, 31 - pac_pos.row as usize - 1))
+                Some((pac_pos.col as usize, (31 - pac_pos.row - 1) as usize))
             } else {
                 None
             }
