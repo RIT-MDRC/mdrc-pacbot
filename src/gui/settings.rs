@@ -29,8 +29,23 @@ impl<'a> TabViewer<'a> {
     pub fn draw_settings(&mut self, ui: &mut Ui) {
         ui.label("Settings");
         ui.separator();
-        // TODO
-        // ui.checkbox(&mut self.settings.high_level_strategy, "AI enabled");
+        egui::ComboBox::from_label("Strategy ")
+            .selected_text(match self.settings.high_level_strategy {
+                HighLevelStrategy::Manual => "Manual",
+                HighLevelStrategy::ReinforcementLearning => "AI",
+            })
+            .show_ui(ui, |ui| {
+                ui.selectable_value(
+                    &mut self.settings.high_level_strategy,
+                    HighLevelStrategy::Manual,
+                    "Manual",
+                );
+                ui.selectable_value(
+                    &mut self.settings.high_level_strategy,
+                    HighLevelStrategy::ReinforcementLearning,
+                    "AI",
+                );
+            });
         if self.settings.high_level_strategy != HighLevelStrategy::Manual {
             self.settings.test_path_position = None;
         }
