@@ -56,8 +56,7 @@ pub fn run_high_level(
             row: sim_engine.get_state().pacman_loc.row,
             col: sim_engine.get_state().pacman_loc.col,
         };
-        let is_frightened = sim_engine.get_state().ghosts[0].is_frightened();
-        let mut became_frightened = false;
+        let curr_score = sim_engine.get_state().get_score();
         for _ in 0..6 {
             let action = hl_ctx.step(sim_engine.get_state(), &std_grid);
             let target_pos = match action {
@@ -85,17 +84,17 @@ pub fn run_high_level(
                 dir: 0,
             });
             sim_engine.step();
-            became_frightened |= sim_engine.get_state().ghosts[0].is_frightened();
             curr_pos = target_pos;
             path_nodes.insert(target_pos);
             if sim_engine.is_paused() {
                 break;
             }
         }
+        let new_score = sim_engine.get_state().get_score();
 
         // Construct minimum path
         // Path must have at least 2 nodes, otherwise just stay in place
-        // If a ghost becomes frightned, just use the normal path, since pathing becomes weird
+        // If the score greatly increases (e.g. you ate a super pellet or a ghost), just use the normal path, since pathing becomes weird
         let pacman_loc = game_state.0.get_state().pacman_loc;
         let start_pos = IntLocation {
             row: pacman_loc.row,
@@ -116,7 +115,7 @@ pub fn run_high_level(
                 break;
             }
         }
-        if (!became_frightened || is_frightened) && path.len() < 2 {
+        if ((new_score - curr_score) < variables::SUPER_PELLET_POINTS) && path.len() < 2 {
             path = vec![start_pos];
         }
         target_path.0 = path;
