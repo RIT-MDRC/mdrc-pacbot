@@ -33,6 +33,8 @@ impl<'a> TabViewer<'a> {
             .selected_text(match self.settings.high_level_strategy {
                 HighLevelStrategy::Manual => "Manual",
                 HighLevelStrategy::ReinforcementLearning => "AI",
+                HighLevelStrategy::TestUniform => "Test (Uniform)",
+                HighLevelStrategy::TestNonExplored => "Test (Non Explored)",
             })
             .show_ui(ui, |ui| {
                 ui.selectable_value(
@@ -45,8 +47,18 @@ impl<'a> TabViewer<'a> {
                     HighLevelStrategy::ReinforcementLearning,
                     "AI",
                 );
+                ui.selectable_value(
+                    &mut self.settings.high_level_strategy,
+                    HighLevelStrategy::TestUniform,
+                    "Test (Uniform)",
+                );
+                ui.selectable_value(
+                    &mut self.settings.high_level_strategy,
+                    HighLevelStrategy::TestNonExplored,
+                    "Test (Non Explored)",
+                );
             });
-        if self.settings.high_level_strategy != HighLevelStrategy::Manual {
+        if self.settings.high_level_strategy == HighLevelStrategy::ReinforcementLearning {
             self.settings.test_path_position = None;
         }
         ui.checkbox(&mut self.settings.enable_pf, "PF enabled");

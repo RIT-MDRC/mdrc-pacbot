@@ -1,7 +1,11 @@
+use std::collections::HashSet;
+
 use crate::grid::{ComputedGrid, IntLocation};
 use crate::physics::LightPhysicsInfo;
 use crate::{HighLevelStrategy, UserSettings};
 use bevy::prelude::*;
+use rand::{distributions::WeightedIndex, seq::IteratorRandom};
+use rand_distr::Distribution;
 use rapier2d::na::Vector2;
 
 /// Pacbot's desired path
@@ -83,5 +87,66 @@ pub fn target_path_to_target_vel(
         }
 
         target_velocity.0 = delta_pos;
+    }
+}
+
+#[derive(Resource, Default)]
+pub struct GridSampleProbs(std::collections::HashMap<IntLocation, f32>);
+
+/// Generates a new target position when Pacbot reaches the current target.
+pub fn create_test_path_target(
+    mut settings: ResMut<UserSettings>,
+    grid: Res<ComputedGrid>,
+    path: Res<TargetPath>,
+    mut grid_probs: ResMut<GridSampleProbs>,
+    phys_info: Res<LightPhysicsInfo>,
+) {
+    if path.0.is_empty() {
+        let mut rng = rand::thread_rng();
+        let walkable = grid.walkable_nodes();
+        match &settings.high_level_strategy {
+            HighLevelStrategy::TestUniform => {
+                if let Some(target) = walkable.iter().choose(&mut rng) {
+                    settings.test_path_position = Some(*target);
+                } else {
+                    warn!("Tried to update path target, but grid returned None.");
+                }
+            }
+            HighLevelStrategy::TestNonExplored => {
+                // If our set of walkable cells are different, reinitialize probs
+                let usable = walkable.iter().collect::<HashSet<_>>()
+                    == grid_probs.0.keys().collect::<HashSet<_>>();
+                if !usable {
+                    grid_probs.0.clear();
+                    for pos in walkable {
+                        grid_probs.0.insert(*pos, 1.);
+                    }
+                }
+
+                // Increase the probability of selecting each cell
+                for v in grid_probs.0.values_mut() {
+                    *v = (*v + 0.1).min(1.);
+                }
+
+                // Sample new position from weighted index
+                let keys: Vec<_> = grid_probs.0.keys().collect();
+                let weights: Vec<_> = keys.iter().map(|k| grid_probs.0.get(k).unwrap()).collect();
+                let index = WeightedIndex::new(weights).unwrap();
+                let target = keys[index.sample(&mut rng)];
+                settings.test_path_position = Some(*target);
+
+                // Set the probability of the next target being on this path to 0
+                let pf_pos = phys_info.pf_pos.unwrap();
+                if let Some(current_loc) =
+                    grid.node_nearest(pf_pos.translation.x, pf_pos.translation.y)
+                {
+                    let path = grid.bfs_path(current_loc, *target).unwrap();
+                    for pos in path {
+                        grid_probs.0.insert(pos, 0.);
+                    }
+                }
+            }
+            _ => (),
+        };
     }
 }

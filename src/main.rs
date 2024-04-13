@@ -26,6 +26,7 @@ use bevy::window::PresentMode;
 use bevy_egui::EguiPlugin;
 use network::{poll_gs, GameServerConn};
 use pacbot_rs::game_engine::GameEngine;
+use pathing::{create_test_path_target, GridSampleProbs};
 
 pub mod grid;
 pub mod gui;
@@ -54,6 +55,10 @@ pub enum HighLevelStrategy {
     Manual,
     /// AI
     ReinforcementLearning,
+    /// Test (random, uniform over all cells)
+    TestUniform,
+    /// Test (random, prefer non-explored cells)
+    TestNonExplored,
 }
 
 /// Options that the user can set via the GUI, shared between most processes
@@ -189,6 +194,7 @@ fn main() {
         .init_resource::<UserSettings>()
         .init_resource::<NetworkPluginData>()
         .init_resource::<TargetPath>()
+        .init_resource::<GridSampleProbs>()
         .init_resource::<TargetVelocity>()
         .init_resource::<ReplayManager>()
         .init_resource::<LastMotorCommands>()
@@ -220,6 +226,7 @@ fn main() {
                 update_game,
                 target_path_to_target_vel,
                 test_path_position_to_target_path,
+                create_test_path_target,
                 // Networking
                 reconnect_pico,
                 send_motor_commands.after(reconnect_pico),
