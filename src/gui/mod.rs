@@ -43,7 +43,9 @@ use crate::physics::{
 use crate::replay_manager::{replay_playback, update_replay_manager_system, ReplayManager};
 use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
-use crate::{PacmanGameState, ScheduleStopwatch, StandardGridResource, UserSettings};
+use crate::{
+    HighLevelStrategy, PacmanGameState, ScheduleStopwatch, StandardGridResource, UserSettings,
+};
 
 use self::transforms::Transform;
 
@@ -342,8 +344,8 @@ impl Default for GuiApp {
 
 impl GuiApp {
     fn update_target_velocity(&mut self, ctx: &egui::Context, tab_viewer: &mut TabViewer) {
-        let ai_enabled = tab_viewer.settings.enable_ai;
-        if !ai_enabled && tab_viewer.target_path.0.is_empty() {
+        let high_level_strategy = tab_viewer.settings.high_level_strategy;
+        if high_level_strategy == HighLevelStrategy::Manual && tab_viewer.target_path.0.is_empty() {
             tab_viewer.target_velocity.0.x = 0.0;
             tab_viewer.target_velocity.0.y = 0.0;
             tab_viewer.target_velocity.1 = 0.0;
@@ -494,7 +496,13 @@ impl GuiApp {
                 match widget.display_name() {
                     "Game (Click to Reset)" => tab_viewer.pacman_state.0 = GameEngine::default(),
                     "AI" => {
-                        tab_viewer.settings.enable_ai = !tab_viewer.settings.enable_ai;
+                        tab_viewer.settings.high_level_strategy = match tab_viewer
+                            .settings
+                            .high_level_strategy
+                        {
+                            HighLevelStrategy::ReinforcementLearning => HighLevelStrategy::Manual,
+                            _ => HighLevelStrategy::ReinforcementLearning,
+                        }
                     }
                     "Sensors" => {}
                     _ => self.tree.push_to_focused_leaf(widget.tab()),
@@ -583,7 +591,9 @@ impl GuiApp {
                                 if !tab_viewer.grid.wall_at(&int_pos) {
                                     if ctx.input(|i| i.pointer.primary_clicked()) {
                                         tab_viewer.settings.kidnap_position = Some(int_pos);
-                                    } else if !tab_viewer.settings.enable_ai {
+                                    } else if tab_viewer.settings.high_level_strategy
+                                        == HighLevelStrategy::Manual
+                                    {
                                         tab_viewer.settings.test_path_position = Some(int_pos);
                                     }
                                 }
@@ -657,7 +667,8 @@ pub struct AiWidget {
 
 impl PacbotWidget for AiWidget {
     fn update(&mut self, tab_viewer: &TabViewer) {
-        self.ai_enabled = tab_viewer.settings.enable_ai;
+        self.ai_enabled =
+            tab_viewer.settings.high_level_strategy == HighLevelStrategy::ReinforcementLearning;
     }
 
     fn display_name(&self) -> &'static str {

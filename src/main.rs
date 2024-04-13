@@ -47,13 +47,22 @@ pub struct PacmanGameState(GameEngine);
 #[derive(Default, Resource)]
 pub struct StandardGridResource(StandardGrid);
 
+/// Determines what is used to choose the destination and path
+#[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Ord, Eq)]
+pub enum HighLevelStrategy {
+    /// WASD, or right click to set target
+    Manual,
+    /// AI
+    ReinforcementLearning,
+}
+
 /// Options that the user can set via the GUI, shared between most processes
 #[derive(Resource)]
 pub struct UserSettings {
     /// Whether the app is recording (normal) or playback for a replay
     pub mode: AppMode,
-    /// Whether AI actions should be calculatede
-    pub enable_ai: bool,
+    /// Whether AI actions should be calculated
+    pub high_level_strategy: HighLevelStrategy,
     /// Optional IP for the pico
     pub pico_address: Option<String>,
     /// Optional IP for the game server
@@ -114,7 +123,7 @@ impl Default for UserSettings {
     fn default() -> Self {
         Self {
             mode: AppMode::Recording,
-            enable_ai: false,
+            high_level_strategy: HighLevelStrategy::Manual,
             pico_address: None,
             go_server_address: None,
             robot: Robot::default(),

@@ -1,8 +1,10 @@
 use crate::gui::{PacbotWidget, Tab, TabViewer};
 use bevy_egui::egui::RichText;
+use eframe::egui;
 use eframe::egui::Ui;
 use egui_phosphor::regular;
 
+use crate::HighLevelStrategy;
 use num_traits::Num;
 
 fn int_edit(ui: &mut Ui, label: &str, initial: &mut usize) {
@@ -27,8 +29,9 @@ impl<'a> TabViewer<'a> {
     pub fn draw_settings(&mut self, ui: &mut Ui) {
         ui.label("Settings");
         ui.separator();
-        ui.checkbox(&mut self.settings.enable_ai, "AI enabled");
-        if self.settings.enable_ai {
+        // TODO
+        // ui.checkbox(&mut self.settings.high_level_strategy, "AI enabled");
+        if self.settings.high_level_strategy != HighLevelStrategy::Manual {
             self.settings.test_path_position = None;
         }
         ui.checkbox(&mut self.settings.enable_pf, "PF enabled");

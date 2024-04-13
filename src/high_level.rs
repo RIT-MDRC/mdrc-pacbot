@@ -4,7 +4,7 @@ use crate::grid::ComputedGrid;
 use crate::grid::IntLocation;
 use crate::pathing::TargetPath;
 use crate::util::stopwatch::Stopwatch;
-use crate::{PacmanGameState, UserSettings};
+use crate::{HighLevelStrategy, PacmanGameState, UserSettings};
 use bevy::prelude::*;
 use candle_core::D;
 use candle_core::{Device, Module, Tensor};
@@ -44,10 +44,15 @@ pub fn run_high_level(
     settings: Res<UserSettings>,
     mut ai_stopwatch: ResMut<AiStopwatch>,
 ) {
-    if settings.enable_ai && game_state.0.is_paused() {
+    if settings.high_level_strategy == HighLevelStrategy::ReinforcementLearning
+        && game_state.0.is_paused()
+    {
         *target_path = TargetPath(vec![]);
     }
-    if settings.enable_ai && !game_state.0.is_paused() && game_state.is_changed() {
+    if settings.high_level_strategy == HighLevelStrategy::ReinforcementLearning
+        && !game_state.0.is_paused()
+        && game_state.is_changed()
+    {
         ai_stopwatch.0.start();
 
         let mut path_nodes = std::collections::HashSet::new();
