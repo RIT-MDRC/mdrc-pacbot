@@ -191,7 +191,7 @@ pub fn reconnect_pico(mut network_data: ResMut<NetworkPluginData>, settings: Res
             }
             network_data.pico = try_conn.ok();
             if let Some(pico) = &mut network_data.pico {
-                if let Err(e) = pico.socket.set_nonblocking(true) {
+                if let Err(e) = pico.tx_socket.set_nonblocking(true) {
                     info!("{:?}", e);
                     network_data.pico = None;
                 }
@@ -209,7 +209,7 @@ pub fn recv_pico(
 ) {
     if let Some(pico) = &mut network_data.pico {
         let mut bytes = [0; 90];
-        while let Ok(size) = pico.socket.recv(&mut bytes) {
+        while let Ok((size, _)) = pico.rx_socket.recv_from(&mut bytes) {
             if settings.sensors_from_robot {
                 if let Ok((message, _)) = bincode::serde::decode_from_slice::<PacbotSensors, _>(
                     &bytes,
@@ -229,19 +229,28 @@ pub fn recv_pico(
 }
 
 struct PicoConnection {
-    socket: UdpSocket,
+    rx_socket: UdpSocket,
+    tx_socket: UdpSocket,
+    remote_address: String,
 }
 
 #[allow(dead_code)]
 impl PicoConnection {
     fn new(local_port: u16, remote_address: &str) -> io::Result<Self> {
-        let socket = UdpSocket::bind(("0.0.0.0", local_port))?;
-        socket.connect(remote_address)?;
-        Ok(Self { socket })
+        let rx_socket = UdpSocket::bind(("0.0.0.0", local_port))?;
+        rx_socket.set_nonblocking(true).unwrap();
+        
+        // extract ip and port from remote address
+        let mut parts = remote_address.split(":");
+        let addr = parts.next().expect("Malformed address");
+        let port = parts.next().expect("Malformed address").parse::<u16>().expect("Malformed address");
+
+        let tx_socket = UdpSocket::bind((addr, port))?;
+        Ok(Self { rx_socket, tx_socket, remote_address: remote_address.to_string()})
     }
 
     fn send_message(&mut self, message: &[u8]) -> io::Result<()> {
-        self.socket.send(message)?;
+        self.tx_socket.send_to(message, self.remote_address.as_str())?;
         Ok(())
     }
 
@@ -255,7 +264,7 @@ impl PicoConnection {
             pid: [10.0, 0.1, 0.01],
             pid_limits: [0x8000 as f32; 3],
         };
-        self.socket.set_nonblocking(false).unwrap();
+        self.tx_socket.set_nonblocking(false).unwrap();
         let r = self.send_message(
             &bincode::serde::encode_to_vec(
                 GuiToRobotMsg::Command(message),
@@ -263,7 +272,7 @@ impl PicoConnection {
             )
             .unwrap(),
         );
-        self.socket.set_nonblocking(true).unwrap();
+        self.tx_socket.set_nonblocking(true).unwrap();
         r
     }
 
@@ -273,7 +282,7 @@ impl PicoConnection {
             pid: [5.0, 0.1, 0.0],
             pid_limits: [10000.0, 10000.0, 10000.0],
         };
-        self.socket.set_nonblocking(false).unwrap();
+        self.tx_socket.set_nonblocking(false).unwrap();
         let r = self.send_message(
             &bincode::serde::encode_to_vec(
                 GuiToRobotMsg::Command(message),
@@ -281,7 +290,7 @@ impl PicoConnection {
             )
             .unwrap(),
         );
-        self.socket.set_nonblocking(true).unwrap();
+        self.tx_socket.set_nonblocking(true).unwrap();
         r
     }
 }

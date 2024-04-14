@@ -124,7 +124,7 @@ impl Default for UserSettings {
         Self {
             mode: AppMode::Recording,
             high_level_strategy: HighLevelStrategy::Manual,
-            pico_address: None,
+            pico_address: Some("192.168.4.209:20002".to_string()),
             go_server_address: None,
             robot: Robot::default(),
             sensors_from_robot: false,
