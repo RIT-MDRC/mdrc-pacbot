@@ -176,7 +176,11 @@ pub fn send_motor_commands(
 }
 
 /// Attempts to reconnect to the pico if not currently connected
-pub fn reconnect_pico(mut network_data: ResMut<NetworkPluginData>, settings: Res<UserSettings>) {
+pub fn reconnect_pico(
+    mut network_data: ResMut<NetworkPluginData>,
+    mut recv_time: ResMut<PacbotSensorsRecvTime>,
+    settings: Res<UserSettings>,
+) {
     if settings.pico_address.is_none() {
         network_data.pico = None;
     }
@@ -185,7 +189,8 @@ pub fn reconnect_pico(mut network_data: ResMut<NetworkPluginData>, settings: Res
             if pico_address.is_empty() {
                 return;
             }
-            let try_conn = PicoConnection::new(20002, pico_address);
+            let try_conn = PicoConnection::new(pico_address);
+            recv_time.0 = None;
             if let Err(ref e) = try_conn {
                 info!("{:?}", e);
             }
@@ -222,9 +227,10 @@ pub fn recv_pico(
                 }
             }
         }
-    }
-    if recv_time.0.unwrap_or(Instant::now()).elapsed() > Duration::from_secs(1) {
-        network_data.pico = None;
+        if recv_time.0.unwrap_or(Instant::now()).elapsed() > Duration::from_millis(50) {
+            info!("pico timeout!");
+            network_data.pico = None;
+        }
     }
 }
 
@@ -236,21 +242,21 @@ struct PicoConnection {
 
 #[allow(dead_code)]
 impl PicoConnection {
-    fn new(local_port: u16, remote_address: &str) -> io::Result<Self> {
-        let rx_socket = UdpSocket::bind(("0.0.0.0", local_port))?;
+    fn new(remote_address: &str) -> io::Result<Self> {
+        let rx_socket = UdpSocket::bind(("0.0.0.0", 20001))?;
         rx_socket.set_nonblocking(true).unwrap();
-        
-        // extract ip and port from remote address
-        let mut parts = remote_address.split(":");
-        let addr = parts.next().expect("Malformed address");
-        let port = parts.next().expect("Malformed address").parse::<u16>().expect("Malformed address");
 
-        let tx_socket = UdpSocket::bind((addr, port))?;
-        Ok(Self { rx_socket, tx_socket, remote_address: remote_address.to_string()})
+        let tx_socket = UdpSocket::bind(("0.0.0.0", 20002))?;
+        Ok(Self {
+            rx_socket,
+            tx_socket,
+            remote_address: remote_address.to_string(),
+        })
     }
 
     fn send_message(&mut self, message: &[u8]) -> io::Result<()> {
-        self.tx_socket.send_to(message, self.remote_address.as_str())?;
+        self.tx_socket
+            .send_to(message, self.remote_address.as_str())?;
         Ok(())
     }
 
