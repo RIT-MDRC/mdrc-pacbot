@@ -1,6 +1,6 @@
 use crate::grid::{ComputedGrid, IntLocation};
 use crate::physics::LightPhysicsInfo;
-use crate::UserSettings;
+use crate::{HighLevelStrategy, UserSettings};
 use bevy::prelude::*;
 use rapier2d::na::Vector2;
 
@@ -18,7 +18,7 @@ pub fn test_path_position_to_target_path(
     mut target_path: ResMut<TargetPath>,
     settings: Res<UserSettings>,
 ) {
-    if settings.enable_ai {
+    if settings.high_level_strategy == HighLevelStrategy::ReinforcementLearning {
         return;
     }
     if let (Some(target_loc), Some(pf_pos)) = (settings.test_path_position, phys_info.pf_pos) {
@@ -78,7 +78,8 @@ pub fn target_path_to_target_vel(
             prev_pos = target_pos_next;
         }
         if delta_pos.magnitude_squared() > 0.1 {
-            delta_pos = delta_pos.normalize() * f32::min(max_speed, base_speed + speed_mul * adj_nodes as f32);
+            delta_pos = delta_pos.normalize()
+                * f32::min(max_speed, base_speed + speed_mul * adj_nodes as f32);
         }
 
         target_velocity.0 = delta_pos;

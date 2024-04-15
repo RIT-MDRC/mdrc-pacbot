@@ -115,6 +115,16 @@ pub fn send_motor_commands(
     settings: Res<UserSettings>,
     mut last_motor_commands: ResMut<LastMotorCommands>,
 ) {
+    if let Some(pwm_override) = settings.pwm_override {
+        last_motor_commands.motors = [0.0; 3];
+        if let Some(pico) = &mut network_data.pico {
+            if let Err(e) = pico.send_pwm_message(pwm_override) {
+                eprintln!("{:?}", e);
+                network_data.pico = None;
+            }
+        }
+        return;
+    }
     if let Some(loc) = phys_info.pf_pos {
         let x = target_velocity.0.x;
         let y = target_velocity.0.y;
@@ -160,13 +170,6 @@ pub fn send_motor_commands(
             if let Err(e) = pico.send_motors_message(motors) {
                 eprintln!("{:?}", e);
                 network_data.pico = None;
-            } else {
-                let motors = [0.0; 3];
-
-                if let Err(e) = pico.send_motors_message(motors) {
-                    eprintln!("{:?}", e);
-                    network_data.pico = None;
-                }
             }
         }
     }
@@ -234,13 +237,6 @@ impl PicoConnection {
     fn new(local_port: u16, remote_address: &str) -> io::Result<Self> {
         let socket = UdpSocket::bind(("0.0.0.0", local_port))?;
         socket.connect(remote_address)?;
-        socket.send(
-            &bincode::serde::encode_to_vec(
-                GuiToRobotMsg::Config(PacbotConfig::default()),
-                bincode::config::standard(),
-            )
-            .unwrap(),
-        )?;
         Ok(Self { socket })
     }
 
@@ -256,6 +252,24 @@ impl PicoConnection {
                 MotorRequest::Velocity(motors[1]),
                 MotorRequest::Velocity(motors[2]),
             ],
+            pid: [10.0, 0.1, 0.01],
+            pid_limits: [0x8000 as f32; 3],
+        };
+        self.socket.set_nonblocking(false).unwrap();
+        let r = self.send_message(
+            &bincode::serde::encode_to_vec(
+                GuiToRobotMsg::Command(message),
+                bincode::config::standard(),
+            )
+            .unwrap(),
+        );
+        self.socket.set_nonblocking(true).unwrap();
+        r
+    }
+
+    fn send_pwm_message(&mut self, motors: [MotorRequest; 3]) -> io::Result<()> {
+        let message = PacbotCommand {
+            motors,
             pid: [5.0, 0.1, 0.0],
             pid_limits: [10000.0, 10000.0, 10000.0],
         };
@@ -273,6 +287,7 @@ impl PicoConnection {
 }
 
 #[derive(Copy, Clone, Serialize)]
+#[allow(dead_code)]
 enum GuiToRobotMsg {
     Config(PacbotConfig),
     Command(PacbotCommand),
@@ -297,9 +312,9 @@ struct PacbotConfig {
 impl Default for PacbotConfig {
     fn default() -> Self {
         Self {
-            distance_sensors: [3, 2, 1, 0, 7, 6, 5, 4],
-            encoders: [(1, 0), (2, 3), (4, 5)],
-            motors: [(5, 4), (0, 1), (3, 2)],
+            distance_sensors: [0, 1, 2, 3, 4, 5, 6, 7],
+            encoders: [(0, 1), (2, 3), (4, 5)],
+            motors: [(0, 1), (2, 3), (4, 5)],
             static_ip: Some(((192, 168, 4, 209), (192, 168, 4, 1))),
             udp_port: 20002,
             i2c_enabled: true,

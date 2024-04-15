@@ -33,7 +33,8 @@ use crate::gui::settings::PacbotSettingsWidget;
 use crate::gui::stopwatch::StopwatchWidget;
 use crate::high_level::AiStopwatch;
 use crate::network::{
-    GSConnState, GameServerConn, LastMotorCommands, PacbotSensors, PacbotSensorsRecvTime,
+    GSConnState, GameServerConn, LastMotorCommands, MotorRequest, PacbotSensors,
+    PacbotSensorsRecvTime,
 };
 use crate::pathing::{TargetPath, TargetVelocity};
 use crate::physics::{
@@ -42,7 +43,9 @@ use crate::physics::{
 use crate::replay_manager::{replay_playback, update_replay_manager_system, ReplayManager};
 use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
-use crate::{PacmanGameState, ScheduleStopwatch, StandardGridResource, UserSettings};
+use crate::{
+    HighLevelStrategy, PacmanGameState, ScheduleStopwatch, StandardGridResource, UserSettings,
+};
 
 use self::transforms::Transform;
 
@@ -341,8 +344,8 @@ impl Default for GuiApp {
 
 impl GuiApp {
     fn update_target_velocity(&mut self, ctx: &egui::Context, tab_viewer: &mut TabViewer) {
-        let ai_enabled = tab_viewer.settings.enable_ai;
-        if !ai_enabled && tab_viewer.target_path.0.is_empty() {
+        let high_level_strategy = tab_viewer.settings.high_level_strategy;
+        if high_level_strategy == HighLevelStrategy::Manual && tab_viewer.target_path.0.is_empty() {
             tab_viewer.target_velocity.0.x = 0.0;
             tab_viewer.target_velocity.0.y = 0.0;
             tab_viewer.target_velocity.1 = 0.0;
@@ -365,6 +368,45 @@ impl GuiApp {
                 }
                 if i.key_down(Key::Q) {
                     tab_viewer.target_velocity.1 = 1.0;
+                }
+
+                let mut pwm_override_motor: Option<usize> = None;
+                let mut pwm_override_forward = false;
+                if i.key_down(Key::U) {
+                    pwm_override_motor = Some(0);
+                    pwm_override_forward = true;
+                }
+                if i.key_down(Key::J) {
+                    pwm_override_motor = Some(0);
+                }
+                if i.key_down(Key::I) {
+                    pwm_override_motor = Some(1);
+                    pwm_override_forward = true;
+                }
+                if i.key_down(Key::K) {
+                    pwm_override_motor = Some(1);
+                }
+                if i.key_down(Key::O) {
+                    pwm_override_motor = Some(2);
+                    pwm_override_forward = true;
+                }
+                if i.key_down(Key::L) {
+                    pwm_override_motor = Some(2);
+                }
+                if let Some(motor) = pwm_override_motor {
+                    let mut command = [
+                        MotorRequest::Pwm(0, 0),
+                        MotorRequest::Pwm(0, 0),
+                        MotorRequest::Pwm(0, 0),
+                    ];
+                    command[motor] = if pwm_override_forward {
+                        MotorRequest::Pwm(0x8000, 0)
+                    } else {
+                        MotorRequest::Pwm(0, 0x8000)
+                    };
+                    tab_viewer.settings.pwm_override = Some(command);
+                } else {
+                    tab_viewer.settings.pwm_override = None;
                 }
             });
         }
@@ -454,7 +496,13 @@ impl GuiApp {
                 match widget.display_name() {
                     "Game (Click to Reset)" => tab_viewer.pacman_state.0 = GameEngine::default(),
                     "AI" => {
-                        tab_viewer.settings.enable_ai = !tab_viewer.settings.enable_ai;
+                        tab_viewer.settings.high_level_strategy = match tab_viewer
+                            .settings
+                            .high_level_strategy
+                        {
+                            HighLevelStrategy::ReinforcementLearning => HighLevelStrategy::Manual,
+                            _ => HighLevelStrategy::ReinforcementLearning,
+                        }
                     }
                     "Sensors" => {}
                     _ => self.tree.push_to_focused_leaf(widget.tab()),
@@ -543,7 +591,9 @@ impl GuiApp {
                                 if !tab_viewer.grid.wall_at(&int_pos) {
                                     if ctx.input(|i| i.pointer.primary_clicked()) {
                                         tab_viewer.settings.kidnap_position = Some(int_pos);
-                                    } else if !tab_viewer.settings.enable_ai {
+                                    } else if tab_viewer.settings.high_level_strategy
+                                        == HighLevelStrategy::Manual
+                                    {
                                         tab_viewer.settings.test_path_position = Some(int_pos);
                                     }
                                 }
@@ -617,7 +667,8 @@ pub struct AiWidget {
 
 impl PacbotWidget for AiWidget {
     fn update(&mut self, tab_viewer: &TabViewer) {
-        self.ai_enabled = tab_viewer.settings.enable_ai;
+        self.ai_enabled =
+            tab_viewer.settings.high_level_strategy == HighLevelStrategy::ReinforcementLearning;
     }
 
     fn display_name(&self) -> &'static str {
