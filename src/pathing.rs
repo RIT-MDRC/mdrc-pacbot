@@ -103,7 +103,15 @@ pub fn create_test_path_target(
 ) {
     if path.0.is_empty() {
         let mut rng = rand::thread_rng();
-        let walkable = grid.walkable_nodes();
+        let mut walkable = grid.walkable_nodes().clone();
+        if let Some(pf_pos) = phys_info.pf_pos {
+            if let Some(pos) = grid.node_nearest(pf_pos.translation.x, pf_pos.translation.y) {
+                walkable = walkable
+                    .into_iter()
+                    .filter(|loc| grid.dist(&pos, &loc).is_some())
+                    .collect::<Vec<IntLocation>>();
+            }
+        }
         match &settings.high_level_strategy {
             HighLevelStrategy::TestUniform => {
                 if let Some(target) = walkable.iter().choose(&mut rng) {
@@ -119,7 +127,7 @@ pub fn create_test_path_target(
                 if !usable {
                     grid_probs.0.clear();
                     for pos in walkable {
-                        grid_probs.0.insert(*pos, 1.);
+                        grid_probs.0.insert(pos, 1.);
                     }
                 }
 
