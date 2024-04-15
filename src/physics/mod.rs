@@ -10,7 +10,7 @@ use crate::pathing::TargetVelocity;
 use crate::physics::particle_filter::{ParticleFilter, ParticleFilterOptions};
 use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
-use crate::{PacmanGameState, UserSettings};
+use crate::{CvPositionSource, PacmanGameState, UserSettings};
 use bevy::time::Time;
 use bevy_ecs::prelude::*;
 use pacbot_rs::location::LocationState;
@@ -144,6 +144,7 @@ pub fn run_simulation(
 pub fn run_particle_filter(
     mut simulation: ResMut<PacbotSimulation>,
     mut pf_stopwatch: ResMut<ParticleFilterStopwatch>,
+    grid: Res<ComputedGrid>,
     sensors: Res<PacbotSensors>,
     settings: Res<UserSettings>,
     time: Res<Time>,
@@ -169,13 +170,29 @@ pub fn run_particle_filter(
             vel_lin.x * (-angle).cos() - vel_lin.y * (-angle).sin(),
             vel_lin.x * (-angle).sin() + vel_lin.y * (-angle).cos(),
         );
+        let cv_position = match settings.cv_position {
+            CvPositionSource::GameState => game_engine.0.get_state().pacman_loc,
+            CvPositionSource::ParticleFilter => {
+                let pf_pos = simulation.pf_best_guess();
+                let pos = grid.node_nearest(pf_pos.loc.translation.x, pf_pos.loc.translation.y);
+                match pos {
+                    None => game_engine.0.get_state().pacman_loc,
+                    Some(x) => LocationState {
+                        row: x.row,
+                        col: x.col,
+                        dir: 0,
+                    },
+                }
+            }
+            CvPositionSource::Constant(row, col) => LocationState::new(row, col, 0),
+        };
         simulation.pf_update(
             (local_vel, vel_ang),
             time.delta_seconds(),
             &mut pf_stopwatch.0,
             &sensors,
             &settings,
-            game_engine.0.get_state().pacman_loc,
+            cv_position,
         );
     }
 }

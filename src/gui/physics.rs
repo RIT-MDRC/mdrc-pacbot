@@ -30,6 +30,20 @@ impl<'a> TabViewer<'a> {
                 world_to_screen.map_dist(collider_radius),
                 Stroke::new(2.0, PACMAN_GUESS_COLOR),
             );
+
+            // pacbot facing indicator
+            let pacbot_front = pf_pos.rotation.transform_point(&Point2::new(0.45, 0.0));
+            painter.line_segment(
+                [
+                    world_to_screen
+                        .map_point(Pos2::new(pf_pos.translation.x, pf_pos.translation.y)),
+                    world_to_screen.map_point(Pos2::new(
+                        pacbot_front.x + pf_pos.translation.x,
+                        pacbot_front.y + pf_pos.translation.y,
+                    )),
+                ],
+                Stroke::new(2.0, PACMAN_GUESS_COLOR),
+            );
         }
 
         if let Some(real_pos) = &self.phys_info.real_pos {
@@ -104,7 +118,7 @@ impl<'a> TabViewer<'a> {
         }
 
         // AI target path
-        if let Some(pacbot_pos) = self.phys_info.real_pos {
+        if let Some(pacbot_pos) = self.phys_info.pf_pos {
             if let Some(target) = self.target_path.0.first() {
                 painter.line_segment(
                     [

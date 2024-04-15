@@ -4,7 +4,7 @@ use eframe::egui;
 use eframe::egui::Ui;
 use egui_phosphor::regular;
 
-use crate::HighLevelStrategy;
+use crate::{CvPositionSource, HighLevelStrategy};
 use num_traits::Num;
 
 fn int_edit(ui: &mut Ui, label: &str, initial: &mut usize) {
@@ -78,6 +78,30 @@ impl<'a> TabViewer<'a> {
             &mut self.settings.motors_ignore_phys_angle,
             "Motor commands ignore physics angle",
         );
+        egui::ComboBox::from_label("CV source")
+            .selected_text(format!("{:?}", self.settings.cv_position))
+            .show_ui(ui, |ui| {
+                ui.selectable_value(
+                    &mut self.settings.cv_position,
+                    CvPositionSource::GameState,
+                    "GameState",
+                );
+                ui.selectable_value(
+                    &mut self.settings.cv_position,
+                    CvPositionSource::ParticleFilter,
+                    "ParticleFilter",
+                );
+                ui.selectable_value(
+                    &mut self.settings.cv_position,
+                    CvPositionSource::Constant(1, 1),
+                    "(1, 1)",
+                );
+                ui.selectable_value(
+                    &mut self.settings.cv_position,
+                    CvPositionSource::Constant(10, 4),
+                    "(10, 4)",
+                );
+            });
 
         ui.separator();
 

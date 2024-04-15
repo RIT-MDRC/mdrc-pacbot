@@ -27,6 +27,7 @@ use bevy_egui::EguiPlugin;
 use network::{poll_gs, GameServerConn};
 use pacbot_rs::game_engine::GameEngine;
 use pathing::{create_test_path_target, GridSampleProbs};
+use std::fmt::{Debug, Formatter};
 
 pub mod grid;
 pub mod gui;
@@ -61,6 +62,27 @@ pub enum HighLevelStrategy {
     TestNonExplored,
 }
 
+/// Determines what is used as CV position
+#[derive(Copy, Clone, PartialOrd, PartialEq, Ord, Eq)]
+pub enum CvPositionSource {
+    /// Game state
+    GameState,
+    /// Particle filter position (gives confirmation bias to PF)
+    ParticleFilter,
+    /// Some constant position
+    Constant(i8, i8),
+}
+
+impl Debug for CvPositionSource {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::GameState => f.write_str("GameState"),
+            Self::ParticleFilter => f.write_str("ParticleFilter"),
+            Self::Constant(row, col) => f.write_fmt(format_args!("({}, {})", row, col)),
+        }
+    }
+}
+
 /// Options that the user can set via the GUI, shared between most processes
 #[derive(Resource)]
 pub struct UserSettings {
@@ -79,6 +101,8 @@ pub struct UserSettings {
     /// When giving motor commands to the robot, should they be adjusted with the particle
     /// filter's current rotation?
     pub motors_ignore_phys_angle: bool,
+    /// Determines what is sent as CV position
+    pub cv_position: CvPositionSource,
     /// Non-PID pwm control, usually for testing configuration
     pub pwm_override: Option<[MotorRequest; 3]>,
 
@@ -129,11 +153,12 @@ impl Default for UserSettings {
         Self {
             mode: AppMode::Recording,
             high_level_strategy: HighLevelStrategy::Manual,
-            pico_address: Some("192.168.4.209:20002".to_string()),
+            pico_address: None,
             go_server_address: None,
             robot: Robot::default(),
             sensors_from_robot: false,
             motors_ignore_phys_angle: true,
+            cv_position: CvPositionSource::GameState,
             pwm_override: None,
 
             kidnap_position: None,
