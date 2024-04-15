@@ -16,6 +16,7 @@ use bevy_ecs::prelude::*;
 use pacbot_rs::location::LocationState;
 use rapier2d::na::{Isometry2, Point2, Vector2};
 use rapier2d::prelude::*;
+use std::f32::consts::FRAC_PI_2;
 
 use self::particle_filter::FilterPoint;
 
@@ -135,7 +136,20 @@ pub fn run_simulation(
         );
     }
     phys_stopwatch.0.start();
-    simulation.set_target_robot_velocity((target_velocity.0, target_velocity.1));
+    // translate target velocity by pf rotation, then un-translate it by real rotation
+    // to simulate what would happen in the real world
+    let x = target_velocity.0.x;
+    let y = target_velocity.0.y;
+    let mag = (x.powi(2) + y.powi(2)).sqrt();
+    let pf_angle = simulation.pf_best_guess().loc.rotation.angle();
+    let angle = y.atan2(x);
+    let target_velocity_rot = angle - pf_angle + FRAC_PI_2;
+
+    let mut target_vector = target_velocity.0;
+    target_vector.x = mag * target_velocity_rot.cos();
+    target_vector.y = mag * target_velocity_rot.sin();
+
+    simulation.set_target_robot_velocity((target_vector, target_velocity.1));
     simulation.step(time.delta_seconds());
     phys_stopwatch.0.mark_segment("Step simulation");
 }
