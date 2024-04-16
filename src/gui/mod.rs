@@ -12,7 +12,7 @@ pub mod utils;
 
 use crate::grid::{ComputedGrid, IntLocation};
 use bevy::app::{App, Startup};
-use bevy::prelude::{Plugin, Update};
+use bevy::prelude::{Axis, GamepadAxis, GamepadAxisType, Gamepads, Plugin, Update};
 use bevy_ecs::prelude::*;
 use bevy_egui::EguiContexts;
 use eframe::egui;
@@ -88,14 +88,14 @@ pub fn ui_system(
     mut app: Local<GuiApp>,
     world_to_screen: Local<Option<Transform>>,
     pacman_state: ResMut<PacmanGameState>,
-    simulation: ResMut<PacbotSimulation>,
-    phys_info: ResMut<LightPhysicsInfo>,
+    simulation: (ResMut<PacbotSimulation>, ResMut<LightPhysicsInfo>),
     selected_grid: ResMut<StandardGridResource>,
     grid: ResMut<ComputedGrid>,
     replay_manager: ResMut<ReplayManager>,
     settings: ResMut<UserSettings>,
     target_velocity: ResMut<TargetVelocity>,
     target_path: Res<TargetPath>,
+    gamepad: (Res<Gamepads>, Res<Axis<GamepadAxis>>),
     stopwatches: (
         ResMut<ParticleFilterStopwatch>,
         ResMut<PhysicsStopwatch>,
@@ -113,9 +113,11 @@ pub fn ui_system(
         pointer_pos: ctx.pointer_latest_pos(),
         background_color: ctx.style().visuals.panel_fill,
 
+        gamepad: gamepad.0,
+        gamepad_input: gamepad.1,
         pacman_state,
-        simulation,
-        phys_info,
+        simulation: simulation.0,
+        phys_info: simulation.1,
         world_to_screen,
         replay_manager,
         settings,
@@ -175,6 +177,8 @@ struct TabViewer<'a> {
     pointer_pos: Option<Pos2>,
     background_color: Color32,
 
+    gamepad: Res<'a, Gamepads>,
+    gamepad_input: Res<'a, Axis<GamepadAxis>>,
     pacman_state: ResMut<'a, PacmanGameState>,
     simulation: ResMut<'a, PacbotSimulation>,
     phys_info: ResMut<'a, LightPhysicsInfo>,
@@ -368,6 +372,23 @@ impl GuiApp {
                 }
                 if i.key_down(Key::Q) {
                     tab_viewer.target_velocity.1 = 1.0;
+                }
+
+                if let Some(gamepad) = tab_viewer.gamepad.iter().next() {
+                    let left_stick_x = tab_viewer
+                        .gamepad_input
+                        .get(GamepadAxis::new(gamepad, GamepadAxisType::LeftStickX))
+                        .unwrap();
+                    let left_stick_y = tab_viewer
+                        .gamepad_input
+                        .get(GamepadAxis::new(gamepad, GamepadAxisType::LeftStickY))
+                        .unwrap();
+                    if left_stick_x.abs() > 0.1 {
+                        tab_viewer.target_velocity.0.y = target_speed * left_stick_x;
+                    }
+                    if left_stick_y.abs() > 0.1 {
+                        tab_viewer.target_velocity.0.x = -target_speed * left_stick_y;
+                    }
                 }
 
                 let mut pwm_override_motor: Option<usize> = None;

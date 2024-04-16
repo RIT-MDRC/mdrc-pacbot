@@ -44,6 +44,9 @@ features = [
 
     # Development/Debug features:
     "dynamic_linking", # Dynamic linking for faster compile-times
+
+    # Gamepad input
+    "bevy_gilrs", # Gamepad input using Gilrs
 ]
 
 
