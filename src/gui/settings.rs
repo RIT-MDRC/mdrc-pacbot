@@ -69,7 +69,11 @@ impl<'a> TabViewer<'a> {
         if !pico_enabled {
             self.settings.pico_address = None;
         } else {
-            let mut pico_addr = self.settings.pico_address.clone().unwrap_or("".to_string());
+            let mut pico_addr = self
+                .settings
+                .pico_address
+                .clone()
+                .unwrap_or("192.168.4.209:20002".to_string());
             ui.text_edit_singleline(&mut pico_addr);
             self.settings.pico_address = Some(pico_addr);
         }
