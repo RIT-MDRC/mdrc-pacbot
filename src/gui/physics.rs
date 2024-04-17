@@ -14,13 +14,15 @@ impl<'a> TabViewer<'a> {
         let world_to_screen = self.world_to_screen.unwrap();
 
         // pacbot real position
-        if let Some(real_pos) = &self.phys_info.real_pos {
-            painter.circle_filled(
-                world_to_screen
-                    .map_point(Pos2::new(real_pos.translation.x, real_pos.translation.y)),
-                world_to_screen.map_dist(collider_radius),
-                PACMAN_COLOR,
-            );
+        if !self.settings.sensors_from_robot {
+            if let Some(real_pos) = &self.phys_info.real_pos {
+                painter.circle_filled(
+                    world_to_screen
+                        .map_point(Pos2::new(real_pos.translation.x, real_pos.translation.y)),
+                    world_to_screen.map_dist(collider_radius),
+                    PACMAN_COLOR,
+                );
+            }
         }
 
         // pacbot best estimate position
@@ -46,21 +48,23 @@ impl<'a> TabViewer<'a> {
             );
         }
 
-        if let Some(real_pos) = &self.phys_info.real_pos {
-            let pacbot_front = real_pos.rotation.transform_point(&Point2::new(0.45, 0.0));
+        if !self.settings.sensors_from_robot {
+            if let Some(real_pos) = &self.phys_info.real_pos {
+                let pacbot_front = real_pos.rotation.transform_point(&Point2::new(0.45, 0.0));
 
-            // pacbot facing indicator
-            painter.line_segment(
-                [
-                    world_to_screen
-                        .map_point(Pos2::new(real_pos.translation.x, real_pos.translation.y)),
-                    world_to_screen.map_point(Pos2::new(
-                        pacbot_front.x + real_pos.translation.x,
-                        pacbot_front.y + real_pos.translation.y,
-                    )),
-                ],
-                Stroke::new(2.0, PACMAN_FACING_INDICATOR_COLOR),
-            );
+                // pacbot facing indicator
+                painter.line_segment(
+                    [
+                        world_to_screen
+                            .map_point(Pos2::new(real_pos.translation.x, real_pos.translation.y)),
+                        world_to_screen.map_point(Pos2::new(
+                            pacbot_front.x + real_pos.translation.x,
+                            pacbot_front.y + real_pos.translation.y,
+                        )),
+                    ],
+                    Stroke::new(2.0, PACMAN_FACING_INDICATOR_COLOR),
+                );
+            }
         }
 
         let replay_pacman = self.replay_manager.replay.get_pacbot_location();

@@ -157,7 +157,7 @@ impl Default for UserSettings {
             go_server_address: None,
             robot: Robot::default(),
             sensors_from_robot: false,
-            motors_ignore_phys_angle: true,
+            motors_ignore_phys_angle: false,
             cv_position: CvPositionSource::GameState,
             pwm_override: None,
 

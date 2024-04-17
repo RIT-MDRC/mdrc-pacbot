@@ -5,10 +5,10 @@ mod raycast_grid;
 
 use crate::grid::standard_grids::StandardGrid;
 use crate::grid::{facing_direction, ComputedGrid, IntLocation};
-use crate::network::PacbotSensors;
+use crate::network::{LastMotorCommands, PacbotSensors};
 use crate::pathing::TargetVelocity;
 use crate::physics::particle_filter::{ParticleFilter, ParticleFilterOptions};
-use crate::robot::Robot;
+use crate::robot::{wheel_velocities_to_robot_velocity, Robot};
 use crate::util::stopwatch::Stopwatch;
 use crate::{CvPositionSource, PacmanGameState, UserSettings};
 use bevy::time::Time;
@@ -16,7 +16,6 @@ use bevy_ecs::prelude::*;
 use pacbot_rs::location::LocationState;
 use rapier2d::na::{Isometry2, Point2, Vector2};
 use rapier2d::prelude::*;
-use std::f32::consts::FRAC_PI_2;
 
 use self::particle_filter::FilterPoint;
 
@@ -143,7 +142,13 @@ pub fn run_simulation(
     let mag = (x.powi(2) + y.powi(2)).sqrt();
     let pf_angle = simulation.pf_best_guess().loc.rotation.angle();
     let angle = y.atan2(x);
-    let target_velocity_rot = angle - pf_angle + FRAC_PI_2;
+    let real_angle = simulation.get_primary_robot_position().rotation.angle();
+    let target_velocity_rot = angle
+        + if settings.enable_pf {
+            -pf_angle + real_angle
+        } else {
+            0.0
+        };
 
     let mut target_vector = target_velocity.0;
     target_vector.x = mag * target_velocity_rot.cos();
@@ -163,6 +168,7 @@ pub fn run_particle_filter(
     settings: Res<UserSettings>,
     time: Res<Time>,
     game_engine: Res<PacmanGameState>,
+    last_motor_commands: Res<LastMotorCommands>,
 ) {
     if settings.enable_pf {
         simulation
@@ -175,15 +181,8 @@ pub fn run_particle_filter(
         simulation.particle_filter.set_robot(settings.robot.clone());
 
         // Update particle filter
-        let rigid_body = simulation.get_robot_rigid_body();
-        let vel_lin = *rigid_body.linvel();
-        let vel_ang = rigid_body.angvel();
-        let angle = rigid_body.rotation().angle();
-        // Rotate vel_lin to align with robot rotation
-        let local_vel = Vector2::new(
-            vel_lin.x * (-angle).cos() - vel_lin.y * (-angle).sin(),
-            vel_lin.x * (-angle).sin() + vel_lin.y * (-angle).cos(),
-        );
+        let (local_vel, vel_ang) = wheel_velocities_to_robot_velocity(&last_motor_commands.motors);
+
         let cv_position = match settings.cv_position {
             CvPositionSource::GameState => game_engine.0.get_state().pacman_loc,
             CvPositionSource::ParticleFilter => {

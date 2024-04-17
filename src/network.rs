@@ -138,10 +138,7 @@ pub fn send_motor_commands(
         let angle = y.atan2(x);
         let angle = angle - current_angle;
 
-        let mut scale = (x.powi(2) + y.powi(2)).sqrt();
-        if scale != 0.0 {
-            scale = 30.0;
-        }
+        let scale = (x.powi(2) + y.powi(2)).sqrt();
 
         let motor_angles = [
             angle.sin(),
@@ -149,13 +146,7 @@ pub fn send_motor_commands(
             (angle + (2.0 * FRAC_PI_3)).sin(),
         ];
 
-        let rotate_adjust = if target_velocity.1 > 0.0 {
-            10.0
-        } else if target_velocity.1 < 0.0 {
-            -10.0
-        } else {
-            0.0
-        };
+        let rotate_adjust = target_velocity.1;
 
         let motors = [
             // constant is like max speed - can go up to 255.0

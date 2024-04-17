@@ -1,8 +1,8 @@
 //! Describes the physical features of a Robot
 
 use rapier2d::math::Rotation;
-use rapier2d::na::Point2;
-use std::f32::consts::PI;
+use rapier2d::na::{Point2, Vector2};
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_6, PI};
 
 /// Represents an Inertial Measurement Unit, usually an accelerometer and gyroscope
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -91,4 +91,26 @@ impl Default for Robot {
             distance_sensors,
         }
     }
+}
+
+/// Given the velocities of the wheels, find the velocity of the robot
+pub fn wheel_velocities_to_robot_velocity(wheel_velocities: &[f32; 3]) -> (Vector2<f32>, f32) {
+    let v_a = wheel_velocities[0];
+    let v_b = wheel_velocities[1];
+    let v_c = wheel_velocities[2];
+
+    let v_term1 = ((v_a + v_b - 2.0 * v_c) / 3.0).powi(2);
+    let v_term2 = (v_a - v_b).powi(2) / 3.0;
+    let v = f32::sqrt(v_term1 + v_term2);
+
+    let a_term_top = f32::sqrt(3.0) * (v_a - v_b);
+    let a_term_bot = v_a + v_b - 2.0 * v_c;
+    let a = f32::atan2(a_term_top, a_term_bot) + FRAC_PI_6 + FRAC_PI_2;
+
+    let w = (v_a + v_b + v_c) / 3.0;
+
+    let v_x = v * a.cos();
+    let v_y = v * a.sin();
+
+    (Vector2::new(-v_y, -v_x), w)
 }
