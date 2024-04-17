@@ -120,9 +120,9 @@ pub fn run_high_level(
                 break;
             }
         }
-        if ((new_score - curr_score) < variables::SUPER_PELLET_POINTS) && path.len() < 2 {
-            path = vec![start_pos];
-        }
+        // if ((new_score - curr_score) < variables::SUPER_PELLET_POINTS) && path.len() < 2 {
+        //     path = vec![start_pos];
+        // }
         target_path.0 = path;
 
         ai_stopwatch.0.mark_segment("AI");
@@ -144,7 +144,7 @@ enum HLAction {
     Down,
 }
 
-const OBS_SHAPE: (usize, usize, usize) = (15, 28, 31);
+const OBS_SHAPE: (usize, usize, usize) = (16, 28, 31);
 
 /// Handles executing high level AI.
 pub struct HighLevelContext {
@@ -250,7 +250,7 @@ impl HighLevelContext {
         // Compute new pacman and ghost positions
         let new_pos_cached = {
             let pac_pos = game_state.pacman_loc;
-            if pac_pos.col != 32 {
+            if pac_pos.col != 32 && pac_pos.row != 32 {
                 Some((pac_pos.col as usize, (31 - pac_pos.row - 1) as usize))
             } else {
                 None
@@ -301,14 +301,14 @@ impl HighLevelContext {
                 ghost[(i, col, row)] = 1.0;
                 if g.is_frightened() {
                     state[(2, col, row)] = g.fright_steps as f32 / GHOST_FRIGHT_STEPS as f32;
-                    reward[(col, row)] += 1.;
+                    reward[(col, row)] += 2_i32.pow(game_state.ghost_combo as u32) as f32;
                 } else {
                     let state_index = if game_state.mode == GameMode::CHASE {
                         1
                     } else {
                         0
                     };
-                    state[(state_index, col, row)] = 1.0;
+                    state[(state_index, col, row)] = game_state.get_mode_steps() as f32 / GameMode::CHASE.duration() as f32;
                 }
             }
         }
@@ -318,6 +318,9 @@ impl HighLevelContext {
                 last_ghost[(i, pos.0, pos.1)] = 1.0;
             }
         }
+
+        // TODO: Replace 8 with Pacman's actual speed
+        obs_array.slice_mut(s![15, .., ..]).fill(4. / game_state.get_update_period() as f32);
 
         // Create action mask.
         let mut action_mask = [false, false, false, false, false];
