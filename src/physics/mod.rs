@@ -181,7 +181,12 @@ pub fn run_particle_filter(
         simulation.particle_filter.set_robot(settings.robot.clone());
 
         // Update particle filter
-        let (local_vel, vel_ang) = wheel_velocities_to_robot_velocity(&last_motor_commands.motors);
+        let (local_vel, vel_ang) = if settings.sensors_from_robot {
+            let motors = sensors.encoder_velocities.map(|x| (x / 88.9) / 1.253);
+            wheel_velocities_to_robot_velocity(&motors)
+        } else {
+            wheel_velocities_to_robot_velocity(&last_motor_commands.motors)
+        };
 
         let cv_position = match settings.cv_position {
             CvPositionSource::GameState => game_engine.0.get_state().pacman_loc,

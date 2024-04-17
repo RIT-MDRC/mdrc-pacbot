@@ -62,9 +62,9 @@ pub fn target_path_to_target_vel(
         let target_pos = Vector2::new(target_pos.row as f32, target_pos.col as f32);
 
         // The final speed will be min(max_speed, base_speed + speed_mul * num_straight_moves)
-        let base_speed = 4.;
+        let base_speed = 12.;
         let speed_mul = 1.5;
-        let max_speed = 10.;
+        let max_speed = 20.;
         let mut delta_pos = target_pos - curr_pos;
 
         // Check how many of the next moves are in the same direction.
