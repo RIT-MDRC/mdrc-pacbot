@@ -120,9 +120,9 @@ pub fn run_high_level(
                 break;
             }
         }
-        // if ((new_score - curr_score) < variables::SUPER_PELLET_POINTS) && path.len() < 2 {
-        //     path = vec![start_pos];
-        // }
+        if ((new_score - curr_score) < variables::SUPER_PELLET_POINTS) && path.len() < 2 {
+            path = vec![start_pos];
+        }
         target_path.0 = path;
 
         ai_stopwatch.0.mark_segment("AI");
@@ -145,6 +145,7 @@ enum HLAction {
 }
 
 const OBS_SHAPE: (usize, usize, usize) = (16, 28, 31);
+const OBS_GHOST_IDXS: [usize; 4] = [0, 1, 3, 2];
 
 /// Handles executing high level AI.
 pub struct HighLevelContext {
@@ -256,11 +257,11 @@ impl HighLevelContext {
                 None
             }
         };
-        let new_ghost_pos_cached: Vec<_> = game_state
-            .ghosts
+        let new_ghost_pos_cached: Vec<_> = OBS_GHOST_IDXS
+            .map(|i| &game_state.ghosts[i])
             .iter()
             .map(|g| {
-                if g.loc.col != 32 {
+                if g.loc.col != 32 && g.loc.row != 32 {
                     Some((g.loc.col as usize, ((31 - g.loc.row - 1) as usize)))
                 } else {
                     None
@@ -274,9 +275,11 @@ impl HighLevelContext {
             self.pos_cached = new_pos_cached;
         }
 
-        if self.ghost_pos_cached.contains(&None) {
-            self.last_ghost_pos = new_ghost_pos_cached.clone();
-            self.ghost_pos_cached = new_ghost_pos_cached.clone();
+        for (i, ghost) in self.ghost_pos_cached.iter_mut().enumerate() {
+            if ghost.is_none() {
+                self.last_ghost_pos[i] = new_ghost_pos_cached[i];
+                *ghost = new_ghost_pos_cached[i];
+            }
         }
 
         if new_pos_cached != self.pos_cached {
@@ -284,9 +287,11 @@ impl HighLevelContext {
             self.pos_cached = new_pos_cached;
         }
 
-        if new_ghost_pos_cached != self.ghost_pos_cached {
-            self.last_ghost_pos = self.ghost_pos_cached.clone();
-            self.ghost_pos_cached = new_ghost_pos_cached.clone();
+        for (i, ghost) in self.ghost_pos_cached.iter_mut().enumerate() {
+            if new_ghost_pos_cached[i] != *ghost {
+                self.last_ghost_pos[i] = *ghost;
+                *ghost = new_ghost_pos_cached[i];
+            }
         }
 
         if let Some(last_pos) = self.last_pos {
@@ -296,7 +301,11 @@ impl HighLevelContext {
             pacman[(1, new_pos_cached.0, new_pos_cached.1)] = 1.0;
         }
 
-        for (i, g) in game_state.ghosts.iter().enumerate() {
+        for (i, g) in OBS_GHOST_IDXS
+            .map(|i| &game_state.ghosts[i])
+            .iter()
+            .enumerate()
+        {
             if let Some((col, row)) = new_ghost_pos_cached[i] {
                 ghost[(i, col, row)] = 1.0;
                 if g.is_frightened() {
@@ -308,7 +317,8 @@ impl HighLevelContext {
                     } else {
                         0
                     };
-                    state[(state_index, col, row)] = game_state.get_mode_steps() as f32 / GameMode::CHASE.duration() as f32;
+                    state[(state_index, col, row)] =
+                        game_state.get_mode_steps() as f32 / GameMode::CHASE.duration() as f32;
                 }
             }
         }
@@ -319,8 +329,10 @@ impl HighLevelContext {
             }
         }
 
-        // TODO: Replace 8 with Pacman's actual speed
-        obs_array.slice_mut(s![15, .., ..]).fill(4. / game_state.get_update_period() as f32);
+        // TODO: Replace with Pacman's actual speed
+        obs_array
+            .slice_mut(s![15, .., ..])
+            .fill(6. / game_state.get_update_period() as f32);
 
         // Create action mask.
         let mut action_mask = [false, false, false, false, false];
