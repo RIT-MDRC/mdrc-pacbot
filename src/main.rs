@@ -12,7 +12,8 @@ use crate::network::{
     NetworkPluginData, PacbotSensors, PacbotSensorsRecvTime,
 };
 use crate::pathing::{
-    target_path_to_target_vel, test_path_position_to_target_path, TargetPath, TargetVelocity,
+    create_test_path_target_forward, target_path_to_target_vel, test_path_position_to_target_path,
+    TargetPath, TargetVelocity,
 };
 use crate::physics::{
     run_particle_filter, run_simulation, update_game_state_pacbot_loc, update_physics_info,
@@ -60,6 +61,8 @@ pub enum HighLevelStrategy {
     TestUniform,
     /// Test (random, prefer non-explored cells)
     TestNonExplored,
+    /// Test (never goes back on itself)
+    TestForward,
 }
 
 /// Determines what is used as CV position
@@ -105,6 +108,20 @@ pub struct UserSettings {
     pub cv_position: CvPositionSource,
     /// Non-PID pwm control, usually for testing configuration
     pub pwm_override: Option<[MotorRequest; 3]>,
+    /// PID parameters
+    pub pid: [f32; 3],
+
+    /// The minimum speed target when pathing
+    pub speed_base: f32,
+    /// The increase in speed per cell in a straight line
+    pub speed_multiplier: f32,
+    /// The maximum speed while pathing
+    pub speed_cap: f32,
+
+    /// The speed that the robot targets when using manual controls
+    pub manual_speed: f32,
+    /// The rotational speed that the robot targets when using manual controls
+    pub manual_rotate_speed: f32,
 
     /// When the user left-clicks on a location where the simulated robot should be teleported
     pub kidnap_position: Option<IntLocation>,
@@ -160,6 +177,14 @@ impl Default for UserSettings {
             motors_ignore_phys_angle: false,
             cv_position: CvPositionSource::GameState,
             pwm_override: None,
+            pid: [5.0, 0.04, 0.5],
+
+            speed_base: 15.0,
+            speed_multiplier: 1.5,
+            speed_cap: 20.0,
+
+            manual_speed: 20.0,
+            manual_rotate_speed: 5.0,
 
             kidnap_position: None,
             test_path_position: None,
@@ -252,6 +277,7 @@ fn main() {
                 target_path_to_target_vel,
                 test_path_position_to_target_path,
                 create_test_path_target,
+                create_test_path_target_forward,
                 // Networking
                 reconnect_pico,
                 send_motor_commands.after(reconnect_pico),

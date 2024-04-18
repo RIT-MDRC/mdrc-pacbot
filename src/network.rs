@@ -158,7 +158,7 @@ pub fn send_motor_commands(
         last_motor_commands.motors = motors;
 
         if let Some(pico) = &mut network_data.pico {
-            if let Err(e) = pico.send_motors_message(motors) {
+            if let Err(e) = pico.send_motors_message(motors, settings.pid) {
                 eprintln!("{:?}", e);
                 network_data.pico = None;
             }
@@ -251,14 +251,14 @@ impl PicoConnection {
         Ok(())
     }
 
-    fn send_motors_message(&mut self, motors: [f32; 3]) -> io::Result<()> {
+    fn send_motors_message(&mut self, motors: [f32; 3], pid: [f32; 3]) -> io::Result<()> {
         let message = PacbotCommand {
             motors: [
                 MotorRequest::Velocity(motors[0]),
                 MotorRequest::Velocity(motors[1]),
                 MotorRequest::Velocity(motors[2]),
             ],
-            pid: [10.0, 0.1, 0.01],
+            pid,
             pid_limits: [0x8000 as f32; 3],
         };
         self.tx_socket.set_nonblocking(false).unwrap();

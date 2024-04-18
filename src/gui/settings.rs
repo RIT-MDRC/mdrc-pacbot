@@ -35,6 +35,7 @@ impl<'a> TabViewer<'a> {
                 HighLevelStrategy::ReinforcementLearning => "AI",
                 HighLevelStrategy::TestUniform => "Test (Uniform)",
                 HighLevelStrategy::TestNonExplored => "Test (Non Explored)",
+                HighLevelStrategy::TestForward => "Test (Forwards)",
             })
             .show_ui(ui, |ui| {
                 ui.selectable_value(
@@ -56,6 +57,11 @@ impl<'a> TabViewer<'a> {
                     &mut self.settings.high_level_strategy,
                     HighLevelStrategy::TestNonExplored,
                     "Test (Non Explored)",
+                );
+                ui.selectable_value(
+                    &mut self.settings.high_level_strategy,
+                    HighLevelStrategy::TestForward,
+                    "Test (Forwards)",
                 );
             });
         if self.settings.high_level_strategy == HighLevelStrategy::ReinforcementLearning {
@@ -82,6 +88,24 @@ impl<'a> TabViewer<'a> {
             &mut self.settings.motors_ignore_phys_angle,
             "Motor commands ignore physics angle",
         );
+
+        ui.separator();
+
+        f32_edit(ui, "[P]ID", &mut self.settings.pid[0]);
+        f32_edit(ui, "P[I]D", &mut self.settings.pid[1]);
+        f32_edit(ui, "PI[D]", &mut self.settings.pid[2]);
+
+        ui.separator();
+
+        f32_edit(ui, "base speed", &mut self.settings.speed_base);
+        f32_edit(ui, "speed multiplier", &mut self.settings.speed_multiplier);
+        f32_edit(ui, "speed cap", &mut self.settings.speed_cap);
+
+        f32_edit(ui, "manual speed", &mut self.settings.manual_speed);
+        f32_edit(ui, "rotate speed", &mut self.settings.manual_rotate_speed);
+
+        ui.separator();
+
         egui::ComboBox::from_label("CV source")
             .selected_text(format!("{:?}", self.settings.cv_position))
             .show_ui(ui, |ui| {

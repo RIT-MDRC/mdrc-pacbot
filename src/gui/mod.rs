@@ -354,7 +354,11 @@ impl GuiApp {
             tab_viewer.target_velocity.0.y = 0.0;
             tab_viewer.target_velocity.1 = 0.0;
             ctx.input(|i| {
-                let target_speed = if i.modifiers.shift { 4.0 } else { 6.0 };
+                let target_speed = if i.modifiers.shift {
+                    4.0
+                } else {
+                    tab_viewer.settings.manual_speed
+                };
                 if i.key_down(Key::S) {
                     tab_viewer.target_velocity.0.x = target_speed;
                 }
@@ -368,10 +372,10 @@ impl GuiApp {
                     tab_viewer.target_velocity.0.y = target_speed;
                 }
                 if i.key_down(Key::E) {
-                    tab_viewer.target_velocity.1 = -1.0;
+                    tab_viewer.target_velocity.1 = -tab_viewer.settings.manual_rotate_speed;
                 }
                 if i.key_down(Key::Q) {
-                    tab_viewer.target_velocity.1 = 1.0;
+                    tab_viewer.target_velocity.1 = tab_viewer.settings.manual_rotate_speed;
                 }
 
                 if let Some(gamepad) = tab_viewer.gamepad.iter().next() {
@@ -388,6 +392,14 @@ impl GuiApp {
                     }
                     if left_stick_y.abs() > 0.1 {
                         tab_viewer.target_velocity.0.x = -target_speed * left_stick_y;
+                    }
+                    let right_stick = tab_viewer
+                        .gamepad_input
+                        .get(GamepadAxis::new(gamepad, GamepadAxisType::RightStickX))
+                        .unwrap();
+                    if right_stick.abs() > 0.1 {
+                        tab_viewer.target_velocity.1 =
+                            -right_stick * tab_viewer.settings.manual_rotate_speed;
                     }
                 }
 

@@ -56,15 +56,16 @@ pub fn target_path_to_target_vel(
     phys_info: Res<LightPhysicsInfo>,
     target_path: Res<TargetPath>,
     mut target_velocity: ResMut<TargetVelocity>,
+    settings: Res<UserSettings>,
 ) {
     if let (Some(target_pos), Some(curr_pos)) = (target_path.0.first(), phys_info.pf_pos) {
         let curr_pos = curr_pos.translation.vector.xy();
         let target_pos = Vector2::new(target_pos.row as f32, target_pos.col as f32);
 
         // The final speed will be min(max_speed, base_speed + speed_mul * num_straight_moves)
-        let base_speed = 12.;
-        let speed_mul = 1.5;
-        let max_speed = 20.;
+        let base_speed = settings.speed_base;
+        let speed_mul = settings.speed_multiplier;
+        let max_speed = settings.speed_cap;
         let mut delta_pos = target_pos - curr_pos;
 
         // Check how many of the next moves are in the same direction.
@@ -92,6 +93,52 @@ pub fn target_path_to_target_vel(
 
 #[derive(Resource, Default)]
 pub struct GridSampleProbs(std::collections::HashMap<IntLocation, f32>);
+
+pub fn create_test_path_target_forward(
+    settings: Res<UserSettings>,
+    grid: Res<ComputedGrid>,
+    mut path: ResMut<TargetPath>,
+    phys_info: Res<LightPhysicsInfo>,
+) {
+    if settings.high_level_strategy == HighLevelStrategy::TestForward {
+        if let Some(pf_pos) = phys_info.pf_pos {
+            let current_space = grid
+                .node_nearest(pf_pos.translation.x, pf_pos.translation.y)
+                .expect("Invalid position!");
+            if let Some(first_target) = path.0.first() {
+                if *first_target == current_space {
+                    path.0.remove(0);
+                }
+            }
+            if path.0.is_empty() {
+                path.0.push(grid.neighbors(&current_space)[0]);
+            }
+            if path.0.len() == 1 {
+                let first = path.0[0];
+                let neighbor = grid
+                    .neighbors(&first)
+                    .into_iter()
+                    .filter(|x| *x != current_space)
+                    .next()
+                    .expect("No exit!");
+                path.0.push(neighbor);
+            }
+            if path.0.len() > 1 {
+                while path.0.len() < 4 {
+                    let prev = path.0[path.0.len() - 2];
+                    let curr = path.0[path.0.len() - 1];
+                    let neighbor = grid
+                        .neighbors(&curr)
+                        .into_iter()
+                        .filter(|x| *x != prev)
+                        .next()
+                        .expect("No exit!");
+                    path.0.push(neighbor);
+                }
+            }
+        }
+    }
+}
 
 /// Generates a new target position when Pacbot reaches the current target.
 pub fn create_test_path_target(
