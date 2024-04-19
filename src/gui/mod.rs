@@ -12,7 +12,10 @@ pub mod utils;
 
 use crate::grid::{ComputedGrid, IntLocation};
 use bevy::app::{App, Startup};
-use bevy::prelude::{Axis, GamepadAxis, GamepadAxisType, Gamepads, Plugin, Update};
+use bevy::input::Input;
+use bevy::prelude::{
+    Axis, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType, Gamepads, Plugin, Update,
+};
 use bevy_ecs::prelude::*;
 use bevy_egui::EguiContexts;
 use eframe::egui;
@@ -95,7 +98,11 @@ pub fn ui_system(
     settings: ResMut<UserSettings>,
     target_velocity: ResMut<TargetVelocity>,
     target_path: Res<TargetPath>,
-    gamepad: (Res<Gamepads>, Res<Axis<GamepadAxis>>),
+    gamepad: (
+        Res<Gamepads>,
+        Res<Axis<GamepadAxis>>,
+        Res<Input<GamepadButton>>,
+    ),
     stopwatches: (
         ResMut<ParticleFilterStopwatch>,
         ResMut<PhysicsStopwatch>,
@@ -115,6 +122,7 @@ pub fn ui_system(
 
         gamepad: gamepad.0,
         gamepad_input: gamepad.1,
+        gamepad_buttons: gamepad.2,
         pacman_state,
         simulation: simulation.0,
         phys_info: simulation.1,
@@ -179,6 +187,7 @@ struct TabViewer<'a> {
 
     gamepad: Res<'a, Gamepads>,
     gamepad_input: Res<'a, Axis<GamepadAxis>>,
+    gamepad_buttons: Res<'a, Input<GamepadButton>>,
     pacman_state: ResMut<'a, PacmanGameState>,
     simulation: ResMut<'a, PacbotSimulation>,
     phys_info: ResMut<'a, LightPhysicsInfo>,
@@ -387,19 +396,36 @@ impl GuiApp {
                         .gamepad_input
                         .get(GamepadAxis::new(gamepad, GamepadAxisType::LeftStickY))
                         .unwrap();
+
+                    let left_trigger = tab_viewer
+                        .gamepad_buttons
+                        .pressed(GamepadButton::new(gamepad, GamepadButtonType::LeftTrigger));
+                    let right_trigger = tab_viewer
+                        .gamepad_buttons
+                        .pressed(GamepadButton::new(gamepad, GamepadButtonType::RightTrigger));
+
+                    let speed_multiplier = match (left_trigger, right_trigger) {
+                        (true, true) | (false, false) => 1.0,
+                        (true, false) => 0.5,
+                        (false, true) => 2.0,
+                    };
+
                     if left_stick_x.abs() > 0.1 {
-                        tab_viewer.target_velocity.0.y = target_speed * left_stick_x;
+                        tab_viewer.target_velocity.0.y =
+                            target_speed * left_stick_x * speed_multiplier;
                     }
                     if left_stick_y.abs() > 0.1 {
-                        tab_viewer.target_velocity.0.x = -target_speed * left_stick_y;
+                        tab_viewer.target_velocity.0.x =
+                            -target_speed * left_stick_y * speed_multiplier;
                     }
                     let right_stick = tab_viewer
                         .gamepad_input
                         .get(GamepadAxis::new(gamepad, GamepadAxisType::RightStickX))
                         .unwrap();
                     if right_stick.abs() > 0.1 {
-                        tab_viewer.target_velocity.1 =
-                            -right_stick * tab_viewer.settings.manual_rotate_speed;
+                        tab_viewer.target_velocity.1 = -right_stick
+                            * tab_viewer.settings.manual_rotate_speed
+                            * speed_multiplier.powi(2);
                     }
                 }
 

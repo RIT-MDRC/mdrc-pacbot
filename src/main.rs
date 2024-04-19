@@ -177,11 +177,11 @@ impl Default for UserSettings {
             motors_ignore_phys_angle: false,
             cv_position: CvPositionSource::GameState,
             pwm_override: None,
-            pid: [5.0, 0.04, 0.5],
+            pid: [5.0, 0.06, 0.5],
 
             speed_base: 15.0,
             speed_multiplier: 1.5,
-            speed_cap: 20.0,
+            speed_cap: 17.0,
 
             manual_speed: 20.0,
             manual_rotate_speed: 5.0,
@@ -199,7 +199,7 @@ impl Default for UserSettings {
             pf_error_threshold: 2.0,
             pf_chance_near_other: 0.99,
             pf_avg_kidnaps_per_sec: 50.0,
-            pf_cv_error_std: 5.0,
+            pf_cv_error_std: 1.0, // default 5.0
 
             pf_translation_limit: 0.3,
             pf_rotation_limit: 0.3,
