@@ -120,7 +120,7 @@ pub fn run_high_level(
                 break;
             }
         }
-        if ((new_score - curr_score) < variables::SUPER_PELLET_POINTS) && path.len() < 2 {
+        if ((new_score - curr_score) < variables::SUPER_PELLET_POINTS) && path.len() < 1 {
             path = vec![start_pos];
         }
         target_path.0 = path;
@@ -145,7 +145,6 @@ enum HLAction {
 }
 
 const OBS_SHAPE: (usize, usize, usize) = (16, 28, 31);
-const OBS_GHOST_IDXS: [usize; 4] = [0, 1, 3, 2];
 
 /// Handles executing high level AI.
 pub struct HighLevelContext {
@@ -228,26 +227,6 @@ impl HighLevelContext {
             }
         }
 
-        // Account for old walls
-        for row in 0..9 {
-            for col in 0..5 {
-                wall[(col, 12 + row)] = 0.;
-                wall[(31 - 9 + 1 + col, 12 + row)] = 0.;
-            }
-        }
-        for row in 27..28 {
-            for col in 3..5 {
-                wall[(col, row)] = 0.;
-                wall[(28 - 1 - col, row)] = 0.;
-            }
-        }
-        for row in 27..28 {
-            for col in 8..11 {
-                wall[(col, row)] = 0.;
-                wall[(28 - 1 - col, row)] = 0.;
-            }
-        }
-
         // Compute new pacman and ghost positions
         let new_pos_cached = {
             let pac_pos = game_state.pacman_loc;
@@ -257,8 +236,8 @@ impl HighLevelContext {
                 None
             }
         };
-        let new_ghost_pos_cached: Vec<_> = OBS_GHOST_IDXS
-            .map(|i| &game_state.ghosts[i])
+        let new_ghost_pos_cached: Vec<_> = game_state
+            .ghosts
             .iter()
             .map(|g| {
                 if g.loc.col != 32 && g.loc.row != 32 {
@@ -301,11 +280,7 @@ impl HighLevelContext {
             pacman[(1, new_pos_cached.0, new_pos_cached.1)] = 1.0;
         }
 
-        for (i, g) in OBS_GHOST_IDXS
-            .map(|i| &game_state.ghosts[i])
-            .iter()
-            .enumerate()
-        {
+        for (i, g) in game_state.ghosts.iter().enumerate() {
             if let Some((col, row)) = new_ghost_pos_cached[i] {
                 ghost[(i, col, row)] = 1.0;
                 if g.is_frightened() {
@@ -336,18 +311,22 @@ impl HighLevelContext {
 
         // Create action mask.
         let mut action_mask = [false, false, false, false, false];
-        if let Some(valid_actions) = grid.valid_actions(IntLocation::new(
-            game_state.pacman_loc.row,
-            game_state.pacman_loc.col,
-        )) {
-            // The order of valid actions is stay, up, left, down, right
+        if grid
+            .valid_actions(IntLocation::new(
+                game_state.pacman_loc.row,
+                game_state.pacman_loc.col,
+            ))
+            .is_some()
+        {
+            let row = game_state.pacman_loc.row;
+            let col = game_state.pacman_loc.col;
             action_mask = [
-                !valid_actions[0],
-                !valid_actions[1],
-                !valid_actions[3],
-                !valid_actions[2],
-                !valid_actions[4],
-            ];
+                true,
+                !game_state.wall_at((row + 1, col)),
+                !game_state.wall_at((row - 1, col)),
+                !game_state.wall_at((row, col - 1)),
+                !game_state.wall_at((row, col + 1)),
+            ]
         }
         let action_mask =
             Tensor::from_slice(&action_mask.map(|b| b as u8 as f32), 5, &Device::Cpu).unwrap(); // 1 if masked, 0 if not
@@ -363,9 +342,7 @@ impl HighLevelContext {
 
         let q_vals = self.net.forward(&obs_tensor).unwrap().squeeze(0).unwrap();
 
-        let q_vals = ((q_vals * (1. - &action_mask).unwrap()).unwrap()
-            + (&action_mask * -999.).unwrap())
-        .unwrap();
+        let q_vals = ((q_vals * &action_mask).unwrap() + ((1. - &action_mask).unwrap() * -999.).unwrap()).unwrap();
         let argmax_idx = q_vals
             .argmax(D::Minus1)
             .unwrap()
@@ -376,8 +353,8 @@ impl HighLevelContext {
 
         let actions = [
             HLAction::Stay,
-            HLAction::Up,
             HLAction::Down,
+            HLAction::Up,
             HLAction::Left,
             HLAction::Right,
         ];
