@@ -144,7 +144,7 @@ enum HLAction {
     Down,
 }
 
-const OBS_SHAPE: (usize, usize, usize) = (16, 28, 31);
+const OBS_SHAPE: (usize, usize, usize) = (17, 28, 31);
 
 /// Handles executing high level AI.
 pub struct HighLevelContext {
@@ -307,6 +307,17 @@ impl HighLevelContext {
         obs_array
             .slice_mut(s![15, .., ..])
             .fill(bot_update_period as f32 / game_state.get_update_period() as f32);
+
+
+// Super pellet map
+        for row in 0..31 {
+            for col in 0..28 {
+                let obs_row = 31 - row - 1;
+                if game_state.pellet_at((row as i8, col as i8)) && ((row == 3) || (row == 23)) && ((col == 1) || (col == 26)) {
+                    obs_array[(16, col, obs_row)] = 1.;
+                }
+            }
+        }
 
         // Create action mask.
         let mut action_mask = [false, false, false, false, false];
