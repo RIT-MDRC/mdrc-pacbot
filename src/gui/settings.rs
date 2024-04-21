@@ -182,6 +182,11 @@ impl<'a> TabViewer<'a> {
             "The standard deviation of the CV position error, in our theoretical sensor model",
             &mut self.settings.pf_cv_error_std,
         );
+        f32_edit(
+            ui,
+            "The standard deviation of the distance sensor errors, in our theoretical sensor model",
+            &mut self.settings.pf_sensor_error_std,
+        );
 
         ui.separator();
 
@@ -202,7 +207,6 @@ impl<'a> TabViewer<'a> {
 
         int_edit(ui, "Total points", &mut self.settings.pf_total_points);
         int_edit(ui, "Displayed points", &mut self.settings.pf_gui_points);
-        f32_edit(ui, "Error threshold", &mut self.settings.pf_error_threshold);
         f32_edit(
             ui,
             "Chance to spawn near another",

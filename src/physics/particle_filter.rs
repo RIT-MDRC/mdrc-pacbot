@@ -6,6 +6,7 @@ use crate::physics::PacbotSimulation;
 use crate::robot::{DistanceSensor, Robot};
 use crate::util::stopwatch::Stopwatch;
 use crate::UserSettings;
+use array_init::array_init;
 use num_traits::Zero;
 use ordered_float::NotNan;
 use pacbot_rs::location::LocationState;
@@ -19,6 +20,18 @@ use std::f32::consts::PI;
 use std::iter;
 
 use super::raycast_grid::RaycastGrid;
+
+/// Returns the log-likelihood of observing the value `x` from a
+/// normal distribution with mean=0 and the given standard deviation.
+///
+/// If `x` has a single element, this is a univariate normal distribution.
+/// More generally, this is a spherical/isotropic multivariate normal distribution.
+pub fn normal_log_likelihood<const N: usize>(x: [f32; N], std: f32) -> f32 {
+    assert!(N >= 1);
+    assert!(std > 0.0);
+    let x_sq = x.iter().map(|x| x.powi(2)).sum::<f32>();
+    x_sq * (-0.5 / std.powi(2)) - (N as f32) * (std.ln() + 0.5 * (2.0 * PI).ln())
+}
 
 /// Values that can be tweaked to improve the performance of the particle filter
 pub struct ParticleFilterOptions {
@@ -286,23 +299,37 @@ impl ParticleFilter {
                     // This point is in a wall, so its likelihood is zero (log-likelihood = -inf).
                     f32::NEG_INFINITY
                 } else {
-                    // We model the log-likelihood of the distance sensor measurements as the
-                    // negative sum of the absolute sensor errors.
-                    // This corresponds to modeling the sensor noise as independent Laplace
-                    // random variables with scale parameter = 1.
-                    // See: https://en.wikipedia.org/wiki/Laplace_distribution
-                    let dist_sensor_ll =
-                        -self.distance_sensor_diff(&robot, p.loc, &actual_sensor_readings);
+                    // We model the distance sensor measurements as having normal/Gaussian noise.
+                    // The log-likelihood of each measurement is then proportional to the squared
+                    // difference between the measured distance and the simulated distance.
+                    let diffs = self.distance_sensor_diffs(&robot, p.loc, &actual_sensor_readings);
+                    let dist_sensor_ll = if settings.pf_sensor_error_std > 0.0 {
+                        diffs
+                            .iter()
+                            .map(|&diff| match diff {
+                                None => 0.0,
+                                Some(diff) => {
+                                    normal_log_likelihood([diff], settings.pf_sensor_error_std)
+                                }
+                            })
+                            .sum::<f32>()
+                    } else {
+                        0.0 // Fallback in case the sensor error std setting is invalid.
+                    };
 
                     // We model the CV-reported coordinates as having Gaussian error (not entirely
                     // accurate, since the CV coordinates are discrete integers, but not *that*
                     // unreasonable if the standard deviation is large enough).
                     // The log-likelihood of those coordinates is then proportional to the squared
                     // distance from the robot location to the CV location.
-                    let cv_dist_squared =
-                        (x - cv_location.row as f32).powi(2) + (y - cv_location.col as f32).powi(2);
-                    let cv_ll = cv_dist_squared * (-0.5 / settings.pf_cv_error_std.powi(2))
-                        - (settings.pf_cv_error_std * (2.0 * PI).sqrt()).ln();
+                    let cv_ll = if settings.pf_cv_error_std > 0.0 {
+                        normal_log_likelihood(
+                            [x - cv_location.row as f32, y - cv_location.col as f32],
+                            settings.pf_cv_error_std,
+                        )
+                    } else {
+                        0.0 // Fallback in case the CV error std setting is invalid.
+                    };
 
                     // The overall likelihood is the product of the individual likelihoods, so
                     // The overall log-likelihood is the sum of the individual log-likelihoods.
@@ -400,27 +427,24 @@ impl ParticleFilter {
         stopwatch.mark_segment("Cut off extra points");
     }
 
-    /// Given a location guess, measure the absolute difference against the real values
-    fn distance_sensor_diff(
+    /// Given a location guess, get the (measured - simulated) difference for each distance sensor,
+    /// in grid units.
+    fn distance_sensor_diffs(
         &self,
         robot: &Robot,
         point: Isometry2<f32>,
-        actual_values: &[Option<f32>],
-    ) -> f32 {
-        (0..actual_values.len())
-            .map(|i| match actual_values[i] {
-                None => 0.0,
-                Some(x) => {
-                    let sensor = robot.distance_sensors[i];
+        actual_values: &[Option<f32>; 8],
+    ) -> [Option<f32>; 8] {
+        array_init(|i| {
+            actual_values[i].map(|measured_dist| {
+                let sensor = robot.distance_sensors[i];
 
-                    let toi = self.distance_sensor_ray(point, sensor);
+                let simulated_dist = self.distance_sensor_ray(point, sensor);
+                let simulated_dist = (simulated_dist * 88.9).round() / 88.9;
 
-                    let toi = (toi * 88.9).round() / 88.9;
-
-                    (toi - x).abs()
-                }
+                measured_dist - simulated_dist
             })
-            .sum()
+        })
     }
 
     /// Given a location guess, measure one sensor
