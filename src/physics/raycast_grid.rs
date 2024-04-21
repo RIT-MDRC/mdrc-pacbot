@@ -52,8 +52,44 @@ impl RaycastGrid {
     /// Returns whether the given (physical grid) coordinates are within a wall.
     /// If the coordinates are on a boundary or corner of a wall, the return value is unspecified.
     /// If the coordinates are out of bounds, returns true.
-    pub fn is_in_wall(&self, row: f32, col: f32) -> bool {
+    #[allow(dead_code)]
+    pub fn is_point_in_wall(&self, row: f32, col: f32) -> bool {
         self.is_wall(row.floor() as i8, col.floor() as i8)
+    }
+
+    /// Returns whether the circle at with the given (physical grid) center and radius intersects a
+    /// wall.
+    #[allow(dead_code)]
+    pub fn is_circle_in_wall(&self, center_row: f32, center_col: f32, radius: f32) -> bool {
+        debug_assert!(radius >= 0.0);
+
+        // Get an iterator over the nearby solid wall tiles that could potentially intersect.
+        let row_min = (center_row - radius).floor() as i8;
+        let row_max = ((center_row + radius).ceil() - 1.0) as i8;
+        let col_min = (center_col - radius).floor() as i8;
+        let col_max = ((center_col + radius).ceil() - 1.0) as i8;
+        let mut nearby_walls = (row_min..=row_max)
+            .flat_map(|row| (col_min..=col_max).map(move |col| (row, col)))
+            .filter(|&(row, col)| self.is_wall(row, col));
+
+        nearby_walls.any(|(row, col)| {
+            // Check if the circle intersects the wall square centered at (row+0.5, col+0.5).
+            // Algorithm adapted from https://stackoverflow.com/a/402010.
+            let wall_x = (row as f32) + 0.5;
+            let wall_y = (col as f32) + 0.5;
+            let x_dist = (center_row - wall_x).abs();
+            let y_dist = (center_col - wall_y).abs();
+
+            if x_dist > 0.5 + radius || y_dist > 0.5 + radius {
+                return false;
+            }
+
+            if x_dist <= 0.5 || y_dist <= 0.5 {
+                return true;
+            }
+
+            (x_dist - 0.5).powi(2) + (y_dist - 0.5).powi(2) <= radius.powi(2)
+        })
     }
 
     /// Cast a ray and return

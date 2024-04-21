@@ -199,7 +199,7 @@ impl Default for UserSettings {
             pf_chance_near_other: 0.99,
             pf_avg_kidnaps_per_sec: 50.0,
             pf_cv_error_std: 1.0, // default 5.0
-            pf_sensor_error_std: 1.414,
+            pf_sensor_error_std: 1.0,
 
             pf_translation_limit: 0.3,
             pf_rotation_limit: 0.3,

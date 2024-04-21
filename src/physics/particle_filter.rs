@@ -303,8 +303,11 @@ impl ParticleFilter {
             .par_iter()
             .map(|p| {
                 let [x, y] = p.loc.translation.into();
-                if self.raycast_grid.is_in_wall(x, y) {
-                    // This point is in a wall, so its likelihood is zero (log-likelihood = -inf).
+                if self
+                    .raycast_grid
+                    .is_circle_in_wall(x, y, robot.collider_radius * 0.9)
+                {
+                    // This point intersects a wall, so make its likelihood zero (log-likelihood = -inf).
                     f32::NEG_INFINITY
                 } else {
                     // We model the distance sensor measurements as having normal/Gaussian noise.
