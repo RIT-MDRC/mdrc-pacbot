@@ -100,6 +100,7 @@ impl<'a> TabViewer<'a> {
         f32_edit(ui, "base speed", &mut self.settings.speed_base);
         f32_edit(ui, "speed multiplier", &mut self.settings.speed_multiplier);
         f32_edit(ui, "speed cap", &mut self.settings.speed_cap);
+        f32_edit(ui, "max accel", &mut self.settings.max_accel);
 
         f32_edit(ui, "manual speed", &mut self.settings.manual_speed);
         f32_edit(ui, "rotate speed", &mut self.settings.manual_rotate_speed);

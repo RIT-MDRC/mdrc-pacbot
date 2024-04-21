@@ -117,6 +117,8 @@ pub struct UserSettings {
     pub speed_multiplier: f32,
     /// The maximum speed while pathing
     pub speed_cap: f32,
+    /// The maximum gu/s/s acceleration for PID's setpoint
+    pub max_accel: f32,
 
     /// The speed that the robot targets when using manual controls
     pub manual_speed: f32,
@@ -182,6 +184,7 @@ impl Default for UserSettings {
             speed_base: 15.0,
             speed_multiplier: 1.5,
             speed_cap: 17.0,
+            max_accel: 1000.0,
 
             manual_speed: 20.0,
             manual_rotate_speed: 5.0,

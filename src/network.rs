@@ -118,7 +118,7 @@ pub fn send_motor_commands(
     if let Some(pwm_override) = settings.pwm_override {
         last_motor_commands.motors = [0.0; 3];
         if let Some(pico) = &mut network_data.pico {
-            if let Err(e) = pico.send_pwm_message(pwm_override) {
+            if let Err(e) = pico.send_pwm_message(pwm_override, settings.max_accel) {
                 eprintln!("{:?}", e);
                 network_data.pico = None;
             }
@@ -158,7 +158,7 @@ pub fn send_motor_commands(
         last_motor_commands.motors = motors;
 
         if let Some(pico) = &mut network_data.pico {
-            if let Err(e) = pico.send_motors_message(motors, settings.pid) {
+            if let Err(e) = pico.send_motors_message(motors, settings.pid, settings.max_accel) {
                 eprintln!("{:?}", e);
                 network_data.pico = None;
             }
@@ -251,7 +251,12 @@ impl PicoConnection {
         Ok(())
     }
 
-    fn send_motors_message(&mut self, motors: [f32; 3], pid: [f32; 3]) -> io::Result<()> {
+    fn send_motors_message(
+        &mut self,
+        motors: [f32; 3],
+        pid: [f32; 3],
+        max_accel: f32,
+    ) -> io::Result<()> {
         let message = PacbotCommand {
             motors: [
                 MotorRequest::Velocity(motors[0]),
@@ -260,6 +265,7 @@ impl PicoConnection {
             ],
             pid,
             pid_limits: [0x8000 as f32; 3],
+            max_accel,
         };
         self.tx_socket.set_nonblocking(false).unwrap();
         let r = self.send_message(
@@ -273,11 +279,12 @@ impl PicoConnection {
         r
     }
 
-    fn send_pwm_message(&mut self, motors: [MotorRequest; 3]) -> io::Result<()> {
+    fn send_pwm_message(&mut self, motors: [MotorRequest; 3], max_accel: f32) -> io::Result<()> {
         let message = PacbotCommand {
             motors,
             pid: [5.0, 0.1, 0.0],
             pid_limits: [10000.0, 10000.0, 10000.0],
+            max_accel,
         };
         self.tx_socket.set_nonblocking(false).unwrap();
         let r = self.send_message(
@@ -335,6 +342,7 @@ pub struct PacbotCommand {
     motors: [MotorRequest; 3],
     pid: [f32; 3],
     pid_limits: [f32; 3],
+    max_accel: f32,
 }
 
 /// The way the client wants the motor to be controlled
