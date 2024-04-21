@@ -63,7 +63,7 @@ pub fn run_high_level(
         };
         let curr_score = sim_engine.get_state().get_score();
         for _ in 0..6 {
-            let action = hl_ctx.step(sim_engine.get_state(), &std_grid);
+            let action = hl_ctx.step(sim_engine.get_state(), &std_grid, settings.bot_update_period);
             let target_pos = match action {
                 HLAction::Stay => curr_pos,
                 HLAction::Left => IntLocation {
@@ -192,7 +192,7 @@ impl HighLevelContext {
     /// Runs one step of the high level AI.
     /// Returns the action the AI has decided to take.
     // Currently, this implements a DQN approach.
-    fn step(&mut self, game_state: &GameState, grid: &ComputedGrid) -> HLAction {
+    fn step(&mut self, game_state: &GameState, grid: &ComputedGrid, bot_update_period: usize) -> HLAction {
         // Convert the current game state into an agent observation.
         let mut obs_array = Array::zeros(OBS_SHAPE);
         let (mut wall, mut reward, mut pacman, mut ghost, mut last_ghost, mut state) = obs_array
@@ -304,10 +304,9 @@ impl HighLevelContext {
             }
         }
 
-        // TODO: Replace with Pacman's actual speed
         obs_array
             .slice_mut(s![15, .., ..])
-            .fill(6. / game_state.get_update_period() as f32);
+            .fill(bot_update_period as f32 / game_state.get_update_period() as f32);
 
         // Create action mask.
         let mut action_mask = [false, false, false, false, false];

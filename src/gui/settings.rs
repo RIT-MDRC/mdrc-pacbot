@@ -50,6 +50,7 @@ impl<'a> TabViewer<'a> {
             self.settings.test_path_position = None;
         }
         ui.checkbox(&mut self.settings.enable_pf, "PF enabled");
+        int_edit(ui, "Bot Update Period",&mut self.settings.bot_update_period);
         ui.separator();
 
         let mut pico_enabled = self.settings.pico_address.is_some();
