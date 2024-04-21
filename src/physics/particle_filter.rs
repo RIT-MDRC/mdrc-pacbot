@@ -16,7 +16,7 @@ use rand_distr::{Distribution, WeightedError};
 use rapier2d::na::{Complex, Isometry2, Point2, UnitComplex, Vector2};
 use rapier2d::prelude::{Ray, Rotation};
 use rayon::prelude::*;
-use std::f32::consts::PI;
+use std::f32::consts::{FRAC_1_SQRT_2, PI};
 use std::iter;
 
 use super::raycast_grid::RaycastGrid;
@@ -31,6 +31,14 @@ pub fn normal_log_likelihood<const N: usize>(x: [f32; N], std: f32) -> f32 {
     assert!(std > 0.0);
     let x_sq = x.iter().map(|x| x.powi(2)).sum::<f32>();
     x_sq * (-0.5 / std.powi(2)) - (N as f32) * (std.ln() + 0.5 * (2.0 * PI).ln())
+}
+
+/// Returns the log-likelihood of observing the value `x` from a
+/// Laplace distribution with mean=0 and the given standard deviation.
+pub fn laplace_log_likelihood(x: f32, std: f32) -> f32 {
+    assert!(std > 0.0);
+    let b = std * FRAC_1_SQRT_2;
+    -x.abs() / b - (2.0 * b).ln()
 }
 
 /// Values that can be tweaked to improve the performance of the particle filter
@@ -309,7 +317,7 @@ impl ParticleFilter {
                             .map(|&diff| match diff {
                                 None => 0.0,
                                 Some(diff) => {
-                                    normal_log_likelihood([diff], settings.pf_sensor_error_std)
+                                    laplace_log_likelihood(diff, settings.pf_sensor_error_std)
                                 }
                             })
                             .sum::<f32>()
