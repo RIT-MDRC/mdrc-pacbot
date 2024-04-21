@@ -6,6 +6,7 @@ use crate::gui::colors::{
 use crate::gui::{AppMode, TabViewer};
 use crate::robot::Robot;
 use eframe::egui::{Painter, Pos2, Stroke};
+use rapier2d::math::Vector;
 use rapier2d::na::Point2;
 
 impl<'a> TabViewer<'a> {
@@ -100,14 +101,29 @@ impl<'a> TabViewer<'a> {
         }
 
         // pacbot best guess distance sensor rays
-        for (s, f) in &self.phys_info.pf_pos_rays {
-            painter.line_segment(
-                [
-                    world_to_screen.map_point(Pos2::new(s.x, s.y)),
-                    world_to_screen.map_point(Pos2::new(f.x, f.y)),
-                ],
-                Stroke::new(1.0, PACMAN_DISTANCE_SENSOR_RAY_COLOR),
-            );
+        for (i, (s, f)) in self.phys_info.pf_pos_rays.iter().enumerate() {
+            if self.settings.sensors_from_robot {
+                let vector = Vector::new(f.x - s.x, f.y - s.y).normalize();
+                let actual_distance = self.sensors.distance_sensors[i] as f32 / 88.9;
+                painter.line_segment(
+                    [
+                        world_to_screen.map_point(Pos2::new(s.x, s.y)),
+                        world_to_screen.map_point(Pos2::new(
+                            s.x + actual_distance * vector.x,
+                            s.y + actual_distance * vector.y,
+                        )),
+                    ],
+                    Stroke::new(1.0, PACMAN_DISTANCE_SENSOR_RAY_COLOR),
+                );
+            } else {
+                painter.line_segment(
+                    [
+                        world_to_screen.map_point(Pos2::new(s.x, s.y)),
+                        world_to_screen.map_point(Pos2::new(f.x, f.y)),
+                    ],
+                    Stroke::new(1.0, PACMAN_DISTANCE_SENSOR_RAY_COLOR),
+                );
+            }
         }
 
         // particle filter
