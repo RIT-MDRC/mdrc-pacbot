@@ -814,6 +814,10 @@ impl PacbotWidget for PacbotSensorsWidget {
                     PacbotWidgetStatus::Ok,
                 ));
                 self.messages.push((
+                    format!("PID setpoint {i}: {:.2}", sensors.pid_setpoints[i]),
+                    PacbotWidgetStatus::Ok,
+                ));
+                self.messages.push((
                     format!("PID {i}: {:.2}", sensors.pid_output[i]),
                     PacbotWidgetStatus::Ok,
                 ));

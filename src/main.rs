@@ -179,15 +179,15 @@ impl Default for UserSettings {
             motors_ignore_phys_angle: false,
             cv_position: CvPositionSource::GameState,
             pwm_override: None,
-            pid: [5.0, 0.06, 0.5],
+            pid: [18.0, 0.1, 0.0],
 
-            speed_base: 15.0,
+            speed_base: 7.0,
             speed_multiplier: 1.5,
-            speed_cap: 17.0,
+            speed_cap: 10.0,
             max_accel: 1000.0,
 
-            manual_speed: 20.0,
-            manual_rotate_speed: 5.0,
+            manual_speed: 8.0,
+            manual_rotate_speed: 2.0,
 
             kidnap_position: None,
             test_path_position: None,
@@ -200,7 +200,7 @@ impl Default for UserSettings {
             pf_total_points: 50000,
             pf_gui_points: 10000,
             pf_chance_near_other: 0.99,
-            pf_avg_kidnaps_per_sec: 50.0,
+            pf_avg_kidnaps_per_sec: 1.0,
             pf_cv_error_std: 1.0, // default 5.0
             pf_sensor_error_std: 1.0,
 
@@ -209,7 +209,7 @@ impl Default for UserSettings {
 
             pf_simulated_translation_noise: 0.01,
             pf_simulated_rotation_noise: 0.02,
-            pf_generic_noise: 0.02,
+            pf_generic_noise: 1.0,
         }
     }
 }

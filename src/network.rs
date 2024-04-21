@@ -25,6 +25,8 @@ pub struct PacbotSensors {
     pub encoder_velocities: [f32; 3],
     /// Output from PID
     pub pid_output: [f32; 3],
+    /// PID setpoints
+    pub pid_setpoints: [f32; 3],
 }
 
 /// Holds the last time when sensor information was received from Pacbot
