@@ -170,10 +170,10 @@ impl Default for UserSettings {
         Self {
             mode: AppMode::Recording,
             high_level_strategy: HighLevelStrategy::Manual,
-            pico_address: None,
+            pico_address: Some("192.168.4.209:20002".to_string()),
             go_server_address: None,
             robot: Robot::default(),
-            sensors_from_robot: false,
+            sensors_from_robot: true,
             motors_ignore_phys_angle: false,
             cv_position: CvPositionSource::GameState,
             pwm_override: None,
@@ -204,7 +204,7 @@ impl Default for UserSettings {
             pf_translation_limit: 0.3,
             pf_rotation_limit: 0.3,
 
-            pf_simulated_translation_noise: 0.03,
+            pf_simulated_translation_noise: 0.01,
             pf_simulated_rotation_noise: 0.02,
             pf_generic_noise: 0.02,
         }

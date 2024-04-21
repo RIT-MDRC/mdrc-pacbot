@@ -67,13 +67,15 @@ impl Default for Robot {
     fn default() -> Self {
         let mut distance_sensors = vec![];
         let robot_radius = 0.715;
+        let distance_sensor_radius = 0.565;
 
         for i in 0..8 {
             let angle = i as f32 * PI / 4.0;
             let rotation = Rotation::new(angle);
 
             distance_sensors.push(DistanceSensor {
-                relative_position: rotation.transform_point(&Point2::new(robot_radius, 0.0)),
+                relative_position: rotation
+                    .transform_point(&Point2::new(distance_sensor_radius, 0.0)),
                 relative_direction: angle,
 
                 noise_std: 0.0,

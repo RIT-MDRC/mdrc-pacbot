@@ -785,38 +785,38 @@ impl PacbotWidget for PacbotSensorsWidget {
                     format!("Last data age: {:.2?}", t.elapsed()),
                     PacbotWidgetStatus::Ok,
                 ));
-                for i in 0..8 {
-                    if sensors.distance_sensors[i] == 0 {
-                        self.messages.push((
-                            format!("Sensor {i} unresponsive"),
-                            PacbotWidgetStatus::Error("".to_string()),
-                        ));
-                        self.overall_status =
-                            PacbotWidgetStatus::Error(format!("Sensor {i} unresponsive"));
-                    }
+            }
+            for i in 0..8 {
+                if sensors.distance_sensors[i] == 0 {
                     self.messages.push((
-                        format!("{i} => {}", sensors.distance_sensors[i]),
-                        match sensors.distance_sensors[i] {
-                            0 => PacbotWidgetStatus::Error("".to_string()),
-                            255 => PacbotWidgetStatus::Warn("".to_string()),
-                            _ => PacbotWidgetStatus::Ok,
-                        },
-                    ))
+                        format!("Sensor {i} unresponsive"),
+                        PacbotWidgetStatus::Error("".to_string()),
+                    ));
+                    self.overall_status =
+                        PacbotWidgetStatus::Error(format!("Sensor {i} unresponsive"));
                 }
-                for i in 0..3 {
-                    self.messages.push((
-                        format!("Encoder {i}: {}", sensors.encoders[i]),
-                        PacbotWidgetStatus::Ok,
-                    ));
-                    self.messages.push((
-                        format!("Velocity {i}: {:.2}", sensors.encoder_velocities[i]),
-                        PacbotWidgetStatus::Ok,
-                    ));
-                    self.messages.push((
-                        format!("PID {i}: {:.2}", sensors.pid_output[i]),
-                        PacbotWidgetStatus::Ok,
-                    ));
-                }
+                self.messages.push((
+                    format!("{i} => {}", sensors.distance_sensors[i]),
+                    match sensors.distance_sensors[i] {
+                        0 => PacbotWidgetStatus::Error("".to_string()),
+                        255 => PacbotWidgetStatus::Warn("".to_string()),
+                        _ => PacbotWidgetStatus::Ok,
+                    },
+                ))
+            }
+            for i in 0..3 {
+                self.messages.push((
+                    format!("Encoder {i}: {}", sensors.encoders[i]),
+                    PacbotWidgetStatus::Ok,
+                ));
+                self.messages.push((
+                    format!("Velocity {i}: {:.2}", sensors.encoder_velocities[i]),
+                    PacbotWidgetStatus::Ok,
+                ));
+                self.messages.push((
+                    format!("PID {i}: {:.2}", sensors.pid_output[i]),
+                    PacbotWidgetStatus::Ok,
+                ));
             }
         }
     }
