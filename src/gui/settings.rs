@@ -68,6 +68,10 @@ impl<'a> TabViewer<'a> {
             self.settings.test_path_position = None;
         }
         ui.checkbox(&mut self.settings.enable_pf, "PF enabled");
+        ui.checkbox(
+            &mut self.settings.collision_avoidance,
+            "Collision avoidance",
+        );
         ui.separator();
 
         let mut pico_enabled = self.settings.pico_address.is_some();

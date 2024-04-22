@@ -110,6 +110,10 @@ pub struct UserSettings {
     pub pwm_override: Option<[MotorRequest; 3]>,
     /// PID parameters
     pub pid: [f32; 3],
+    /// Whether the robot will modify the requested velocity to avoid collisions
+    pub collision_avoidance: bool,
+    /// When collision avoidance will start to take effect
+    pub collision_distance_threshold: u8,
 
     /// The minimum speed target when pathing
     pub speed_base: f32,
@@ -180,6 +184,8 @@ impl Default for UserSettings {
             cv_position: CvPositionSource::GameState,
             pwm_override: None,
             pid: [18.0, 0.1, 0.0],
+            collision_avoidance: true,
+            collision_distance_threshold: 30,
 
             speed_base: 7.0,
             speed_multiplier: 1.5,

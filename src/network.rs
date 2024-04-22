@@ -107,6 +107,10 @@ pub fn poll_gs(
 pub struct LastMotorCommands {
     /// the last velocities sent to the motors
     pub motors: [f32; 3],
+    /// the angle in radians
+    pub angle: f32,
+    /// the magnitude of the movement in gu/s
+    pub mag: f32,
 }
 
 /// Sends current motor commands to the pico
@@ -158,9 +162,11 @@ pub fn send_motor_commands(
         ];
 
         last_motor_commands.motors = motors;
+        last_motor_commands.angle = angle;
+        last_motor_commands.mag = scale;
 
         if let Some(pico) = &mut network_data.pico {
-            if let Err(e) = pico.send_motors_message(motors, settings.pid, settings.max_accel) {
+            if let Err(e) = pico.send_motors_message(motors, angle, scale, &settings) {
                 eprintln!("{:?}", e);
                 network_data.pico = None;
             }
@@ -256,8 +262,9 @@ impl PicoConnection {
     fn send_motors_message(
         &mut self,
         motors: [f32; 3],
-        pid: [f32; 3],
-        max_accel: f32,
+        angle: f32,
+        mag: f32,
+        settings: &UserSettings,
     ) -> io::Result<()> {
         let message = PacbotCommand {
             motors: [
@@ -265,9 +272,13 @@ impl PicoConnection {
                 MotorRequest::Velocity(motors[1]),
                 MotorRequest::Velocity(motors[2]),
             ],
-            pid,
+            pid: settings.pid,
             pid_limits: [0x8000 as f32; 3],
-            max_accel,
+            max_accel: settings.max_accel,
+            angle,
+            mag,
+            collision_avoidance: settings.collision_avoidance,
+            collision_distance_threshold: settings.collision_distance_threshold,
         };
         self.tx_socket.set_nonblocking(false).unwrap();
         let r = self.send_message(
@@ -287,6 +298,10 @@ impl PicoConnection {
             pid: [5.0, 0.1, 0.0],
             pid_limits: [10000.0, 10000.0, 10000.0],
             max_accel,
+            angle: 0.0,
+            mag: 0.0,
+            collision_avoidance: false,
+            collision_distance_threshold: 0,
         };
         self.tx_socket.set_nonblocking(false).unwrap();
         let r = self.send_message(
@@ -345,6 +360,10 @@ pub struct PacbotCommand {
     pid: [f32; 3],
     pid_limits: [f32; 3],
     max_accel: f32,
+    angle: f32,
+    mag: f32,
+    collision_avoidance: bool,
+    collision_distance_threshold: u8,
 }
 
 /// The way the client wants the motor to be controlled
