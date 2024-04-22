@@ -184,8 +184,8 @@ impl Default for UserSettings {
             cv_position: CvPositionSource::GameState,
             pwm_override: None,
             pid: [18.0, 0.1, 0.0],
-            collision_avoidance: true,
-            collision_distance_threshold: 30,
+            collision_avoidance: false,
+            collision_distance_threshold: 50,
 
             speed_base: 7.0,
             speed_multiplier: 1.5,
