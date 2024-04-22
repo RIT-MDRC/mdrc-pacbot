@@ -4,6 +4,7 @@ use crate::grid::{ComputedGrid, IntLocation};
 use crate::physics::LightPhysicsInfo;
 use crate::{HighLevelStrategy, UserSettings};
 use bevy::prelude::*;
+use rand::prelude::SliceRandom;
 use rand::{distributions::WeightedIndex, seq::IteratorRandom};
 use rand_distr::Distribution;
 use rapier2d::na::Vector2;
@@ -110,8 +111,14 @@ pub fn create_test_path_target_forward(
                     path.0.remove(0);
                 }
             }
+            let mut rng = rand::thread_rng();
             if path.0.is_empty() {
-                path.0.push(grid.neighbors(&current_space)[0]);
+                path.0.push(
+                    *grid
+                        .neighbors(&current_space)
+                        .choose(&mut rng)
+                        .expect("No neighbors!"),
+                );
             }
             if path.0.len() == 1 {
                 let first = path.0[0];
@@ -131,7 +138,7 @@ pub fn create_test_path_target_forward(
                         .neighbors(&curr)
                         .into_iter()
                         .filter(|x| *x != prev)
-                        .next()
+                        .choose(&mut rng)
                         .expect("No exit!");
                     path.0.push(neighbor);
                 }

@@ -47,7 +47,8 @@ use crate::replay_manager::{replay_playback, update_replay_manager_system, Repla
 use crate::robot::Robot;
 use crate::util::stopwatch::Stopwatch;
 use crate::{
-    HighLevelStrategy, PacmanGameState, ScheduleStopwatch, StandardGridResource, UserSettings,
+    CvPositionSource, HighLevelStrategy, PacmanGameState, ScheduleStopwatch, StandardGridResource,
+    UserSettings,
 };
 
 use self::transforms::Transform;
@@ -97,7 +98,7 @@ pub fn ui_system(
     replay_manager: ResMut<ReplayManager>,
     settings: ResMut<UserSettings>,
     target_velocity: ResMut<TargetVelocity>,
-    target_path: Res<TargetPath>,
+    target_path: ResMut<TargetPath>,
     gamepad: (
         Res<Gamepads>,
         Res<Axis<GamepadAxis>>,
@@ -148,6 +149,45 @@ pub fn ui_system(
 
     tab_viewer.gui_stopwatch.0.start();
 
+    ctx.input(|i| {
+        if i.key_pressed(Key::R) {
+            tab_viewer.pacman_state.0 = GameEngine::default()
+        }
+        if i.key_pressed(Key::Z) {
+            tab_viewer.settings.high_level_strategy = HighLevelStrategy::Manual;
+            tab_viewer.target_path.0.clear();
+            tab_viewer.settings.test_path_position = None;
+        }
+        if i.key_pressed(Key::X) {
+            tab_viewer.settings.high_level_strategy = HighLevelStrategy::ReinforcementLearning;
+            tab_viewer.target_path.0.clear();
+            tab_viewer.settings.test_path_position = None;
+        }
+        if i.key_pressed(Key::C) {
+            tab_viewer.settings.high_level_strategy = HighLevelStrategy::TestUniform;
+            tab_viewer.target_path.0.clear();
+            tab_viewer.settings.test_path_position = None;
+        }
+        if i.key_pressed(Key::V) {
+            tab_viewer.settings.high_level_strategy = HighLevelStrategy::TestForward;
+            tab_viewer.target_path.0.clear();
+            tab_viewer.settings.test_path_position = None;
+        }
+        if i.key_pressed(Key::P) {
+            tab_viewer.settings.pico_address = match tab_viewer.settings.pico_address {
+                None => Some("192.168.4.209:20002".to_string()),
+                Some(_) => None,
+            };
+        }
+        if i.key_pressed(Key::F) {
+            tab_viewer.settings.enable_pf = !tab_viewer.settings.enable_pf;
+        }
+        if i.key_pressed(Key::M) {
+            tab_viewer.settings.motors_ignore_phys_angle =
+                !tab_viewer.settings.motors_ignore_phys_angle;
+        }
+    });
+
     app.update_target_velocity(ctx, &mut tab_viewer);
 
     tab_viewer
@@ -177,6 +217,8 @@ pub enum Tab {
     Settings,
     /// Robot view
     Robot,
+    /// Keybinds
+    Keybinds,
     /// For widgets that don't have corresponding tabs
     Unknown,
 }
@@ -195,7 +237,7 @@ struct TabViewer<'a> {
     replay_manager: ResMut<'a, ReplayManager>,
     settings: ResMut<'a, UserSettings>,
     target_velocity: ResMut<'a, TargetVelocity>,
-    target_path: Res<'a, TargetPath>,
+    target_path: ResMut<'a, TargetPath>,
     grid: ResMut<'a, ComputedGrid>,
     selected_grid: ResMut<'a, StandardGridResource>,
     sensors: Res<'a, PacbotSensors>,
@@ -221,6 +263,7 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
             Tab::Stopwatch => WidgetText::from("Stopwatch"),
             Tab::Settings => WidgetText::from("Settings"),
             Tab::Robot => WidgetText::from("Robot"),
+            Tab::Keybinds => WidgetText::from("Keybinds"),
             _ => panic!("Widget did not declare a tab!"),
         }
     }
@@ -246,6 +289,56 @@ impl<'a> egui_dock::TabViewer for TabViewer<'a> {
             }
             Tab::Settings => self.draw_settings(ui),
             Tab::Robot => self.draw_robot(ui),
+            Tab::Keybinds => {
+                ui.label("General");
+                ui.label("[Left click] Set simulated robot position");
+                ui.label("[Right click] Set target position");
+                ui.label("[P] Toggle pico");
+                ui.label("[F] Toggle particle filter");
+                ui.label("[M] Motor commands ignore physics angle");
+                ui.separator();
+                ui.label("Movement, relative to particle filter location");
+                ui.label("[W] Up");
+                ui.label("[A] Left");
+                ui.label("[S] Down");
+                ui.label("[D] Right");
+                ui.label("[Q] Rotate counterclockwise");
+                ui.label("[E] Rotate clockwise");
+                ui.separator();
+                ui.label("Test raw motor control");
+                ui.label("[U] First motor forwards");
+                ui.label("[J] First motor backwards");
+                ui.label("[I] Second motor forwards");
+                ui.label("[K] Second motor backwards");
+                ui.label("[O] Third motor forwards");
+                ui.label("[L] Third motor backwards");
+                ui.separator();
+                ui.label("Gameplay");
+                ui.label("[space] Pause/unpause");
+                ui.label("[R] Reset pacman game");
+                ui.separator();
+                ui.label("Strategy");
+                ui.label("[Z] Manual");
+                ui.label("[X] AI");
+                ui.label("[C] Test uniform");
+                ui.label("[V] Test forwards");
+                ui.separator();
+                ui.label("Grid");
+                ui.label("[B] Pacman grid");
+                ui.label("[N] Playground grid");
+                ui.separator();
+                ui.label("CV position source");
+                ui.label("[T] Mouse pointer");
+                ui.label("[G] Game state");
+                ui.label("[H] Particle filter");
+                ui.separator();
+                ui.label("Replay controls");
+                ui.label("[shift + left] Go to beginning");
+                ui.label("[left] Previous frame");
+                ui.label("[space] Pause/unpause");
+                ui.label("[right] Next frame");
+                ui.label("[shift + right] Go to end");
+            }
             _ => panic!("Widget did not declare a tab!"),
         }
     }
@@ -340,6 +433,7 @@ impl Default for GuiApp {
         let mut dock_state = DockState::new(vec![Tab::Grid, Tab::Robot]);
         let surface = dock_state.main_surface_mut();
         surface.split_right(NodeIndex::root(), 0.75, vec![Tab::Settings]);
+        surface.split_left(NodeIndex::root(), 0.15, vec![Tab::Keybinds]);
 
         Self {
             tree: dock_state,
@@ -474,6 +568,7 @@ impl GuiApp {
     fn add_grid_variants(
         &mut self,
         ui: &mut Ui,
+        ctx: &egui::Context,
         pacman_state: &mut ResMut<PacmanGameState>,
         phys_info: &LightPhysicsInfo,
         replay_manager: &mut ReplayManager,
@@ -481,31 +576,41 @@ impl GuiApp {
         computed_grid: &mut ComputedGrid,
         simulation: &mut PacbotSimulation,
     ) {
+        let previous_grid = *standard_grid;
         egui::ComboBox::from_label("")
             .selected_text(format!("{:?}", standard_grid))
             .show_ui(ui, |ui| {
                 StandardGrid::get_all().iter().for_each(|grid| {
-                    if ui
-                        .selectable_value(standard_grid, *grid, format!("{:?}", grid))
-                        .clicked()
-                    {
-                        pacman_state.0.pause();
-                        *computed_grid = grid.compute_grid();
-                        replay_manager.reset_replay(
-                            *grid,
-                            &pacman_state.0,
-                            phys_info
-                                .real_pos
-                                .unwrap_or(grid.get_default_pacbot_isometry()),
-                        );
-                        *simulation = PacbotSimulation::new(
-                            grid.compute_grid(),
-                            Robot::default(),
-                            grid.get_default_pacbot_isometry(),
-                        );
-                    }
+                    ui.selectable_value(standard_grid, *grid, format!("{:?}", grid));
                 });
             });
+        if ctx.input(|i| i.key_pressed(Key::B) || i.key_pressed(Key::N)) {
+            ctx.input(|i| {
+                if i.key_pressed(Key::B) {
+                    *standard_grid = StandardGrid::Pacman
+                }
+                if i.key_pressed(Key::N) {
+                    *standard_grid = StandardGrid::Playground
+                }
+            })
+        }
+        if *standard_grid != previous_grid {
+            let grid = *standard_grid;
+            pacman_state.0.pause();
+            *computed_grid = grid.compute_grid();
+            replay_manager.reset_replay(
+                grid,
+                &pacman_state.0,
+                phys_info
+                    .real_pos
+                    .unwrap_or(grid.get_default_pacbot_isometry()),
+            );
+            *simulation = PacbotSimulation::new(
+                grid.compute_grid(),
+                Robot::default(),
+                grid.get_default_pacbot_isometry(),
+            );
+        }
     }
 
     fn draw_widget_icons(&mut self, ui: &mut Ui, tab_viewer: &mut TabViewer) {
@@ -597,6 +702,7 @@ impl GuiApp {
                 ui.with_layout(egui::Layout::left_to_right(Align::Center), |ui| {
                     self.add_grid_variants(
                         ui,
+                        ctx,
                         &mut tab_viewer.pacman_state,
                         &tab_viewer.phys_info,
                         &mut tab_viewer.replay_manager,
@@ -634,6 +740,23 @@ impl GuiApp {
                                 None => "".to_string(),
                                 Some(pos) => {
                                     let pos = world_to_screen.inverse().map_point(pos);
+                                    ctx.input(|i| {
+                                        if i.key_pressed(Key::T) {
+                                            tab_viewer.settings.cv_position =
+                                                CvPositionSource::Constant(
+                                                    pos.x.round() as i8,
+                                                    pos.y.round() as i8,
+                                                );
+                                        }
+                                        if i.key_pressed(Key::G) {
+                                            tab_viewer.settings.cv_position =
+                                                CvPositionSource::GameState;
+                                        }
+                                        if i.key_pressed(Key::H) {
+                                            tab_viewer.settings.cv_position =
+                                                CvPositionSource::ParticleFilter;
+                                        }
+                                    });
                                     format!("({:.1}, {:.1})", pos.x, pos.y)
                                 }
                             }),
@@ -650,6 +773,8 @@ impl GuiApp {
                                 if !tab_viewer.grid.wall_at(&int_pos) {
                                     if ctx.input(|i| i.pointer.primary_clicked()) {
                                         tab_viewer.settings.kidnap_position = Some(int_pos);
+                                        tab_viewer.target_path.0.clear();
+                                        tab_viewer.settings.test_path_position = None;
                                     } else if tab_viewer.settings.high_level_strategy
                                         == HighLevelStrategy::Manual
                                     {

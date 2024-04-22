@@ -6,6 +6,7 @@ use egui_phosphor::regular;
 
 use crate::{CvPositionSource, HighLevelStrategy};
 use num_traits::Num;
+use rapier2d::na::Vector2;
 
 fn int_edit(ui: &mut Ui, label: &str, initial: &mut usize) {
     ui.label(label);
@@ -38,6 +39,7 @@ impl<'a> TabViewer<'a> {
     pub fn draw_settings(&mut self, ui: &mut Ui) {
         ui.label("Settings");
         ui.separator();
+        let old_strategy = self.settings.high_level_strategy;
         egui::ComboBox::from_label("Strategy ")
             .selected_text(match self.settings.high_level_strategy {
                 HighLevelStrategy::Manual => "Manual",
@@ -73,8 +75,11 @@ impl<'a> TabViewer<'a> {
                     "Test (Forwards)",
                 );
             });
-        if self.settings.high_level_strategy == HighLevelStrategy::ReinforcementLearning {
+        if self.settings.high_level_strategy != old_strategy {
             self.settings.test_path_position = None;
+            self.target_path.0.clear();
+            self.target_velocity.0 = Vector2::new(0.0, 0.0);
+            self.target_velocity.1 = 0.0;
         }
         ui.checkbox(&mut self.settings.enable_pf, "PF enabled");
         ui.checkbox(
@@ -156,8 +161,28 @@ impl<'a> TabViewer<'a> {
                 );
                 ui.selectable_value(
                     &mut self.settings.cv_position,
-                    CvPositionSource::Constant(10, 4),
-                    "(10, 4)",
+                    CvPositionSource::Constant(1, 5),
+                    "(1, 5)",
+                );
+                ui.selectable_value(
+                    &mut self.settings.cv_position,
+                    CvPositionSource::Constant(10, 5),
+                    "O: (10, 5)",
+                );
+                ui.selectable_value(
+                    &mut self.settings.cv_position,
+                    CvPositionSource::Constant(20, 5),
+                    "T: (20, 5)",
+                );
+                ui.selectable_value(
+                    &mut self.settings.cv_position,
+                    CvPositionSource::Constant(27, 11),
+                    "+: (27, 11)",
+                );
+                ui.selectable_value(
+                    &mut self.settings.cv_position,
+                    CvPositionSource::Constant(27, 24),
+                    "8: (27, 24)",
                 );
             });
 
