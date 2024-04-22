@@ -114,6 +114,12 @@ pub struct UserSettings {
     pub collision_avoidance: bool,
     /// When collision avoidance will start to take effect
     pub collision_distance_threshold: u8,
+    /// When collision avoidance will refuse to get closer
+    pub collision_distance_stop: u8,
+    /// Distance sensor continuous range interval
+    ///
+    /// period = 0 means 10ms intervals. Then + 1 adds 10ms, so period = 2 means 30ms intervals.
+    pub sensor_range_interval: u8,
 
     /// The minimum speed target when pathing
     pub speed_base: f32,
@@ -186,6 +192,8 @@ impl Default for UserSettings {
             pid: [18.0, 0.1, 0.0],
             collision_avoidance: false,
             collision_distance_threshold: 50,
+            collision_distance_stop: 20,
+            sensor_range_interval: 5,
 
             speed_base: 7.0,
             speed_multiplier: 1.5,

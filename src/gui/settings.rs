@@ -16,6 +16,15 @@ fn int_edit(ui: &mut Ui, label: &str, initial: &mut usize) {
     }
 }
 
+fn u8_edit(ui: &mut Ui, label: &str, initial: &mut u8) {
+    ui.label(label);
+    let mut mutint = (*initial).to_string();
+    ui.text_edit_singleline(&mut mutint);
+    if let Ok(i) = mutint.as_str().parse::<u8>() {
+        *initial = i;
+    }
+}
+
 fn f32_edit(ui: &mut Ui, label: &str, initial: &mut f32) {
     ui.label(label);
     let mut mutint = (*initial).to_string();
@@ -108,6 +117,22 @@ impl<'a> TabViewer<'a> {
 
         f32_edit(ui, "manual speed", &mut self.settings.manual_speed);
         f32_edit(ui, "rotate speed", &mut self.settings.manual_rotate_speed);
+
+        u8_edit(
+            ui,
+            "collision distance threshold",
+            &mut self.settings.collision_distance_threshold,
+        );
+        u8_edit(
+            ui,
+            "collision distance stop",
+            &mut self.settings.collision_distance_stop,
+        );
+        u8_edit(
+            ui,
+            "distance sensor interval",
+            &mut self.settings.sensor_range_interval,
+        );
 
         ui.separator();
 

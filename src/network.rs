@@ -124,7 +124,7 @@ pub fn send_motor_commands(
     if let Some(pwm_override) = settings.pwm_override {
         last_motor_commands.motors = [0.0; 3];
         if let Some(pico) = &mut network_data.pico {
-            if let Err(e) = pico.send_pwm_message(pwm_override, settings.max_accel) {
+            if let Err(e) = pico.send_pwm_message(pwm_override, settings.max_accel, &settings) {
                 eprintln!("{:?}", e);
                 network_data.pico = None;
             }
@@ -279,7 +279,8 @@ impl PicoConnection {
             mag,
             collision_avoidance: settings.collision_avoidance,
             collision_distance_threshold: settings.collision_distance_threshold,
-            collision_avoidance_stop: 20,
+            collision_avoidance_stop: settings.collision_distance_stop,
+            sensor_continuous_interval: settings.sensor_range_interval,
         };
         self.tx_socket.set_nonblocking(false).unwrap();
         let r = self.send_message(
@@ -293,7 +294,12 @@ impl PicoConnection {
         r
     }
 
-    fn send_pwm_message(&mut self, motors: [MotorRequest; 3], max_accel: f32) -> io::Result<()> {
+    fn send_pwm_message(
+        &mut self,
+        motors: [MotorRequest; 3],
+        max_accel: f32,
+        settings: &UserSettings,
+    ) -> io::Result<()> {
         let message = PacbotCommand {
             motors,
             pid: [5.0, 0.1, 0.0],
@@ -301,9 +307,10 @@ impl PicoConnection {
             max_accel,
             angle: 0.0,
             mag: 0.0,
-            collision_avoidance: false,
-            collision_distance_threshold: 0,
-            collision_avoidance_stop: 0,
+            collision_avoidance: settings.collision_avoidance,
+            collision_distance_threshold: settings.collision_distance_threshold,
+            collision_avoidance_stop: settings.collision_distance_stop,
+            sensor_continuous_interval: settings.sensor_range_interval,
         };
         self.tx_socket.set_nonblocking(false).unwrap();
         let r = self.send_message(
@@ -367,6 +374,7 @@ pub struct PacbotCommand {
     collision_avoidance: bool,
     collision_distance_threshold: u8,
     collision_avoidance_stop: u8,
+    sensor_continuous_interval: u8,
 }
 
 /// The way the client wants the motor to be controlled
