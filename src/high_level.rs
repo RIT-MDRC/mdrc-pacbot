@@ -41,6 +41,7 @@ pub fn run_high_level(
     mut target_path: ResMut<TargetPath>,
     mut hl_ctx: NonSendMut<HighLevelContext>,
     std_grid: Local<ComputedGrid>,
+    mut switched: Local<bool>,
     settings: Res<UserSettings>,
     mut ai_stopwatch: ResMut<AiStopwatch>,
 ) {
@@ -53,6 +54,30 @@ pub fn run_high_level(
         && !game_state.0.is_paused()
         && game_state.is_changed()
     {
+        // are super pellets gone and ghosts not frightened? then switch models
+        if [(3, 1), (3, 26), (23, 1), (23, 26)]
+            .into_iter()
+            .all(|x| !game_state.0.get_state().pellet_at(x))
+            && game_state
+                .0
+                .get_state()
+                .ghosts
+                .iter()
+                .all(|g| !g.is_frightened())
+        {
+            if !*switched {
+                info!("Switched to second AI!");
+                *hl_ctx = HighLevelContext::new("./checkpoints/endgame.safetensors");
+                *switched = true;
+            }
+        } else {
+            if *switched {
+                info!("Switched to first AI!");
+                *hl_ctx = HighLevelContext::default();
+                *switched = false;
+            }
+        }
+
         ai_stopwatch.0.start();
 
         let mut path_nodes = std::collections::HashSet::new();
@@ -63,7 +88,11 @@ pub fn run_high_level(
         };
         let curr_score = sim_engine.get_state().get_score();
         for _ in 0..6 {
-            let action = hl_ctx.step(sim_engine.get_state(), &std_grid, settings.bot_update_period);
+            let action = hl_ctx.step(
+                sim_engine.get_state(),
+                &std_grid,
+                settings.bot_update_period,
+            );
             let target_pos = match action {
                 HLAction::Stay => curr_pos,
                 HLAction::Left => IntLocation {
@@ -192,7 +221,12 @@ impl HighLevelContext {
     /// Runs one step of the high level AI.
     /// Returns the action the AI has decided to take.
     // Currently, this implements a DQN approach.
-    fn step(&mut self, game_state: &GameState, grid: &ComputedGrid, bot_update_period: usize) -> HLAction {
+    fn step(
+        &mut self,
+        game_state: &GameState,
+        grid: &ComputedGrid,
+        bot_update_period: usize,
+    ) -> HLAction {
         // Convert the current game state into an agent observation.
         let mut obs_array = Array::zeros(OBS_SHAPE);
         let (mut wall, mut reward, mut pacman, mut ghost, mut last_ghost, mut state) = obs_array
@@ -308,12 +342,14 @@ impl HighLevelContext {
             .slice_mut(s![15, .., ..])
             .fill(bot_update_period as f32 / game_state.get_update_period() as f32);
 
-
-// Super pellet map
+        // Super pellet map
         for row in 0..31 {
             for col in 0..28 {
                 let obs_row = 31 - row - 1;
-                if game_state.pellet_at((row as i8, col as i8)) && ((row == 3) || (row == 23)) && ((col == 1) || (col == 26)) {
+                if game_state.pellet_at((row as i8, col as i8))
+                    && ((row == 3) || (row == 23))
+                    && ((col == 1) || (col == 26))
+                {
                     obs_array[(16, col, obs_row)] = 1.;
                 }
             }
@@ -321,6 +357,11 @@ impl HighLevelContext {
 
         // Create action mask.
         let mut action_mask = [false, false, false, false, false];
+        let ghost_within = |row: i8, col: i8, distance: i8| {
+            game_state.ghosts.iter().any(|g| {
+                (g.loc.row - row).abs() + (g.loc.col - col).abs() <= distance && !g.is_frightened()
+            })
+        };
         if grid
             .valid_actions(IntLocation::new(
                 game_state.pacman_loc.row,
@@ -332,11 +373,15 @@ impl HighLevelContext {
             let col = game_state.pacman_loc.col;
             action_mask = [
                 true,
-                !game_state.wall_at((row + 1, col)),
-                !game_state.wall_at((row - 1, col)),
-                !game_state.wall_at((row, col - 1)),
-                !game_state.wall_at((row, col + 1)),
-            ]
+                !game_state.wall_at((row + 1, col)) && !ghost_within(row + 1, col, 1),
+                !game_state.wall_at((row - 1, col)) && !ghost_within(row - 1, col, 1),
+                !game_state.wall_at((row, col - 1)) && !ghost_within(row, col - 1, 1),
+                !game_state.wall_at((row, col + 1)) && !ghost_within(row, col + 1, 1),
+            ];
+            // if any movement is possible, and there is a ghost nearby, you must move
+            if action_mask.iter().filter(|x| **x).count() > 1 && ghost_within(row, col, 2) {
+                action_mask[0] = false;
+            }
         }
         let action_mask =
             Tensor::from_slice(&action_mask.map(|b| b as u8 as f32), 5, &Device::Cpu).unwrap(); // 1 if masked, 0 if not
@@ -352,7 +397,9 @@ impl HighLevelContext {
 
         let q_vals = self.net.forward(&obs_tensor).unwrap().squeeze(0).unwrap();
 
-        let q_vals = ((q_vals * &action_mask).unwrap() + ((1. - &action_mask).unwrap() * -999.).unwrap()).unwrap();
+        let q_vals = ((q_vals * &action_mask).unwrap()
+            + ((1. - &action_mask).unwrap() * -999.).unwrap())
+        .unwrap();
         let argmax_idx = q_vals
             .argmax(D::Minus1)
             .unwrap()
