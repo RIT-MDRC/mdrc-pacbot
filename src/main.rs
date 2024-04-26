@@ -310,7 +310,9 @@ fn main() {
                 run_simulation.after(ui_system),
                 run_particle_filter.after(run_simulation),
                 update_physics_info.after(run_particle_filter),
-                update_game_state_pacbot_loc.after(update_physics_info),
+                update_game_state_pacbot_loc
+                    .after(update_physics_info)
+                    .after(update_game),
             ),
         )
         .run();

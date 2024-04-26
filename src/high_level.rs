@@ -120,7 +120,11 @@ pub fn run_high_level(
             sim_engine.step();
             curr_pos = target_pos;
             path_nodes.insert(target_pos);
-            if sim_engine.is_paused() {
+            // if we go to a super pellet space, stop planning
+            if sim_engine.is_paused()
+                || ((target_pos.row == 3) || (target_pos.row == 23))
+                    && ((target_pos.col == 1) || (target_pos.col == 26))
+            {
                 break;
             }
         }
@@ -388,7 +392,7 @@ impl HighLevelContext {
             ]
             .map(|(target_row, target_col)| {
                 !game_state.wall_at((target_row, target_col))
-                    && (!ghost_within(target_row, target_col, 1)
+                    && (!ghost_within(target_row, target_col, 3)
                         || super_pellet_within(target_row, target_col, 0))
             });
             action_mask[0] = true;
