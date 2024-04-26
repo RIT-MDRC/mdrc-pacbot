@@ -362,6 +362,11 @@ impl HighLevelContext {
                 (g.loc.row - row).abs() + (g.loc.col - col).abs() <= distance && !g.is_frightened()
             })
         };
+        let super_pellet_within = |row: i8, col: i8, distance: i8| {
+            [(3, 1), (3, 26), (23, 1), (23, 26)]
+                .iter()
+                .any(|(p_row, p_col)| (p_row - row).abs() + (p_col - col).abs() <= distance)
+        };
         if grid
             .valid_actions(IntLocation::new(
                 game_state.pacman_loc.row,
@@ -373,10 +378,14 @@ impl HighLevelContext {
             let col = game_state.pacman_loc.col;
             action_mask = [
                 true,
-                !game_state.wall_at((row + 1, col)) && !ghost_within(row + 1, col, 0),
-                !game_state.wall_at((row - 1, col)) && !ghost_within(row - 1, col, 0),
-                !game_state.wall_at((row, col - 1)) && !ghost_within(row, col - 1, 0),
-                !game_state.wall_at((row, col + 1)) && !ghost_within(row, col + 1, 0),
+                !game_state.wall_at((row + 1, col))
+                    && (!ghost_within(row + 1, col, 1) || super_pellet_within(row, col, 0)),
+                !game_state.wall_at((row - 1, col))
+                    && (!ghost_within(row - 1, col, 1) || super_pellet_within(row, col, 0)),
+                !game_state.wall_at((row, col - 1))
+                    && (!ghost_within(row, col - 1, 1) || super_pellet_within(row, col, 0)),
+                !game_state.wall_at((row, col + 1))
+                    && (!ghost_within(row, col + 1, 1) || super_pellet_within(row, col, 0)),
             ];
             // if any movement is possible, and there is a ghost nearby, you must move
             if action_mask.iter().filter(|x| **x).count() > 1 && ghost_within(row, col, 1) {
