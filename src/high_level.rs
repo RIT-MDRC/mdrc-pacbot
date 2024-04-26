@@ -377,16 +377,18 @@ impl HighLevelContext {
             let row = game_state.pacman_loc.row;
             let col = game_state.pacman_loc.col;
             action_mask = [
-                true,
-                !game_state.wall_at((row + 1, col))
-                    && (!ghost_within(row + 1, col, 1) || super_pellet_within(row, col, 0)),
-                !game_state.wall_at((row - 1, col))
-                    && (!ghost_within(row - 1, col, 1) || super_pellet_within(row, col, 0)),
-                !game_state.wall_at((row, col - 1))
-                    && (!ghost_within(row, col - 1, 1) || super_pellet_within(row, col, 0)),
-                !game_state.wall_at((row, col + 1))
-                    && (!ghost_within(row, col + 1, 1) || super_pellet_within(row, col, 0)),
-            ];
+                (row, col),
+                (row + 1, col),
+                (row - 1, col),
+                (row, col - 1),
+                (row, col + 1),
+            ]
+            .map(|(target_row, target_col)| {
+                !game_state.wall_at((target_row, target_col))
+                    && (!ghost_within(target_row, target_col, 1)
+                        || super_pellet_within(target_row, target_col, 0))
+            });
+            action_mask[0] = true;
             // if any movement is possible, and there is a ghost nearby, you must move
             if action_mask.iter().filter(|x| **x).count() > 1 && ghost_within(row, col, 1) {
                 action_mask[0] = false;
