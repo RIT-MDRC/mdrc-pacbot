@@ -365,7 +365,10 @@ impl HighLevelContext {
         let super_pellet_within = |row: i8, col: i8, distance: i8| {
             [(3, 1), (3, 26), (23, 1), (23, 26)]
                 .iter()
-                .any(|(p_row, p_col)| (p_row - row).abs() + (p_col - col).abs() <= distance)
+                .any(|(p_row, p_col)| {
+                    (p_row - row).abs() + (p_col - col).abs() <= distance
+                        && game_state.pellet_at((*p_row, *p_col))
+                })
         };
         if grid
             .valid_actions(IntLocation::new(
