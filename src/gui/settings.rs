@@ -86,6 +86,7 @@ impl<'a> TabViewer<'a> {
             &mut self.settings.collision_avoidance,
             "Collision avoidance",
         );
+        int_edit(ui, "Bot Update Period",&mut self.settings.bot_update_period);
         ui.separator();
 
         let mut pico_enabled = self.settings.pico_address.is_some();
