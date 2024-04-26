@@ -126,7 +126,7 @@ impl Default for UserSettings {
         Self {
             mode: AppMode::Recording,
             high_level_strategy: HighLevelStrategy::Manual,
-            bot_update_period: 12,
+            bot_update_period: 8,
             pico_address: None,
             go_server_address: None,
             robot: Robot::default(),
