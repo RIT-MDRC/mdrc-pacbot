@@ -93,6 +93,8 @@ pub struct UserSettings {
     pub mode: AppMode,
     /// Whether AI actions should be calculated
     pub high_level_strategy: HighLevelStrategy,
+    /// How many grid units per game tick pacman thinks it can move (ghosts start at 12).
+    pub bot_update_period: usize,
     /// Optional IP for the pico
     pub pico_address: Option<String>,
     /// Optional IP for the game server
@@ -186,6 +188,7 @@ impl Default for UserSettings {
             high_level_strategy: HighLevelStrategy::Manual,
             pico_address: None,
             gui_addr: [10, 181, 95, 54],
+            bot_update_period: 8,
             go_server_address: None,
             robot: Robot::default(),
             sensors_from_robot: true,

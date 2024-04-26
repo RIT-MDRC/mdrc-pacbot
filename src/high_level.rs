@@ -41,6 +41,7 @@ pub fn run_high_level(
     mut target_path: ResMut<TargetPath>,
     mut hl_ctx: NonSendMut<HighLevelContext>,
     std_grid: Local<ComputedGrid>,
+    mut switched: Local<bool>,
     settings: Res<UserSettings>,
     mut ai_stopwatch: ResMut<AiStopwatch>,
 ) {
@@ -53,6 +54,30 @@ pub fn run_high_level(
         && !game_state.0.is_paused()
         && game_state.is_changed()
     {
+        // are super pellets gone and ghosts not frightened? then switch models
+        if [(3, 1), (3, 26), (23, 1), (23, 26)]
+            .into_iter()
+            .all(|x| !game_state.0.get_state().pellet_at(x))
+            && game_state
+                .0
+                .get_state()
+                .ghosts
+                .iter()
+                .all(|g| !g.is_frightened())
+        {
+            if !*switched {
+                info!("Switched to second AI!");
+                *hl_ctx = HighLevelContext::new("./checkpoints/endgame.safetensors");
+                *switched = true;
+            }
+        } else {
+            if *switched {
+                info!("Switched to first AI!");
+                *hl_ctx = HighLevelContext::default();
+                *switched = false;
+            }
+        }
+
         ai_stopwatch.0.start();
 
         let mut path_nodes = std::collections::HashSet::new();
@@ -63,7 +88,11 @@ pub fn run_high_level(
         };
         let curr_score = sim_engine.get_state().get_score();
         for _ in 0..6 {
-            let action = hl_ctx.step(sim_engine.get_state(), &std_grid);
+            let action = hl_ctx.step(
+                sim_engine.get_state(),
+                &std_grid,
+                settings.bot_update_period,
+            );
             let target_pos = match action {
                 HLAction::Stay => curr_pos,
                 HLAction::Left => IntLocation {
@@ -120,7 +149,7 @@ pub fn run_high_level(
                 break;
             }
         }
-        if ((new_score - curr_score) < variables::SUPER_PELLET_POINTS) && path.len() < 2 {
+        if ((new_score - curr_score) < variables::SUPER_PELLET_POINTS) && path.len() < 1 {
             path = vec![start_pos];
         }
         target_path.0 = path;
@@ -144,7 +173,7 @@ enum HLAction {
     Down,
 }
 
-const OBS_SHAPE: (usize, usize, usize) = (15, 28, 31);
+const OBS_SHAPE: (usize, usize, usize) = (17, 28, 31);
 
 /// Handles executing high level AI.
 pub struct HighLevelContext {
@@ -192,7 +221,12 @@ impl HighLevelContext {
     /// Runs one step of the high level AI.
     /// Returns the action the AI has decided to take.
     // Currently, this implements a DQN approach.
-    fn step(&mut self, game_state: &GameState, grid: &ComputedGrid) -> HLAction {
+    fn step(
+        &mut self,
+        game_state: &GameState,
+        grid: &ComputedGrid,
+        bot_update_period: usize,
+    ) -> HLAction {
         // Convert the current game state into an agent observation.
         let mut obs_array = Array::zeros(OBS_SHAPE);
         let (mut wall, mut reward, mut pacman, mut ghost, mut last_ghost, mut state) = obs_array
@@ -227,30 +261,10 @@ impl HighLevelContext {
             }
         }
 
-        // Account for old walls
-        for row in 0..9 {
-            for col in 0..5 {
-                wall[(col, 12 + row)] = 0.;
-                wall[(31 - 9 + 1 + col, 12 + row)] = 0.;
-            }
-        }
-        for row in 27..28 {
-            for col in 3..5 {
-                wall[(col, row)] = 0.;
-                wall[(28 - 1 - col, row)] = 0.;
-            }
-        }
-        for row in 27..28 {
-            for col in 8..11 {
-                wall[(col, row)] = 0.;
-                wall[(28 - 1 - col, row)] = 0.;
-            }
-        }
-
         // Compute new pacman and ghost positions
         let new_pos_cached = {
             let pac_pos = game_state.pacman_loc;
-            if pac_pos.col != 32 {
+            if pac_pos.col != 32 && pac_pos.row != 32 {
                 Some((pac_pos.col as usize, (31 - pac_pos.row - 1) as usize))
             } else {
                 None
@@ -260,7 +274,7 @@ impl HighLevelContext {
             .ghosts
             .iter()
             .map(|g| {
-                if g.loc.col != 32 {
+                if g.loc.col != 32 && g.loc.row != 32 {
                     Some((g.loc.col as usize, ((31 - g.loc.row - 1) as usize)))
                 } else {
                     None
@@ -274,9 +288,11 @@ impl HighLevelContext {
             self.pos_cached = new_pos_cached;
         }
 
-        if self.ghost_pos_cached.contains(&None) {
-            self.last_ghost_pos = new_ghost_pos_cached.clone();
-            self.ghost_pos_cached = new_ghost_pos_cached.clone();
+        for (i, ghost) in self.ghost_pos_cached.iter_mut().enumerate() {
+            if ghost.is_none() {
+                self.last_ghost_pos[i] = new_ghost_pos_cached[i];
+                *ghost = new_ghost_pos_cached[i];
+            }
         }
 
         if new_pos_cached != self.pos_cached {
@@ -284,9 +300,11 @@ impl HighLevelContext {
             self.pos_cached = new_pos_cached;
         }
 
-        if new_ghost_pos_cached != self.ghost_pos_cached {
-            self.last_ghost_pos = self.ghost_pos_cached.clone();
-            self.ghost_pos_cached = new_ghost_pos_cached.clone();
+        for (i, ghost) in self.ghost_pos_cached.iter_mut().enumerate() {
+            if new_ghost_pos_cached[i] != *ghost {
+                self.last_ghost_pos[i] = *ghost;
+                *ghost = new_ghost_pos_cached[i];
+            }
         }
 
         if let Some(last_pos) = self.last_pos {
@@ -301,14 +319,15 @@ impl HighLevelContext {
                 ghost[(i, col, row)] = 1.0;
                 if g.is_frightened() {
                     state[(2, col, row)] = g.fright_steps as f32 / GHOST_FRIGHT_STEPS as f32;
-                    reward[(col, row)] += 1.;
+                    reward[(col, row)] += 2_i32.pow(game_state.ghost_combo as u32) as f32;
                 } else {
                     let state_index = if game_state.mode == GameMode::CHASE {
                         1
                     } else {
                         0
                     };
-                    state[(state_index, col, row)] = 1.0;
+                    state[(state_index, col, row)] =
+                        game_state.get_mode_steps() as f32 / GameMode::CHASE.duration() as f32;
                 }
             }
         }
@@ -319,20 +338,61 @@ impl HighLevelContext {
             }
         }
 
+        obs_array
+            .slice_mut(s![15, .., ..])
+            .fill(bot_update_period as f32 / game_state.get_update_period() as f32);
+
+        // Super pellet map
+        for row in 0..31 {
+            for col in 0..28 {
+                let obs_row = 31 - row - 1;
+                if game_state.pellet_at((row as i8, col as i8))
+                    && ((row == 3) || (row == 23))
+                    && ((col == 1) || (col == 26))
+                {
+                    obs_array[(16, col, obs_row)] = 1.;
+                }
+            }
+        }
+
         // Create action mask.
         let mut action_mask = [false, false, false, false, false];
-        if let Some(valid_actions) = grid.valid_actions(IntLocation::new(
-            game_state.pacman_loc.row,
-            game_state.pacman_loc.col,
-        )) {
-            // The order of valid actions is stay, up, left, down, right
+        let ghost_within = |row: i8, col: i8, distance: i8| {
+            game_state.ghosts.iter().any(|g| {
+                (g.loc.row - row).abs() + (g.loc.col - col).abs() <= distance && !g.is_frightened()
+            })
+        };
+        let super_pellet_within = |row: i8, col: i8, distance: i8| {
+            [(3, 1), (3, 26), (23, 1), (23, 26)]
+                .iter()
+                .any(|(p_row, p_col)| (p_row - row).abs() + (p_col - col).abs() <= distance)
+        };
+        if grid
+            .valid_actions(IntLocation::new(
+                game_state.pacman_loc.row,
+                game_state.pacman_loc.col,
+            ))
+            .is_some()
+        {
+            let row = game_state.pacman_loc.row;
+            let col = game_state.pacman_loc.col;
             action_mask = [
-                !valid_actions[0],
-                !valid_actions[1],
-                !valid_actions[3],
-                !valid_actions[2],
-                !valid_actions[4],
-            ];
+                (row, col),
+                (row + 1, col),
+                (row - 1, col),
+                (row, col - 1),
+                (row, col + 1),
+            ]
+            .map(|(target_row, target_col)| {
+                !game_state.wall_at((target_row, target_col))
+                    && (!ghost_within(target_row, target_col, 1)
+                        || super_pellet_within(target_row, target_col, 0))
+            });
+            action_mask[0] = true;
+            // if any movement is possible, and there is a ghost nearby, you must move
+            if action_mask.iter().filter(|x| **x).count() > 1 && ghost_within(row, col, 1) {
+                action_mask[0] = false;
+            }
         }
         let action_mask =
             Tensor::from_slice(&action_mask.map(|b| b as u8 as f32), 5, &Device::Cpu).unwrap(); // 1 if masked, 0 if not
@@ -348,8 +408,8 @@ impl HighLevelContext {
 
         let q_vals = self.net.forward(&obs_tensor).unwrap().squeeze(0).unwrap();
 
-        let q_vals = ((q_vals * (1. - &action_mask).unwrap()).unwrap()
-            + (&action_mask * -999.).unwrap())
+        let q_vals = ((q_vals * &action_mask).unwrap()
+            + ((1. - &action_mask).unwrap() * -999.).unwrap())
         .unwrap();
         let argmax_idx = q_vals
             .argmax(D::Minus1)
@@ -361,8 +421,8 @@ impl HighLevelContext {
 
         let actions = [
             HLAction::Stay,
-            HLAction::Up,
             HLAction::Down,
+            HLAction::Up,
             HLAction::Left,
             HLAction::Right,
         ];
