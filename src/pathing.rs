@@ -89,6 +89,8 @@ pub fn target_path_to_target_vel(
         }
 
         target_velocity.0 = delta_pos;
+    } else if settings.high_level_strategy == HighLevelStrategy::ReinforcementLearning {
+        target_velocity.0 = Vector2::new(0.0, 0.0);
     }
 }
 
