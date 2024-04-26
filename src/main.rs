@@ -201,7 +201,7 @@ impl Default for UserSettings {
             collision_distance_stop: 15,
             sensor_range_interval: 5,
 
-            speed_base: 3.0,
+            speed_base: 4.0,
             speed_multiplier: 2.0,
             speed_cap: 8.0,
             max_accel: 1000.0,
