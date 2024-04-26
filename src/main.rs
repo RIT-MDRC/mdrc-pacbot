@@ -97,6 +97,8 @@ pub struct UserSettings {
     pub pico_address: Option<String>,
     /// Optional IP for the game server
     pub go_server_address: Option<String>,
+    /// IP address of the gui
+    pub gui_addr: [u8; 4],
     /// Physical characteristics of the robot
     pub robot: Robot,
     /// Whether sensor values should come from the robot, versus rapier
@@ -182,7 +184,8 @@ impl Default for UserSettings {
         Self {
             mode: AppMode::Recording,
             high_level_strategy: HighLevelStrategy::Manual,
-            pico_address: Some("192.168.4.209:20002".to_string()),
+            pico_address: None,
+            gui_addr: [10, 181, 95, 54],
             go_server_address: None,
             robot: Robot::default(),
             sensors_from_robot: true,

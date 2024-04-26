@@ -281,6 +281,7 @@ impl PicoConnection {
             collision_distance_threshold: settings.collision_distance_threshold,
             collision_avoidance_stop: settings.collision_distance_stop,
             sensor_continuous_interval: settings.sensor_range_interval,
+            gui_ip: settings.gui_addr,
         };
         self.tx_socket.set_nonblocking(false).unwrap();
         let r = self.send_message(
@@ -311,6 +312,7 @@ impl PicoConnection {
             collision_distance_threshold: settings.collision_distance_threshold,
             collision_avoidance_stop: settings.collision_distance_stop,
             sensor_continuous_interval: settings.sensor_range_interval,
+            gui_ip: settings.gui_addr,
         };
         self.tx_socket.set_nonblocking(false).unwrap();
         let r = self.send_message(
@@ -375,6 +377,7 @@ pub struct PacbotCommand {
     collision_distance_threshold: u8,
     collision_avoidance_stop: u8,
     sensor_continuous_interval: u8,
+    gui_ip: [u8; 4],
 }
 
 /// The way the client wants the motor to be controlled

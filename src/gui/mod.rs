@@ -153,29 +153,29 @@ pub fn ui_system(
         if i.key_pressed(Key::R) {
             tab_viewer.pacman_state.0 = GameEngine::default()
         }
-        if i.key_pressed(Key::Z) {
-            tab_viewer.settings.high_level_strategy = HighLevelStrategy::Manual;
-            tab_viewer.target_path.0.clear();
-            tab_viewer.settings.test_path_position = None;
-        }
-        if i.key_pressed(Key::X) {
-            tab_viewer.settings.high_level_strategy = HighLevelStrategy::ReinforcementLearning;
-            tab_viewer.target_path.0.clear();
-            tab_viewer.settings.test_path_position = None;
-        }
-        if i.key_pressed(Key::C) {
-            tab_viewer.settings.high_level_strategy = HighLevelStrategy::TestUniform;
-            tab_viewer.target_path.0.clear();
-            tab_viewer.settings.test_path_position = None;
-        }
-        if i.key_pressed(Key::V) {
-            tab_viewer.settings.high_level_strategy = HighLevelStrategy::TestForward;
-            tab_viewer.target_path.0.clear();
-            tab_viewer.settings.test_path_position = None;
-        }
+        // if i.key_pressed(Key::Z) {
+        //     tab_viewer.settings.high_level_strategy = HighLevelStrategy::Manual;
+        //     tab_viewer.target_path.0.clear();
+        //     tab_viewer.settings.test_path_position = None;
+        // }
+        // if i.key_pressed(Key::X) {
+        //     tab_viewer.settings.high_level_strategy = HighLevelStrategy::ReinforcementLearning;
+        //     tab_viewer.target_path.0.clear();
+        //     tab_viewer.settings.test_path_position = None;
+        // }
+        // if i.key_pressed(Key::C) {
+        //     tab_viewer.settings.high_level_strategy = HighLevelStrategy::TestUniform;
+        //     tab_viewer.target_path.0.clear();
+        //     tab_viewer.settings.test_path_position = None;
+        // }
+        // if i.key_pressed(Key::V) {
+        //     tab_viewer.settings.high_level_strategy = HighLevelStrategy::TestForward;
+        //     tab_viewer.target_path.0.clear();
+        //     tab_viewer.settings.test_path_position = None;
+        // }
         if i.key_pressed(Key::P) {
             tab_viewer.settings.pico_address = match tab_viewer.settings.pico_address {
-                None => Some("192.168.4.209:20002".to_string()),
+                None => Some("10.181.92.51:20002".to_string()),
                 Some(_) => None,
             };
         }
