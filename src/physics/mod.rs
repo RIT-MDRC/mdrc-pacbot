@@ -322,6 +322,19 @@ pub fn update_delayed_cv(
     }
 }
 
+/// Updates our internal game state using our particle filter.
+/// Needed to mitigate CV lag.
+pub fn update_game_state_with_pf(
+    simulation: Res<PacbotSimulation>,
+    mut game_engine: ResMut<PacmanGameState>,
+    grid: Res<ComputedGrid>
+) {
+    let pos = simulation.pf_best_guess().loc.translation;
+    if let Some(pos) = grid.node_nearest(pos.x, pos.y) {
+        game_engine.0.set_pacman_location(LocationState::new(pos.row, pos.col, 0));
+    }
+}
+
 impl PacbotSimulation {
     /// Create a new simulation on a ComputedGrid with a starting Robot and position
     ///

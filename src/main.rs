@@ -28,7 +28,7 @@ use bevy_egui::EguiPlugin;
 use network::{poll_gs, GameServerConn};
 use pacbot_rs::game_engine::GameEngine;
 use pathing::{create_test_path_target, GridSampleProbs};
-use physics::update_delayed_cv;
+use physics::{update_delayed_cv, update_game_state_with_pf};
 use std::fmt::{Debug, Formatter};
 
 pub mod grid;
@@ -318,6 +318,7 @@ fn main() {
                     .after(update_physics_info)
                     .after(update_game),
                 update_delayed_cv,
+                update_game_state_with_pf
             ),
         )
         .run();
