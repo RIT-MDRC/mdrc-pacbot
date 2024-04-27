@@ -147,13 +147,18 @@ impl<'a> TabViewer<'a> {
             .show_ui(ui, |ui| {
                 ui.selectable_value(
                     &mut self.settings.cv_position,
-                    CvPositionSource::GameState,
+                    CvPositionSource::DelayedGameState(0.0.into()),
                     "GameState",
                 );
                 ui.selectable_value(
                     &mut self.settings.cv_position,
                     CvPositionSource::ParticleFilter,
                     "ParticleFilter",
+                );
+                ui.selectable_value(
+                    &mut self.settings.cv_position,
+                    CvPositionSource::DelayedGameState(1.0.into()),
+                    "DelayedGS(1)",
                 );
                 ui.selectable_value(
                     &mut self.settings.cv_position,

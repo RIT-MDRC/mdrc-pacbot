@@ -39,6 +39,15 @@ pub struct LightPhysicsInfo {
     pub pf_points: Vec<FilterPoint>,
 }
 
+/// Stores a delayed version of the CV position.
+#[derive(Resource)]
+pub struct DelayedCV {
+    /// Time to next update in seconds.
+    pub timer: bevy::prelude::Timer,
+    /// The currently stored position.
+    pub pos: (i8, i8),
+}
+
 /// Tracks the performance of the physics engine
 #[derive(Resource)]
 pub struct PhysicsStopwatch(pub Stopwatch);
@@ -89,16 +98,20 @@ pub fn update_game_state_pacbot_loc(
     grid: Res<ComputedGrid>,
     mut pacman_state: ResMut<PacmanGameState>,
     settings: Res<UserSettings>,
+    delayed_cv: Option<ResMut<DelayedCV>>,
 ) {
     if settings.go_server_address.is_none() {
-        let pacbot_location = simulation.get_primary_robot_position();
+        let new_location = if let Some(delayed_cv) = delayed_cv {
+            Some(IntLocation::new(delayed_cv.pos.0, delayed_cv.pos.1))
+        } else {
+            let pacbot_location = simulation.get_primary_robot_position();
+            grid.node_nearest(pacbot_location.translation.x, pacbot_location.translation.y)
+        };
         let old_pacbot_location = IntLocation {
             row: pacman_state.0.get_state().pacman_loc.row,
             col: pacman_state.0.get_state().pacman_loc.col,
         };
-        if let Some(pacbot_location) =
-            grid.node_nearest(pacbot_location.translation.x, pacbot_location.translation.y)
-        {
+        if let Some(pacbot_location) = new_location {
             if old_pacbot_location == pacbot_location {
                 return;
             }
@@ -110,7 +123,7 @@ pub fn update_game_state_pacbot_loc(
         } else {
             eprintln!(
                 "Could not convert location to grid space: {:?}",
-                pacbot_location
+                new_location
             );
         }
     }
@@ -169,6 +182,7 @@ pub fn run_particle_filter(
     time: Res<Time>,
     game_engine: Res<PacmanGameState>,
     last_motor_commands: Res<LastMotorCommands>,
+    delayed_cv: Option<ResMut<DelayedCV>>,
 ) {
     if settings.enable_pf {
         simulation
@@ -203,6 +217,13 @@ pub fn run_particle_filter(
                 }
             }
             CvPositionSource::Constant(row, col) => LocationState::new(row, col, 0),
+            CvPositionSource::DelayedGameState(_) => {
+                if let Some(delayed_cv) = delayed_cv {
+                    LocationState::new(delayed_cv.pos.0, delayed_cv.pos.1, 0)
+                } else {
+                    LocationState::new(0, 0, 0)
+                }
+            }
         };
         simulation.pf_update(
             (local_vel, vel_ang),
@@ -255,6 +276,49 @@ pub fn update_physics_info(
         } else {
             vec![]
         },
+    }
+}
+
+/// Updates the delayed CV position.
+/// Creates or destroys the delayed CV tracking component if we enable or disable it, respectively.
+pub fn update_delayed_cv(
+    settings: Res<UserSettings>,
+    time: Res<Time>,
+    delayed_cv: Option<ResMut<DelayedCV>>,
+    simulation: Res<PacbotSimulation>,
+    grid: Res<ComputedGrid>,
+    mut commands: Commands,
+) {
+    if let CvPositionSource::DelayedGameState(delayed_settings) = settings.cv_position {
+        // Compute CV coords
+        let pacbot_location = simulation.get_primary_robot_position();
+        if let Some(pacbot_location) =
+            grid.node_nearest(pacbot_location.translation.x, pacbot_location.translation.y)
+        {
+            let pos = (pacbot_location.row, pacbot_location.col);
+
+            if let Some(mut delayed_cv) = delayed_cv {
+                delayed_cv.timer.tick(time.delta());
+                if delayed_cv.timer.just_finished() {
+                    delayed_cv.pos = pos;
+                }
+            } else {
+                commands.insert_resource(DelayedCV {
+                    timer: bevy::prelude::Timer::new(
+                        std::time::Duration::from_secs_f32(delayed_settings.0),
+                        bevy::time::TimerMode::Repeating,
+                    ),
+                    pos,
+                });
+            }
+        } else {
+            eprintln!(
+                "Could not convert location to grid space: {:?}",
+                pacbot_location
+            );
+        }
+    } else if delayed_cv.is_some() {
+        commands.remove_resource::<DelayedCV>()
     }
 }
 

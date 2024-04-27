@@ -28,6 +28,7 @@ use bevy_egui::EguiPlugin;
 use network::{poll_gs, GameServerConn};
 use pacbot_rs::game_engine::GameEngine;
 use pathing::{create_test_path_target, GridSampleProbs};
+use physics::update_delayed_cv;
 use std::fmt::{Debug, Formatter};
 
 pub mod grid;
@@ -74,6 +75,8 @@ pub enum CvPositionSource {
     ParticleFilter,
     /// Some constant position
     Constant(i8, i8),
+    /// The game state with a delay (seconds).
+    DelayedGameState(ordered_float::OrderedFloat<f32>),
 }
 
 impl Debug for CvPositionSource {
@@ -82,6 +85,7 @@ impl Debug for CvPositionSource {
             Self::GameState => f.write_str("GameState"),
             Self::ParticleFilter => f.write_str("ParticleFilter"),
             Self::Constant(row, col) => f.write_fmt(format_args!("({}, {})", row, col)),
+            Self::DelayedGameState(seconds) => f.write_fmt(format_args!("Delayed ({})", seconds)),
         }
     }
 }
@@ -313,6 +317,7 @@ fn main() {
                 update_game_state_pacbot_loc
                     .after(update_physics_info)
                     .after(update_game),
+                update_delayed_cv,
             ),
         )
         .run();
