@@ -1,6 +1,6 @@
 //! Logical grid structs and utilities.
 
-use anyhow::{anyhow, Error};
+use anyhow::{anyhow, Context, Error};
 use bevy_ecs::prelude::Resource;
 use eframe::epaint::util::OrderedFloat;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -8,7 +8,11 @@ use pacbot_rs::location::{DOWN, LEFT, RIGHT, UP};
 use rapier2d::na::Point2;
 use rapier2d::prelude::Rotation;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, VecDeque};
+use std::{
+    collections::{HashMap, VecDeque},
+    fs::File,
+    io::BufReader,
+};
 
 pub mod standard_grids;
 
@@ -201,7 +205,6 @@ impl TryFrom<Grid> for ComputedGrid {
         let mut coords_to_node: HashMap<IntLocation, usize> = HashMap::new();
 
         let mut valid_actions = vec![];
-        let mut distance_matrix = vec![];
 
         // note that all edges must be walls
         // iterate through all grid positions
@@ -225,37 +228,74 @@ impl TryFrom<Grid> for ComputedGrid {
             }
         }
 
-        // initialize distance matrix
-        for _ in 0..walkable_nodes.len() {
-            distance_matrix.push(vec![None; walkable_nodes.len()]);
-        }
-
         // initialize ComputedGrid
         let mut s = ComputedGrid {
             grid,
             walkable_nodes,
             coords_to_node,
             valid_actions,
-            distance_matrix,
+            distance_matrix: Vec::new(),
             walls: Vec::new(),
         };
 
-        // compute distance matrix with BFS
-        for (i, &start) in s.walkable_nodes.iter().enumerate() {
-            let mut visited = vec![false; s.walkable_nodes.len()];
-            let mut queue = vec![(start, 0)];
-            while let Some((pos, dist)) = queue.pop() {
-                // only walkable nodes are added to the queue
-                let node_index = *s.coords_to_node.get(&pos).unwrap();
-                if visited[node_index] {
-                    continue;
+        const DISTANCE_MATRIX_PATH: &str = "distance_matrix.bincode";
+        fn load_distance_matrix() -> anyhow::Result<Vec<Vec<Option<u8>>>> {
+            Ok(bincode::serde::decode_from_std_read(
+                &mut BufReader::new(File::open(DISTANCE_MATRIX_PATH)?),
+                bincode::config::standard(),
+            )?)
+        }
+
+        // In debug mode, re-compute the distance matrix. Then:
+        //  - If we were able to load a distance matrix, verify that it matches the computed one.
+        //  - If loading failed, save the computed one to the file.
+        #[cfg(debug_assertions)]
+        {
+            let computed_distance_matrix = s
+                .walkable_nodes
+                .iter()
+                .map(|&start| {
+                    s.walkable_nodes
+                        .iter()
+                        .map(|&finish| {
+                            let path = s.bfs_path(start, finish)?;
+                            Some(u8::try_from(path.len()).unwrap().checked_sub(1).unwrap())
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+
+            match load_distance_matrix() {
+                Ok(loaded_distance_matrix) => {
+                    s.distance_matrix = loaded_distance_matrix;
+                    println!("Verifying precomputed distance matrix...");
+                    assert_eq!(s.distance_matrix, computed_distance_matrix);
+                    println!("Distance matrix matches!");
                 }
-                visited[node_index] = true;
-                s.distance_matrix[i][node_index] = Some(dist);
-                for neighbor in s.neighbors(&pos) {
-                    queue.push((neighbor, dist + 1));
+                Err(error) => {
+                    println!(
+                        "Failed to load distance matrix from {DISTANCE_MATRIX_PATH}: {error:?}"
+                    );
+                    println!("Saving computed distance matrix to {DISTANCE_MATRIX_PATH}");
+                    std::fs::write(
+                        "distance_matrix.bincode",
+                        bincode::serde::encode_to_vec(
+                            &computed_distance_matrix,
+                            bincode::config::standard(),
+                        )
+                        .unwrap(),
+                    )?;
+                    s.distance_matrix = computed_distance_matrix;
                 }
             }
+        };
+
+        // In release mode, load the precomputed distance matrix from the file.
+        #[cfg(not(debug_assertions))]
+        {
+            s.distance_matrix = load_distance_matrix().with_context(|| {
+                format!("Failed to load distance matrix from {DISTANCE_MATRIX_PATH}")
+            })?;
         }
 
         fn is_wall(g: &ComputedGrid, p: &IntLocation) -> bool {
