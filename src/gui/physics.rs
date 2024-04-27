@@ -5,7 +5,7 @@ use crate::gui::colors::{
 };
 use crate::gui::{AppMode, TabViewer};
 use crate::robot::Robot;
-use eframe::egui::{Painter, Pos2, Stroke};
+use eframe::egui::{Color32, Painter, Pos2, Stroke};
 use rapier2d::math::Vector;
 use rapier2d::na::Point2;
 
@@ -137,8 +137,9 @@ impl<'a> TabViewer<'a> {
             );
         }
 
-        // AI target path
+        // AI target path and action mask
         if let Some(pacbot_pos) = self.phys_info.pf_pos {
+            // Target path
             if let Some(target) = self.target_path.0.first() {
                 painter.line_segment(
                     [
@@ -162,6 +163,21 @@ impl<'a> TabViewer<'a> {
                     painter.line_segment(
                         [src, dest],
                         Stroke::new(2.0, PACMAN_AI_TARGET_LOCATION_COLOR),
+                    );
+                }
+            }
+
+            // Action masks
+            let offsets = [(0, 0), (1, 0), (-1, 0), (0, -1), (0, 1)];
+            for (i, offset) in offsets.iter().enumerate() {
+                if !self.action_mask.0[i] {
+                    painter.circle_filled(
+                        world_to_screen.map_point(Pos2::new(
+                            pacbot_pos.translation.x + offset.0 as f32,
+                            pacbot_pos.translation.y + offset.1 as f32,
+                        )),
+                        4.0,
+                        Color32::RED,
                     );
                 }
             }

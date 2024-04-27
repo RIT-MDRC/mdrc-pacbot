@@ -34,7 +34,7 @@ use crate::gui::game::GameWidget;
 use crate::gui::robot::RobotWidget;
 use crate::gui::settings::PacbotSettingsWidget;
 use crate::gui::stopwatch::StopwatchWidget;
-use crate::high_level::AiStopwatch;
+use crate::high_level::{ActionMask, AiStopwatch};
 use crate::network::{
     GSConnState, GameServerConn, LastMotorCommands, MotorRequest, PacbotSensors,
     PacbotSensorsRecvTime,
@@ -98,7 +98,7 @@ pub fn ui_system(
     replay_manager: ResMut<ReplayManager>,
     settings: ResMut<UserSettings>,
     target_velocity: ResMut<TargetVelocity>,
-    target_path: ResMut<TargetPath>,
+    hl: (ResMut<TargetPath>, Res<ActionMask>),
     gamepad: (
         Res<Gamepads>,
         Res<Axis<GamepadAxis>>,
@@ -131,7 +131,8 @@ pub fn ui_system(
         replay_manager,
         settings,
         target_velocity,
-        target_path,
+        target_path: hl.0,
+        action_mask: hl.1,
         grid,
         selected_grid,
         pf_stopwatch: stopwatches.0,
@@ -238,6 +239,7 @@ struct TabViewer<'a> {
     settings: ResMut<'a, UserSettings>,
     target_velocity: ResMut<'a, TargetVelocity>,
     target_path: ResMut<'a, TargetPath>,
+    action_mask: Res<'a, ActionMask>,
     grid: ResMut<'a, ComputedGrid>,
     selected_grid: ResMut<'a, StandardGridResource>,
     sensors: Res<'a, PacbotSensors>,

@@ -28,17 +28,24 @@ impl Plugin for HLPlugin {
             40.0,
         )))
         .add_systems(Update, run_high_level)
-        .init_non_send_resource::<HighLevelContext>();
+        .init_non_send_resource::<HighLevelContext>()
+        .init_resource::<ActionMask>();
     }
 }
+
+/// Stores latest action mask.
+#[derive(Resource, Default)]
+pub struct ActionMask(pub [bool; 5]);
 
 /// Tracks the time AI takes to make decisions
 #[derive(Resource)]
 pub struct AiStopwatch(pub Stopwatch);
 
+#[allow(clippy::too_many_arguments)]
 pub fn run_high_level(
     game_state: Res<PacmanGameState>,
     mut target_path: ResMut<TargetPath>,
+    mut action_mask: ResMut<ActionMask>,
     mut hl_ctx: NonSendMut<HighLevelContext>,
     std_grid: Local<ComputedGrid>,
     mut switched: Local<bool>,
@@ -87,12 +94,14 @@ pub fn run_high_level(
             col: sim_engine.get_state().pacman_loc.col,
         };
         let curr_score = sim_engine.get_state().get_score();
+        let mut mask = None;
         for _ in 0..6 {
-            let action = hl_ctx.step(
+            let (action, m) = hl_ctx.step(
                 sim_engine.get_state(),
                 &std_grid,
                 settings.bot_update_period,
             );
+            mask.get_or_insert(m);
             let target_pos = match action {
                 HLAction::Stay => curr_pos,
                 HLAction::Left => IntLocation {
@@ -127,6 +136,9 @@ pub fn run_high_level(
             {
                 break;
             }
+        }
+        if let Some(mask) = mask {
+            action_mask.0 = mask;
         }
         let new_score = sim_engine.get_state().get_score();
 
@@ -223,14 +235,14 @@ impl HighLevelContext {
     }
 
     /// Runs one step of the high level AI.
-    /// Returns the action the AI has decided to take.
-    // Currently, this implements a DQN approach.
+    /// Returns the action the AI has decided to take and the action masks.
+    /// Currently, this implements a DQN approach.
     fn step(
         &mut self,
         game_state: &GameState,
         grid: &ComputedGrid,
         bot_update_period: usize,
-    ) -> HLAction {
+    ) -> (HLAction, [bool; 5]) {
         // Convert the current game state into an agent observation.
         let mut obs_array = Array::zeros(OBS_SHAPE);
         let (mut wall, mut reward, mut pacman, mut ghost, mut last_ghost, mut state) = obs_array
@@ -407,7 +419,7 @@ impl HighLevelContext {
                 }
             }
         }
-        let action_mask =
+        let action_mask_arr =
             Tensor::from_slice(&action_mask.map(|b| b as u8 as f32), 5, &Device::Cpu).unwrap(); // 1 if masked, 0 if not
 
         // Run observation through model and generate action.
@@ -421,8 +433,8 @@ impl HighLevelContext {
 
         let q_vals = self.net.forward(&obs_tensor).unwrap().squeeze(0).unwrap();
 
-        let q_vals = ((q_vals * &action_mask).unwrap()
-            + ((1. - &action_mask).unwrap() * -999.).unwrap())
+        let q_vals = ((q_vals * &action_mask_arr).unwrap()
+            + ((1. - &action_mask_arr).unwrap() * -999.).unwrap())
         .unwrap();
         let argmax_idx = q_vals
             .argmax(D::Minus1)
@@ -439,11 +451,12 @@ impl HighLevelContext {
             HLAction::Left,
             HLAction::Right,
         ];
-        actions[q_vals
+        let action = actions[q_vals
             .argmax(candle_core::D::Minus1)
             .unwrap()
             .to_scalar::<u32>()
-            .unwrap() as usize]
+            .unwrap() as usize];
+        (action, action_mask)
     }
 }
 
