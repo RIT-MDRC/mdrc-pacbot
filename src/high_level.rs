@@ -1,7 +1,11 @@
 //! Defines the Pacman agent's high level AI.
 
+use std::collections::HashSet;
+
 use crate::grid::ComputedGrid;
 use crate::grid::IntLocation;
+use crate::grid::GRID_COLS;
+use crate::grid::GRID_ROWS;
 use crate::pathing::TargetPath;
 use crate::util::stopwatch::Stopwatch;
 use crate::{HighLevelStrategy, PacmanGameState, UserSettings};
@@ -165,13 +169,76 @@ pub fn run_high_level(
                 break;
             }
         }
-        if ((new_score - curr_score) < variables::SUPER_PELLET_POINTS) && path.len() < 1 {
+        if ((new_score - curr_score) < variables::SUPER_PELLET_POINTS) && path.is_empty() {
             path = vec![start_pos];
         }
         target_path.0 = path;
 
+        // If the 2nd stage AI is active, and there is a guaranteed-safe path that eats all the
+        // remaining pellets, then just take that path.
+        if *switched && game_state.0.get_state().get_num_pellets() <= 10 {
+            let game_end_path =
+                find_game_ending_path(&settings, game_state.0.get_state(), &std_grid);
+            if let Some(game_end_path) = game_end_path {
+                target_path.0 = game_end_path;
+            }
+        }
+
         ai_stopwatch.0.mark_segment("AI");
     }
+}
+
+fn find_game_ending_path(
+    settings: &UserSettings,
+    game_state: &GameState,
+    grid: &ComputedGrid,
+) -> Option<Vec<IntLocation>> {
+    let mut cur_pos = IntLocation::new(game_state.pacman_loc.row, game_state.pacman_loc.col);
+    let mut path = Vec::new();
+
+    let mut remaining_pellets = (0..GRID_ROWS)
+        .flat_map(|row| (0..GRID_COLS).map(move |col| IntLocation::new(row as i8, col as i8)))
+        .filter(|&pos| game_state.pellet_at((pos.row, pos.col)))
+        .collect::<HashSet<_>>();
+    while let Some(&closest_pellet) = remaining_pellets
+        .iter()
+        .min_by_key(|&pellet_pos| grid.dist(&cur_pos, pellet_pos))
+    {
+        for path_pos in grid.bfs_path(cur_pos, closest_pellet)? {
+            // If any ghosts are too close to this location (extrapolating ahead in time pessimistically),
+            // then abort and return None.
+            if game_state.ghosts.iter().any(|ghost| {
+                // check if too close
+                let ghost_pos = IntLocation::new(ghost.loc.row, ghost.loc.col);
+                if let Some(dist_from_ghost) = grid.dist(&path_pos, &ghost_pos) {
+                    let num_pacman_moves = path.len();
+                    let num_ghost_moves = ((settings.bot_update_period as f32
+                        / game_state.update_period as f32)
+                        * num_pacman_moves as f32)
+                        + 2.0;
+                    (dist_from_ghost as f32) < num_ghost_moves
+                } else {
+                    false // no path from ghost to pacman
+                }
+            }) {
+                return None;
+            }
+
+            let is_start_location = path.is_empty() && path_pos == cur_pos;
+            let is_last_path_pos = path.last().is_some_and(|&last| last == path_pos);
+            if !is_start_location && !is_last_path_pos {
+                path.push(path_pos);
+            }
+        }
+
+        if let Some(&last) = path.last() {
+            cur_pos = last;
+        }
+
+        remaining_pellets.remove(&closest_pellet);
+    }
+
+    Some(path)
 }
 
 /// Represents an action the AI can choose to perform.
