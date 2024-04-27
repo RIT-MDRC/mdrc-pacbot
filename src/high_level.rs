@@ -381,24 +381,30 @@ impl HighLevelContext {
             ))
             .is_some()
         {
-            let row = game_state.pacman_loc.row;
-            let col = game_state.pacman_loc.col;
-            action_mask = [
-                (row, col),
-                (row + 1, col),
-                (row - 1, col),
-                (row, col - 1),
-                (row, col + 1),
-            ]
-            .map(|(target_row, target_col)| {
-                !game_state.wall_at((target_row, target_col))
-                    && (!ghost_within(target_row, target_col, 3)
-                        || super_pellet_within(target_row, target_col, 0))
-            });
-            action_mask[0] = true;
-            // if any movement is possible, and there is a ghost nearby, you must move
-            if action_mask.iter().filter(|x| **x).count() > 1 && ghost_within(row, col, 1) {
-                action_mask[0] = false;
+            for ghost_deny_distance in (0..=3).rev() {
+                let row = game_state.pacman_loc.row;
+                let col = game_state.pacman_loc.col;
+                action_mask = [
+                    (row, col),
+                    (row + 1, col),
+                    (row - 1, col),
+                    (row, col - 1),
+                    (row, col + 1),
+                ]
+                .map(|(target_row, target_col)| {
+                    !game_state.wall_at((target_row, target_col))
+                        && (!ghost_within(target_row, target_col, ghost_deny_distance)
+                            || super_pellet_within(target_row, target_col, 0))
+                });
+                action_mask[0] = true;
+                // if any movement is possible, and there is a ghost nearby, you must move
+                if action_mask.iter().filter(|x| **x).count() > 1 && ghost_within(row, col, 1) {
+                    action_mask[0] = false;
+                }
+
+                if action_mask != [true, false, false, false, false] {
+                    break;
+                }
             }
         }
         let action_mask =
