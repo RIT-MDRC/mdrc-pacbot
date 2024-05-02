@@ -1,0 +1,19 @@
+[package]
+name = "mdrc-pacbot-gui"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+eframe = "0.27.2"
+egui-phosphor = "0.5.0"
+egui_dock = "0.12.0"
+pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "0cbbb4028f5d9b8a5e9aa3d5d637e9b7680a304e" }
+mdrc-pacbot-server-temp = { path = "../mdrc-pacbot-server-temp" }
+anyhow = "1.0.82"
+serde = { version = "1.0.199", features = ["derive"] }
+bincode = { version = "2.0.0-rc.3", features = ["serde"] }
+nalgebra = "0.32.5"
+native-dialog = { version = "0.7.0", features = ["windows_dpi_awareness", "windows_visual_styles"] }
+regex = "1.10.4"
