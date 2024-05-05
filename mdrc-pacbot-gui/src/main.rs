@@ -1,6 +1,7 @@
 mod colors;
 mod game;
 mod keybindings;
+mod network;
 mod replay;
 mod replay_manager;
 mod settings;

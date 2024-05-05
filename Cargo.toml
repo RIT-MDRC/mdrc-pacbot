@@ -2,8 +2,10 @@
 
 resolver = "2"
 
-members = [ "mdrc-pacbot-gui",
-    "mdrc-pacbot-server-temp",
+members = [
+    "mdrc-pacbot-gui",
+    "mdrc-pacbot-server",
+    "mdrc-pacbot-simulation",
 ]
 
 # Enable a small amount of optimization in debug mode

@@ -7,7 +7,6 @@ use crate::strategy::manual::{ManualStrategy, StopStrategy};
 use crate::strategy::uniform::UniformStrategy;
 use crate::App;
 use nalgebra::{Point2, Rotation2, Vector2};
-use serde::{Deserialize, Serialize};
 
 impl StrategyChoice {
     pub fn create(&self) -> Box<dyn Strategy> {

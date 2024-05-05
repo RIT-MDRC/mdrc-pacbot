@@ -2,14 +2,13 @@
 //! A set of pre-made general purpose grids
 
 use std::f32::consts::PI;
-use eframe::egui::Pos2;
+use nalgebra::{Isometry2, Point2, Vector2};
 use pacbot_rs::variables::PACMAN_SPAWN_LOC;
-use rapier2d::na::{Isometry2, Vector2};
 use serde::{Deserialize, Serialize};
 use crate::grid::{ComputedGrid, Grid};
 
 /// An enum to support egui grid selection
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum StandardGrid {
     /// The official Pacbot [`Grid`]
     Pacman,
@@ -59,19 +58,19 @@ impl StandardGrid {
     }
 
     /// Get the part of the [`Grid`] that should actually show on the gui
-    pub fn get_soft_boundaries(&self) -> (Pos2, Pos2) {
+    pub fn get_soft_boundaries(&self) -> (Point2<f32>, Point2<f32>) {
         match self {
-            Self::Pacman => (Pos2::new(-1.0, -1.0), Pos2::new(31.0, 28.0)),
-            _ => (Pos2::new(-1.0, -1.0), Pos2::new(32.0, 32.0))
+            Self::Pacman => (Point2::new(-1.0, -1.0), Point2::new(31.0, 28.0)),
+            _ => (Point2::new(-1.0, -1.0), Point2::new(32.0, 32.0))
         }
     }
 
     /// Get the rectangles (in grid coordinates) that should be repainted with the background color
-    pub fn get_outside_soft_boundaries(&self) -> Vec<(Pos2, Pos2)> {
+    pub fn get_outside_soft_boundaries(&self) -> Vec<(Point2<f32>, Point2<f32>)> {
         match self {
             Self::Pacman => vec![
-                (Pos2::new(-1.0, 28.0), Pos2::new(32.1, 32.1)),
-                (Pos2::new(31.0, -1.0), Pos2::new(32.1, 32.1)),
+                (Point2::new(-1.0, 28.0), Point2::new(32.1, 32.1)),
+                (Point2::new(31.0, -1.0), Point2::new(32.1, 32.1)),
             ],
             _ => vec![]
         }

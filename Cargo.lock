@@ -2095,16 +2095,18 @@ dependencies = [
  "eframe",
  "egui-phosphor",
  "egui_dock",
- "mdrc-pacbot-server-temp",
+ "mdrc-pacbot-server",
+ "mdrc-pacbot-simulation",
  "nalgebra",
  "native-dialog",
  "pacbot-rs",
  "regex",
  "serde",
+ "tungstenite",
 ]
 
 [[package]]
-name = "mdrc-pacbot-server-temp"
+name = "mdrc-pacbot-server"
 version = "0.1.0"
 dependencies = [
  "array-init",
@@ -2119,6 +2121,16 @@ dependencies = [
  "rand",
  "rand_distr",
  "rayon",
+ "serde",
+ "tungstenite",
+]
+
+[[package]]
+name = "mdrc-pacbot-simulation"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "pacbot-rs",
  "serde",
  "tungstenite",
 ]
