@@ -7,6 +7,7 @@ use pacbot_rs::location::{DOWN, LEFT, RIGHT, UP};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 
+#[rustfmt::skip]
 pub mod standard_grids;
 
 /// Width of a [`Grid`].

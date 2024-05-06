@@ -1,4 +1,3 @@
-#![cfg_attr(rustfmt, rustfmt_skip)]
 //! A set of pre-made general purpose grids
 
 use std::f32::consts::PI;
