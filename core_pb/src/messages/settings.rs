@@ -1,4 +1,4 @@
-use crate::grid::standard_grids::StandardGrid;
+use crate::grid::standard_grid::StandardGrid;
 use serde::{Deserialize, Serialize};
 
 /// Rarely changed options for the pacbot server

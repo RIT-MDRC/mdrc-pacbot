@@ -1,24 +1,10 @@
-//! Logical grid structs and utilities.
-
-use crate::grid::standard_grids::StandardGrid;
+use crate::grid::standard_grid::StandardGrid;
+use crate::grid::{Grid, GRID_SIZE};
 use nalgebra::Point2;
 use ordered_float::OrderedFloat;
 use pacbot_rs::location::{DOWN, LEFT, RIGHT, UP};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
-
-#[rustfmt::skip]
-pub mod standard_grids;
-
-/// Width of a [`Grid`].
-pub const GRID_COLS: usize = 32;
-/// Height of a [`Grid`].
-pub const GRID_ROWS: usize = 32;
-
-/// A 2D grid
-///
-/// The grid is indexed by `grid[row][col]`
-pub type Grid = [[bool; GRID_COLS]; GRID_ROWS];
 
 /// Validates a [`Grid`].
 ///
@@ -29,22 +15,22 @@ pub type Grid = [[bool; GRID_COLS]; GRID_ROWS];
 /// - No wall should have a walkable cell either both above and below or both to the left and right
 fn validate_grid(grid: &Grid) -> Result<(), String> {
     // the edges of the grid should all be walls
-    if (0..GRID_ROWS).any(|row| !grid[row][0]) {
+    if (0..GRID_SIZE).any(|row| !grid[row][0]) {
         return Err("Left edge of grid is not all walls".to_string());
     }
-    if (0..GRID_ROWS).any(|row| !grid[row][GRID_COLS - 1]) {
+    if (0..GRID_SIZE).any(|row| !grid[row][GRID_SIZE - 1]) {
         return Err("Right edge of grid is not all walls".to_string());
     }
-    if (0..GRID_COLS).any(|col| !grid[0][col]) {
+    if (0..GRID_SIZE).any(|col| !grid[0][col]) {
         return Err("Top edge of grid is not all walls".to_string());
     }
-    if (0..GRID_COLS).any(|col| !grid[GRID_ROWS - 1][col]) {
+    if (0..GRID_SIZE).any(|col| !grid[GRID_SIZE - 1][col]) {
         return Err("Bottom edge of grid is not all walls".to_string());
     }
 
     // there should be no 2x2 walkable squares
-    for row in 0..GRID_ROWS - 1 {
-        for col in 0..GRID_COLS - 1 {
+    for row in 0..GRID_SIZE - 1 {
+        for col in 0..GRID_SIZE - 1 {
             if !grid[row][col]
                 && !grid[row][col + 1]
                 && !grid[row + 1][col]
@@ -61,8 +47,8 @@ fn validate_grid(grid: &Grid) -> Result<(), String> {
     }
 
     // no wall should have a walkable cell either both above and below or both to the left and right
-    for row in 1..GRID_ROWS - 1 {
-        for col in 1..GRID_COLS - 1 {
+    for row in 1..GRID_SIZE - 1 {
+        for col in 1..GRID_SIZE - 1 {
             if grid[row][col] {
                 if !grid[row - 1][col] && !grid[row + 1][col] {
                     return Err(format!(
@@ -103,8 +89,7 @@ pub struct Wall {
 /// # Examples
 ///
 /// ```
-/// use mdrc_pacbot_util::grid::ComputedGrid;
-/// use mdrc_pacbot_util::grid::standard_grids::StandardGrid;
+/// use core_pb::grid::standard_grid::StandardGrid;
 ///
 /// let grid = StandardGrid::Blank.compute_grid();
 /// ```
@@ -127,7 +112,7 @@ pub struct ComputedGrid {
 
 impl Default for ComputedGrid {
     fn default() -> Self {
-        standard_grids::StandardGrid::Pacman.compute_grid()
+        StandardGrid::Pacman.compute_grid()
     }
 }
 
@@ -145,8 +130,8 @@ impl TryFrom<Grid> for ComputedGrid {
 
         // note that all edges must be walls
         // iterate through all grid positions
-        for row in 1..GRID_ROWS - 1 {
-            for col in 1..GRID_COLS - 1 {
+        for row in 1..GRID_SIZE - 1 {
+            for col in 1..GRID_SIZE - 1 {
                 let pos = Point2::new(row as i8, col as i8);
                 if !grid[row][col] {
                     // remember walkable nodes
@@ -240,8 +225,8 @@ impl TryFrom<Grid> for ComputedGrid {
                     bottom_right: Point2::new(row + 1, col + 1),
                 };
 
-                if wall.top_left.y > GRID_COLS as i8 {
-                    wall.top_left.y = GRID_COLS as i8;
+                if wall.top_left.y > GRID_SIZE as i8 {
+                    wall.top_left.y = GRID_SIZE as i8;
                 }
 
                 col += 1;
@@ -250,7 +235,7 @@ impl TryFrom<Grid> for ComputedGrid {
                 while is_wall(&s, &Point2::new(row, col))
                     && !is_part_of_wall(&s, &Point2::new(row, col))
                 {
-                    if col >= GRID_COLS as i8 {
+                    if col >= GRID_SIZE as i8 {
                         break;
                     }
 
@@ -260,7 +245,7 @@ impl TryFrom<Grid> for ComputedGrid {
 
                 // Extend the wall down
                 let mut next_row = row + 1;
-                while next_row < GRID_ROWS as i8 {
+                while next_row < GRID_SIZE as i8 {
                     let mut can_extend = true;
                     for next_col in wall.top_left.y..wall.bottom_right.y {
                         if !is_wall(&s, &Point2::new(next_row, next_col))
@@ -283,11 +268,11 @@ impl TryFrom<Grid> for ComputedGrid {
                 col += 1;
             }
 
-            if col >= GRID_COLS as i8 {
+            if col >= GRID_SIZE as i8 {
                 col = -1;
                 row += 1;
 
-                if row == GRID_ROWS as i8 {
+                if row == GRID_SIZE as i8 {
                     break;
                 }
             }
@@ -303,8 +288,7 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::grid::standard_grids::StandardGrid;
+    /// use core_pb::grid::standard_grid::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
     ///
@@ -324,11 +308,11 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::{ComputedGrid, IntLocation};
-    /// use mdrc_pacbot_util::grid::standard_grids::StandardGrid;
+    /// use nalgebra::Point2;
+    /// use core_pb::grid::standard_grid::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
-    /// assert_eq!(grid.walkable_nodes()[0], IntLocation::new(1, 1));
+    /// assert_eq!(grid.walkable_nodes()[0], Point2::new(1, 1));
     /// ```
     pub fn walkable_nodes(&self) -> &Vec<Point2<i8>> {
         &self.walkable_nodes
@@ -340,12 +324,12 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::{ComputedGrid, IntLocation};
-    /// use mdrc_pacbot_util::grid::standard_grids::StandardGrid;
+    /// use nalgebra::Point2;
+    /// use core_pb::grid::standard_grid::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
-    /// assert_eq!(grid.coords_to_node(&IntLocation::new(1, 1)), Some(0));
-    /// assert_eq!(grid.coords_to_node(&IntLocation::new(0, 0)), None);
+    /// assert_eq!(grid.coords_to_node(&Point2::new(1, 1)), Some(0));
+    /// assert_eq!(grid.coords_to_node(&Point2::new(0, 0)), None);
     /// ```
     pub fn coords_to_node(&self, p: &Point2<i8>) -> Option<usize> {
         self.coords_to_node.get(p).copied()
@@ -363,11 +347,11 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::{ComputedGrid, IntLocation};
-    /// use mdrc_pacbot_util::grid::standard_grids::StandardGrid;
+    /// use nalgebra::Point2;
+    /// use core_pb::grid::standard_grid::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
-    /// assert_eq!(grid.valid_actions(IntLocation::new(1, 1)), Some([true, false, false, false, false]));
+    /// assert_eq!(grid.valid_actions(Point2::new(1, 1)), Some([true, false, false, false, false]));
     /// ```
     pub fn valid_actions(&self, p: Point2<i8>) -> Option<[bool; 5]> {
         let node_index = self.coords_to_node.get(&p)?;
@@ -379,16 +363,16 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::{ComputedGrid, IntLocation};
-    /// use mdrc_pacbot_util::grid::standard_grids::StandardGrid;
+    /// use nalgebra::Point2;
+    /// use core_pb::grid::standard_grid::StandardGrid;
     ///
     /// let grid = StandardGrid::Blank.compute_grid();
-    /// assert_eq!(grid.wall_at(&IntLocation::new(0, 0)), true);
-    /// assert_eq!(grid.wall_at(&IntLocation::new(1, 1)), false);
-    /// assert_eq!(grid.wall_at(&IntLocation::new(32, 32)), true);
+    /// assert_eq!(grid.wall_at(&Point2::new(0, 0)), true);
+    /// assert_eq!(grid.wall_at(&Point2::new(1, 1)), false);
+    /// assert_eq!(grid.wall_at(&Point2::new(32, 32)), true);
     /// ```
     pub fn wall_at(&self, p: &Point2<i8>) -> bool {
-        if p.x >= GRID_ROWS as i8 || p.y >= GRID_COLS as i8 || p.x < 0 || p.y < 0 {
+        if p.x >= GRID_SIZE as i8 || p.y >= GRID_SIZE as i8 || p.x < 0 || p.y < 0 {
             true
         } else {
             self.grid[p.x as usize][p.y as usize]
@@ -400,12 +384,12 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::{ComputedGrid, IntLocation};
-    /// use mdrc_pacbot_util::grid::standard_grids::StandardGrid;
+    /// use nalgebra::Point2;
+    /// use core_pb::grid::standard_grid::StandardGrid;
     ///
     /// let grid = StandardGrid::Pacman.compute_grid();
-    /// assert_eq!(grid.dist(&IntLocation::new(1, 1), &IntLocation::new(1, 1)), Some(0));
-    /// assert_eq!(grid.dist(&IntLocation::new(1, 1), &IntLocation::new(1, 2)), Some(1));
+    /// assert_eq!(grid.dist(&Point2::new(1, 1), &Point2::new(1, 1)), Some(0));
+    /// assert_eq!(grid.dist(&Point2::new(1, 1), &Point2::new(1, 2)), Some(1));
     /// ```
     pub fn dist(&self, p1: &Point2<i8>, p2: &Point2<i8>) -> Option<u8> {
         let p1 = self.coords_to_node.get(p1)?;
@@ -418,12 +402,12 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::{ComputedGrid, IntLocation};
-    /// use mdrc_pacbot_util::grid::standard_grids::StandardGrid;
+    /// use nalgebra::Point2;
+    /// use core_pb::grid::standard_grid::StandardGrid;
     ///
     /// let grid = StandardGrid::Pacman.compute_grid();
-    /// assert!(grid.neighbors(&IntLocation::new(1, 1)).contains(&IntLocation::new(1, 2)));
-    /// assert!(grid.neighbors(&IntLocation::new(1, 1)).contains(&IntLocation::new(2, 1)));
+    /// assert!(grid.neighbors(&Point2::new(1, 1)).contains(&Point2::new(1, 2)));
+    /// assert!(grid.neighbors(&Point2::new(1, 1)).contains(&Point2::new(2, 1)));
     /// ```
     pub fn neighbors(&self, p: &Point2<i8>) -> Vec<Point2<i8>> {
         let mut neighbors = vec![];
@@ -447,8 +431,7 @@ impl ComputedGrid {
     /// # Examples
     ///
     /// ```
-    /// use mdrc_pacbot_util::grid::ComputedGrid;
-    /// use mdrc_pacbot_util::grid::standard_grids::StandardGrid;
+    /// use core_pb::grid::standard_grid::StandardGrid;
     ///
     /// let grid = StandardGrid::Pacman.compute_grid();
     /// let walls = grid.walls();
@@ -506,7 +489,7 @@ impl ComputedGrid {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::grid::standard_grids::*;
+    use crate::grid::standard_grid::*;
 
     #[test]
     fn valid_preset_grids() {
@@ -527,7 +510,7 @@ mod tests {
     #[test]
     fn validation_invalid_bottom_wall() {
         let mut grid = GRID_BLANK;
-        grid[GRID_ROWS - 1][1] = false;
+        grid[GRID_SIZE - 1][1] = false;
 
         let v = validate_grid(&grid);
         assert!(v.is_err());
@@ -566,7 +549,7 @@ mod tests {
     #[test]
     fn validation_invalid_right_wall() {
         let mut grid = GRID_BLANK;
-        grid[1][GRID_COLS - 1] = false;
+        grid[1][GRID_SIZE - 1] = false;
 
         let v = validate_grid(&grid);
         assert!(v.is_err());
@@ -699,8 +682,8 @@ mod tests {
     #[test]
     fn grid_at_oob() {
         let grid = StandardGrid::Blank.compute_grid();
-        assert_eq!(grid.wall_at(&Point2::new(0, GRID_ROWS as i8)), true);
-        assert_eq!(grid.wall_at(&Point2::new(GRID_COLS as i8, 0)), true);
+        assert_eq!(grid.wall_at(&Point2::new(0, GRID_SIZE as i8)), true);
+        assert_eq!(grid.wall_at(&Point2::new(GRID_SIZE as i8, 0)), true);
     }
 }
 

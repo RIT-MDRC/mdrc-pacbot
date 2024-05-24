@@ -1,0 +1,14 @@
+[package]
+name = "core_pb"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["std"]
+std = ["pacbot-rs/std", "nalgebra/std", "serde/std", "ordered-float/std"]
+
+[dependencies]
+nalgebra = { version = "0.32.5", default-features = false, features = ["serde", "serde-serialize"] }
+ordered-float = { version = "4.2.0", default-features = false }
+pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "ce1abfc20a895ab15d04e8e6262c4f7d2bc04df3", default-features = false }
+serde = { version = "1.0.201", default-features = false, features = ["derive"] }

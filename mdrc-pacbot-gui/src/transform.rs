@@ -1,7 +1,7 @@
 //! Transforms between coordinate systems (such as grid/logical <=> screen pixels).
 
+use core_pb::grid::computed_grid::Wall;
 use eframe::egui::Pos2;
-use mdrc_pacbot_server::grid::Wall;
 use nalgebra::Point2;
 
 /// A 2D transform consisting of per-axis scale and translation.

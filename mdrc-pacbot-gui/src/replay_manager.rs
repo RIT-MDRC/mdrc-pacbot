@@ -1,7 +1,7 @@
 use crate::replay::Replay;
-use mdrc_pacbot_server::grid::standard_grids::StandardGrid;
+use core_pb::grid::standard_grid::StandardGrid;
+use core_pb::pacbot_rs::game_state::GameState;
 use nalgebra::Isometry2;
-use pacbot_rs::game_state::GameState;
 use std::time::SystemTime;
 
 /// The public interface for recording and replaying GUI data

@@ -2,7 +2,7 @@
 
 resolver = "2"
 
-members = [
+members = [ "core_pb",
     "mdrc-pacbot-gui",
     "mdrc-pacbot-server",
     "mdrc-pacbot-simulation",

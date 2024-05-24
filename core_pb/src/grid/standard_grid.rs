@@ -1,30 +1,20 @@
-//! A set of pre-made general purpose grids
-
-use std::f32::consts::PI;
+use crate::grid::computed_grid::ComputedGrid;
+use crate::grid::Grid;
 use nalgebra::{Isometry2, Point2, Vector2};
 use pacbot_rs::variables::PACMAN_SPAWN_LOC;
 use serde::{Deserialize, Serialize};
-use crate::grid::{ComputedGrid, Grid};
+use std::f32::consts::PI;
 
-/// An enum to support egui grid selection
-#[derive(Debug, Clone, Copy, PartialOrd, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, PartialOrd, PartialEq, Ord, Eq, Serialize, Deserialize)]
 pub enum StandardGrid {
-    /// The official Pacbot [`Grid`]
+    #[default]
     Pacman,
-    /// A [`Grid`] with many smaller paths to practice maneuvering
     Playground,
-    /// A [`Grid`] where the outermost path is empty
-    Outer,
-    /// A (mostly) blank [`Grid`] - (1, 1) is walkable
     Blank,
+    Outer,
 }
 
-impl Default for StandardGrid {
-    fn default() -> Self {
-        Self::Pacman
-    }
-}
-
+#[allow(dead_code)]
 impl StandardGrid {
     /// Get a list of all available grids
     pub fn get_all() -> Vec<Self> {
@@ -49,7 +39,10 @@ impl StandardGrid {
     /// Get the default Pacbot [`Isometry2`] associated with this enum
     pub fn get_default_pacbot_isometry(&self) -> Isometry2<f32> {
         match self {
-            StandardGrid::Pacman => Isometry2::new(Vector2::new(PACMAN_SPAWN_LOC.row as f32, PACMAN_SPAWN_LOC.col as f32), PI / 2.0),
+            StandardGrid::Pacman => Isometry2::new(
+                Vector2::new(PACMAN_SPAWN_LOC.row as f32, PACMAN_SPAWN_LOC.col as f32),
+                PI / 2.0,
+            ),
             StandardGrid::Playground => Isometry2::new(Vector2::new(1.0, 1.0), 0.0),
             StandardGrid::Outer => Isometry2::new(Vector2::new(1.0, 1.0), 0.0),
             StandardGrid::Blank => Isometry2::new(Vector2::new(1.0, 1.0), 0.0),
@@ -60,7 +53,7 @@ impl StandardGrid {
     pub fn get_soft_boundaries(&self) -> (Point2<f32>, Point2<f32>) {
         match self {
             Self::Pacman => (Point2::new(-1.0, -1.0), Point2::new(31.0, 28.0)),
-            _ => (Point2::new(-1.0, -1.0), Point2::new(32.0, 32.0))
+            _ => (Point2::new(-1.0, -1.0), Point2::new(32.0, 32.0)),
         }
     }
 
@@ -71,7 +64,7 @@ impl StandardGrid {
                 (Point2::new(-1.0, 28.0), Point2::new(32.1, 32.1)),
                 (Point2::new(31.0, -1.0), Point2::new(32.1, 32.1)),
             ],
-            _ => vec![]
+            _ => vec![],
         }
     }
 }
@@ -84,12 +77,14 @@ const O: bool = false;
 /// Out-of-bounds areas are replaced with walls to adhere to ComputedGrid rules
 ///
 /// ```
-/// use mdrc_pacbot_util::grid::standard_grids::GRID_PACMAN;
-/// use mdrc_pacbot_util::grid::{ComputedGrid, Grid};
+/// use core_pb::grid::standard_grid::GRID_PACMAN;
+/// use core_pb::grid::Grid;
+/// use core_pb::grid::computed_grid::ComputedGrid;
 ///
 /// let grid: Grid = GRID_PACMAN;
 /// let computed_grid: ComputedGrid = grid.try_into().unwrap();
 /// ```
+#[rustfmt::skip]
 pub const GRID_PACMAN: Grid = [
 //  bottom left of pacman board                                           // top left of pacman board
     [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W], // 0
@@ -131,12 +126,14 @@ pub const GRID_PACMAN: Grid = [
 /// A (mostly) blank [`Grid`] - (1, 1) is walkable
 ///
 /// ```
-/// use mdrc_pacbot_util::grid::standard_grids::GRID_BLANK;
-/// use mdrc_pacbot_util::grid::{ComputedGrid, Grid};
+/// use core_pb::grid::standard_grid::GRID_BLANK;
+/// use core_pb::grid::Grid;
+/// use core_pb::grid::computed_grid::ComputedGrid;
 ///
 /// let grid: Grid = GRID_BLANK;
 /// let computed_grid: ComputedGrid = grid.try_into().unwrap();
 /// ```
+#[rustfmt::skip]
 pub const GRID_BLANK: Grid = [
     [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
     [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
@@ -175,12 +172,14 @@ pub const GRID_BLANK: Grid = [
 /// A [`Grid`] where the outermost path is empty
 ///
 /// ```
-/// use mdrc_pacbot_util::grid::standard_grids::GRID_OUTER;
-/// use mdrc_pacbot_util::grid::{ComputedGrid, Grid};
+/// use core_pb::grid::standard_grid::GRID_OUTER;
+/// use core_pb::grid::Grid;
+/// use core_pb::grid::computed_grid::ComputedGrid;
 ///
 /// let grid: Grid = GRID_OUTER;
 /// let computed_grid: ComputedGrid = grid.try_into().unwrap();
 /// ```
+#[rustfmt::skip]
 pub const GRID_OUTER: Grid = [
     [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
     [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
@@ -219,12 +218,14 @@ pub const GRID_OUTER: Grid = [
 /// A [`Grid`] with many smaller paths to practice maneuvering
 ///
 /// ```
-/// use mdrc_pacbot_util::grid::standard_grids::GRID_PLAYGROUND;
-/// use mdrc_pacbot_util::grid::{ComputedGrid, Grid};
+/// use core_pb::grid::standard_grid::GRID_PLAYGROUND;
+/// use core_pb::grid::Grid;
+/// use core_pb::grid::computed_grid::ComputedGrid;
 ///
 /// let grid: Grid = GRID_PLAYGROUND;
 /// let computed_grid: ComputedGrid = grid.try_into().unwrap();
 /// ```
+#[rustfmt::skip]
 pub const GRID_PLAYGROUND: Grid = [
     [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
     [W, O, W, W, W, O, O, O, O, O, O, O, O, W, W, W, W, W, W, W, W, O, O, O, O, O, O, O, O, O, O, W],

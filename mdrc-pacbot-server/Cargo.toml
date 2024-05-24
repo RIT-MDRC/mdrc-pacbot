@@ -5,21 +5,13 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[[bin]]
-name = "main"
-path = "src/main.rs"
-
-[lib]
-name = "mdrc_pacbot_server"
-path = "src/lib.rs"
-
 [dependencies]
+core_pb = { path = "../core_pb" }
 nalgebra = { version = "0.32.5", features = ["serde", "serde-serialize"] }
 num_enum = "0.7.2"
 ordered-float = "4.2.0"
 serde = { version = "1.0.198", features = ["derive", "std"] }
 tungstenite = "0.21.0"
-pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "0cbbb4028f5d9b8a5e9aa3d5d637e9b7680a304e" }
 candle-core = { git = "https://github.com/huggingface/candle.git", version = "0.5.0" }
 candle-nn = { git = "https://github.com/huggingface/candle.git", version = "0.5.0" }
 ndarray = "0.15.6"

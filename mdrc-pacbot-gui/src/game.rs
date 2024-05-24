@@ -40,10 +40,10 @@ pub fn draw_game(app: &mut AppData, painter: &Painter) {
             wts.map_point(Pos2::new(ghost.loc.row as f32, ghost.loc.col as f32)),
             wts.map_dist(0.45),
             match ghost.color {
-                pacbot_rs::ghost_state::RED => GHOST_RED_COLOR,
-                pacbot_rs::ghost_state::PINK => GHOST_PINK_COLOR,
-                pacbot_rs::ghost_state::ORANGE => GHOST_ORANGE_COLOR,
-                pacbot_rs::ghost_state::CYAN => GHOST_BLUE_COLOR,
+                core_pb::pacbot_rs::ghost_state::RED => GHOST_RED_COLOR,
+                core_pb::pacbot_rs::ghost_state::PINK => GHOST_PINK_COLOR,
+                core_pb::pacbot_rs::ghost_state::ORANGE => GHOST_ORANGE_COLOR,
+                core_pb::pacbot_rs::ghost_state::CYAN => GHOST_BLUE_COLOR,
                 _ => panic!("Invalid ghost color!"),
             },
         );

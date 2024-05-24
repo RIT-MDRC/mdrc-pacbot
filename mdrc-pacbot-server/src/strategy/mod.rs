@@ -2,21 +2,19 @@ mod forward;
 mod manual;
 mod uniform;
 
-use crate::messages::settings::StrategyChoice;
 use crate::strategy::manual::{ManualStrategy, StopStrategy};
 use crate::strategy::uniform::UniformStrategy;
 use crate::App;
+use core_pb::messages::settings::StrategyChoice;
 use nalgebra::{Point2, Rotation2, Vector2};
 
-impl StrategyChoice {
-    pub fn create(&self) -> Box<dyn Strategy> {
-        match self {
-            StrategyChoice::Stop => Box::new(StopStrategy::default()),
-            StrategyChoice::Manual => Box::new(ManualStrategy::default()),
-            StrategyChoice::ReinforcementLearning(_) => todo!(),
-            StrategyChoice::TestUniform => Box::new(UniformStrategy::default()),
-            StrategyChoice::TestForward => todo!(),
-        }
+pub fn create_strategy(choice: &StrategyChoice) -> Box<dyn Strategy> {
+    match choice {
+        StrategyChoice::Stop => Box::new(StopStrategy::default()),
+        StrategyChoice::Manual => Box::new(ManualStrategy::default()),
+        StrategyChoice::ReinforcementLearning(_) => todo!(),
+        StrategyChoice::TestUniform => Box::new(UniformStrategy::default()),
+        StrategyChoice::TestForward => todo!(),
     }
 }
 

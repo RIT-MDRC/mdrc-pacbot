@@ -6,12 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+core_pb = { path = "../core_pb" }
 eframe = "0.27.2"
 egui-phosphor = "0.5.0"
 egui_dock = "0.12.0"
-pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "0cbbb4028f5d9b8a5e9aa3d5d637e9b7680a304e" }
-mdrc-pacbot-server = { path = "../mdrc-pacbot-server" }
-mdrc-pacbot-simulation = { path = "../mdrc-pacbot-simulation" }
 anyhow = "1.0.82"
 serde = { version = "1.0.199", features = ["derive"] }
 tungstenite = "0.21.0"

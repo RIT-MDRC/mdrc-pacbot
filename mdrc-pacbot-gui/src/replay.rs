@@ -1,9 +1,9 @@
 //! A utility for recording over time
 
 use anyhow::{anyhow, Error};
-use mdrc_pacbot_server::grid::standard_grids::StandardGrid;
+use core_pb::grid::standard_grid::StandardGrid;
+use core_pb::pacbot_rs::game_state::GameState;
 use nalgebra::Isometry2;
-use pacbot_rs::game_state::GameState;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
 

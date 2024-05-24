@@ -1,7 +1,7 @@
 use crate::AppData;
+use core_pb::messages::settings::StrategyChoice;
 use eframe::egui;
 use eframe::egui::{Align, Layout, Ui, WidgetText};
-use mdrc_pacbot_server::messages::settings::StrategyChoice;
 use regex::Regex;
 use std::collections::HashMap;
 use std::fmt::Debug;

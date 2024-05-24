@@ -1,11 +1,9 @@
-use crate::grid::ComputedGrid;
-use crate::messages::settings::PacbotSettings;
 use crate::network::{reconnect_sockets, Sockets};
+use core_pb::grid::computed_grid::ComputedGrid;
+use core_pb::messages::settings::PacbotSettings;
+use core_pb::pacbot_rs::game_state::GameState;
 use nalgebra::{Isometry2, Point2, Rotation2, Vector2};
-use pacbot_rs::game_state::GameState;
 
-pub mod grid;
-pub mod messages;
 mod navigation;
 pub mod network;
 pub mod strategy;
