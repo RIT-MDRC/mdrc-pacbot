@@ -1,7 +1,7 @@
 use crate::AppData;
 use core_pb::messages::settings::StrategyChoice;
 use eframe::egui;
-use eframe::egui::{Align, Layout, Ui, WidgetText};
+use eframe::egui::{Align, Id, Layout, Ui, WidgetText};
 use regex::Regex;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -9,24 +9,24 @@ use std::str::FromStr;
 
 fn validated<T: PartialEq>(
     ui: &mut Ui,
-    fields: &mut HashMap<String, (String, String)>,
+    fields: &mut HashMap<Id, (String, String)>,
     value: &mut T,
     text: impl Into<WidgetText>,
     validation: fn(&str) -> Option<T>,
     to_str: fn(&T) -> String,
 ) {
     let text = text.into();
-    let text_str = text.text().to_string();
-
-    // if this is the first time seeing this field, set its string to the given value
-    if !fields.contains_key(&text_str) {
-        let str = to_str(value);
-        fields.insert(text_str.clone(), (str.clone(), str));
-    }
-    let (last_typed, last_valid) = fields.get_mut(&text_str).unwrap();
 
     ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-        ui.label(text);
+        let id = ui.label(text).id;
+
+        // if this is the first time seeing this field, set its string to the given value
+        if !fields.contains_key(&id) {
+            let str = to_str(value);
+            fields.insert(id, (str.clone(), str));
+        }
+        let (last_typed, last_valid) = fields.get_mut(&id).unwrap();
+
         let field = ui.text_edit_singleline(last_typed);
         if let Some(t) = validation(last_typed.to_string().as_str()) {
             *last_valid = last_typed.to_string();
@@ -48,7 +48,7 @@ fn validated<T: PartialEq>(
 
 fn num<T: FromStr + ToString + PartialEq>(
     ui: &mut Ui,
-    fields: &mut HashMap<String, (String, String)>,
+    fields: &mut HashMap<Id, (String, String)>,
     value: &mut T,
     text: impl Into<WidgetText>,
 ) {
@@ -57,7 +57,7 @@ fn num<T: FromStr + ToString + PartialEq>(
 
 fn ip(
     ui: &mut Ui,
-    fields: &mut HashMap<String, (String, String)>,
+    fields: &mut HashMap<Id, (String, String)>,
     value: &mut String,
     text: impl Into<WidgetText>,
 ) {
@@ -111,6 +111,13 @@ pub fn draw_settings(app: &mut AppData, ui: &mut Ui) {
 
             ui.checkbox(&mut app.rotated_grid, "Rotated grid");
             ui.end_row();
+            ui.label("");
+            ui.end_row();
+
+            ui.checkbox(&mut app.settings.game_server.connect, "Game server");
+            ui.end_row();
+            ip(ui, &mut fields, &mut app.settings.game_server.ip, "IP");
+            println!("{}", app.settings.game_server.ip);
             ui.label("");
             ui.end_row();
 
