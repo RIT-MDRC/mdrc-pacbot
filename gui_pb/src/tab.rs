@@ -2,6 +2,7 @@ use crate::game::{draw_game, draw_grid};
 use crate::settings::draw_settings;
 use crate::transform::Transform;
 use crate::AppData;
+use core_pb::grid::standard_grid::StandardGrid;
 use eframe::egui::{Pos2, RichText, Ui, WidgetText};
 use egui_dock::TabViewer;
 
@@ -61,7 +62,9 @@ impl TabViewer for AppData {
 
                 let painter = ui.painter_at(rect);
                 draw_grid(self, &painter);
-                draw_game(self, &painter);
+                if self.settings.grid == StandardGrid::Pacman {
+                    draw_game(self, &painter);
+                }
             }
             Tab::Settings => draw_settings(self, ui),
             _ => {

@@ -99,6 +99,7 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.data.pointer_pos = ctx.pointer_latest_pos();
         self.data.background_color = ctx.style().visuals.panel_fill;
+        self.data.grid = self.data.settings.grid.compute_grid();
         self.update_keybindings(ctx);
 
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
