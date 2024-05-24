@@ -58,8 +58,9 @@ impl Default for PicoSettings {
 /// Game server network options
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct GameServerSettings {
+    pub connect: bool,
     /// IP address of the game server, if it should be connected
-    pub ip: Option<String>,
+    pub ip: String,
     /// Websocket port the game server is listening on
     pub ws_port: u16,
 }
@@ -67,7 +68,8 @@ pub struct GameServerSettings {
 impl Default for GameServerSettings {
     fn default() -> Self {
         Self {
-            ip: None,
+            connect: false,
+            ip: "192.168.0.100:12345".to_string(),
             ws_port: 3002,
         }
     }

@@ -18,7 +18,7 @@ use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::settings::PacbotSettings;
 use core_pb::pacbot_rs::game_state::GameState;
 use eframe::egui;
-use eframe::egui::{Align, Color32, Pos2};
+use eframe::egui::{Align, Color32, Id, Pos2};
 use egui_dock::{DockArea, DockState, NodeIndex, Style};
 use native_dialog::FileDialog;
 use std::collections::HashMap;
@@ -50,7 +50,7 @@ pub struct AppData {
     settings: PacbotSettings,
 
     rotated_grid: bool,
-    settings_fields: Option<HashMap<String, (String, String)>>,
+    settings_fields: Option<HashMap<Id, (String, String)>>,
 }
 
 impl App {
