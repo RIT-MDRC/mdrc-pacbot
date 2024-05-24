@@ -1786,6 +1786,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "gui_pb"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "core_pb",
+ "eframe",
+ "egui-phosphor",
+ "egui_dock",
+ "nalgebra",
+ "native-dialog",
+ "regex",
+ "serde",
+ "tungstenite",
+]
+
+[[package]]
 name = "half"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2114,53 +2131,6 @@ checksum = "7574c1cf36da4798ab73da5b215bbf444f50718207754cb522201d78d1cd0ff2"
 dependencies = [
  "autocfg",
  "rawpointer",
-]
-
-[[package]]
-name = "mdrc-pacbot-gui"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode",
- "core_pb",
- "eframe",
- "egui-phosphor",
- "egui_dock",
- "nalgebra",
- "native-dialog",
- "regex",
- "serde",
- "tungstenite",
-]
-
-[[package]]
-name = "mdrc-pacbot-server"
-version = "0.1.0"
-dependencies = [
- "array-init",
- "candle-core",
- "candle-nn",
- "core_pb",
- "nalgebra",
- "ndarray",
- "num-traits",
- "num_enum",
- "ordered-float",
- "rand",
- "rand_distr",
- "rayon",
- "serde",
- "tungstenite",
-]
-
-[[package]]
-name = "mdrc-pacbot-simulation"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "pacbot-rs 0.1.0 (git+https://github.com/RIT-MDRC/pacbot-rs.git?rev=0cbbb4028f5d9b8a5e9aa3d5d637e9b7680a304e)",
- "serde",
- "tungstenite",
 ]
 
 [[package]]
@@ -3167,6 +3137,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "server_pb"
+version = "0.1.0"
+dependencies = [
+ "array-init",
+ "candle-core",
+ "candle-nn",
+ "core_pb",
+ "nalgebra",
+ "ndarray",
+ "num-traits",
+ "num_enum",
+ "ordered-float",
+ "rand",
+ "rand_distr",
+ "rayon",
+ "serde",
+ "tungstenite",
+]
+
+[[package]]
 name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3184,6 +3174,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a9e9e0b4211b72e7b8b6e85c807d36c212bdb33ea8587f7569562a84df5465b1"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "sim_pb"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "pacbot-rs 0.1.0 (git+https://github.com/RIT-MDRC/pacbot-rs.git?rev=0cbbb4028f5d9b8a5e9aa3d5d637e9b7680a304e)",
+ "serde",
+ "tungstenite",
 ]
 
 [[package]]

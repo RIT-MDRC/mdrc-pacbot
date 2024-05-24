@@ -1,5 +1,5 @@
 [package]
-name = "mdrc-pacbot-simulation"
+name = "sim_pb"
 version = "0.1.0"
 edition = "2021"
 

@@ -1,5 +1,5 @@
 [package]
-name = "mdrc-pacbot-server"
+name = "server_pb"
 version = "0.1.0"
 edition = "2021"
 
