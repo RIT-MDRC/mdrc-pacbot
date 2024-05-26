@@ -14,7 +14,7 @@ name = "mdrc_pacbot_simulation"
 path = "src/lib.rs"
 
 [dependencies]
+core_pb = { path = "../core_pb", features = ["std"] }
 serde = { version = "1.0.198", features = ["derive", "std"] }
 tungstenite = "0.21.0"
-pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "0cbbb4028f5d9b8a5e9aa3d5d637e9b7680a304e" }
 bincode = { version = "2.0.0-rc.3", features = ["serde"] }

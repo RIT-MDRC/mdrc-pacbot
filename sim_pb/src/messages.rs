@@ -1,4 +1,4 @@
-use pacbot_rs::game_state::GameState;
+use core_pb::pacbot_rs::game_state::GameState;
 use serde::{Deserialize, Serialize};
 
 pub const GAME_SERVER_MAGIC_NUMBER: [u8; 4] = [170, 115, 26, 153];
