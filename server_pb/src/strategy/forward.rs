@@ -17,12 +17,12 @@ impl Strategy for ForwardStrategy {
     fn run(&mut self, app: &App) -> StrategyResult {
         let mut rng = thread_rng();
         // are we there yet?
-        if self.path.first() == Some(&app.int_location) {
+        if self.path.first() == Some(&app.pacbot_int_location) {
             self.path.remove(0);
         }
         // invalidate current path if necessary
         if let Some(first) = self.path.first() {
-            if let Some(path) = app.grid.bfs_path(app.int_location, *first) {
+            if let Some(path) = app.grid.bfs_path(app.pacbot_int_location, *first) {
                 if path.len() != 1 {
                     self.path = vec![];
                 }
@@ -32,7 +32,11 @@ impl Strategy for ForwardStrategy {
         }
         // find first cell in path
         if self.path.is_empty() {
-            if let Some(neighbor) = app.grid.neighbors(&app.int_location).choose(&mut rng) {
+            if let Some(neighbor) = app
+                .grid
+                .neighbors(&app.pacbot_int_location)
+                .choose(&mut rng)
+            {
                 self.path.push(*neighbor)
             }
         }
@@ -42,7 +46,7 @@ impl Strategy for ForwardStrategy {
                 .grid
                 .neighbors(&self.path[0])
                 .iter()
-                .filter(|x| **x != app.int_location)
+                .filter(|x| **x != app.pacbot_int_location)
                 .choose(&mut rng)
             {
                 self.path.push(*neighbor)

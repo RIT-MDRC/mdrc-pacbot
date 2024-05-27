@@ -40,6 +40,7 @@ pub struct App {
     dock_state: DockState<Tab>,
     data: AppData,
 }
+
 pub struct AppData {
     game: GameState,
     grid: ComputedGrid,
@@ -102,6 +103,13 @@ impl eframe::App for App {
         self.data.grid = self.data.settings.grid.compute_grid();
         self.update_keybindings(ctx);
 
+        self.draw_layout(ctx);
+    }
+}
+
+impl App {
+    /// Draw the main outer layout
+    pub fn draw_layout(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(egui::Layout::left_to_right(Align::Center), |ui| {
@@ -148,9 +156,7 @@ impl eframe::App for App {
             .style(Style::from_egui(ctx.style().as_ref()))
             .show(ctx, &mut self.data)
     }
-}
 
-impl App {
     /// Save the current replay to file
     pub fn save_replay(&self) -> Result<(), Error> {
         let path = FileDialog::new()

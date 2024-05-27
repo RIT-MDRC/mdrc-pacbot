@@ -20,3 +20,4 @@ rayon = "1.10.0"
 rand_distr = "0.4.3"
 num-traits = "0.2.18"
 array-init = "2.1.0"
+bincode = { version = "2.0.0-rc.3", features = ["serde"] }

@@ -1,3 +1,4 @@
+use crate::constants::GAME_SERVER_PORT;
 use crate::grid::standard_grid::StandardGrid;
 use serde::{Deserialize, Serialize};
 
@@ -58,9 +59,12 @@ impl Default for PicoSettings {
 /// Game server network options
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct GameServerSettings {
+    /// Launch a fake game server as a child process
+    pub simulate: bool,
+    /// Whether the app should try to connect/reconnect to the game server
     pub connect: bool,
     /// IP address of the game server, if it should be connected
-    pub ip: String,
+    pub ipv4: [u8; 4],
     /// Websocket port the game server is listening on
     pub ws_port: u16,
 }
@@ -68,9 +72,10 @@ pub struct GameServerSettings {
 impl Default for GameServerSettings {
     fn default() -> Self {
         Self {
-            connect: false,
-            ip: "192.168.0.100:12345".to_string(),
-            ws_port: 3002,
+            simulate: true,
+            connect: true,
+            ipv4: [127, 0, 0, 1],
+            ws_port: GAME_SERVER_PORT,
         }
     }
 }

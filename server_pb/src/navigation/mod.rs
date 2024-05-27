@@ -56,10 +56,10 @@ fn default_navigator(app: &App, target: &StrategyResult) -> StrategyResult {
     match target {
         StrategyResult::Cell(c) => StrategyResult::Location(Point2::new(c.x as f32, c.y as f32)),
         StrategyResult::Location(p) => {
-            if let Some(start) = app
-                .grid
-                .node_nearest(app.location.translation.x, app.location.translation.y)
-            {
+            if let Some(start) = app.grid.node_nearest(
+                app.pacbot_location.translation.x,
+                app.pacbot_location.translation.y,
+            ) {
                 if let Some(end) = app.grid.node_nearest(p.x, p.y) {
                     if let Some(path) = app.grid.bfs_path(start, end) {
                         let mut path: Vec<_> = path

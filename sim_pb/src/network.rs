@@ -1,4 +1,5 @@
-use crate::messages::{GameServerCommand, GAME_SERVER_MAGIC_NUMBER};
+use core_pb::constants::GAME_SERVER_PORT;
+use core_pb::messages::{GameServerCommand, GAME_SERVER_MAGIC_NUMBER};
 use core_pb::pacbot_rs::game_state::GameState;
 use core_pb::pacbot_rs::location::{LocationState, DOWN, LEFT, RIGHT, UP};
 use std::io;
@@ -6,7 +7,6 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::time::{Duration, Instant};
 use tungstenite::{accept, Message, WebSocket};
 
-pub const GAME_SERVER_PORT: u16 = 3002;
 pub const GAME_FPS: f32 = 24.0;
 
 pub struct PacbotSimulation {

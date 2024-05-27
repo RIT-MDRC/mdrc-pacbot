@@ -17,7 +17,7 @@ impl Strategy for UniformStrategy {
     fn run(&mut self, app: &App) -> StrategyResult {
         if let Some(current_target) = self.current_target {
             // are we there yet?
-            if current_target == app.int_location {
+            if current_target == app.pacbot_int_location {
                 self.current_target = None;
             }
         }
@@ -30,7 +30,7 @@ impl Strategy for UniformStrategy {
                 .grid
                 .walkable_nodes()
                 .iter()
-                .filter(|p| app.grid.bfs_path(app.int_location, **p).is_some())
+                .filter(|p| app.grid.bfs_path(app.pacbot_int_location, **p).is_some())
                 .collect();
             if let Some(target) = potential_targets.choose(&mut thread_rng()) {
                 self.current_target = Some(**target);

@@ -1,7 +1,6 @@
 use crate::network::PacbotSimulation;
 use std::thread::sleep;
 
-mod messages;
 mod network;
 
 fn main() {
