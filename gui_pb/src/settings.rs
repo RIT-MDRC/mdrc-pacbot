@@ -79,6 +79,36 @@ fn ip(
     )
 }
 
+fn ipv4(
+    ui: &mut Ui,
+    fields: &mut HashMap<Id, (String, String)>,
+    value: &mut [u8; 4],
+    text: impl Into<WidgetText>,
+) {
+    validated(
+        ui,
+        fields,
+        value,
+        text,
+        |x| {
+            // should be like xxx.xxx.xxx.xxx
+            let re = Regex::new(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$").unwrap();
+            if re.is_match(x) {
+                let mut arr = [0; 4];
+                let mut i = 0;
+                for s in x.split('.') {
+                    arr[i] = s.parse().unwrap();
+                    i += 1;
+                }
+                Some(arr)
+            } else {
+                None
+            }
+        },
+        |x| format!("{}.{}.{}.{}", x[0], x[1], x[2], x[3]),
+    )
+}
+
 fn dropdown<T: Debug + PartialEq + Clone>(
     ui: &mut Ui,
     id: &str,
@@ -116,7 +146,13 @@ pub fn draw_settings(app: &mut AppData, ui: &mut Ui) {
 
             ui.checkbox(&mut app.settings.game_server.connect, "Game server");
             ui.end_row();
-            ip(ui, &mut fields, &mut app.settings.game_server.ip, "IP");
+            ipv4(ui, &mut fields, &mut app.settings.game_server.ipv4, "IP");
+            num(
+                ui,
+                &mut fields,
+                &mut app.settings.game_server.ws_port,
+                "Port",
+            );
             ui.label("");
             ui.end_row();
 
