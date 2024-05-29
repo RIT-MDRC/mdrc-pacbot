@@ -1,6 +1,6 @@
 //! Based on https://github.com/sparkfun/Qwiic_VL53L1X_Py/blob/master/qwiic_vl53l1x.py
 
-use crate::i2c::{read_u16, read_u8, write_u16, write_u8};
+use crate::i2c::{read_u16, read_u32, read_u8, write_u16, write_u32, write_u8};
 use constants::*;
 use embassy_time::Timer;
 use embedded_hal_async::i2c::I2c;
@@ -11,6 +11,10 @@ pub enum VL53L1XError<T: I2c> {
     WrongFactoryId,
     InvalidTimingBudget(u16),
     InvalidDistanceMode(u8),
+    SigmaFailed,
+    SignalFailed,
+    WrapAround,
+    OtherSensorError(u8),
 }
 
 #[allow(dead_code)]
@@ -383,19 +387,19 @@ impl VL53L1X {
         timing_budget: u16,
     ) -> Result<(), VL53L1XError<T>> {
         let (a, b) = match (self.get_distance_mode(i2c).await?, timing_budget) {
-            (1, 15) => (0x01D, 0x0027),
-            (1, 20) => (0x0051, 0x006E),
-            (1, 33) => (0x00D6, 0x006E),
-            (1, 50) => (0x1AE, 0x01E8),
-            (1, 100) => (0x02E1, 0x0388),
-            (1, 200) => (0x03E1, 0x0496),
-            (1, 500) => (0x0591, 0x05C1),
-            (2, 20) => (0x001E, 0x0022),
-            (2, 33) => (0x0060, 0x006E),
-            (2, 50) => (0x00AD, 0x00C6),
-            (2, 100) => (0x01CC, 0x01EA),
-            (2, 200) => (0x02D9, 0x02F8),
-            (2, 500) => (0x048F, 0x04A4),
+            (true, 15) => (0x01D, 0x0027),
+            (true, 20) => (0x0051, 0x006E),
+            (true, 33) => (0x00D6, 0x006E),
+            (true, 50) => (0x1AE, 0x01E8),
+            (true, 100) => (0x02E1, 0x0388),
+            (true, 200) => (0x03E1, 0x0496),
+            (true, 500) => (0x0591, 0x05C1),
+            (false, 20) => (0x001E, 0x0022),
+            (false, 33) => (0x0060, 0x006E),
+            (false, 50) => (0x00AD, 0x00C6),
+            (false, 100) => (0x01CC, 0x01EA),
+            (false, 200) => (0x02D9, 0x02F8),
+            (false, 500) => (0x048F, 0x04A4),
             (_, _) => return Err(VL53L1XError::InvalidTimingBudget(timing_budget)),
         };
         self.write_u16(i2c, RANGE_CONFIG__TIMEOUT_MACROP_A_HI, a)
@@ -404,29 +408,231 @@ impl VL53L1X {
             .await
     }
 
-    // todo next get_timing_budget_in_ms
+    /// This function returns the current timing budget in ms.
+    pub async fn get_timing_budget_in_ms<T: I2c>(
+        &mut self,
+        i2c: &mut T,
+    ) -> Result<u16, VL53L1XError<T>> {
+        let temp = self
+            .read_u16(i2c, RANGE_CONFIG__TIMEOUT_MACROP_A_HI)
+            .await?;
 
-    /// This function returns the current distance mode (1=short, 2=long).
+        match temp {
+            0x001D => Ok(15),
+            0x0051 => Ok(20),
+            0x001E => Ok(20),
+            0x00D6 => Ok(33),
+            0x0060 => Ok(33),
+            0x1AE => Ok(50),
+            0x00AD => Ok(50),
+            0x02E1 => Ok(100),
+            0x01CC => Ok(100),
+            0x03E1 => Ok(200),
+            0x02D9 => Ok(200),
+            0x0591 => Ok(500),
+            0x048F => Ok(500),
+            t => Err(VL53L1XError::InvalidTimingBudget(t)),
+        }
+    }
+
+    /// This function programs the distance mode (1=short, 2=long(default)).
     ///
     /// 1- Short mode max distance is limited to 1.3 m but better ambient immunity.
     /// 2- Long mode can range up to 4 m in the dark with 200 ms timing budget (**default**).
-    pub async fn get_distance_mode<T: I2c>(&mut self, i2c: &mut T) -> Result<u8, VL53L1XError<T>> {
+    pub async fn set_distance_mode<T: I2c>(
+        &mut self,
+        i2c: &mut T,
+        short_range: bool,
+    ) -> Result<(), VL53L1XError<T>> {
+        let timing_budget = self.get_timing_budget_in_ms(i2c).await?;
+
+        if short_range {
+            self.write_u8(i2c, PHASECAL_CONFIG__TIMEOUT_MACROP, 0x14)
+                .await?;
+            self.write_u8(i2c, RANGE_CONFIG__VCSEL_PERIOD_A, 0x07)
+                .await?;
+            self.write_u8(i2c, RANGE_CONFIG__VCSEL_PERIOD_B, 0x05)
+                .await?;
+            self.write_u8(i2c, RANGE_CONFIG__VALID_PHASE_HIGH, 0x38)
+                .await?;
+            self.write_u16(i2c, SD_CONFIG__WOI_SD0, 0x0705).await?;
+            self.write_u16(i2c, SD_CONFIG__INITIAL_PHASE_SD0, 0x0606)
+                .await?;
+        } else {
+            self.write_u8(i2c, PHASECAL_CONFIG__TIMEOUT_MACROP, 0x0A)
+                .await?;
+            self.write_u8(i2c, RANGE_CONFIG__VCSEL_PERIOD_A, 0x0F)
+                .await?;
+            self.write_u8(i2c, RANGE_CONFIG__VCSEL_PERIOD_B, 0x0D)
+                .await?;
+            self.write_u8(i2c, RANGE_CONFIG__VALID_PHASE_HIGH, 0xB8)
+                .await?;
+            self.write_u16(i2c, SD_CONFIG__WOI_SD0, 0x0F0D).await?;
+            self.write_u16(i2c, SD_CONFIG__INITIAL_PHASE_SD0, 0x0E0E)
+                .await?;
+        }
+
+        self.set_timing_budget_ms(i2c, timing_budget).await
+    }
+
+    /// This function returns the current distance mode (1=short, 2=long).
+    ///
+    /// true - Short mode max distance is limited to 1.3 m but better ambient immunity.
+    /// false - Long mode can range up to 4 m in the dark with 200 ms timing budget (**default**).
+    pub async fn get_distance_mode<T: I2c>(
+        &mut self,
+        i2c: &mut T,
+    ) -> Result<bool, VL53L1XError<T>> {
         match self.read_u8(i2c, PHASECAL_CONFIG__TIMEOUT_MACROP).await? {
-            0x14 => Ok(1),
-            0x0A => Ok(2),
+            0x14 => Ok(true),
+            0x0A => Ok(false),
             m => Err(VL53L1XError::InvalidDistanceMode(m)),
         }
     }
 
+    /// This function programs the Intermeasurement period in ms.
+    ///
+    /// Intermeasurement period must be >/= timing budget. This condition is not checked by the API,
+    /// the customer has the duty to check the condition. **Default = 100 ms**
+    pub async fn set_inter_measurement_in_ms<T: I2c>(
+        &mut self,
+        i2c: &mut T,
+        period: f32,
+    ) -> Result<(), VL53L1XError<T>> {
+        let clock_pll =
+            (self.read_u16(i2c, VL53L1_RESULT__OSC_CALIBRATE_VAL).await? & 0x3FF) as f32;
+
+        self.write_u32(
+            i2c,
+            VL53L1_SYSTEM__INTERMEASUREMENT_PERIOD,
+            u32::from((clock_pll * period * 1.075).floor()),
+        )
+    }
+
+    /// This function returns the Intermeasurement period in ms.
+    pub async fn get_inter_measurement_in_ms<T: I2c>(
+        &mut self,
+        i2c: &mut T,
+    ) -> Result<f32, VL53L1XError<T>> {
+        let tmp = self
+            .read_u32(i2c, VL53L1_SYSTEM__INTERMEASUREMENT_PERIOD)
+            .await? as f32;
+        let clock_pll = self.read_u16(i2c, VL53L1_RESULT__OSC_CALIBRATE_VAL).await? as f32;
+
+        Ok(tmp / (clock_pll * 1.065))
+    }
+
     /// This function returns the boot state of the device
-    pub async fn get_boot_state<T: I2c>(&mut self, i2c: &mut T) -> Result<bool, VL53L1XError<T>> {
+    pub async fn boot_state<T: I2c>(&mut self, i2c: &mut T) -> Result<bool, VL53L1XError<T>> {
         Ok(self.read_u8(i2c, VL53L1_FIRMWARE__SYSTEM_STATUS).await? != 0)
     }
+
+    /// This function returns the returned signal per SPAD in kcps/SPAD
+    /// (kcps stands for Kilo Count Per Second).
+    pub async fn get_signal_per_spad<T: I2c>(
+        &mut self,
+        i2c: &mut T,
+    ) -> Result<f32, VL53L1XError<T>> {
+        let signal = self
+            .read_u16(
+                i2c,
+                VL53L1_RESULT__PEAK_SIGNAL_COUNT_RATE_CROSSTALK_CORRECTED_MCPS_SD0,
+            )
+            .await? as f32;
+        let sp_nb = self
+            .read_u16(i2c, VL53L1_RESULT__DSS_ACTUAL_EFFECTIVE_SPADS_SD0)
+            .await? as f32;
+
+        Ok(2000.0 * signal / sp_nb)
+    }
+
+    /// This function returns the ambient per SPAD in kcps/SPAD
+    pub async fn get_ambient_per_spad<T: I2c>(
+        &mut self,
+        i2c: &mut T,
+    ) -> Result<f32, VL53L1XError<T>> {
+        let ambient_rate = self
+            .read_u16(i2c, RESULT__AMBIENT_COUNT_RATE_MCPS_SD)
+            .await? as f32;
+        let sp_nb = self
+            .read_u16(i2c, VL53L1_RESULT__DSS_ACTUAL_EFFECTIVE_SPADS_SD0)
+            .await? as f32;
+
+        Ok(2000.0 * ambient_rate / sp_nb)
+    }
+
+    /// This function returns the returned signal in kcps.
+    pub async fn get_signal_rate<T: I2c>(&mut self, i2c: &mut T) -> Result<u16, VL53L1XError<T>> {
+        let tmp = self
+            .read_u16(
+                i2c,
+                VL53L1_RESULT__PEAK_SIGNAL_COUNT_RATE_CROSSTALK_CORRECTED_MCPS_SD0,
+            )
+            .await?;
+
+        Ok(tmp * 8)
+    }
+
+    /// This function returns the current number of enabled SPADs
+    pub async fn get_spad_nb<T: I2c>(&mut self, i2c: &mut T) -> Result<u16, VL53L1XError<T>> {
+        let tmp = self
+            .read_u16(i2c, VL53L1_RESULT__DSS_ACTUAL_EFFECTIVE_SPADS_SD0)
+            .await?;
+
+        Ok(tmp >> 8)
+    }
+
+    /// This function returns the ambient rate in kcps
+    pub async fn get_ambient_rate<T: I2c>(&mut self, i2c: &mut T) -> Result<u16, VL53L1XError<T>> {
+        let tmp = self
+            .read_u16(i2c, RESULT__AMBIENT_COUNT_RATE_MCPS_SD)
+            .await?;
+
+        Ok(tmp * 8)
+    }
+
+    /// This function returns the ranging status error
+    async fn get_range_status<T: I2c>(&mut self, i2c: &mut T) -> Result<(), VL53L1XError<T>> {
+        let rg_st = self.read_u8(i2c, VL53L1_RESULT__RANGE_STATUS).await? & 0x1F;
+
+        match rg_st {
+            9 => Ok(()),
+            6 => Err(VL53L1XError::SigmaFailed),
+            4 => Err(VL53L1XError::SignalFailed),
+            8 => Err(VL53L1XError::OtherSensorError(3)),
+            5 => Err(VL53L1XError::OtherSensorError(4)),
+            3 => Err(VL53L1XError::OtherSensorError(5)),
+            19 => Err(VL53L1XError::OtherSensorError(6)),
+            7 => Err(VL53L1XError::WrapAround),
+            12 => Err(VL53L1XError::OtherSensorError(9)),
+            18 => Err(VL53L1XError::OtherSensorError(10)),
+            22 => Err(VL53L1XError::OtherSensorError(11)),
+            23 => Err(VL53L1XError::OtherSensorError(12)),
+            13 => Err(VL53L1XError::OtherSensorError(13)),
+            x => Err(VL53L1XError::OtherSensorError(x)),
+        }
+    }
+
+    /// This function programs the offset correction in mm
+    pub async fn set_offset<T: I2c>(
+        &mut self,
+        i2c: &mut T,
+        offset: u16,
+    ) -> Result<(), VL53L1XError<T>> {
+        let tmp = offset * 4;
+
+        self.write_u16(i2c, ALGO__PART_TO_PART_RANGE_OFFSET_MM, tmp)
+            .await?;
+        self.write_u16(i2c, MM_CONFIG__INNER_OFFSET_MM, 0x0).await?;
+        self.write_u16(i2c, MM_CONFIG__OUTER_OFFSET_MM, 0x0).await
+    }
+
+    // todo next get_offset
 
     /// This function loads the 135 bytes default values to initialize the sensor.
     async fn try_initialize<T: I2c>(&mut self, i2c: &mut T) -> Result<bool, VL53L1XError<T>> {
         loop {
-            if self.get_boot_state(i2c).await? {
+            if self.boot_state(i2c).await? {
                 break;
             } else {
                 Timer::after_millis(2).await;
@@ -471,6 +677,17 @@ impl VL53L1X {
             .map_err(|e| VL53L1XError::CannotRead(e))
     }
 
+    /// Read from the I2c bus and wrap errors with VL53L1XError
+    async fn read_u32<T: I2c>(
+        &mut self,
+        i2c: &mut T,
+        register: u16,
+    ) -> Result<u32, VL53L1XError<T>> {
+        read_u32(self.addr, i2c, register)
+            .await
+            .map_err(|e| VL53L1XError::CannotRead(e))
+    }
+
     /// Write to the I2c bus and wrap errors with VL53L1XError
     async fn write_u8<T: I2c>(
         &mut self,
@@ -491,6 +708,18 @@ impl VL53L1X {
         data: u16,
     ) -> Result<(), VL53L1XError<T>> {
         write_u16(self.addr, i2c, register, data)
+            .await
+            .map_err(|x| VL53L1XError::I2cError(x))
+    }
+
+    /// Write to the I2c bus and wrap errors with VL53L1XError
+    async fn write_u32<T: I2c>(
+        &mut self,
+        i2c: &mut T,
+        register: u16,
+        data: u32,
+    ) -> Result<(), VL53L1XError<T>> {
+        write_u32(self.addr, i2c, register, data)
             .await
             .map_err(|x| VL53L1XError::I2cError(x))
     }

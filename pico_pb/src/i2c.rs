@@ -4,14 +4,14 @@ pub async fn write_u8<T: I2c>(
     address: u8,
     i2c: &mut T,
     location: u16,
-    byte: u8,
+    data: u8,
 ) -> Result<(), T::Error> {
     i2c.write(
         address,
         &[
             ((location >> 8) & 0xFF) as u8,
             (location & 0xFF) as u8,
-            byte,
+            data,
         ],
     )
     .await
@@ -21,15 +21,35 @@ pub async fn write_u16<T: I2c>(
     address: u8,
     i2c: &mut T,
     location: u16,
-    word: u16,
+    data: u16,
 ) -> Result<(), T::Error> {
     i2c.write(
         address,
         &[
             ((location >> 8) & 0xFF) as u8,
             (location & 0xFF) as u8,
-            (word >> 8) as u8,
-            (word & 0xFF) as u8,
+            (data >> 8) as u8,
+            (data & 0xFF) as u8,
+        ],
+    )
+    .await
+}
+
+pub async fn write_u32<T: I2c>(
+    address: u8,
+    i2c: &mut T,
+    location: u16,
+    data: u32,
+) -> Result<(), T::Error> {
+    i2c.write(
+        address,
+        &[
+            ((location >> 8) & 0xFF) as u8,
+            (location & 0xFF) as u8,
+            ((data >> 24) & 0xFF) as u8,
+            ((data >> 16) & 0xFF) as u8,
+            ((data >> 8) & 0xFF) as u8,
+            (data & 0xFF) as u8,
         ],
     )
     .await
@@ -55,4 +75,15 @@ pub async fn read_u16<T: I2c>(address: u8, i2c: &mut T, location: u16) -> Result
     )
     .await?;
     Ok(u16::from_be_bytes([buf[0], buf[1]]))
+}
+
+pub async fn read_u32<T: I2c>(address: u8, i2c: &mut T, location: u16) -> Result<u32, T::Error> {
+    let mut buf = [0; 4];
+    i2c.write_read(
+        address,
+        &[((location >> 8) & 0xFF) as u8, (location & 0xFF) as u8],
+        &mut buf,
+    )
+    .await?;
+    Ok(u32::from_be_bytes([buf[0], buf[1], buf[2], buf[3]]))
 }
