@@ -1,7 +1,8 @@
+use crate::colors::{TRANSLUCENT_GREEN_COLOR, TRANSLUCENT_YELLOW_COLOR};
 use crate::AppData;
 use core_pb::messages::settings::StrategyChoice;
 use eframe::egui;
-use eframe::egui::{Align, Id, Layout, Ui, WidgetText};
+use eframe::egui::{Align, Color32, Id, Layout, Ui, WidgetText};
 use regex::Regex;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -128,58 +129,111 @@ fn dropdown<T: Debug + PartialEq + Clone>(
     ui.end_row();
 }
 
+fn collapsable_section(
+    ui: &mut Ui,
+    collapsed: &mut bool,
+    button_color: Color32,
+    header_contents: impl FnOnce(&mut Ui),
+    body_contents: impl FnOnce(&mut Ui),
+) {
+    ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+        let button = ui.add(
+            egui::Button::new(format!(
+                "{}",
+                match *collapsed {
+                    true => egui_phosphor::regular::CARET_RIGHT,
+                    false => egui_phosphor::regular::CARET_DOWN,
+                }
+            ))
+            .fill(button_color),
+        );
+        if button.clicked() {
+            *collapsed = !*collapsed;
+        }
+        header_contents(ui);
+    });
+    ui.end_row();
+    if !*collapsed {
+        body_contents(ui);
+        ui.label("");
+        ui.end_row();
+    }
+}
+
 pub fn draw_settings(app: &mut AppData, ui: &mut Ui) {
     let mut fields = app.settings_fields.take().unwrap();
 
     egui::Grid::new("settings_grid")
         .num_columns(1)
         .striped(true)
-        .show(ui, |ui| {
-            ui.checkbox(&mut true, "Scan for server");
-            ui.end_row();
-            ip(ui, &mut fields, &mut app.settings.pico.ip, "IP");
-
-            ui.checkbox(&mut app.rotated_grid, "Rotated grid");
-            ui.end_row();
-            ui.label("");
-            ui.end_row();
-
-            ui.checkbox(&mut app.settings.game_server.connect, "Game server");
-            ui.end_row();
-            ipv4(ui, &mut fields, &mut app.settings.game_server.ipv4, "IP");
-            num(
-                ui,
-                &mut fields,
-                &mut app.settings.game_server.ws_port,
-                "Port",
-            );
-            ui.label("");
-            ui.end_row();
-
-            num(
-                ui,
-                &mut fields,
-                &mut app.settings.particle_filter.pf_cv_error_std,
-                "Cv error std",
-            );
-            num(
-                ui,
-                &mut fields,
-                &mut app.settings.particle_filter.pf_gui_points,
-                "Num gui points",
-            );
-            dropdown(
-                ui,
-                "strategy",
-                "Strategy",
-                &mut app.settings.driving.strategy,
-                &[
-                    StrategyChoice::Manual,
-                    StrategyChoice::TestUniform,
-                    StrategyChoice::TestForward,
-                ],
-            );
-        });
+        .show(ui, |ui| draw_settings_inner(app, ui, &mut fields));
 
     app.settings_fields = Some(fields);
+}
+
+/// Reduce indentation
+fn draw_settings_inner(app: &mut AppData, ui: &mut Ui, fields: &mut HashMap<Id, (String, String)>) {
+    ui.checkbox(&mut app.rotated_grid, "Rotated grid");
+    ui.end_row();
+
+    collapsable_section(
+        ui,
+        &mut app.ui_settings.mdrc_server_collapsed,
+        TRANSLUCENT_YELLOW_COLOR,
+        |ui| {
+            ui.checkbox(&mut app.settings.game_server.connect, "MDRC Server");
+        },
+        |ui| {
+            ip(ui, fields, &mut app.settings.pico.ip, "IP");
+        },
+    );
+
+    collapsable_section(
+        ui,
+        &mut app.ui_settings.game_server_collapsed,
+        TRANSLUCENT_YELLOW_COLOR,
+        |ui| {
+            ui.checkbox(&mut app.settings.game_server.connect, "Game server");
+        },
+        |ui| {
+            ipv4(ui, fields, &mut app.settings.game_server.ipv4, "IP");
+            num(ui, fields, &mut app.settings.game_server.ws_port, "Port");
+        },
+    );
+
+    collapsable_section(
+        ui,
+        &mut app.ui_settings.robot_collapsed,
+        TRANSLUCENT_YELLOW_COLOR,
+        |ui| {
+            ui.checkbox(&mut app.settings.game_server.connect, "Robot");
+        },
+        |ui| {
+            ip(ui, fields, &mut app.settings.pico.ip, "IP");
+        },
+    );
+
+    num(
+        ui,
+        fields,
+        &mut app.settings.particle_filter.pf_cv_error_std,
+        "Cv error std",
+    );
+    num(
+        ui,
+        fields,
+        &mut app.settings.particle_filter.pf_gui_points,
+        "Num gui points",
+    );
+    dropdown(
+        ui,
+        "strategy",
+        "Strategy",
+        &mut app.settings.driving.strategy,
+        &[
+            StrategyChoice::Manual,
+            StrategyChoice::TestUniform,
+            StrategyChoice::TestForward,
+        ],
+    );
 }

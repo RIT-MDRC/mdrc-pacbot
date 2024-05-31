@@ -49,9 +49,26 @@ pub struct AppData {
     world_to_screen: Transform,
     replay_manager: ReplayManager,
     settings: PacbotSettings,
+    ui_settings: UiSettings,
 
     rotated_grid: bool,
     settings_fields: Option<HashMap<Id, (String, String)>>,
+}
+
+pub struct UiSettings {
+    mdrc_server_collapsed: bool,
+    game_server_collapsed: bool,
+    robot_collapsed: bool,
+}
+
+impl Default for UiSettings {
+    fn default() -> Self {
+        Self {
+            mdrc_server_collapsed: true,
+            game_server_collapsed: true,
+            robot_collapsed: true,
+        }
+    }
 }
 
 impl App {
@@ -89,6 +106,7 @@ impl Default for AppData {
             ),
             replay_manager: Default::default(),
             settings: Default::default(),
+            ui_settings: Default::default(),
 
             rotated_grid: true,
             settings_fields: Some(HashMap::new()),
