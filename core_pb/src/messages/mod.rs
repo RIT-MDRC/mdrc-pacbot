@@ -2,6 +2,7 @@ use crate::messages::settings::PacbotSettings;
 use pacbot_rs::game_state::GameState;
 use serde::{Deserialize, Serialize};
 
+pub mod server_status;
 pub mod settings;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

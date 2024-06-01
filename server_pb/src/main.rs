@@ -1,5 +1,6 @@
 use crate::network::{reconnect_sockets, Sockets};
 use core_pb::grid::computed_grid::ComputedGrid;
+use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::PacbotSettings;
 use core_pb::pacbot_rs::game_state::GameState;
 use nalgebra::{Isometry2, Point2, Rotation2, Vector2};
@@ -14,6 +15,8 @@ pub mod strategy;
 #[derive(Default)]
 #[allow(dead_code)]
 pub struct App {
+    status: ServerStatus,
+
     sockets: Sockets,
     sim_game_engine_thread: Option<Child>,
 

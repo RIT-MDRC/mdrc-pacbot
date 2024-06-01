@@ -1,6 +1,8 @@
 use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::GuiToGameServerMessage;
+use std::io;
+use std::io::Error;
 use std::net::{TcpListener, TcpStream, UdpSocket};
 use tungstenite::stream::MaybeTlsStream;
 use tungstenite::{accept, connect, Message, WebSocket};
@@ -55,24 +57,40 @@ pub fn reconnect_sockets(app: &mut App) {
 
     // accept new gui clients
     if let Some(server) = &mut app.sockets.gui_listener {
-        while let Ok((stream, _)) = server.accept() {
-            if let Ok(ws) = accept(stream) {
-                app.sockets.gui_clients.push(ws);
+        while let Ok((stream, ip)) = server.accept() {
+            println!("Accepting new client from {ip:?}");
+            stream
+                .set_nonblocking(true)
+                .expect("Failed to set stream to nonblocking");
+            match accept(stream) {
+                Ok(ws) => {
+                    println!("Accepted new client from {ip:?}");
+                    app.sockets.gui_clients.push(ws);
+                }
+                Err(e) => eprintln!("Failed to accept socket from {ip:?}: {e:?}"),
             }
         }
     } else {
         if let Ok(listener) = TcpListener::bind(format!("0.0.0.0:{GUI_LISTENER_PORT}")) {
+            listener
+                .set_nonblocking(true)
+                .expect("Failed to set listener to nonblocking");
             app.sockets.gui_listener = Some(listener);
         }
     }
 
     // get rid of old clients
     app.sockets.gui_clients.retain(|x| x.can_read());
+    app.status.clients = app.sockets.gui_clients.len();
 
-    // accept messages from gui clients
+    let status = bincode::serde::encode_to_vec(app.status, bincode::config::standard())
+        .expect("Failed to encode status");
+
+    // accept messages from gui clients, send status
     let mut new_settings = None;
     for client in &mut app.sockets.gui_clients {
         match client.read() {
+            Err(tungstenite::Error::Io(e)) if e.kind() == io::ErrorKind::WouldBlock => {}
             Err(e) => eprintln!("Error reading from gui client: {e:?}"),
             Ok(Message::Text(t)) => eprintln!("Unexpected text message from gui client: {t:?}"),
             Ok(Message::Binary(bytes)) => {
@@ -89,6 +107,11 @@ pub fn reconnect_sockets(app: &mut App) {
                 }
             }
             m => eprintln!("Unexpected message from gui client: {m:?}"),
+        }
+        // send server status
+        match client.send(Message::Binary(status.clone())) {
+            Ok(()) => {}
+            Err(e) => eprintln!("Error sending to gui client: {e:?}"),
         }
     }
     if let Some(new) = new_settings {

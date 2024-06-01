@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use eframe::egui::Color32;
 
 pub const WALL_COLOR: Color32 = Color32::LIGHT_GRAY;

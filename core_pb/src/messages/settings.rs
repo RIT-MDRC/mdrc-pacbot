@@ -1,4 +1,4 @@
-use crate::constants::GAME_SERVER_PORT;
+use crate::constants::{GAME_SERVER_PORT, ROBOT_TCP_PORT, ROBOT_UDP_LISTENING_PORT};
 use crate::grid::standard_grid::StandardGrid;
 use serde::{Deserialize, Serialize};
 
@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 pub struct PacbotSettings {
     /// Which grid is current in use
     pub grid: StandardGrid,
-    /// Options for the pico
-    pub pico: PicoSettings,
+    /// Options for the robot
+    pub robot: RobotSettings,
     /// Options for the go server
     pub game_server: GameServerSettings,
     /// Options for pathing, speed
@@ -19,12 +19,14 @@ pub struct PacbotSettings {
 
 /// Pico network options, on-robot drive code options
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
-pub struct PicoSettings {
-    /// IP address of the pico, if it should be connected
-    pub ip: String,
-    /// The UDP port the pico is listening on
-    pub udp_port: u16,
-    /// The TCP port the pico is listening on
+pub struct RobotSettings {
+    /// Whether the app should try to connect/reconnect to the robot
+    pub connect: bool,
+    /// IP address of the robot, if it should be connected
+    pub ipv4: [u8; 4],
+    /// The UDP port the robot is listening on
+    pub udp_listening_port: u16,
+    /// The TCP port the robot is listening on
     pub tcp_port: u16,
 
     /// P, I, and D parameters for the PID loop
@@ -41,12 +43,13 @@ pub struct PicoSettings {
     pub max_accel: f32,
 }
 
-impl Default for PicoSettings {
+impl Default for RobotSettings {
     fn default() -> Self {
         Self {
-            ip: "127.0.0.2:20001".to_string(),
-            udp_port: 20013,
-            tcp_port: 20014,
+            connect: false,
+            ipv4: [127, 0, 0, 2],
+            udp_listening_port: ROBOT_UDP_LISTENING_PORT,
+            tcp_port: ROBOT_TCP_PORT,
             pid: [18.0, 0.1, 0.0],
             collision_avoidance: true,
             collision_avoidance_thresholds: (15, 130),
@@ -72,8 +75,8 @@ pub struct GameServerSettings {
 impl Default for GameServerSettings {
     fn default() -> Self {
         Self {
-            simulate: true,
-            connect: true,
+            simulate: false,
+            connect: false,
             ipv4: [127, 0, 0, 1],
             ws_port: GAME_SERVER_PORT,
         }

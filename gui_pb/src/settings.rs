@@ -1,8 +1,8 @@
-use crate::colors::{TRANSLUCENT_GREEN_COLOR, TRANSLUCENT_YELLOW_COLOR};
+use crate::colors::TRANSLUCENT_YELLOW_COLOR;
 use crate::AppData;
 use core_pb::messages::settings::StrategyChoice;
 use eframe::egui;
-use eframe::egui::{Align, Color32, Id, Layout, Ui, WidgetText};
+use eframe::egui::{Align, Color32, Layout, Ui, WidgetText};
 use regex::Regex;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -63,32 +63,6 @@ fn num<T: FromStr + ToString + PartialEq>(
         text,
         |x| x.parse().ok(),
         T::to_string,
-    )
-}
-
-fn ip(
-    id: &'static str,
-    ui: &mut Ui,
-    fields: &mut HashMap<&str, (String, String)>,
-    value: &mut String,
-    text: impl Into<WidgetText>,
-) {
-    validated(
-        id,
-        ui,
-        fields,
-        value,
-        text,
-        |x| {
-            // should be like xxx.xxx.xxx.xxx:xxxx
-            let re = Regex::new(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5}$").unwrap();
-            if re.is_match(x) {
-                Some(x.to_string())
-            } else {
-                None
-            }
-        },
-        String::to_string,
     )
 }
 
@@ -197,12 +171,25 @@ fn draw_settings_inner(
     collapsable_section(
         ui,
         &mut app.ui_settings.mdrc_server_collapsed,
-        TRANSLUCENT_YELLOW_COLOR,
+        app.network_data.status().into(),
         |ui| {
-            ui.checkbox(&mut app.settings.game_server.connect, "MDRC Server");
+            ui.checkbox(&mut app.ui_settings.connect_mdrc_server, "MDRC Server");
         },
         |ui| {
-            ip("server_ip", ui, fields, &mut app.settings.pico.ip, "IP");
+            ipv4(
+                "server_ip",
+                ui,
+                fields,
+                &mut app.ui_settings.mdrc_server_ipv4,
+                "IP",
+            );
+            num(
+                "server_port",
+                ui,
+                fields,
+                &mut app.ui_settings.mdrc_server_ws_port,
+                "Port",
+            );
         },
     );
 
@@ -239,7 +226,14 @@ fn draw_settings_inner(
             ui.checkbox(&mut app.settings.game_server.connect, "Robot");
         },
         |ui| {
-            ip("robot_ip", ui, fields, &mut app.settings.pico.ip, "IP");
+            ipv4("robot_ip", ui, fields, &mut app.settings.robot.ipv4, "IP");
+            num(
+                "robot_tcp_port",
+                ui,
+                fields,
+                &mut app.settings.robot.tcp_port,
+                "TCP Port",
+            );
         },
     );
 

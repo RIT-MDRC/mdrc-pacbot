@@ -8,17 +8,20 @@ mod settings;
 mod tab;
 mod transform;
 
+use crate::network::NetworkData;
 use crate::replay::Replay;
 use crate::replay_manager::ReplayManager;
 use crate::tab::Tab;
 use crate::transform::Transform;
 use anyhow::Error;
+use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::grid::standard_grid::StandardGrid;
+use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::PacbotSettings;
 use core_pb::pacbot_rs::game_state::GameState;
 use eframe::egui;
-use eframe::egui::{Align, Color32, Id, Pos2};
+use eframe::egui::{Align, Color32, Pos2};
 use egui_dock::{DockArea, DockState, NodeIndex, Style};
 use native_dialog::FileDialog;
 use std::collections::HashMap;
@@ -48,6 +51,8 @@ pub struct AppData {
     background_color: Color32,
     world_to_screen: Transform,
     replay_manager: ReplayManager,
+    server_status: ServerStatus,
+    network_data: NetworkData,
     settings: PacbotSettings,
     ui_settings: UiSettings,
 
@@ -56,6 +61,10 @@ pub struct AppData {
 }
 
 pub struct UiSettings {
+    connect_mdrc_server: bool,
+    mdrc_server_ipv4: [u8; 4],
+    mdrc_server_ws_port: u16,
+
     mdrc_server_collapsed: bool,
     game_server_collapsed: bool,
     robot_collapsed: bool,
@@ -64,6 +73,10 @@ pub struct UiSettings {
 impl Default for UiSettings {
     fn default() -> Self {
         Self {
+            connect_mdrc_server: true,
+            mdrc_server_ipv4: [127, 0, 0, 1],
+            mdrc_server_ws_port: GUI_LISTENER_PORT,
+
             mdrc_server_collapsed: true,
             game_server_collapsed: true,
             robot_collapsed: true,
@@ -105,6 +118,8 @@ impl Default for AppData {
                 false,
             ),
             replay_manager: Default::default(),
+            server_status: Default::default(),
+            network_data: Default::default(),
             settings: Default::default(),
             ui_settings: Default::default(),
 
@@ -120,8 +135,11 @@ impl eframe::App for App {
         self.data.background_color = ctx.style().visuals.panel_fill;
         self.data.grid = self.data.settings.grid.compute_grid();
         self.update_keybindings(ctx);
+        self.manage_network();
 
         self.draw_layout(ctx);
+
+        ctx.request_repaint();
     }
 }
 

@@ -2,7 +2,7 @@ use crate::App;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::settings::{CvPositionSource, StrategyChoice};
 use eframe::egui;
-use eframe::egui::{Event, Key, PointerButton};
+use eframe::egui::{Event, Key};
 
 impl App {
     pub fn update_keybindings(&mut self, ctx: &egui::Context) {
