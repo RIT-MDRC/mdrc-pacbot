@@ -52,7 +52,7 @@ pub struct AppData {
     ui_settings: UiSettings,
 
     rotated_grid: bool,
-    settings_fields: Option<HashMap<Id, (String, String)>>,
+    settings_fields: Option<HashMap<&'static str, (String, String)>>,
 }
 
 pub struct UiSettings {

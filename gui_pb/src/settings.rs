@@ -9,8 +9,9 @@ use std::fmt::Debug;
 use std::str::FromStr;
 
 fn validated<T: PartialEq>(
+    id: &'static str,
     ui: &mut Ui,
-    fields: &mut HashMap<Id, (String, String)>,
+    fields: &mut HashMap<&str, (String, String)>,
     value: &mut T,
     text: impl Into<WidgetText>,
     validation: fn(&str) -> Option<T>,
@@ -19,7 +20,7 @@ fn validated<T: PartialEq>(
     let text = text.into();
 
     ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-        let id = ui.label(text).id;
+        ui.label(text);
 
         // if this is the first time seeing this field, set its string to the given value
         if !fields.contains_key(&id) {
@@ -48,21 +49,32 @@ fn validated<T: PartialEq>(
 }
 
 fn num<T: FromStr + ToString + PartialEq>(
+    id: &'static str,
     ui: &mut Ui,
-    fields: &mut HashMap<Id, (String, String)>,
+    fields: &mut HashMap<&str, (String, String)>,
     value: &mut T,
     text: impl Into<WidgetText>,
 ) {
-    validated(ui, fields, value, text, |x| x.parse().ok(), T::to_string)
+    validated(
+        id,
+        ui,
+        fields,
+        value,
+        text,
+        |x| x.parse().ok(),
+        T::to_string,
+    )
 }
 
 fn ip(
+    id: &'static str,
     ui: &mut Ui,
-    fields: &mut HashMap<Id, (String, String)>,
+    fields: &mut HashMap<&str, (String, String)>,
     value: &mut String,
     text: impl Into<WidgetText>,
 ) {
     validated(
+        id,
         ui,
         fields,
         value,
@@ -81,12 +93,14 @@ fn ip(
 }
 
 fn ipv4(
+    id: &'static str,
     ui: &mut Ui,
-    fields: &mut HashMap<Id, (String, String)>,
+    fields: &mut HashMap<&str, (String, String)>,
     value: &mut [u8; 4],
     text: impl Into<WidgetText>,
 ) {
     validated(
+        id,
         ui,
         fields,
         value,
@@ -172,7 +186,11 @@ pub fn draw_settings(app: &mut AppData, ui: &mut Ui) {
 }
 
 /// Reduce indentation
-fn draw_settings_inner(app: &mut AppData, ui: &mut Ui, fields: &mut HashMap<Id, (String, String)>) {
+fn draw_settings_inner(
+    app: &mut AppData,
+    ui: &mut Ui,
+    fields: &mut HashMap<&str, (String, String)>,
+) {
     ui.checkbox(&mut app.rotated_grid, "Rotated grid");
     ui.end_row();
 
@@ -184,7 +202,7 @@ fn draw_settings_inner(app: &mut AppData, ui: &mut Ui, fields: &mut HashMap<Id, 
             ui.checkbox(&mut app.settings.game_server.connect, "MDRC Server");
         },
         |ui| {
-            ip(ui, fields, &mut app.settings.pico.ip, "IP");
+            ip("server_ip", ui, fields, &mut app.settings.pico.ip, "IP");
         },
     );
 
@@ -196,8 +214,20 @@ fn draw_settings_inner(app: &mut AppData, ui: &mut Ui, fields: &mut HashMap<Id, 
             ui.checkbox(&mut app.settings.game_server.connect, "Game server");
         },
         |ui| {
-            ipv4(ui, fields, &mut app.settings.game_server.ipv4, "IP");
-            num(ui, fields, &mut app.settings.game_server.ws_port, "Port");
+            ipv4(
+                "game_server_ip",
+                ui,
+                fields,
+                &mut app.settings.game_server.ipv4,
+                "IP",
+            );
+            num(
+                "game_server_port",
+                ui,
+                fields,
+                &mut app.settings.game_server.ws_port,
+                "Port",
+            );
         },
     );
 
@@ -209,17 +239,19 @@ fn draw_settings_inner(app: &mut AppData, ui: &mut Ui, fields: &mut HashMap<Id, 
             ui.checkbox(&mut app.settings.game_server.connect, "Robot");
         },
         |ui| {
-            ip(ui, fields, &mut app.settings.pico.ip, "IP");
+            ip("robot_ip", ui, fields, &mut app.settings.pico.ip, "IP");
         },
     );
 
     num(
+        "cv_err_std",
         ui,
         fields,
         &mut app.settings.particle_filter.pf_cv_error_std,
         "Cv error std",
     );
     num(
+        "num_gui_pts",
         ui,
         fields,
         &mut app.settings.particle_filter.pf_gui_points,
