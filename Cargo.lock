@@ -1685,8 +1685,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4567c8db10ae91089c99af84c68c38da3ec2f087c3f82960bcdbf3656b6f4d7"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "wasi",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1845,11 +1847,13 @@ dependencies = [
  "eframe",
  "egui-phosphor",
  "egui_dock",
+ "log",
  "nalgebra",
  "native-dialog",
  "regex",
  "serde",
  "tungstenite 0.21.0",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -2708,10 +2712,11 @@ dependencies = [
 [[package]]
 name = "pacbot-rs"
 version = "0.1.0"
-source = "git+https://github.com/RIT-MDRC/pacbot-rs.git?rev=040d18d140c6e5ecbd00d9f637400f325d629996#040d18d140c6e5ecbd00d9f637400f325d629996"
+source = "git+https://github.com/RIT-MDRC/pacbot-rs.git?rev=259688b85484314af28924e2d8f1e02626e88777#259688b85484314af28924e2d8f1e02626e88777"
 dependencies = [
  "array-init",
  "core2",
+ "getrandom",
  "rand",
  "serde",
 ]

@@ -23,12 +23,14 @@ use core_pb::pacbot_rs::game_state::GameState;
 use eframe::egui;
 use eframe::egui::{Align, Color32, Pos2};
 use egui_dock::{DockArea, DockState, NodeIndex, Style};
-use native_dialog::FileDialog;
+// todo use native_dialog::FileDialog;
 use std::collections::HashMap;
-use std::fs;
-use std::fs::File;
+// use std::fs;
+// use std::fs::File;
 use std::io::{Read, Write};
 
+// When compiling natively:
+#[cfg(not(target_arch = "wasm32"))]
 fn main() {
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
@@ -37,6 +39,41 @@ fn main() {
         Box::new(|cc| Box::new(App::new(cc))),
     )
     .expect("Failed to start egui app!");
+}
+
+// When compiling to web using trunk:
+#[cfg(target_arch = "wasm32")]
+fn main() {
+    // Redirect `log` message to `console.log` and friends:
+    eframe::WebLogger::init(log::LevelFilter::Debug).ok();
+
+    let web_options = eframe::WebOptions::default();
+
+    wasm_bindgen_futures::spawn_local(async {
+        let start_result = eframe::WebRunner::new()
+            .start(
+                "the_canvas_id", // hardcode it
+                web_options,
+                Box::new(|cc| Box::new(App::new(cc))),
+            )
+            .await;
+        let loading_text = eframe::web_sys::window()
+            .and_then(|w| w.document())
+            .and_then(|d| d.get_element_by_id("loading_text"));
+        match start_result {
+            Ok(_) => {
+                loading_text.map(|e| e.remove());
+            }
+            Err(e) => {
+                loading_text.map(|e| {
+                    e.set_inner_html(
+                        "<p> The app has crashed. See the developer console for details. </p>",
+                    )
+                });
+                panic!("failed to start eframe: {e:?}");
+            }
+        }
+    });
 }
 
 pub struct App {
@@ -50,7 +87,7 @@ pub struct AppData {
     pointer_pos: Option<Pos2>,
     background_color: Color32,
     world_to_screen: Transform,
-    replay_manager: ReplayManager,
+    // replay_manager: ReplayManager,
     server_status: ServerStatus,
     network_data: NetworkData,
     settings: PacbotSettings,
@@ -117,7 +154,7 @@ impl Default for AppData {
                 Pos2::new(0.0, 1.0),
                 false,
             ),
-            replay_manager: Default::default(),
+            // todo replay_manager: Default::default(),
             server_status: Default::default(),
             network_data: Default::default(),
             settings: Default::default(),
@@ -135,7 +172,7 @@ impl eframe::App for App {
         self.data.background_color = ctx.style().visuals.panel_fill;
         self.data.grid = self.data.settings.grid.compute_grid();
         self.update_keybindings(ctx);
-        self.manage_network();
+        // todo self.manage_network();
 
         self.draw_layout(ctx);
 
@@ -195,43 +232,45 @@ impl App {
 
     /// Save the current replay to file
     pub fn save_replay(&self) -> Result<(), Error> {
-        let path = FileDialog::new()
-            .add_filter("Pacbot Replay", &["pb"])
-            .set_filename("replay.pb")
-            .show_save_single_file()?;
-
-        if let Some(path) = path {
-            let bytes = self.data.replay_manager.replay.to_bytes()?;
-            let mut file = fs::OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(path)?;
-            file.write_all(&bytes)?;
-        }
-
-        Ok(())
+        todo!()
+        // let path = FileDialog::new()
+        //     .add_filter("Pacbot Replay", &["pb"])
+        //     .set_filename("replay.pb")
+        //     .show_save_single_file()?;
+        //
+        // if let Some(path) = path {
+        //     let bytes = self.data.replay_manager.replay.to_bytes()?;
+        //     let mut file = fs::OpenOptions::new()
+        //         .write(true)
+        //         .create(true)
+        //         .truncate(true)
+        //         .open(path)?;
+        //     file.write_all(&bytes)?;
+        // }
+        //
+        // Ok(())
     }
 
     /// Load a replay from file
     pub fn load_replay(&mut self) -> Result<(), Error> {
-        let path = FileDialog::new()
-            .add_filter("Pacbot Replay", &["pb"])
-            .show_open_single_file()?;
-
-        if let Some(path) = path {
-            let mut file = File::open(&path)?;
-            let metadata = fs::metadata(&path).expect("unable to read metadata");
-            let mut buffer = vec![0; metadata.len() as usize];
-            file.read_exact(&mut buffer)?;
-
-            let replay = Replay::from_bytes(&buffer)?;
-
-            // self.settings.mode = AppMode::Playback;
-            self.data.replay_manager.replay = replay.0;
-            self.data.replay_manager.playback_paused = true;
-        }
-
-        Ok(())
+        todo!()
+        // let path = FileDialog::new()
+        //     .add_filter("Pacbot Replay", &["pb"])
+        //     .show_open_single_file()?;
+        //
+        // if let Some(path) = path {
+        //     let mut file = File::open(&path)?;
+        //     let metadata = fs::metadata(&path).expect("unable to read metadata");
+        //     let mut buffer = vec![0; metadata.len() as usize];
+        //     file.read_exact(&mut buffer)?;
+        //
+        //     let replay = Replay::from_bytes(&buffer)?;
+        //
+        //     // self.settings.mode = AppMode::Playback;
+        //     self.data.replay_manager.replay = replay.0;
+        //     self.data.replay_manager.playback_paused = true;
+        // }
+        //
+        // Ok(())
     }
 }
