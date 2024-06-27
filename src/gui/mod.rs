@@ -175,7 +175,7 @@ pub fn ui_system(
         // }
         if i.key_pressed(Key::P) {
             tab_viewer.settings.pico_address = match tab_viewer.settings.pico_address {
-                None => Some("10.181.92.51:20002".to_string()),
+                None => Some("192.168.0.101:20002".to_string()),
                 Some(_) => None,
             };
         }

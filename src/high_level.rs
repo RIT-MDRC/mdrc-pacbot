@@ -396,10 +396,8 @@ impl HighLevelContext {
                         && (!ghost_within(target_row, target_col, ghost_deny_distance)
                             || super_pellet_within(target_row, target_col, 0))
                 });
-                action_mask[0] = true;
-                // if any movement is possible, and there is a ghost nearby, you must move
-                if action_mask.iter().filter(|x| **x).count() > 1 && ghost_within(row, col, 1) {
-                    action_mask[0] = false;
+                if action_mask == [false; 5] {
+                    action_mask[0] = true;
                 }
 
                 if action_mask != [true, false, false, false, false] {
