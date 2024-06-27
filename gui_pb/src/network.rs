@@ -3,9 +3,7 @@ use crate::App;
 use eframe::egui::Color32;
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
-use tungstenite::handshake::client::Response;
-use tungstenite::stream::MaybeTlsStream;
-use tungstenite::{client, connect, HandshakeError, Message, WebSocket};
+use tungstenite::{client, HandshakeError, Message, WebSocket};
 
 #[derive(Default)]
 pub struct NetworkData {
@@ -55,6 +53,7 @@ impl App {
 
         if let Some(socket) = &mut self.data.network_data.mdrc_server_socket {
             if socket.can_read() {
+                // read status messages from server
                 while let Ok(Message::Binary(m)) = socket.read() {
                     match bincode::serde::decode_from_slice(&m, bincode::config::standard()) {
                         Ok((status, _)) => {

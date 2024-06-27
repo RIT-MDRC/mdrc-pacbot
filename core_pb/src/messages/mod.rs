@@ -14,6 +14,7 @@ pub const GAME_SERVER_MAGIC_NUMBER: [u8; 4] = [170, 115, 26, 153];
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum GameServerCommand {
+    Connect(Option<([u8; 4], u16)>),
     Pause,
     Unpause,
     Reset,
