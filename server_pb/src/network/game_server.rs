@@ -1,7 +1,7 @@
-use crate::App;
+use crate::{status, App};
 use core_pb::messages::GameServerCommand;
 use core_pb::pacbot_rs::game_state::GameState;
-use futures_channel::mpsc::UnboundedReceiver;
+use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
 use futures_util::future::{select, Either};
 use futures_util::{SinkExt, StreamExt};
 use std::sync::{Arc, Mutex};
@@ -13,6 +13,7 @@ use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 
 pub async fn manage_game_server(
     app: Arc<Mutex<App>>,
+    state_sender: UnboundedSender<GameState>,
     mut commands: UnboundedReceiver<GameServerCommand>,
 ) {
     let mut s: Option<WebSocketStream<MaybeTlsStream<TcpStream>>> = None;
@@ -40,15 +41,16 @@ pub async fn manage_game_server(
                 },
                 // success receive state from game server
                 Either::Right((Some(Ok(Message::Binary(bytes))), _)) => {
-                    let g = &mut app.lock().unwrap().game;
-                    if let Err(e) = g.update(&bytes) {
-                        eprintln!("Failed to update game: {e:?}");
-                        *g = GameState::new();
+                    let mut g = GameState::new();
+                    match g.update(&bytes) {
+                        Ok(()) => state_sender.unbounded_send(g).unwrap(),
+                        Err(e) => eprintln!("Error updating game state: {e:?}"),
                     }
                 }
                 Either::Left((None, _)) => panic!("Commands channel was closed"),
                 Either::Right((None, _)) => {
                     eprintln!("Game server connection closed");
+                    status(&app, |s| s.game_server_connected = false);
                     eprintln!("Retrying in 1 second...");
                     sleep(Duration::from_secs(1)).await;
 
@@ -56,10 +58,12 @@ pub async fn manage_game_server(
                 }
                 Either::Right((Some(Err(e)), _)) => {
                     eprintln!("Error receiving from game server: {e:?}");
+                    status(&app, |s| s.game_server_connected = false);
                     s = None;
                 }
                 Either::Right((Some(Ok(message)), _)) => {
                     eprintln!("Game server sent strange message: {message:?}");
+                    status(&app, |s| s.game_server_connected = false);
                     s = None;
                 }
             }
@@ -69,9 +73,13 @@ pub async fn manage_game_server(
                 let addr = format!("ws://{a}.{b}.{c}.{d}:{p}");
 
                 match connect_async(&addr).await {
-                    Ok((ws_stream, _)) => s = Some(ws_stream),
+                    Ok((ws_stream, _)) => {
+                        s = Some(ws_stream);
+                        status(&app, |s| s.game_server_connected = true);
+                    }
                     Err(e) => {
                         eprintln!("Failed to connect to game server: {e:?}");
+                        status(&app, |s| s.game_server_connected = false);
                         eprintln!("Retrying in 1 second...");
                         sleep(Duration::from_secs(1)).await;
                     }

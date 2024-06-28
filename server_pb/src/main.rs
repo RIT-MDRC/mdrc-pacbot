@@ -1,32 +1,28 @@
+use nalgebra::{Isometry2, Point2};
 use std::process::{Child, Command};
+use std::sync::{Arc, Mutex};
 
-use nalgebra::{Isometry2, Point2, Rotation2, Vector2};
-
+use crate::network::Sockets;
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::PacbotSettings;
-use core_pb::pacbot_rs::game_state::GameState;
 
-mod navigation;
 pub mod network;
 pub mod strategy;
 
-#[derive(Default)]
 #[allow(dead_code)]
 pub struct App {
     status: ServerStatus,
 
+    sockets: Sockets,
+
     sim_game_engine_thread: Option<Child>,
 
     grid: ComputedGrid,
-    game: GameState,
 
     pacbot_location: Isometry2<f32>,
     // guaranteed to be a walkable cell
     pacbot_int_location: Point2<i8>,
-
-    settings: PacbotSettings,
-    wasd_qe_input: (Vector2<f32>, Rotation2<f32>),
 }
 
 #[tokio::main]
@@ -41,7 +37,25 @@ async fn main() {
     // }
 }
 
+fn status<F>(app: &Arc<Mutex<App>>, changes: F)
+where
+    F: FnOnce(&mut ServerStatus),
+{
+    app.lock().unwrap().change_status(changes)
+}
+
 impl App {
+    pub fn change_status<F>(&mut self, changes: F)
+    where
+        F: FnOnce(&mut ServerStatus),
+    {
+        changes(&mut self.status);
+        self.sockets
+            .gui_outgoing
+            .unbounded_send(self.status.clone())
+            .unwrap()
+    }
+
     fn update_settings(&mut self, old: &PacbotSettings, new: &PacbotSettings) {
         if (
             new.game_server.connect,

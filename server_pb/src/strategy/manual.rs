@@ -15,7 +15,8 @@ impl Strategy for StopStrategy {
 pub struct ManualStrategy;
 
 impl Strategy for ManualStrategy {
-    fn run(&mut self, app: &App) -> StrategyResult {
-        StrategyResult::Velocity(app.wasd_qe_input.0, app.wasd_qe_input.1)
+    fn run(&mut self, _app: &App) -> StrategyResult {
+        todo!()
+        // StrategyResult::Velocity(app.wasd_qe_input.0, app.wasd_qe_input.1)
     }
 }

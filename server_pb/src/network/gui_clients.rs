@@ -1,6 +1,8 @@
+use crate::{status, App};
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::GuiToGameServerMessage;
+use core_pb::{bin_decode, bin_encode};
 use futures_channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use futures_util::future::{select, Either};
 use futures_util::{future, pin_mut, StreamExt, TryStreamExt};
@@ -16,6 +18,7 @@ type Tx = UnboundedSender<Message>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, Tx>>>;
 
 pub async fn listen_for_gui_clients(
+    app: Arc<Mutex<App>>,
     incoming: UnboundedSender<GuiToGameServerMessage>,
     mut outgoing: UnboundedReceiver<ServerStatus>,
 ) -> ! {
@@ -36,6 +39,7 @@ pub async fn listen_for_gui_clients(
                     match select(acc, outgoing.next()).await {
                         Either::Left((Ok((stream, addr)), _)) => {
                             tokio::spawn(handle_gui_client(
+                                app.clone(),
                                 state.clone(),
                                 stream,
                                 addr,
@@ -49,10 +53,7 @@ pub async fn listen_for_gui_clients(
                             break;
                         }
                         Either::Right((Some(msg), _)) => {
-                            let bytes = Message::Binary(
-                                bincode::serde::encode_to_vec(msg, bincode::config::standard())
-                                    .unwrap(),
-                            );
+                            let bytes = Message::Binary(bin_encode(msg).unwrap());
                             for (addr, c) in state.lock().unwrap().iter_mut() {
                                 match c.unbounded_send(bytes.clone()) {
                                     Ok(()) => {}
@@ -80,10 +81,11 @@ pub async fn listen_for_gui_clients(
 }
 
 async fn handle_gui_client(
+    app: Arc<Mutex<App>>,
     peer_map: PeerMap,
     raw_stream: TcpStream,
     addr: SocketAddr,
-    incoming: UnboundedSender<GuiToGameServerMessage>,
+    incoming_msg: UnboundedSender<GuiToGameServerMessage>,
 ) {
     println!("Incoming TCP connection from gui client: {}", addr);
 
@@ -99,14 +101,20 @@ async fn handle_gui_client(
     // Insert the write part of this peer to the peer map.
     let (tx, rx) = unbounded();
     peer_map.lock().unwrap().insert(addr, tx);
+    status(&app, |s| s.gui_clients += 1);
 
     let (outgoing, incoming) = ws_stream.split();
 
     // Future to loop through incoming messages
     let broadcast_incoming = incoming.try_for_each(|msg| {
         println!("Received a message from gui client {}", addr);
-
-        // todo handle message from gui client and send it to 'incoming' channel
+        match msg {
+            Message::Binary(bytes) => match bin_decode(&bytes) {
+                Ok((msg, _)) => incoming_msg.unbounded_send(msg).unwrap(),
+                Err(e) => eprintln!("Error decoding message from {addr}: {e:?}"),
+            },
+            m => eprintln!("Received strange message from gui client {addr}: {m:?}"),
+        }
 
         future::ok(())
     });
@@ -120,4 +128,5 @@ async fn handle_gui_client(
 
     println!("gui client {} disconnected", &addr);
     peer_map.lock().unwrap().remove(&addr);
+    status(&app, |s| s.gui_clients -= 1);
 }

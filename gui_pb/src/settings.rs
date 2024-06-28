@@ -226,12 +226,12 @@ fn draw_settings_inner(
             ui.checkbox(&mut app.settings.game_server.connect, "Robot");
         },
         |ui| {
-            ipv4("robot_ip", ui, fields, &mut app.settings.robot.ipv4, "IP");
+            ipv4("robot_ip", ui, fields, &mut app.settings.robots.ipv4, "IP");
             num(
                 "robot_tcp_port",
                 ui,
                 fields,
-                &mut app.settings.robot.tcp_port,
+                &mut app.settings.robots.tcp_port,
                 "TCP Port",
             );
         },

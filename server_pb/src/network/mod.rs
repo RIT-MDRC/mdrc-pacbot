@@ -1,66 +1,49 @@
-use std::sync::{Arc, Mutex};
-
-use core_pb::messages::server_status::ServerStatus;
-use core_pb::messages::{GameServerCommand, GuiToGameServerMessage};
-use futures_channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
-use futures_util::future::join;
-
 use crate::network::game_server::manage_game_server;
 use crate::network::gui_clients::listen_for_gui_clients;
 use crate::App;
+use core_pb::messages::server_status::ServerStatus;
+use core_pb::messages::{GameServerCommand, GuiToGameServerMessage};
+use core_pb::pacbot_rs::game_state::GameState;
+use futures_channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
+use std::sync::{Arc, Mutex};
 
 mod game_server;
 mod gui_clients;
+mod robots;
 
 pub struct Sockets {
     // pico_udp_tx: Option<UdpSocket>,
     // pico_udp_rx: Option<UdpSocket>,
     // pico_tcp: Option<TcpStream>,
+    pub game_states: UnboundedReceiver<GameState>,
     pub game_server_commands: UnboundedSender<GameServerCommand>,
 
-    pub gui_incoming: UnboundedReceiver<GuiToGameServerMessage>,
+    pub commands_from_gui: UnboundedReceiver<GuiToGameServerMessage>,
     pub gui_outgoing: UnboundedSender<ServerStatus>,
 }
 
-pub struct Network {
-    gs_rx: UnboundedReceiver<GameServerCommand>,
-
-    gui_incoming: UnboundedSender<GuiToGameServerMessage>,
-    gui_outgoing: UnboundedReceiver<ServerStatus>,
-}
-
-impl Network {
-    pub fn new() -> (Self, Sockets) {
-        let (gs_tx, gs_rx) = unbounded();
+impl Sockets {
+    pub fn spawn(app: Arc<Mutex<App>>) -> Self {
+        let (gs_inc_tx, gs_inc_rx) = unbounded();
+        let (gs_out_tx, gs_out_rx) = unbounded();
 
         let (gui_incoming_tx, gui_incoming_rx) = unbounded();
         let (gui_outgoing_tx, gui_outgoing_rx) = unbounded();
 
-        let sockets = Sockets {
-            game_server_commands: gs_tx,
+        tokio::spawn(listen_for_gui_clients(
+            app.clone(),
+            gui_incoming_tx,
+            gui_outgoing_rx,
+        ));
+        tokio::spawn(manage_game_server(app.clone(), gs_inc_tx, gs_out_rx));
 
-            gui_incoming: gui_incoming_rx,
+        Sockets {
+            game_states: gs_inc_rx,
+            game_server_commands: gs_out_tx,
+
+            commands_from_gui: gui_incoming_rx,
             gui_outgoing: gui_outgoing_tx,
-        };
-
-        let s = Self {
-            gs_rx,
-
-            gui_incoming: gui_incoming_tx,
-            gui_outgoing: gui_outgoing_rx,
-        };
-
-        (s, sockets)
-    }
-
-    pub async fn run(self, app: Arc<Mutex<App>>) -> ! {
-        join(
-            listen_for_gui_clients(self.gui_incoming, self.gui_outgoing),
-            manage_game_server(app.clone(), self.gs_rx),
-        )
-        .await;
-
-        unreachable!("All network futures ended! This shouldn't happen.")
+        }
     }
 }
 

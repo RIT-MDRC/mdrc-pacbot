@@ -8,7 +8,7 @@ pub struct PacbotSettings {
     /// Which grid is current in use
     pub grid: StandardGrid,
     /// Options for the robot
-    pub robot: RobotSettings,
+    pub robots: Vec<RobotSettings>,
     /// Options for the go server
     pub game_server: GameServerSettings,
     /// Options for pathing, speed

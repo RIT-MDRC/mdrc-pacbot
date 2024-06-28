@@ -912,6 +912,7 @@ dependencies = [
 name = "core_pb"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "nalgebra",
  "ordered-float",
  "pacbot-rs",
@@ -2712,7 +2713,7 @@ dependencies = [
 [[package]]
 name = "pacbot-rs"
 version = "0.1.0"
-source = "git+https://github.com/RIT-MDRC/pacbot-rs.git?rev=259688b85484314af28924e2d8f1e02626e88777#259688b85484314af28924e2d8f1e02626e88777"
+source = "git+https://github.com/RIT-MDRC/pacbot-rs.git?rev=0d29a7cd7f859bec217ac99837c44c8a6b2be027#0d29a7cd7f859bec217ac99837c44c8a6b2be027"
 dependencies = [
  "array-init",
  "core2",
