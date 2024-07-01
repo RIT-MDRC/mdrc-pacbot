@@ -1,15 +1,18 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod constants;
+pub mod driving;
 pub mod grid;
 pub mod messages;
 
 pub use pacbot_rs;
 
 use serde::de::DeserializeOwned;
+#[cfg(std)]
 use serde::Serialize;
 
 /// [`bincode::serde::encode_to_vec`] with [`bincode::config::standard`]
+#[cfg(std)]
 pub fn bin_encode<T: Serialize>(x: T) -> Result<Vec<u8>, bincode::error::EncodeError> {
     bincode::serde::encode_to_vec(x, bincode::config::standard())
 }

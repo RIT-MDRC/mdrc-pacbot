@@ -494,20 +494,21 @@ impl VL53L1X {
     ///
     /// Intermeasurement period must be >/= timing budget. This condition is not checked by the API,
     /// the customer has the duty to check the condition. **Default = 100 ms**
-    pub async fn set_inter_measurement_in_ms<T: I2c>(
-        &mut self,
-        i2c: &mut T,
-        period: f32,
-    ) -> Result<(), VL53L1XError<T>> {
-        let clock_pll =
-            (self.read_u16(i2c, VL53L1_RESULT__OSC_CALIBRATE_VAL).await? & 0x3FF) as f32;
-
-        self.write_u32(
-            i2c,
-            VL53L1_SYSTEM__INTERMEASUREMENT_PERIOD,
-            u32::from((clock_pll * period * 1.075).floor()),
-        )
-    }
+    // todo pub async fn set_inter_measurement_in_ms<T: I2c>(
+    //     &mut self,
+    //     i2c: &mut T,
+    //     period: f32,
+    // ) -> Result<(), VL53L1XError<T>> {
+    //     let clock_pll =
+    //         (self.read_u16(i2c, VL53L1_RESULT__OSC_CALIBRATE_VAL).await? & 0x3FF) as f32;
+    //
+    //     // todo
+    //     // self.write_u32(
+    //     //     i2c,
+    //     //     VL53L1_SYSTEM__INTERMEASUREMENT_PERIOD,
+    //     //     u32::from((clock_pll * period * 1.075).floor()),
+    //     // )
+    // }
 
     /// This function returns the Intermeasurement period in ms.
     pub async fn get_inter_measurement_in_ms<T: I2c>(

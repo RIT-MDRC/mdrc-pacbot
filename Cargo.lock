@@ -2713,7 +2713,7 @@ dependencies = [
 [[package]]
 name = "pacbot-rs"
 version = "0.1.0"
-source = "git+https://github.com/RIT-MDRC/pacbot-rs.git?rev=0d29a7cd7f859bec217ac99837c44c8a6b2be027#0d29a7cd7f859bec217ac99837c44c8a6b2be027"
+source = "git+https://github.com/RIT-MDRC/pacbot-rs.git?rev=24d95a055179941626d89a2244b95f75fb607d4f#24d95a055179941626d89a2244b95f75fb607d4f"
 dependencies = [
  "array-init",
  "core2",
@@ -2945,7 +2945,6 @@ dependencies = [
  "libc",
  "rand_chacha",
  "rand_core",
- "serde",
 ]
 
 [[package]]
@@ -2965,7 +2964,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
  "getrandom",
- "serde",
 ]
 
 [[package]]

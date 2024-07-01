@@ -1,3 +1,4 @@
+#[cfg(std)]
 pub mod computed_grid;
 pub mod standard_grid;
 
