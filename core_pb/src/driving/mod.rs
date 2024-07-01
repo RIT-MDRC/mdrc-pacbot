@@ -1,24 +1,22 @@
+use core::fmt::Debug;
 use core::future::Future;
 
 pub trait RobotBehavior {
-    fn spawn_task<F>(task: F)
-    where
-        F: FnOnce() -> dyn Future<Output = ()>;
+    type SpawnError: Debug;
 
-    fn get_distance_sensor() -> impl Future<Output = ()> + Send;
+    fn spawn_wifi_task(&mut self) -> Result<(), Self::SpawnError>;
+    fn spawn_motors_task(&mut self) -> Result<(), Self::SpawnError>;
+    fn spawn_i2c_task(&mut self) -> Result<(), Self::SpawnError>;
+
+    fn get_distance_sensor() -> impl Future<Output = ()> + Send {
+        core::future::ready(())
+    }
 }
 
-// struct Robot {}
-//
-// impl RobotBehavior for Robot {
-//     fn get_distance_sensor() -> impl Future<Output = ()> + Send {
-//         core::future::ready(())
-//     }
-//
-//     fn spawn_task<F>(task: F)
-//     where
-//         F: FnOnce() -> dyn Future<Output = ()>,
-//     {
-//         todo!()
-//     }
-// }
+pub async fn start_robot<T: RobotBehavior>(mut robot: T) {
+    robot.spawn_wifi_task().unwrap();
+}
+
+pub async fn wifi_task() {}
+pub async fn motors_task() {}
+pub async fn i2c_task() {}
