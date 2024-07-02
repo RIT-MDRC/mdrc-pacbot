@@ -1,4 +1,28 @@
+use crate::send;
+use core_pb::driving::{RobotI2cBehavior, RobotInterTaskMessage, RobotTask, Task};
+use defmt::Format;
+use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::channel::Channel;
 use embedded_hal_async::i2c::I2c;
+
+pub static I2C_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64> = Channel::new();
+
+pub struct RobotI2c {}
+
+#[derive(Debug, Format)]
+pub enum I2cError {}
+
+impl RobotTask for RobotI2c {
+    async fn send_message(&mut self, message: RobotInterTaskMessage, to: Task) -> Result<(), ()> {
+        send(message, to).await.map_err(|_| ())
+    }
+
+    async fn receive_message(&mut self) -> RobotInterTaskMessage {
+        I2C_CHANNEL.receive().await
+    }
+}
+
+impl RobotI2cBehavior for RobotI2c {}
 
 pub async fn write_u8<T: I2c>(
     address: u8,

@@ -156,6 +156,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "defmt",
+ "heapless",
  "nalgebra",
  "ordered-float",
  "pacbot-rs",

@@ -1,6 +1,8 @@
-use crate::Irqs;
+use crate::{send, Irqs};
 use core::future::{ready, Future};
-use core_pb::driving::RobotWifiBehavior;
+use core_pb::driving::{
+    NetworkScanInfo, RobotInterTaskMessage, RobotTask, RobotWifiBehavior, Task,
+};
 use cyw43::{Control, NetDriver};
 use cyw43_pio::PioSpi;
 use defmt::{info, unwrap, Format};
@@ -9,8 +11,13 @@ use embassy_net::{Config, Stack, StackResources};
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
 use embassy_rp::pio::Pio;
+use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::channel::Channel;
 use embassy_time::Timer;
+use heapless::Vec;
 use static_cell::StaticCell;
+
+pub static NETWORK_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64> = Channel::new();
 
 pub struct Network {
     control: Control<'static>,
@@ -22,11 +29,40 @@ pub enum NetworkError {
     ConnectionError(u32),
 }
 
+impl RobotTask for Network {
+    async fn send_message(&mut self, message: RobotInterTaskMessage, to: Task) -> Result<(), ()> {
+        send(message, to).await.map_err(|_| ())
+    }
+
+    async fn receive_message(&mut self) -> RobotInterTaskMessage {
+        NETWORK_CHANNEL.receive().await
+    }
+}
+
 impl RobotWifiBehavior for Network {
     type Error = NetworkError;
 
-    fn wifi_is_connected(&self) -> impl Future<Output = bool> {
-        ready(self.stack.is_config_up())
+    fn wifi_is_connected(&self) -> impl Future<Output = Option<[u8; 4]>> {
+        let ip = self.stack.config_v4().map(|x| x.address.address().0);
+        ready(ip)
+    }
+
+    async fn list_networks<const C: usize>(&mut self) -> Vec<NetworkScanInfo, C> {
+        let mut network_info = Vec::new();
+        let mut networks = self.control.scan(Default::default()).await;
+        for i in 0..C {
+            if let Some(network) = networks.next().await {
+                // cyw43/CHIP
+                let band = (network.chanspec & 0xc000) >> 14;
+                network_info[i] = NetworkScanInfo {
+                    ssid: network.ssid,
+                    is_5g: band == 0xc000,
+                }
+            } else {
+                break;
+            }
+        }
+        network_info
     }
 
     async fn connect_wifi(
@@ -53,6 +89,10 @@ impl RobotWifiBehavior for Network {
         info!("DHCP is now up!");
 
         Ok(())
+    }
+
+    async fn disconnect_wifi(&mut self) {
+        self.control.leave().await;
     }
 }
 
