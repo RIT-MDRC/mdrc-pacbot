@@ -1,6 +1,6 @@
 pub mod i2c;
 pub mod motors;
-pub mod wifi;
+pub mod network;
 
 use core::future::Future;
 

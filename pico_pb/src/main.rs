@@ -17,7 +17,7 @@ use crate::motors::{Motors, MOTORS_CHANNEL};
 use crate::network::{initialize_network, Network, NETWORK_CHANNEL};
 use core_pb::driving::i2c::i2c_task;
 use core_pb::driving::motors::motors_task;
-use core_pb::driving::wifi::wifi_task;
+use core_pb::driving::network::wifi_task;
 use core_pb::driving::{RobotInterTaskMessage, Task};
 use defmt::unwrap;
 use embassy_executor::Spawner;
