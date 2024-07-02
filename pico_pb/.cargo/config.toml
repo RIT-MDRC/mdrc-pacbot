@@ -4,3 +4,6 @@ runner = "probe-rs run --chip RP2040"
 [build]
 target = "thumbv6m-none-eabi"        # Cortex-M0 and Cortex-M0+
 rustflags = ["--cfg=unsound_local_offset"]
+
+[env]
+DEFMT_LOG = "info"                  # changes require clean build

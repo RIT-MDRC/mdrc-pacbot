@@ -1,12 +1,12 @@
-#[cfg(std)]
+#[cfg(feature = "std")]
 use crate::grid::computed_grid::ComputedGrid;
 use crate::grid::Grid;
-#[cfg(std)]
+#[cfg(feature = "std")]
 use core::f32::consts::PI;
 use nalgebra::Point2;
-#[cfg(std)]
+#[cfg(feature = "std")]
 use nalgebra::{Isometry2, Vector2};
-#[cfg(std)]
+#[cfg(feature = "std")]
 use pacbot_rs::variables::PACMAN_SPAWN_LOC;
 use serde::{Deserialize, Serialize};
 
@@ -37,13 +37,13 @@ impl StandardGrid {
     }
 
     /// Get the [`ComputedGrid`] associated with this enum
-    #[cfg(std)]
+    #[cfg(feature = "std")]
     pub fn compute_grid(&self) -> ComputedGrid {
         ComputedGrid::try_from(self.get_grid()).expect("Failed to compute a StandardGrid")
     }
 
     /// Get the default Pacbot [`Isometry2`] associated with this enum
-    #[cfg(std)]
+    #[cfg(feature = "std")]
     pub fn get_default_pacbot_isometry(&self) -> Isometry2<f32> {
         match self {
             StandardGrid::Pacman => Isometry2::new(
@@ -65,7 +65,7 @@ impl StandardGrid {
     }
 
     /// Get the rectangles (in grid coordinates) that should be repainted with the background color
-    #[cfg(std)]
+    #[cfg(feature = "std")]
     pub fn get_outside_soft_boundaries(&self) -> Vec<(Point2<f32>, Point2<f32>)> {
         match self {
             Self::Pacman => vec![

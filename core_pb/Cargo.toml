@@ -7,6 +7,7 @@ edition = "2021"
 default = ["std"]
 std = ["pacbot-rs/std", "nalgebra/std", "serde/std", "ordered-float/std", "bincode/std"]
 wasm = ["pacbot-rs/wasm"]
+robot = ["defmt"]
 
 [dependencies]
 nalgebra = { version = "0.32.5", default-features = false, features = ["serde-serialize-no-std"] }
@@ -14,3 +15,4 @@ ordered-float = { version = "4.2.0", default-features = false }
 pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "24d95a055179941626d89a2244b95f75fb607d4f", default-features = false }
 serde = { version = "1.0.201", default-features = false, features = ["derive"] }
 bincode = { version = "2.0.0-rc.3", default-features = false, features = ["serde"] }
+defmt = { version = "0.3.8", optional = true }

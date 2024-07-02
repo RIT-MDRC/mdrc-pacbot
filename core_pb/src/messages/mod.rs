@@ -1,15 +1,15 @@
-#[cfg(std)]
+#[cfg(feature = "std")]
 use crate::messages::settings::PacbotSettings;
 use pacbot_rs::game_state::GameState;
 use serde::{Deserialize, Serialize};
 
-#[cfg(std)]
+#[cfg(feature = "std")]
 pub mod server_status;
-#[cfg(std)]
+#[cfg(feature = "std")]
 pub mod settings;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg(std)]
+#[cfg(feature = "std")]
 pub enum GuiToGameServerMessage {
     Settings(PacbotSettings),
 }

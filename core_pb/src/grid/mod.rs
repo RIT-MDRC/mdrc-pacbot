@@ -1,4 +1,4 @@
-#[cfg(std)]
+#[cfg(feature = "std")]
 pub mod computed_grid;
 pub mod standard_grid;
 

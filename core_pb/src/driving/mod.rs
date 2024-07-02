@@ -1,5 +1,6 @@
 use core::fmt::Debug;
 use core::future::Future;
+use defmt::info;
 
 pub trait RobotBehavior {
     type SpawnError: Debug;
@@ -37,6 +38,7 @@ pub async fn wifi_task<T: RobotWifiBehavior>(mut network: T) -> Result<(), T::Er
         network
             .connect_wifi("Fios-DwYj6", option_env!("WIFI_PASSWORD"))
             .await?;
+        info!("Network connected!");
     }
 
     Ok(())

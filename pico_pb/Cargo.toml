@@ -8,7 +8,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-core_pb = { path = "../core_pb", default-features = false }
+core_pb = { path = "../core_pb", default-features = false, features = ["robot"] }
 
 embassy-embedded-hal = { version = "0.1.0", git = "https://github.com/embassy-rs/embassy.git", features = ["defmt"] }
 embassy-sync = { version = "0.5.0", git = "https://github.com/embassy-rs/embassy.git", features = ["defmt"] }

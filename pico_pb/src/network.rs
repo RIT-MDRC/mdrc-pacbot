@@ -34,6 +34,8 @@ impl RobotWifiBehavior for Network {
         network: &str,
         password: Option<&str>,
     ) -> Result<(), Self::Error> {
+        info!("Joining network {}", network);
+
         if let Some(password) = password {
             self.control.join_wpa2(network, password).await
         } else {
