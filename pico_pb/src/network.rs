@@ -1,8 +1,7 @@
 use crate::{send, Irqs};
 use core::future::{ready, Future};
-use core_pb::driving::{
-    NetworkScanInfo, RobotInterTaskMessage, RobotTask, RobotWifiBehavior, Task,
-};
+use core_pb::driving::wifi::{NetworkScanInfo, RobotWifiBehavior};
+use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use cyw43::{Control, NetDriver};
 use cyw43_pio::PioSpi;
 use defmt::{info, unwrap, Format};

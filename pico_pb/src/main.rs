@@ -15,11 +15,12 @@ mod vl6180x;
 use crate::i2c::{RobotI2c, I2C_CHANNEL};
 use crate::motors::{Motors, MOTORS_CHANNEL};
 use crate::network::{initialize_network, Network, NETWORK_CHANNEL};
-use core_pb::driving::{
-    i2c_task, motors_task, start_all_tasks, wifi_task, RobotBehavior, RobotInterTaskMessage, Task,
-};
+use core_pb::driving::i2c::i2c_task;
+use core_pb::driving::motors::motors_task;
+use core_pb::driving::wifi::wifi_task;
+use core_pb::driving::{RobotInterTaskMessage, Task};
 use defmt::unwrap;
-use embassy_executor::{SpawnError, SpawnToken, Spawner};
+use embassy_executor::Spawner;
 use embassy_rp::bind_interrupts;
 use embassy_rp::peripherals::{I2C0, PIO0};
 use embassy_sync::channel::TrySendError;
@@ -57,38 +58,9 @@ async fn main(spawner: Spawner) {
     )
     .await;
 
-    start_all_tasks(Robot {
-        spawner,
-        wifi_task: Some(do_wifi(network)),
-        motors_task: Some(do_motors(Motors {})),
-        i2c_task: Some(do_i2c(RobotI2c {})),
-    })
-    .await
-    .unwrap();
-}
-
-pub struct Robot<A, B, C> {
-    spawner: Spawner,
-
-    wifi_task: Option<SpawnToken<A>>,
-    motors_task: Option<SpawnToken<B>>,
-    i2c_task: Option<SpawnToken<C>>,
-}
-
-impl<A, B, C> RobotBehavior for Robot<A, B, C> {
-    type SpawnError = SpawnError;
-
-    fn spawn_wifi_task(&mut self) -> Result<(), Self::SpawnError> {
-        self.spawner.spawn(self.wifi_task.take().unwrap())
-    }
-
-    fn spawn_motors_task(&mut self) -> Result<(), Self::SpawnError> {
-        self.spawner.spawn(self.motors_task.take().unwrap())
-    }
-
-    fn spawn_i2c_task(&mut self) -> Result<(), Self::SpawnError> {
-        self.spawner.spawn(self.i2c_task.take().unwrap())
-    }
+    unwrap!(spawner.spawn(do_wifi(network)));
+    unwrap!(spawner.spawn(do_motors(Motors {})));
+    unwrap!(spawner.spawn(do_i2c(RobotI2c {})));
 }
 
 #[embassy_executor::task]
@@ -98,10 +70,10 @@ async fn do_wifi(network: Network) {
 
 #[embassy_executor::task]
 async fn do_motors(motors: Motors) {
-    motors_task(motors).await
+    unwrap!(motors_task(motors).await)
 }
 
 #[embassy_executor::task]
 async fn do_i2c(i2c: RobotI2c) {
-    i2c_task(i2c).await
+    unwrap!(i2c_task(i2c).await)
 }

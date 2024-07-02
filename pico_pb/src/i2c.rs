@@ -1,5 +1,6 @@
 use crate::send;
-use core_pb::driving::{RobotI2cBehavior, RobotInterTaskMessage, RobotTask, Task};
+use core_pb::driving::i2c::RobotI2cBehavior;
+use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use defmt::Format;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
@@ -22,7 +23,9 @@ impl RobotTask for RobotI2c {
     }
 }
 
-impl RobotI2cBehavior for RobotI2c {}
+impl RobotI2cBehavior for RobotI2c {
+    type Error = ();
+}
 
 pub async fn write_u8<T: I2c>(
     address: u8,

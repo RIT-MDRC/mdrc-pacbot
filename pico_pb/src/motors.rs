@@ -1,5 +1,6 @@
 use crate::send;
-use core_pb::driving::{RobotInterTaskMessage, RobotMotorsBehavior, RobotTask, Task};
+use core_pb::driving::motors::RobotMotorsBehavior;
+use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use defmt::Format;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
@@ -21,4 +22,6 @@ impl RobotTask for Motors {
     }
 }
 
-impl RobotMotorsBehavior for Motors {}
+impl RobotMotorsBehavior for Motors {
+    type Error = ();
+}
