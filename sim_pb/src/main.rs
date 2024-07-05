@@ -1,3 +1,6 @@
+#[allow(dead_code)]
+mod delayed_value;
+
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use core_pb::grid::standard_grid::StandardGrid;
