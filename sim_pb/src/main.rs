@@ -95,7 +95,7 @@ fn keyboard_input(
             let index = app.robots.iter().position(|x| *x == selected).unwrap();
             let index = (index + 1) % app.robots.len();
             app.selected_robot = Some(app.robots[index])
-        } else if let Some(selected) = app.robots.get(0) {
+        } else if let Some(selected) = app.robots.first() {
             app.selected_robot = Some(*selected)
         }
     }
@@ -118,11 +118,9 @@ fn keyboard_input(
         let mut target_vel = (Vec2::ZERO, 0.0);
         if let Some(selected) = app.selected_robot {
             for (key, dir) in &key_directions {
-                if keys.pressed(*key) {
-                    if e == selected {
-                        target_vel.0 += dir.0;
-                        target_vel.1 += dir.1;
-                    }
+                if e == selected && keys.pressed(*key) {
+                    target_vel.0 += dir.0;
+                    target_vel.1 += dir.1;
                 }
             }
         }

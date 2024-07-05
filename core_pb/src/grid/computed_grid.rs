@@ -476,7 +476,7 @@ impl ComputedGrid {
             }
             let neighbors = self.neighbors(&current);
             for n in &neighbors {
-                if prev.get(n).is_none() {
+                if !prev.contains_key(n) {
                     prev.insert(*n, Some(current));
                     queue.push_back(*n);
                 }

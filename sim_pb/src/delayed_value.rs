@@ -24,13 +24,16 @@ impl<T: PartialEq> DelayedValue<T> {
     pub fn get(&mut self) -> &T {
         loop {
             let mut remove = false;
-            if let Some((i, v)) = self.next.pop_front() {
+            if let Some((i, _)) = self.next.front() {
                 if i.elapsed() > self.delay {
-                    self.output = v;
                     remove = true;
                 }
             }
-            if !remove {
+            if remove {
+                if let Some((_, v)) = self.next.pop_front() {
+                    self.output = v;
+                }
+            } else {
                 break;
             }
         }
