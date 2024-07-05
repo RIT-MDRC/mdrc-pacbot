@@ -10,3 +10,16 @@ core_pb = { path = "../core_pb", features = ["std"] }
 serde = { version = "1.0.198", features = ["derive", "std"] }
 tungstenite = "0.21.0"
 bincode = { version = "2.0.0-rc.3", features = ["serde"] }
+bevy_rapier2d = { version = "0.26.0", features = ["debug-render-2d"] }
+
+[dependencies.bevy]
+version = "0.13.2"
+default-features = false
+features = [
+    # Bevy functionality:
+    "multi-threaded", # Run with multithreading
+    "bevy_winit", # Window management (cross-platform Winit backend)
+
+    # Development/Debug features:
+    "dynamic_linking", # Dynamic linking for faster compile-times
+]

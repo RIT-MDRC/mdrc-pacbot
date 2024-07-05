@@ -1,11 +1,11 @@
 use crate::messages::settings::PacbotSettings;
 use nalgebra::{Rotation2, Vector2};
-use pacbot_rs::game_state::GameState;
+// use pacbot_rs::game_state::GameState;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct ServerStatus {
-    pub game_state: GameState,
+    // pub game_state: GameState,
     pub game_server_connected: bool,
 
     pub gui_clients: usize,
