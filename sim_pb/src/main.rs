@@ -1,7 +1,11 @@
 #[allow(dead_code)]
 mod delayed_value;
 mod driving;
+mod network;
+mod physics;
 
+use crate::network::{update_network, PacbotNetworkSimulation};
+use crate::physics::spawn_walls;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use core_pb::grid::standard_grid::StandardGrid;
@@ -21,7 +25,9 @@ pub struct MyApp {
 pub struct Wall;
 
 #[derive(Component)]
-pub struct Robot;
+pub struct Robot {
+    wasd_target_vel: Option<(Vec2, f32)>,
+}
 
 fn main() {
     App::new()
@@ -34,9 +40,11 @@ fn main() {
             robots: vec![],
             selected_robot: None,
         })
+        .insert_resource(PacbotNetworkSimulation::new().unwrap())
         .add_systems(Startup, setup_graphics)
         .add_systems(Startup, setup_physics)
         .add_systems(Update, keyboard_input)
+        .add_systems(Update, update_network)
         .run();
 }
 
@@ -52,12 +60,12 @@ fn setup_graphics(mut commands: Commands) {
 
 fn setup_physics(
     app: Res<MyApp>,
-    commands: Commands,
+    mut commands: Commands,
     mut rapier_configuration: ResMut<RapierConfiguration>,
 ) {
     rapier_configuration.gravity = Vect::ZERO;
 
-    spawn_walls(commands, app.grid)
+    spawn_walls(&mut commands, app.grid)
 }
 
 fn keyboard_input(
@@ -70,26 +78,11 @@ fn keyboard_input(
         &mut Transform,
         &mut Velocity,
         &mut ExternalImpulse,
-        &Robot,
+        &mut Robot,
     )>,
 ) {
     if keys.just_pressed(KeyCode::KeyR) {
-        let pos = app.grid.get_default_pacbot_isometry().translation;
-
-        let new_robot = commands
-            .spawn(RigidBody::Dynamic)
-            .insert(Collider::ball(ROBOT_RADIUS))
-            .insert(CollisionGroups::new(Group::GROUP_2, Group::GROUP_1))
-            .insert(TransformBundle::from(Transform::from_xyz(
-                pos.x, pos.y, 0.0,
-            )))
-            .insert(ExternalImpulse::default())
-            .insert(Velocity::default())
-            .insert(Robot)
-            .id();
-
-        app.robots.push(new_robot);
-        app.selected_robot = Some(new_robot);
+        app.spawn_robot(&mut commands);
     }
     if keys.just_pressed(KeyCode::Tab) {
         if let Some(selected) = app.selected_robot {
@@ -102,7 +95,7 @@ fn keyboard_input(
     }
     if keys.just_pressed(KeyCode::Backspace) {
         if let Some(selected) = app.selected_robot {
-            commands.entity(selected).despawn();
+            app.despawn_robot(selected, &mut commands);
             app.selected_robot = None;
             app.robots.retain(|x| *x != selected)
         }
@@ -115,57 +108,23 @@ fn keyboard_input(
         (KeyCode::KeyQ, (Vec2::new(0.0, 0.0), 0.3)),
         (KeyCode::KeyE, (Vec2::new(0.0, 0.0), -0.3)),
     ];
-    for (e, _, v, mut imp, _) in &mut robots {
-        let mut target_vel = (Vec2::ZERO, 0.0);
+    for (e, _, _, _, mut robot) in &mut robots {
         if let Some(selected) = app.selected_robot {
             for (key, dir) in &key_directions {
                 if e == selected && keys.pressed(*key) {
-                    target_vel.0 += dir.0;
-                    target_vel.1 += dir.1;
+                    robot.wasd_target_vel = Some(*dir)
+                } else {
+                    robot.wasd_target_vel = None
                 }
             }
         }
-        let move_scale = 4.0;
-        if target_vel.0 != Vec2::ZERO {
-            target_vel.0 = target_vel.0.normalize() * move_scale;
-        }
-        imp.impulse = target_vel.0 - v.linvel * 0.6;
-        imp.torque_impulse = target_vel.1 - v.angvel * 0.1;
     }
+    app.apply_robots_target_vel(&mut robots);
     if keys.just_pressed(KeyCode::KeyG) {
         app.grid = match app.grid {
             StandardGrid::Pacman => StandardGrid::Playground,
             _ => StandardGrid::Pacman,
         };
-        for wall in &walls {
-            commands.entity(wall.0).despawn()
-        }
-        spawn_walls(commands, app.grid);
-        for (_, mut t, mut v, _, _) in &mut robots {
-            let pos = app.grid.get_default_pacbot_isometry().translation;
-            t.translation = Vec3::new(pos.x, pos.y, 0.0);
-            v.linvel = Vect::ZERO;
-            v.angvel = 0.0;
-        }
-    }
-}
-
-fn spawn_walls(mut commands: Commands, grid: StandardGrid) {
-    let grid = grid.compute_grid();
-
-    // Create the walls
-    for wall in grid.walls() {
-        commands
-            .spawn(Collider::cuboid(
-                (wall.bottom_right.x as f32 * 1.0 - wall.top_left.x as f32 * 1.0) / 2.0,
-                (wall.bottom_right.y as f32 * 1.0 - wall.top_left.y as f32 * 1.0) / 2.0,
-            ))
-            .insert(CollisionGroups::new(Group::GROUP_1, Group::GROUP_2))
-            .insert(TransformBundle::from(Transform::from_xyz(
-                (wall.bottom_right.x as f32 * 1.0 + wall.top_left.x as f32 * 1.0) / 2.0,
-                (wall.bottom_right.y as f32 * 1.0 + wall.top_left.y as f32 * 1.0) / 2.0,
-                0.0,
-            )))
-            .insert(Wall);
+        app.reset_grid(walls, &mut robots, &mut commands)
     }
 }

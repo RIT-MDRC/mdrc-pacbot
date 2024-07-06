@@ -1,3 +1,4 @@
+use bevy::prelude::{ResMut, Resource};
 use core_pb::constants::GAME_SERVER_PORT;
 use core_pb::messages::{GameServerCommand, GAME_SERVER_MAGIC_NUMBER};
 use core_pb::pacbot_rs::game_state::GameState;
@@ -9,7 +10,8 @@ use tungstenite::{accept, Message, WebSocket};
 
 pub const GAME_FPS: f32 = 24.0;
 
-pub struct PacbotSimulation {
+#[derive(Resource)]
+pub struct PacbotNetworkSimulation {
     game_state: GameState,
     last_state_update: Instant,
 
@@ -17,12 +19,16 @@ pub struct PacbotSimulation {
     game_server_clients: Vec<(WebSocket<TcpStream>, SocketAddr)>,
 }
 
-impl PacbotSimulation {
+pub fn update_network(mut network: ResMut<PacbotNetworkSimulation>) {
+    network.update()
+}
+
+impl PacbotNetworkSimulation {
     pub fn new() -> io::Result<Self> {
         let listener = TcpListener::bind(format!("0.0.0.0:{GAME_SERVER_PORT}"))?;
         listener.set_nonblocking(true)?;
         println!("Listening on port {GAME_SERVER_PORT}");
-        let mut game_state = GameState::new();
+        let mut game_state = GameState::default();
         game_state.paused = true;
         Ok(Self {
             game_state,
@@ -100,8 +106,9 @@ impl PacbotSimulation {
                             Ok((msg, _)) => match msg {
                                 GameServerCommand::Pause => self.game_state.paused = true,
                                 GameServerCommand::Unpause => self.game_state.paused = false,
-                                GameServerCommand::Reset => self.game_state = GameState::new(),
+                                GameServerCommand::Reset => self.game_state = GameState::default(),
                                 GameServerCommand::SetState(s) => self.game_state = s,
+                                GameServerCommand::Connect(_) => {}
                             },
                             Err(e) => eprintln!(
                                 "Couldn't deserialize client command from {:?}: {:?}",
@@ -116,7 +123,7 @@ impl PacbotSimulation {
                         match chars[0] {
                             'p' => self.game_state.paused = true,
                             'P' => self.game_state.paused = false,
-                            'r' | 'R' => self.game_state = GameState::new(),
+                            'r' | 'R' => self.game_state = GameState::default(),
                             'w' => self.game_state.move_pacman_dir(UP),
                             'a' => self.game_state.move_pacman_dir(LEFT),
                             's' => self.game_state.move_pacman_dir(DOWN),
