@@ -1,6 +1,6 @@
 use crate::{send, Irqs};
 use core::future::{ready, Future};
-use core_pb::driving::network::{NetworkScanInfo, RobotWifiBehavior};
+use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use cyw43::{Control, NetDriver};
 use cyw43_pio::PioSpi;
@@ -38,7 +38,7 @@ impl RobotTask for Network {
     }
 }
 
-impl RobotWifiBehavior for Network {
+impl RobotNetworkBehavior for Network {
     type Error = NetworkError;
 
     fn wifi_is_connected(&self) -> impl Future<Output = Option<[u8; 4]>> {

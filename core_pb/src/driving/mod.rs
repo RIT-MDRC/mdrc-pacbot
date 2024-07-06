@@ -1,14 +1,19 @@
-pub mod i2c;
 pub mod motors;
 pub mod network;
+pub mod peripherals;
+
+#[cfg(feature = "defmt")]
+pub use defmt::*;
+#[cfg(feature = "log")]
+pub use log::*;
 
 use core::future::Future;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Task {
     Wifi,
     Motors,
-    I2c,
+    Peripherals,
 }
 
 /// Messages passed between the various tasks

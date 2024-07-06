@@ -1,29 +1,30 @@
 use crate::send;
-use core_pb::driving::i2c::RobotI2cBehavior;
+use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use defmt::Format;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
 use embedded_hal_async::i2c::I2c;
 
-pub static I2C_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64> = Channel::new();
+pub static PERIPHERALS_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64> =
+    Channel::new();
 
-pub struct RobotI2c {}
+pub struct RobotPeripherals {}
 
 #[derive(Debug, Format)]
 pub enum I2cError {}
 
-impl RobotTask for RobotI2c {
+impl RobotTask for RobotPeripherals {
     async fn send_message(&mut self, message: RobotInterTaskMessage, to: Task) -> Result<(), ()> {
         send(message, to).await.map_err(|_| ())
     }
 
     async fn receive_message(&mut self) -> RobotInterTaskMessage {
-        I2C_CHANNEL.receive().await
+        PERIPHERALS_CHANNEL.receive().await
     }
 }
 
-impl RobotI2cBehavior for RobotI2c {
+impl RobotPeripheralsBehavior for RobotPeripherals {
     type Error = ();
 }
 

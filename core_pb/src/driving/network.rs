@@ -1,7 +1,6 @@
-use crate::driving::RobotTask;
+use crate::driving::{info, RobotTask};
 use core::fmt::Debug;
 use core::future::Future;
-use defmt::info;
 use heapless::Vec;
 
 #[derive(Copy, Clone)]
@@ -10,7 +9,7 @@ pub struct NetworkScanInfo {
     pub is_5g: bool,
 }
 
-pub trait RobotWifiBehavior: RobotTask {
+pub trait RobotNetworkBehavior: RobotTask {
     type Error: Debug;
 
     /// If the device is currently connected to a wifi network, its IP, else None
@@ -22,7 +21,7 @@ pub trait RobotWifiBehavior: RobotTask {
     /// Connect to a network with the given username/password. This method shouldn't return until
     /// the connection either completes or fails, but it shouldn't do any retries.
     ///
-    /// This will only be called if [`RobotWifiBehavior::wifi_is_connected`] is `false`
+    /// This will only be called if [`RobotNetworkBehavior::wifi_is_connected`] is `false`
     fn connect_wifi(
         &mut self,
         network: &str,
@@ -33,7 +32,7 @@ pub trait RobotWifiBehavior: RobotTask {
     fn disconnect_wifi(&mut self) -> impl Future<Output = ()>;
 }
 
-pub async fn wifi_task<T: RobotWifiBehavior>(mut network: T) -> Result<(), T::Error> {
+pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(), T::Error> {
     if network.wifi_is_connected().await.is_none() {
         network
             .connect_wifi("Fios-DwYj6", option_env!("WIFI_PASSWORD"))

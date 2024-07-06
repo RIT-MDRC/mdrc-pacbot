@@ -1,5 +1,6 @@
 #[allow(dead_code)]
 mod delayed_value;
+mod driving;
 
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;

@@ -12,12 +12,12 @@ mod vl6180x;
 // todo https://github.com/adafruit/Adafruit_SSD1306/blob/master/Adafruit_SSD1306.cpp#L992 https://crates.io/crates/ssd1306
 // todo https://github.com/adafruit/Adafruit_CircuitPython_BNO055/blob/main/adafruit_bno055.py https://crates.io/crates/bno055
 
-use crate::i2c::{RobotI2c, I2C_CHANNEL};
+use crate::i2c::{RobotPeripherals, PERIPHERALS_CHANNEL};
 use crate::motors::{Motors, MOTORS_CHANNEL};
 use crate::network::{initialize_network, Network, NETWORK_CHANNEL};
-use core_pb::driving::i2c::i2c_task;
 use core_pb::driving::motors::motors_task;
-use core_pb::driving::network::wifi_task;
+use core_pb::driving::network::network_task;
+use core_pb::driving::peripherals::peripherals_task;
 use core_pb::driving::{RobotInterTaskMessage, Task};
 use defmt::unwrap;
 use embassy_executor::Spawner;
@@ -39,7 +39,7 @@ async fn send(
     match to {
         Task::Wifi => NETWORK_CHANNEL.try_send(message),
         Task::Motors => MOTORS_CHANNEL.try_send(message),
-        Task::I2c => I2C_CHANNEL.try_send(message),
+        Task::Peripherals => PERIPHERALS_CHANNEL.try_send(message),
     }
 }
 
@@ -60,12 +60,12 @@ async fn main(spawner: Spawner) {
 
     unwrap!(spawner.spawn(do_wifi(network)));
     unwrap!(spawner.spawn(do_motors(Motors {})));
-    unwrap!(spawner.spawn(do_i2c(RobotI2c {})));
+    unwrap!(spawner.spawn(do_i2c(RobotPeripherals {})));
 }
 
 #[embassy_executor::task]
 async fn do_wifi(network: Network) {
-    unwrap!(wifi_task(network).await);
+    unwrap!(network_task(network).await);
 }
 
 #[embassy_executor::task]
@@ -74,6 +74,6 @@ async fn do_motors(motors: Motors) {
 }
 
 #[embassy_executor::task]
-async fn do_i2c(i2c: RobotI2c) {
-    unwrap!(i2c_task(i2c).await)
+async fn do_i2c(i2c: RobotPeripherals) {
+    unwrap!(peripherals_task(i2c).await)
 }
