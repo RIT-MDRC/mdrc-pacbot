@@ -7,8 +7,6 @@ pub use defmt::*;
 #[cfg(feature = "log")]
 pub use log::*;
 
-use core::future::Future;
-
 #[derive(Copy, Clone, Debug)]
 pub enum Task {
     Wifi,
@@ -24,12 +22,8 @@ pub trait RobotTask {
     /// Send a message to all other tasks
     ///
     /// If the receiver's buffer is full, returns Err(())
-    fn send_message(
-        &mut self,
-        message: RobotInterTaskMessage,
-        to: Task,
-    ) -> impl Future<Output = Result<(), ()>>;
+    async fn send_message(&mut self, message: RobotInterTaskMessage, to: Task) -> Result<(), ()>;
 
     /// Receive a message from other tasks; may be cancelled
-    fn receive_message(&mut self) -> impl Future<Output = RobotInterTaskMessage>;
+    async fn receive_message(&mut self) -> RobotInterTaskMessage;
 }

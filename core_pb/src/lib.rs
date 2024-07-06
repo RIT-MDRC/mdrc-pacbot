@@ -2,6 +2,7 @@
 
 pub mod constants;
 #[cfg(feature = "robot")]
+#[allow(async_fn_in_trait)]
 pub mod driving;
 pub mod grid;
 pub mod messages;

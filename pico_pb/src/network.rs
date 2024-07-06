@@ -41,9 +41,8 @@ impl RobotTask for Network {
 impl RobotNetworkBehavior for Network {
     type Error = NetworkError;
 
-    fn wifi_is_connected(&self) -> impl Future<Output = Option<[u8; 4]>> {
-        let ip = self.stack.config_v4().map(|x| x.address.address().0);
-        ready(ip)
+    async fn wifi_is_connected(&self) -> Option<[u8; 4]> {
+        self.stack.config_v4().map(|x| x.address.address().0)
     }
 
     async fn list_networks<const C: usize>(&mut self) -> Vec<NetworkScanInfo, C> {

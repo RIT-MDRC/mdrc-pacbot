@@ -1,14 +1,18 @@
-use crate::driving::TaskChannels;
+use crate::driving::{SimRobot, TaskChannels};
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
+use embedded_graphics::mock_display::MockDisplay;
+use embedded_graphics::pixelcolor::BinaryColor;
+use std::sync::{Arc, RwLock};
 
 pub struct SimPeripherals {
+    robot: Arc<RwLock<SimRobot>>,
     channels: TaskChannels,
 }
 
 impl SimPeripherals {
-    pub fn new(channels: TaskChannels) -> Self {
-        Self { channels }
+    pub fn new(robot: Arc<RwLock<SimRobot>>, channels: TaskChannels) -> Self {
+        Self { robot, channels }
     }
 }
 
@@ -26,5 +30,18 @@ impl RobotTask for SimPeripherals {
 }
 
 impl RobotPeripheralsBehavior for SimPeripherals {
+    type Display = MockDisplay<BinaryColor>;
     type Error = SimPeripheralsError;
+
+    fn draw_display<F>(&mut self, draw: F)
+    where
+        F: FnOnce(&mut Self::Display),
+    {
+        let mut robot = self.robot.write().unwrap();
+        draw(&mut robot.display);
+    }
+
+    async fn flip_screen(&mut self) {
+        self.robot.write().unwrap().display_ready = true;
+    }
 }

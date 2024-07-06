@@ -6,16 +6,21 @@ use core_pb::driving::motors::motors_task;
 use core_pb::driving::network::network_task;
 use core_pb::driving::peripherals::peripherals_task;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
+use embedded_graphics::mock_display::MockDisplay;
+use embedded_graphics::pixelcolor::BinaryColor;
 use futures::join;
 use std::fmt::Debug;
 use std::future::Future;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 mod motors;
 mod network;
 mod peripherals;
 
-pub struct SimRobot {}
+pub struct SimRobot {
+    display: MockDisplay<BinaryColor>,
+    display_ready: bool,
+}
 
 async fn handle_task<F, E: Debug>(task: F)
 where
@@ -26,14 +31,19 @@ where
 
 #[allow(dead_code)]
 impl SimRobot {
-    pub fn start() -> (Arc<Mutex<Self>>, impl Future<Output = ()>) {
+    pub fn start() -> (Arc<RwLock<Self>>, impl Future<Output = ()>) {
+        let robot = Arc::new(RwLock::new(Self {
+            display: MockDisplay::new(),
+            display_ready: true,
+        }));
+
         let (motors, motors_rx, motors_tx) = TaskChannels::new();
         let (network, network_rx, network_tx) = TaskChannels::new();
         let (peripherals, peripherals_rx, peripherals_tx) = TaskChannels::new();
 
         let motors = SimMotors::new(motors);
         let network = SimNetwork::new(network);
-        let peripherals = SimPeripherals::new(peripherals);
+        let peripherals = SimPeripherals::new(robot.clone(), peripherals);
 
         let f = Self::start_async(
             motors,
@@ -43,7 +53,7 @@ impl SimRobot {
             [motors_rx, network_rx, peripherals_rx],
         );
 
-        (Arc::new(Mutex::new(Self {})), f)
+        (robot, f)
     }
 
     async fn handle_one_task_messages(
