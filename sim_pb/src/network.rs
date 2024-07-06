@@ -12,11 +12,11 @@ pub const GAME_FPS: f32 = 24.0;
 
 #[derive(Resource)]
 pub struct PacbotNetworkSimulation {
-    game_state: GameState,
-    last_state_update: Instant,
+    pub game_state: GameState,
+    pub last_state_update: Instant,
 
-    game_server_listener: TcpListener,
-    game_server_clients: Vec<(WebSocket<TcpStream>, SocketAddr)>,
+    pub game_server_listener: TcpListener,
+    pub game_server_clients: Vec<(WebSocket<TcpStream>, SocketAddr)>,
 }
 
 pub fn update_network(mut network: ResMut<PacbotNetworkSimulation>) {

@@ -9,6 +9,7 @@ use crate::physics::spawn_walls;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 use core_pb::grid::standard_grid::StandardGrid;
+use core_pb::pacbot_rs::location::LocationState;
 
 // todo
 const ROBOT_RADIUS: f32 = 0.75;
@@ -45,6 +46,7 @@ fn main() {
         .add_systems(Startup, setup_physics)
         .add_systems(Update, keyboard_input)
         .add_systems(Update, update_network)
+        .add_systems(Update, robot_position_to_game_state)
         .run();
 }
 
@@ -66,6 +68,31 @@ fn setup_physics(
     rapier_configuration.gravity = Vect::ZERO;
 
     spawn_walls(&mut commands, app.grid)
+}
+
+fn robot_position_to_game_state(
+    app: ResMut<MyApp>,
+    mut network: ResMut<PacbotNetworkSimulation>,
+    robots: Query<(Entity, &Transform)>,
+) {
+    let grid = app.grid.compute_grid();
+    if let Some(selected) = app.selected_robot {
+        for robot in &robots {
+            if robot.0 == selected {
+                let pos = grid
+                    .node_nearest(robot.1.translation.x, robot.1.translation.y)
+                    .unwrap();
+                let new_loc = LocationState {
+                    row: pos.x,
+                    col: pos.y,
+                    dir: 0,
+                };
+                if network.game_state.pacman_loc != new_loc {
+                    network.game_state.set_pacman_location(new_loc)
+                }
+            }
+        }
+    }
 }
 
 fn keyboard_input(
@@ -109,14 +136,19 @@ fn keyboard_input(
         (KeyCode::KeyE, (Vec2::new(0.0, 0.0), -0.3)),
     ];
     for (e, _, _, _, mut robot) in &mut robots {
+        let mut target_vel = (Vec2::ZERO, 0.0);
         if let Some(selected) = app.selected_robot {
             for (key, dir) in &key_directions {
                 if e == selected && keys.pressed(*key) {
-                    robot.wasd_target_vel = Some(*dir)
-                } else {
-                    robot.wasd_target_vel = None
+                    target_vel.0 += dir.0;
+                    target_vel.1 += dir.1;
                 }
             }
+        }
+        if target_vel == (Vec2::ZERO, 0.0) {
+            robot.wasd_target_vel = None
+        } else {
+            robot.wasd_target_vel = Some(target_vel)
         }
     }
     app.apply_robots_target_vel(&mut robots);
