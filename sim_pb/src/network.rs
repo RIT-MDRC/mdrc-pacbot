@@ -1,4 +1,5 @@
 use bevy::prelude::{ResMut, Resource};
+use core_pb::constants::GAME_SERVER_PORT;
 use core_pb::messages::GameServerCommand;
 use core_pb::pacbot_rs::game_state::GameState;
 use core_pb::pacbot_rs::location::{LocationState, DOWN, LEFT, RIGHT, UP};

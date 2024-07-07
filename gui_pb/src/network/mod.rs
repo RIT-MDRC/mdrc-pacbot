@@ -1,15 +1,17 @@
+mod websocket;
+
 use crate::colors::{TRANSLUCENT_GREEN_COLOR, TRANSLUCENT_RED_COLOR, TRANSLUCENT_YELLOW_COLOR};
+use crate::network::websocket::CrossPlatformWebsocket;
 use crate::App;
 use core_pb::bin_encode;
 use core_pb::messages::GuiToGameServerMessage;
 use eframe::egui::Color32;
-use std::net::TcpStream;
-use tungstenite::{client, HandshakeError, Message, WebSocket};
+use tungstenite::Message;
 use web_time::{Duration, Instant};
 
 #[derive(Default)]
 pub struct NetworkData {
-    mdrc_server_socket: Option<WebSocket<TcpStream>>,
+    mdrc_server_socket: Option<CrossPlatformWebsocket>,
     mdrc_server_last_time: Option<Instant>,
     mdrc_server_status: NetworkStatus,
     last_ip_port_attempt: Option<(Instant, [u8; 4], u16)>,
@@ -71,12 +73,12 @@ impl App {
                 // todo send settings/commands/keys
                 if self.data.server_status.settings != self.data.settings {
                     socket
-                        .send(Message::Binary(
+                        .send(
                             bin_encode(GuiToGameServerMessage::Settings(
                                 self.data.settings.clone(),
                             ))
                             .unwrap(),
-                        ))
+                        )
                         .unwrap();
                     self.data.server_status.settings = self.data.settings.clone();
                 }
@@ -131,44 +133,10 @@ impl App {
         self.data.network_data.last_ip_port_attempt = Some((Instant::now(), ip, port));
         let [a, b, c, d] = ip;
 
-        match TcpStream::connect(format!("{a}.{b}.{c}.{d}:{port}").clone()) {
-            Ok(stream) => {
-                stream
-                    .set_nonblocking(true)
-                    .expect("Failed to make stream nonblocking");
-
-                match client(format!("ws://{a}.{b}.{c}.{d}:{port}"), stream) {
-                    Ok((socket, _)) => {
-                        println!("Connected successfully");
-                        self.data.network_data.mdrc_server_socket = Some(socket);
-                    }
-                    Err(HandshakeError::Interrupted(mid)) => {
-                        let mut mid = mid;
-                        loop {
-                            mid = match mid.handshake() {
-                                Ok((socket, _)) => {
-                                    println!("Connected successfully");
-                                    self.data.network_data.mdrc_server_socket = Some(socket);
-                                    break;
-                                }
-                                Err(HandshakeError::Interrupted(mid_next)) => mid_next,
-                                Err(HandshakeError::Failure(e)) => {
-                                    eprintln!(
-                                        "Failed to establish WS connection: {:?}",
-                                        e.to_string()
-                                    );
-                                    self.data.network_data.mdrc_server_status =
-                                        NetworkStatus::ConnectionFailed;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    Err(HandshakeError::Failure(e)) => {
-                        eprintln!("Failed to establish WS connection: {:?}", e.to_string());
-                        self.data.network_data.mdrc_server_status = NetworkStatus::ConnectionFailed;
-                    }
-                }
+        match CrossPlatformWebsocket::connect(format!("{a}.{b}.{c}.{d}:{port}")) {
+            Ok(socket) => {
+                println!("Connected successfully");
+                self.data.network_data.mdrc_server_socket = Some(socket);
             }
             Err(e) => {
                 eprintln!("Failed to establish TCP connection: {e:?}");
