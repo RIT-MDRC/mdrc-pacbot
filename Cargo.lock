@@ -2758,13 +2758,16 @@ dependencies = [
  "eframe",
  "egui-phosphor",
  "egui_dock",
+ "js-sys",
  "log",
  "nalgebra",
  "native-dialog",
  "regex",
  "serde",
  "tungstenite 0.21.0",
+ "wasm-bindgen",
  "wasm-bindgen-futures",
+ "web-sys",
  "web-time 1.1.0",
 ]
 

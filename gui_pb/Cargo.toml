@@ -20,8 +20,11 @@ web-time = "1.1.0"
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2.92"
 wasm-bindgen-futures = "0.4"
 log = "0.4.21"
+web-sys = { version = "0.3.69", features = ["WebSocket", "ErrorEvent", "MessageEvent", "FileReader", "ProgressEvent"] }
+js-sys = "0.3.69"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 native-dialog = { version = "0.7.0", features = ["windows_dpi_awareness", "windows_visual_styles"] }

@@ -24,7 +24,7 @@ pub struct PacbotSettings {
 impl Default for PacbotSettings {
     fn default() -> Self {
         Self {
-            host_http: true,
+            host_http: false,
             simulate: false,
             grid: Default::default(),
             robots: vec![],

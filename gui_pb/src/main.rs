@@ -22,6 +22,8 @@ use eframe::egui::{Align, Color32, Pos2};
 use egui_dock::{DockArea, DockState, NodeIndex, Style};
 // todo use native_dialog::FileDialog;
 use std::collections::HashMap;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::wasm_bindgen;
 // use std::fs;
 // use std::fs::File;
 
@@ -35,6 +37,13 @@ fn main() {
         Box::new(|cc| Box::new(App::new(cc))),
     )
     .expect("Failed to start egui app!");
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    pub fn log(s: &str);
 }
 
 // When compiling to web using trunk:
