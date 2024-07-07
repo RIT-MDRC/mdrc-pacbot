@@ -9,8 +9,6 @@ mod tab;
 mod transform;
 
 use crate::network::NetworkData;
-use crate::replay::Replay;
-use crate::replay_manager::ReplayManager;
 use crate::tab::Tab;
 use crate::transform::Transform;
 use anyhow::Error;
@@ -19,7 +17,6 @@ use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::PacbotSettings;
-use core_pb::pacbot_rs::game_state::GameState;
 use eframe::egui;
 use eframe::egui::{Align, Color32, Pos2};
 use egui_dock::{DockArea, DockState, NodeIndex, Style};
