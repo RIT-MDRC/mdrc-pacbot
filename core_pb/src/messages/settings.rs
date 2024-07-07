@@ -3,8 +3,12 @@ use crate::grid::standard_grid::StandardGrid;
 use serde::{Deserialize, Serialize};
 
 /// Rarely changed options for the pacbot server
-#[derive(Clone, Debug, Default, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct PacbotSettings {
+    /// Host a web server for browser clients
+    pub host_http: bool,
+    /// Launch a fake game server and physics simulation as a child process
+    pub simulate: bool,
     /// Which grid is current in use
     pub grid: StandardGrid,
     /// Options for the robot
@@ -15,6 +19,20 @@ pub struct PacbotSettings {
     pub driving: DriveSettings,
     /// Options for localization
     pub particle_filter: ParticleFilterSettings,
+}
+
+impl Default for PacbotSettings {
+    fn default() -> Self {
+        Self {
+            host_http: true,
+            simulate: false,
+            grid: Default::default(),
+            robots: vec![],
+            game_server: Default::default(),
+            driving: Default::default(),
+            particle_filter: Default::default(),
+        }
+    }
 }
 
 /// Pico network options, on-robot drive code options
@@ -62,8 +80,6 @@ impl Default for RobotSettings {
 /// Game server network options
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct GameServerSettings {
-    /// Launch a fake game server as a child process
-    pub simulate: bool,
     /// Whether the app should try to connect/reconnect to the game server
     pub connect: bool,
     /// IP address of the game server, if it should be connected
@@ -75,7 +91,6 @@ pub struct GameServerSettings {
 impl Default for GameServerSettings {
     fn default() -> Self {
         Self {
-            simulate: false,
             connect: false,
             ipv4: [127, 0, 0, 1],
             ws_port: GAME_SERVER_PORT,

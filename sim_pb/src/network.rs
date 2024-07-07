@@ -50,11 +50,11 @@ impl PacbotNetworkSimulation {
                         Ok(mut ws) => {
                             // this message lets clients know that this game server supports
                             // extra messages like pause, reset, custom game state
-                            if let Err(e) =
-                                ws.send(Message::Binary(GAME_SERVER_MAGIC_NUMBER.to_vec()))
-                            {
-                                eprintln!("Error sending magic numbers: {:?}", e);
-                            };
+                            // if let Err(e) =
+                            //     ws.send(Message::Binary(GAME_SERVER_MAGIC_NUMBER.to_vec()))
+                            // {
+                            //     eprintln!("Error sending magic numbers: {:?}", e);
+                            // };
                             println!("Client connected from {addr}");
                             self.game_server_clients.push((ws, addr));
                         }

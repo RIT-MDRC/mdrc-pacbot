@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 
 mod game_server;
 mod gui_clients;
-mod robots;
+// todo mod robots;
 
 pub struct Sockets {
     // pico_udp_tx: Option<UdpSocket>,

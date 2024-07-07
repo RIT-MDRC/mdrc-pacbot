@@ -32,7 +32,7 @@ pub fn draw_grid(app: &mut AppData, painter: &Painter) {
 
 pub fn draw_game(app: &mut AppData, painter: &Painter) {
     let wts = app.world_to_screen;
-    let pacman_state = &app.game;
+    let pacman_state = &app.server_status.game_state;
 
     // ghosts
     for ghost in &pacman_state.ghosts {

@@ -1,9 +1,11 @@
 use crate::colors::{TRANSLUCENT_GREEN_COLOR, TRANSLUCENT_RED_COLOR, TRANSLUCENT_YELLOW_COLOR};
 use crate::App;
+use core_pb::bin_encode;
+use core_pb::messages::GuiToGameServerMessage;
 use eframe::egui::Color32;
 use std::net::TcpStream;
-use std::time::{Duration, Instant};
 use tungstenite::{client, HandshakeError, Message, WebSocket};
+use web_time::{Duration, Instant};
 
 #[derive(Default)]
 pub struct NetworkData {
@@ -58,6 +60,7 @@ impl App {
                     match bincode::serde::decode_from_slice(&m, bincode::config::standard()) {
                         Ok((status, _)) => {
                             self.data.server_status = status;
+                            self.data.settings = self.data.server_status.settings.clone();
                             self.data.network_data.mdrc_server_last_time = Some(Instant::now());
                             self.data.network_data.mdrc_server_status = NetworkStatus::Connected;
                         }
@@ -66,6 +69,17 @@ impl App {
                 }
 
                 // todo send settings/commands/keys
+                if self.data.server_status.settings != self.data.settings {
+                    socket
+                        .send(Message::Binary(
+                            bin_encode(GuiToGameServerMessage::Settings(
+                                self.data.settings.clone(),
+                            ))
+                            .unwrap(),
+                        ))
+                        .unwrap();
+                    self.data.server_status.settings = self.data.settings.clone();
+                }
 
                 // as long as we've received a status recently, we can be done here
                 if let Some(t) = self.data.network_data.mdrc_server_last_time {

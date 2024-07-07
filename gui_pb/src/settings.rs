@@ -167,6 +167,8 @@ fn draw_settings_inner(
 ) {
     ui.checkbox(&mut app.rotated_grid, "Rotated grid");
     ui.end_row();
+    ui.checkbox(&mut app.settings.simulate, "Simulated Physics/Game Server");
+    ui.end_row();
 
     collapsable_section(
         ui,
@@ -218,24 +220,24 @@ fn draw_settings_inner(
         },
     );
 
-    collapsable_section(
-        ui,
-        &mut app.ui_settings.robot_collapsed,
-        TRANSLUCENT_YELLOW_COLOR,
-        |ui| {
-            ui.checkbox(&mut app.settings.game_server.connect, "Robot");
-        },
-        |ui| {
-            ipv4("robot_ip", ui, fields, &mut app.settings.robots.ipv4, "IP");
-            num(
-                "robot_tcp_port",
-                ui,
-                fields,
-                &mut app.settings.robots.tcp_port,
-                "TCP Port",
-            );
-        },
-    );
+    // collapsable_section(
+    //     ui,
+    //     &mut app.ui_settings.robot_collapsed,
+    //     TRANSLUCENT_YELLOW_COLOR,
+    //     |ui| {
+    //         ui.checkbox(&mut app.settings.game_server.connect, "Robot");
+    //     },
+    //     |ui| {
+    //         ipv4("robot_ip", ui, fields, &mut app.settings.robots.ipv4, "IP");
+    //         num(
+    //             "robot_tcp_port",
+    //             ui,
+    //             fields,
+    //             &mut app.settings.robots.tcp_port,
+    //             "TCP Port",
+    //         );
+    //     },
+    // );
 
     num(
         "cv_err_std",

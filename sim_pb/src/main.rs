@@ -61,13 +61,14 @@ fn setup_graphics(mut commands: Commands) {
 }
 
 fn setup_physics(
-    app: Res<MyApp>,
+    mut app: ResMut<MyApp>,
     mut commands: Commands,
     mut rapier_configuration: ResMut<RapierConfiguration>,
 ) {
     rapier_configuration.gravity = Vect::ZERO;
 
-    spawn_walls(&mut commands, app.grid)
+    spawn_walls(&mut commands, app.grid);
+    app.spawn_robot(&mut commands);
 }
 
 fn robot_position_to_game_state(

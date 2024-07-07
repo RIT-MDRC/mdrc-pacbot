@@ -82,7 +82,6 @@ pub struct App {
 }
 
 pub struct AppData {
-    game: GameState,
     grid: ComputedGrid,
     pointer_pos: Option<Pos2>,
     background_color: Color32,
@@ -143,7 +142,6 @@ impl App {
 impl Default for AppData {
     fn default() -> Self {
         Self {
-            game: Default::default(),
             grid: Default::default(),
             pointer_pos: None,
             background_color: Color32::BLACK,
@@ -172,7 +170,7 @@ impl eframe::App for App {
         self.data.background_color = ctx.style().visuals.panel_fill;
         self.data.grid = self.data.settings.grid.compute_grid();
         self.update_keybindings(ctx);
-        // todo self.manage_network();
+        self.manage_network();
 
         self.draw_layout(ctx);
 
