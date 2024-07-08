@@ -114,9 +114,9 @@ impl CrossPlatformWebsocket {
             if let Ok(abuf) = e.data().dyn_into::<js_sys::ArrayBuffer>() {
                 console_log!("message event, received arraybuffer: {:?}", abuf);
                 let array = js_sys::Uint8Array::new(&abuf);
-                msg_tx.send(Ok(Message::Binary(array.to_vec()))).unwrap();
+                let _ = msg_tx.send(Ok(Message::Binary(array.to_vec())));
             } else if let Ok(blob) = e.data().dyn_into::<web_sys::Blob>() {
-                console_log!("message event, received blob: {:?}", blob);
+                // console_log!("message event, received blob: {:?}", blob);
                 let fr = web_sys::FileReader::new().unwrap();
                 let fr_c = fr.clone();
                 let msg_tx_c = msg_tx.clone();
@@ -125,8 +125,8 @@ impl CrossPlatformWebsocket {
                     Closure::<dyn FnMut(_)>::new(move |_e: web_sys::ProgressEvent| {
                         let array = js_sys::Uint8Array::new(&fr_c.result().unwrap());
                         let len = array.byte_length() as usize;
-                        console_log!("Blob received {len} bytes");
-                        msg_tx_c.send(Ok(Message::Binary(array.to_vec()))).unwrap();
+                        console_log!("message event, Blob received {len} bytes");
+                        let _ = msg_tx_c.send(Ok(Message::Binary(array.to_vec())));
                     });
                 fr.set_onloadend(Some(onloadend_cb.as_ref().unchecked_ref()));
                 fr.read_as_array_buffer(&blob).expect("blob not readable");
@@ -145,7 +145,7 @@ impl CrossPlatformWebsocket {
 
         let onerror_callback = Closure::<dyn FnMut(_)>::new(move |e: ErrorEvent| {
             console_log!("error event: {:?}", e);
-            tx2.send(Err(WebsocketError::ErrorEvent(e))).unwrap();
+            let _ = tx2.send(Err(WebsocketError::ErrorEvent(e)));
         });
         ws.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
         onerror_callback.forget();

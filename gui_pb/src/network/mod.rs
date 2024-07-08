@@ -57,19 +57,6 @@ impl App {
 
         if let Some(socket) = &mut self.data.network_data.mdrc_server_socket {
             if socket.can_read() {
-                // read status messages from server
-                while let Ok(Message::Binary(m)) = socket.read() {
-                    match bincode::serde::decode_from_slice(&m, bincode::config::standard()) {
-                        Ok((status, _)) => {
-                            self.data.server_status = status;
-                            self.data.settings = self.data.server_status.settings.clone();
-                            self.data.network_data.mdrc_server_last_time = Some(Instant::now());
-                            self.data.network_data.mdrc_server_status = NetworkStatus::Connected;
-                        }
-                        Err(e) => eprintln!("Failed to decode status from server: {e:?}"),
-                    }
-                }
-
                 // todo send settings/commands/keys
                 if self.data.server_status.settings != self.data.settings {
                     socket
@@ -81,6 +68,19 @@ impl App {
                         )
                         .unwrap();
                     self.data.server_status.settings = self.data.settings.clone();
+                }
+
+                // read status messages from server
+                while let Ok(Message::Binary(m)) = socket.read() {
+                    match bincode::serde::decode_from_slice(&m, bincode::config::standard()) {
+                        Ok((status, _)) => {
+                            self.data.server_status = status;
+                            self.data.settings = self.data.server_status.settings.clone();
+                            self.data.network_data.mdrc_server_last_time = Some(Instant::now());
+                            self.data.network_data.mdrc_server_status = NetworkStatus::Connected;
+                        }
+                        Err(e) => eprintln!("Failed to decode status from server: {e:?}"),
+                    }
                 }
 
                 // as long as we've received a status recently, we can be done here
