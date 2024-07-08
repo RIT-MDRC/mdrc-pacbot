@@ -68,6 +68,12 @@ pub async fn manage_game_server(
                 }
             }
         } else {
+            // consume messages in queue (checking for addresses)
+            while let Ok(Some(msg)) = commands.try_next() {
+                if let GameServerCommand::Connect(new_addr) = msg {
+                    addr = new_addr;
+                }
+            }
             if let Some(([a, b, c, d], p)) = addr {
                 // try to connect to the address
                 let addr = format!("ws://{a}.{b}.{c}.{d}:{p}");

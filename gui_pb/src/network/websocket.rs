@@ -38,6 +38,7 @@ pub enum WebsocketError {
     JsValue(JsValue),
     WouldBlock,
     ErrorEvent(ErrorEvent),
+    FailedToConnect,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -150,6 +151,10 @@ impl CrossPlatformWebsocket {
         ws.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
         onerror_callback.forget();
 
+        if let Ok(Err(_)) = msg_rx.recv() {
+            return Err(WebsocketError::FailedToConnect);
+        }
+
         Ok(Self {
             ws,
             ok: true,
@@ -166,6 +171,7 @@ impl CrossPlatformWebsocket {
             Ok(Ok(x)) => Ok(x),
             Ok(Err(e)) => {
                 self.ok = false;
+                self.ws.close().unwrap();
                 Err(e)
             }
             Err(_) => Err(WebsocketError::WouldBlock),

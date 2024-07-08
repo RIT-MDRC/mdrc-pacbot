@@ -101,7 +101,10 @@ async fn handle_gui_client(
     // Insert the write part of this peer to the peer map.
     let (tx, rx) = unbounded();
     peer_map.lock().unwrap().insert(addr, tx);
-    status(&app, |s| s.gui_clients += 1);
+    status(&app, |s| {
+        s.gui_clients += 1;
+        println!("{}", s.gui_clients);
+    });
 
     let (outgoing, incoming) = ws_stream.split();
 
@@ -113,6 +116,9 @@ async fn handle_gui_client(
                 Ok((msg, _)) => incoming_msg.unbounded_send(msg).unwrap(),
                 Err(e) => eprintln!("Error decoding message from {addr}: {e:?}"),
             },
+            Message::Close(_) => {
+                println!("gui client {addr} is closing the connection");
+            }
             m => eprintln!("Received strange message from gui client {addr}: {m:?}"),
         }
 
@@ -128,5 +134,8 @@ async fn handle_gui_client(
 
     println!("gui client {} disconnected", &addr);
     peer_map.lock().unwrap().remove(&addr);
-    status(&app, |s| s.gui_clients -= 1);
+    status(&app, |s| {
+        println!("{}", s.gui_clients);
+        s.gui_clients -= 1
+    });
 }
