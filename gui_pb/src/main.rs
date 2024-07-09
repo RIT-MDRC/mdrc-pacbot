@@ -8,7 +8,6 @@ mod settings;
 mod tab;
 mod transform;
 
-use crate::network::NetworkData;
 use crate::tab::Tab;
 use crate::transform::Transform;
 use anyhow::Error;
@@ -21,6 +20,8 @@ use eframe::egui;
 use eframe::egui::{Align, Color32, Pos2};
 use egui_dock::{DockArea, DockState, NodeIndex, Style};
 // todo use native_dialog::FileDialog;
+use core_pb::messages::GuiToGameServerMessage;
+use core_pb::threaded_websocket::ThreadedSocket;
 use std::collections::HashMap;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -93,7 +94,7 @@ pub struct AppData {
     world_to_screen: Transform,
     // replay_manager: ReplayManager,
     server_status: ServerStatus,
-    network_data: NetworkData,
+    network: ThreadedSocket<GuiToGameServerMessage, ServerStatus>,
     settings: PacbotSettings,
     ui_settings: UiSettings,
 
@@ -146,6 +147,13 @@ impl App {
 
 impl Default for AppData {
     fn default() -> Self {
+        let ui_settings = UiSettings::default();
+        let mut network = ThreadedSocket::default();
+        network.connect(Some((
+            ui_settings.mdrc_server_ipv4,
+            ui_settings.mdrc_server_ws_port,
+        )));
+
         Self {
             grid: Default::default(),
             pointer_pos: None,
@@ -159,9 +167,9 @@ impl Default for AppData {
             ),
             // todo replay_manager: Default::default(),
             server_status: Default::default(),
-            network_data: Default::default(),
+            network,
             settings: Default::default(),
-            ui_settings: Default::default(),
+            ui_settings,
 
             rotated_grid: true,
             settings_fields: Some(HashMap::new()),
