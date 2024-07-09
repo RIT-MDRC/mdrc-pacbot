@@ -103,7 +103,7 @@ async fn handle_gui_client(
     peer_map.lock().unwrap().insert(addr, tx);
     status(&app, |s| {
         s.gui_clients += 1;
-        println!("{}", s.gui_clients);
+        println!("{} client(s) are connected", s.gui_clients);
     });
 
     let (outgoing, incoming) = ws_stream.split();
@@ -135,7 +135,7 @@ async fn handle_gui_client(
     println!("gui client {} disconnected", &addr);
     peer_map.lock().unwrap().remove(&addr);
     status(&app, |s| {
-        println!("{}", s.gui_clients);
-        s.gui_clients -= 1
+        s.gui_clients -= 1;
+        println!("{} client(s) remaining", s.gui_clients);
     });
 }
