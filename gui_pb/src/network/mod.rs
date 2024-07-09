@@ -5,6 +5,7 @@ use crate::network::websocket::CrossPlatformWebsocket;
 use crate::App;
 use core_pb::bin_encode;
 use core_pb::messages::{GuiToGameServerMessage, NetworkStatus};
+use core_pb::network::ThreadableSocket;
 use eframe::egui::Color32;
 use tungstenite::Message;
 use web_time::{Duration, Instant};
@@ -15,6 +16,27 @@ pub struct NetworkData {
     mdrc_server_last_time: Option<Instant>,
     mdrc_server_status: NetworkStatus,
     last_ip_port_attempt: Option<(Instant, [u8; 4], u16)>,
+}
+
+impl ThreadableSocket for NetworkData {
+    type SendType = ();
+    type ReceiveType = ();
+
+    async fn my_connect(addr: core_pb::network::Address) -> Result<Self, ()> {
+        todo!()
+    }
+
+    async fn my_send(&mut self, data: Self::SendType) {
+        todo!()
+    }
+
+    async fn my_read(&mut self) -> Self::ReceiveType {
+        todo!()
+    }
+
+    async fn my_close(self) {
+        todo!()
+    }
 }
 
 impl NetworkData {

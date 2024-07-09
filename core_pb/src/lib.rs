@@ -6,6 +6,8 @@ pub mod constants;
 pub mod driving;
 pub mod grid;
 pub mod messages;
+#[cfg(feature = "std")]
+pub mod network;
 
 pub use pacbot_rs;
 
