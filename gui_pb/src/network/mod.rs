@@ -18,27 +18,6 @@ pub struct NetworkData {
     last_ip_port_attempt: Option<(Instant, [u8; 4], u16)>,
 }
 
-impl ThreadableSocket for NetworkData {
-    type SendType = ();
-    type ReceiveType = ();
-
-    async fn my_connect(addr: core_pb::network::Address) -> Result<Self, ()> {
-        todo!()
-    }
-
-    async fn my_send(&mut self, data: Self::SendType) {
-        todo!()
-    }
-
-    async fn my_read(&mut self) -> Self::ReceiveType {
-        todo!()
-    }
-
-    async fn my_close(self) {
-        todo!()
-    }
-}
-
 impl NetworkData {
     pub fn status(&self) -> NetworkStatus {
         self.mdrc_server_status

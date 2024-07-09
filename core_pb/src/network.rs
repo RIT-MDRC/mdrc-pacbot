@@ -4,23 +4,25 @@ use crate::messages::NetworkStatus;
 use crate::{bin_decode, bin_encode};
 use async_channel::{unbounded, Receiver, Sender};
 use async_std::task::sleep;
-#[cfg(not(target_arch = "wasm32"))]
-use async_tungstenite::async_std::ConnectStream;
-#[cfg(not(target_arch = "wasm32"))]
-use async_tungstenite::tungstenite::Message;
-#[cfg(not(target_arch = "wasm32"))]
-use async_tungstenite::WebSocketStream;
 use futures::executor::block_on;
-use futures::{select, FutureExt, SinkExt, StreamExt};
+use futures::{select, FutureExt};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::future;
 use std::time::Duration;
-use web_sys::wasm_bindgen::closure::Closure;
-use web_sys::wasm_bindgen::JsCast;
+use wasm_bindgen_futures::spawn_local;
+#[cfg(not(target_arch = "wasm32"))]
+use {
+    async_tungstenite::async_std::ConnectStream, async_tungstenite::tungstenite::Message,
+    async_tungstenite::WebSocketStream,
+};
 #[cfg(target_arch = "wasm32")]
-use web_sys::WebSocket;
-use web_sys::{js_sys, ErrorEvent, MessageEvent};
+use {
+    web_sys::wasm_bindgen::closure::Closure,
+    web_sys::wasm_bindgen::JsCast,
+    web_sys::WebSocket,
+    web_sys::{js_sys, ErrorEvent, MessageEvent},
+};
 
 pub type Address = ([u8; 4], u16);
 
@@ -33,7 +35,7 @@ pub struct ThreadedSocket<SendType, ReceiveType> {
     receiver: Receiver<ReceiveType>,
 }
 
-impl<SendType, ReceiveType> ThreadedSocket<SendType, ReceiveType> {
+impl<SendType: 'static, ReceiveType: 'static> ThreadedSocket<SendType, ReceiveType> {
     /// specify an address to connect to (or None to suspend current connection and future attempts)
     pub fn connect(&mut self, addr: Option<Address>) {
         block_on(self.addr_sender.send(addr)).expect("ThreadedSocket address sender is closed");
@@ -62,7 +64,9 @@ impl<SendType, ReceiveType> ThreadedSocket<SendType, ReceiveType> {
         self.receiver.try_recv().ok()
     }
 
-    pub fn new<SocketType: ThreadableSocket<SendType, ReceiveType>>(addr: Option<Address>) -> Self {
+    pub fn new<SocketType: ThreadableSocket<SendType, ReceiveType> + 'static>(
+        addr: Option<Address>,
+    ) -> Self {
         let (addr_sender, addr_rx) = unbounded();
         let (sender, sender_rx) = unbounded();
         let (status_tx, status_receiver) = unbounded();
@@ -70,12 +74,17 @@ impl<SendType, ReceiveType> ThreadedSocket<SendType, ReceiveType> {
 
         block_on(addr_sender.send(addr)).unwrap();
 
-        block_on(run_socket_forever::<SendType, ReceiveType, SocketType>(
+        let fut = run_socket_forever::<SendType, ReceiveType, SocketType>(
             addr_rx,
             sender_rx,
             status_tx,
             receiver_tx,
-        ));
+        );
+
+        #[cfg(target_arch = "wasm32")]
+        spawn_local(fut);
+        #[cfg(not(target_arch = "wasm32"))]
+        std::thread::spawn(|| block_on(fut));
 
         Self {
             status: NetworkStatus::NotConnected,
@@ -211,7 +220,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
         let ([a, b, c, d], port) = addr;
         let addr = format!("{a}.{b}.{c}.{d}:{port}");
 
-        let (msg_tx, mut msg_rx) = unbounded();
+        let (msg_tx, msg_rx) = unbounded();
         let tx2 = msg_tx.clone();
 
         let ws = WebSocket::new(&("ws://".to_string() + &addr)).map_err(|_| ())?;
@@ -243,7 +252,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
         // forget the callback to keep it alive
         onmessage_callback.forget();
 
-        let onerror_callback = Closure::<dyn FnMut(_)>::new(move |e: ErrorEvent| {
+        let onerror_callback = Closure::<dyn FnMut(_)>::new(move |_: ErrorEvent| {
             let _ = tx2.send(Err(()));
         });
         ws.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
@@ -269,7 +278,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
             match self.messages.recv().await {
                 Ok(Ok(msg)) => {
                     self.status = NetworkStatus::Connected;
-                    return bin_decode(&msg).unwrap();
+                    return bin_decode(&msg).unwrap().0;
                 }
                 _ => self.status = NetworkStatus::ConnectionFailed,
             }
