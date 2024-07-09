@@ -8,6 +8,19 @@ pub mod server_status;
 #[cfg(feature = "std")]
 pub mod settings;
 
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Default, PartialOrd, PartialEq)]
+pub enum NetworkStatus {
+    /// Settings dictate that a connection should not be made
+    #[default]
+    NotConnected,
+    /// A connection could not be established
+    ConnectionFailed,
+    /// After a connection is established, but before a message is received
+    Connecting,
+    /// After a message is received
+    Connected,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
 pub enum GuiToGameServerMessage {

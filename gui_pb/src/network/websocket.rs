@@ -1,7 +1,9 @@
+use core_pb::messages::NetworkStatus;
 #[cfg(not(target_arch = "wasm32"))]
 use std::io;
 #[cfg(not(target_arch = "wasm32"))]
 use std::net::TcpStream;
+#[cfg(target_arch = "wasm32")]
 use std::sync::mpsc::{channel, Receiver};
 use tungstenite::Message;
 #[cfg(not(target_arch = "wasm32"))]
@@ -18,7 +20,7 @@ pub struct CrossPlatformWebsocket {
 
 #[cfg(target_arch = "wasm32")]
 pub struct CrossPlatformWebsocket {
-    ok: bool,
+    status: NetworkStatus,
     ws: WebSocket,
     messages: Receiver<Result<Message, WebsocketError>>,
 }
@@ -44,13 +46,16 @@ pub enum WebsocketError {
 #[cfg(not(target_arch = "wasm32"))]
 impl CrossPlatformWebsocket {
     pub fn connect(addr: String) -> Result<Self, WebsocketError> {
+        println!("a");
         let stream = TcpStream::connect(addr.clone())
             .map_err(|e| WebsocketError::IoError("error during TcpStream initialization", e))?;
 
+        println!("b");
         stream
             .set_nonblocking(true)
             .map_err(|e| WebsocketError::IoError("couldn't set stream to nonblocking", e))?;
 
+        println!("c");
         match client("ws://".to_string() + &addr, stream) {
             Ok((socket, _)) => {
                 return Ok(Self { ws: socket });
@@ -70,13 +75,18 @@ impl CrossPlatformWebsocket {
                 }
             }
             Err(HandshakeError::Failure(e)) => {
-                return Err(WebsocketError::HandshakeError(HandshakeError::Failure(e)))
+                println!("d");
+                return Err(WebsocketError::HandshakeError(HandshakeError::Failure(e)));
             }
         }
     }
 
-    pub fn can_read(&self) -> bool {
-        self.ws.can_read()
+    pub fn status(&self) -> NetworkStatus {
+        if self.ws.can_read() {
+            NetworkStatus::Connected
+        } else {
+            NetworkStatus::ConnectionFailed
+        }
     }
 
     pub fn read(&mut self) -> Result<Message, WebsocketError> {
@@ -89,6 +99,11 @@ impl CrossPlatformWebsocket {
         self.ws
             .send(Message::Binary(bytes))
             .map_err(|e| WebsocketError::TungsteniteError(e))
+    }
+
+    pub fn close(&mut self) -> Result<(), WebsocketError> {
+        // outside of WASM, sockets are closed when dropped
+        Ok(())
     }
 }
 
@@ -157,20 +172,23 @@ impl CrossPlatformWebsocket {
 
         Ok(Self {
             ws,
-            ok: true,
+            status: NetworkStatus::Connecting,
             messages: msg_rx,
         })
     }
 
-    pub fn can_read(&self) -> bool {
-        self.ok
+    pub fn status(&self) -> NetworkStatus {
+        self.status
     }
 
     pub fn read(&mut self) -> Result<Message, WebsocketError> {
         match self.messages.try_recv() {
-            Ok(Ok(x)) => Ok(x),
+            Ok(Ok(x)) => {
+                self.status = NetworkStatus::Connected;
+                Ok(x)
+            }
             Ok(Err(e)) => {
-                self.ok = false;
+                self.status = NetworkStatus::ConnectionFailed;
                 self.ws.close().unwrap();
                 Err(e)
             }
@@ -182,5 +200,9 @@ impl CrossPlatformWebsocket {
         self.ws
             .send_with_u8_array(&bytes)
             .map_err(|e| WebsocketError::JsValue(e))
+    }
+
+    pub fn close(&mut self) -> Result<(), WebsocketError> {
+        self.ws.close().map_err(|e| WebsocketError::JsValue(e))
     }
 }

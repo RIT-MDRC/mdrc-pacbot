@@ -1,4 +1,5 @@
 use crate::colors::TRANSLUCENT_YELLOW_COLOR;
+use crate::network::network_status_to_color;
 use crate::AppData;
 use core_pb::messages::settings::StrategyChoice;
 use eframe::egui;
@@ -173,7 +174,7 @@ fn draw_settings_inner(
     collapsable_section(
         ui,
         &mut app.ui_settings.mdrc_server_collapsed,
-        app.network_data.status().into(),
+        network_status_to_color(app.network_data.status()),
         |ui| {
             ui.checkbox(&mut app.ui_settings.connect_mdrc_server, "MDRC Server");
         },

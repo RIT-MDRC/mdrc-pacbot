@@ -4,7 +4,7 @@ use crate::colors::{TRANSLUCENT_GREEN_COLOR, TRANSLUCENT_RED_COLOR, TRANSLUCENT_
 use crate::network::websocket::CrossPlatformWebsocket;
 use crate::App;
 use core_pb::bin_encode;
-use core_pb::messages::GuiToGameServerMessage;
+use core_pb::messages::{GuiToGameServerMessage, NetworkStatus};
 use eframe::egui::Color32;
 use tungstenite::Message;
 use web_time::{Duration, Instant};
@@ -23,74 +23,33 @@ impl NetworkData {
     }
 }
 
-#[derive(Copy, Clone, Default)]
-pub enum NetworkStatus {
-    /// Settings dictate that a connection should not be made
-    #[default]
-    NotConnected,
-    /// A websocket cannot be established
-    ConnectionFailed,
-    /// After a websocket is established, but before a status message is received
-    Connecting,
-    /// After a status message is received
-    Connected,
-}
-
-impl From<NetworkStatus> for Color32 {
-    fn from(value: NetworkStatus) -> Self {
-        match value {
-            NetworkStatus::NotConnected => TRANSLUCENT_RED_COLOR,
-            NetworkStatus::ConnectionFailed => TRANSLUCENT_RED_COLOR,
-            NetworkStatus::Connecting => TRANSLUCENT_YELLOW_COLOR,
-            NetworkStatus::Connected => TRANSLUCENT_GREEN_COLOR,
-        }
+pub fn network_status_to_color(value: NetworkStatus) -> Color32 {
+    match value {
+        NetworkStatus::NotConnected => TRANSLUCENT_RED_COLOR,
+        NetworkStatus::ConnectionFailed => TRANSLUCENT_RED_COLOR,
+        NetworkStatus::Connecting => TRANSLUCENT_YELLOW_COLOR,
+        NetworkStatus::Connected => TRANSLUCENT_GREEN_COLOR,
     }
 }
 
 impl App {
     pub fn manage_network(&mut self) {
         if !self.data.ui_settings.connect_mdrc_server {
-            // reset socket and status information
-            self.data.network_data = NetworkData::default();
+            self.reset_network();
             return;
         }
 
         if let Some(socket) = &mut self.data.network_data.mdrc_server_socket {
-            if socket.can_read() {
-                // todo send settings/commands/keys
-                if self.data.server_status.settings != self.data.settings {
-                    socket
-                        .send(
-                            bin_encode(GuiToGameServerMessage::Settings(
-                                self.data.settings.clone(),
-                            ))
-                            .unwrap(),
-                        )
-                        .unwrap();
-                    self.data.server_status.settings = self.data.settings.clone();
-                }
+            match socket.status() {
+                NetworkStatus::NotConnected | NetworkStatus::ConnectionFailed => {
+                    self.data.network_data.mdrc_server_status = NetworkStatus::ConnectionFailed;
 
-                // read status messages from server
-                while let Ok(Message::Binary(m)) = socket.read() {
-                    match bincode::serde::decode_from_slice(&m, bincode::config::standard()) {
-                        Ok((status, _)) => {
-                            self.data.server_status = status;
-                            self.data.settings = self.data.server_status.settings.clone();
-                            self.data.network_data.mdrc_server_last_time = Some(Instant::now());
-                            self.data.network_data.mdrc_server_status = NetworkStatus::Connected;
-                        }
-                        Err(e) => eprintln!("Failed to decode status from server: {e:?}"),
-                    }
+                    self.data.network_data.mdrc_server_socket = None;
+                    // go on to reconnect
                 }
+                NetworkStatus::Connecting => {
+                    self.data.network_data.mdrc_server_status = NetworkStatus::Connecting;
 
-                // as long as we've received a status recently, we can be done here
-                if let Some(t) = self.data.network_data.mdrc_server_last_time {
-                    // this socket has produced at least one status - ensure the last one was recent
-                    if t.elapsed() < Duration::from_secs(1) {
-                        return;
-                    }
-                    // if it wasn't, continue on to replace the socket
-                } else {
                     // this socket hasn't produced a status yet
                     // as long as it has only been alive for a short time, that's fine
                     if let Some((t2, _, _)) = self.data.network_data.last_ip_port_attempt {
@@ -98,15 +57,24 @@ impl App {
                             return;
                         }
                         // if it wasn't, continue on to replace the socket
-                    } else {
-                        eprintln!("WARNING: Had a socket without an attempted connection!");
+                    }
+                }
+                NetworkStatus::Connected => {
+                    self.data.network_data.mdrc_server_status = NetworkStatus::Connected;
+                    self.handle_connected_socket();
+
+                    // as long as we've received a status recently, we can be done here
+                    if let Some(t) = self.data.network_data.mdrc_server_last_time {
+                        // this socket has produced at least one status - ensure the last one was recent
+                        if t.elapsed() < Duration::from_secs(1) {
+                            return;
+                        }
+                        // if it wasn't, continue on to replace the socket
+                        self.close_socket();
                     }
                 }
             }
         }
-
-        // reset socket and status information, in case of broken socket
-        self.data.network_data = NetworkData::default();
 
         // socket is not currently connected
         // have we tried the current IP/port recently?
@@ -141,6 +109,53 @@ impl App {
             Err(e) => {
                 eprintln!("Failed to establish TCP connection: {e:?}");
                 self.data.network_data.mdrc_server_status = NetworkStatus::ConnectionFailed;
+            }
+        }
+    }
+
+    fn close_socket(&mut self) {
+        if let Some(socket) = &mut self.data.network_data.mdrc_server_socket {
+            if socket.status() == NetworkStatus::Connecting
+                || socket.status() == NetworkStatus::Connected
+            {
+                if let Err(e) = socket.close() {
+                    eprintln!("Failed to close websocket: {e:?}");
+                }
+            }
+        }
+    }
+
+    fn reset_network(&mut self) {
+        self.data.network_data.mdrc_server_status = NetworkStatus::NotConnected;
+        self.close_socket();
+        // reset socket and status information
+        self.data.network_data = NetworkData::default();
+    }
+
+    fn handle_connected_socket(&mut self) {
+        if let Some(socket) = &mut self.data.network_data.mdrc_server_socket {
+            // todo send settings/commands/keys
+            if self.data.server_status.settings != self.data.settings {
+                socket
+                    .send(
+                        bin_encode(GuiToGameServerMessage::Settings(self.data.settings.clone()))
+                            .unwrap(),
+                    )
+                    .unwrap();
+                self.data.server_status.settings = self.data.settings.clone();
+            }
+
+            // read status messages from server
+            while let Ok(Message::Binary(m)) = socket.read() {
+                match bincode::serde::decode_from_slice(&m, bincode::config::standard()) {
+                    Ok((status, _)) => {
+                        self.data.server_status = status;
+                        self.data.settings = self.data.server_status.settings.clone();
+                        self.data.network_data.mdrc_server_last_time = Some(Instant::now());
+                        self.data.network_data.mdrc_server_status = NetworkStatus::Connected;
+                    }
+                    Err(e) => eprintln!("Failed to decode status from server: {e:?}"),
+                }
             }
         }
     }
