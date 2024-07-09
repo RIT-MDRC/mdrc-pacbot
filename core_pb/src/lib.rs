@@ -45,8 +45,6 @@ pub fn bin_encode<T: Serialize>(x: T) -> Result<Vec<u8>, bincode::error::EncodeE
     bincode::serde::encode_to_vec(x, bincode::config::standard())
 }
 
-// pub fn msg_encode<T: Serialize>(x: T) -> Result<Mess>
-
 /// [`bincode::serde::decode_from_slice`] with [`bincode::config::standard`]
 pub fn bin_decode<T: DeserializeOwned>(
     bytes: &[u8],

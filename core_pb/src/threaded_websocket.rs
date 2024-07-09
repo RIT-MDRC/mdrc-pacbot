@@ -114,6 +114,15 @@ impl<SendType: Serialize + Send + 'static, ReceiveType: DeserializeOwned + Send 
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+impl<SendType: Serialize + Send + 'static, ReceiveType: DeserializeOwned + Send + 'static> Default
+    for ThreadedSocket<SendType, ReceiveType>
+{
+    fn default() -> Self {
+        Self::new::<WebSocketStream<ConnectStream>>(None)
+    }
+}
+
 pub trait ThreadableSocket<SendType, ReceiveType>: Sized {
     async fn my_connect(addr: Address) -> Result<Self, ()>;
 
@@ -183,12 +192,13 @@ async fn run_socket_forever<
             }
             incoming_data = socket_read_fut(&mut socket).fuse() => {
                 if let Ok(incoming_data) = incoming_data {
-                    console_log!("[threaded_websocket] Received data from {addr:?}");
+                    // console_log!("[threaded_websocket] Received data from {addr:?}");
                     data_incoming.send(incoming_data).await.unwrap();
                 } else {
                     console_log!("[threaded_websocket] Connection closed to {addr:?} due to error reading");
                     statuses.send(NetworkStatus::ConnectionFailed).await.unwrap();
                     if let Some(socket) = socket.take() {
+                        console_log!("[threaded_websocket] Closing socket to {addr:?}");
                         socket.my_close().await
                     }
                 }
@@ -210,32 +220,54 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
     async fn my_connect(addr: Address) -> Result<Self, ()> {
         let ([a, b, c, d], port) = addr;
         Ok(
-            async_tungstenite::async_std::connect_async(format!("{a}.{b}.{c}.{d}:{port}"))
+            async_tungstenite::async_std::connect_async(format!("ws://{a}.{b}.{c}.{d}:{port}"))
                 .await
-                .map_err(|_| ())?
+                .map_err(|e| eprintln!("[threaded_websocket] Error connecting: {:?}", e))?
                 .0,
         )
     }
 
     async fn my_send(&mut self, data: SendType) {
-        let _ = self.send(Message::Binary(bin_encode(data).unwrap())).await;
+        if let Err(e) = self.send(Message::Binary(bin_encode(data).unwrap())).await {
+            eprintln!("[threaded_websocket] Error sending data: {:?}", e);
+        }
     }
 
     async fn my_read(&mut self) -> Result<ReceiveType, ()> {
         match self.next().await {
             Some(Ok(Message::Binary(bytes))) => {
-                if let Ok(data) = bin_decode(&bytes) {
-                    return data.0;
-                } else {
-                    Err(())
+                // println!(
+                //     "[threaded_websocket] Received binary data: {} bytes",
+                //     bytes.len()
+                // );
+                match bin_decode(&bytes) {
+                    Ok(data) => Ok(data.0),
+                    Err(e) => {
+                        eprintln!("[threaded_websocket] Error decoding data: {:?}", e);
+                        Err(())
+                    }
                 }
+            }
+            Some(Ok(Message::Close(_))) => {
+                eprintln!("[threaded_websocket] Connection closing");
+                Err(())
+            }
+            Some(Ok(msg)) => {
+                eprintln!("[threaded_websocket] Unexpected message type: {:?}", msg);
+                Err(())
+            }
+            Some(err) => {
+                eprintln!("[threaded_websocket] Error reading message: {:?}", err);
+                Err(())
             }
             _ => Err(()),
         }
     }
 
     async fn my_close(mut self) {
-        let _ = self.close(None).await;
+        if let Err(e) = self.close(None).await {
+            eprintln!("[threaded_websocket] Error closing websocket: {:?}", e);
+        }
     }
 }
 
