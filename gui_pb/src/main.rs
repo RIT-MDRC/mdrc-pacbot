@@ -1,17 +1,14 @@
 mod colors;
-mod game;
-mod keybindings;
-mod network;
+
+mod input;
 mod replay;
-mod replay_manager;
-mod settings;
-mod tab;
+
+mod drawing;
 mod transform;
 
-use crate::tab::Tab;
+use crate::drawing::tab::Tab;
 use crate::transform::Transform;
 use anyhow::Error;
-use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::server_status::ServerStatus;
@@ -20,6 +17,7 @@ use eframe::egui;
 use eframe::egui::{Align, Color32, Pos2};
 use egui_dock::{DockArea, DockState, NodeIndex, Style};
 // todo use native_dialog::FileDialog;
+use crate::drawing::settings::UiSettings;
 use core_pb::console_log;
 use core_pb::messages::GuiToGameServerMessage;
 use core_pb::threaded_websocket::ThreadedSocket;
@@ -93,27 +91,17 @@ pub struct App {
     settings_fields: Option<HashMap<&'static str, (String, String)>>,
 }
 
-pub struct UiSettings {
-    connect_mdrc_server: bool,
-    mdrc_server_ipv4: [u8; 4],
-    mdrc_server_ws_port: u16,
+impl eframe::App for App {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.pointer_pos = ctx.pointer_latest_pos();
+        self.background_color = ctx.style().visuals.panel_fill;
+        self.grid = self.settings.grid.compute_grid();
+        self.read_input(ctx);
+        self.manage_network();
 
-    mdrc_server_collapsed: bool,
-    game_server_collapsed: bool,
-    robot_collapsed: bool,
-}
+        self.draw_layout(ctx);
 
-impl Default for UiSettings {
-    fn default() -> Self {
-        Self {
-            connect_mdrc_server: true,
-            mdrc_server_ipv4: [127, 0, 0, 1],
-            mdrc_server_ws_port: GUI_LISTENER_PORT,
-
-            mdrc_server_collapsed: true,
-            game_server_collapsed: true,
-            robot_collapsed: true,
-        }
+        ctx.request_repaint();
     }
 }
 
@@ -159,23 +147,19 @@ impl App {
             settings_fields: Some(HashMap::new()),
         }
     }
-}
 
-impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.pointer_pos = ctx.pointer_latest_pos();
-        self.background_color = ctx.style().visuals.panel_fill;
-        self.grid = self.settings.grid.compute_grid();
-        self.update_keybindings(ctx);
-        self.manage_network();
-
-        self.draw_layout(ctx);
-
-        ctx.request_repaint();
+    pub fn manage_network(&mut self) {
+        if let Some(status) = self.network.read() {
+            self.server_status = status;
+            self.settings = self.server_status.settings.clone();
+        }
+        if self.server_status.settings != self.settings {
+            self.network
+                .send(GuiToGameServerMessage::Settings(self.settings.clone()));
+            self.server_status.settings = self.settings.clone();
+        }
     }
-}
 
-impl App {
     /// Draw the main outer layout
     pub fn draw_layout(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("menu").show(ctx, |ui| {

@@ -5,7 +5,7 @@ use eframe::egui;
 use eframe::egui::{Event, Key};
 
 impl App {
-    pub fn update_keybindings(&mut self, ctx: &egui::Context) {
+    pub fn read_input(&mut self, ctx: &egui::Context) {
         // don't activate keybindings if some element (text box, button) is focused
         if ctx.memory(|m| m.focused().is_some()) {
             return;

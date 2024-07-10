@@ -1,5 +1,6 @@
 use crate::colors::{network_status_to_color, TRANSLUCENT_YELLOW_COLOR};
 use crate::App;
+use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::settings::StrategyChoice;
 use eframe::egui;
 use eframe::egui::{Align, Color32, Layout, Ui, WidgetText};
@@ -7,6 +8,28 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::str::FromStr;
+
+pub struct UiSettings {
+    pub connect_mdrc_server: bool,
+    pub mdrc_server_ipv4: [u8; 4],
+    pub mdrc_server_ws_port: u16,
+
+    pub mdrc_server_collapsed: bool,
+    pub game_server_collapsed: bool,
+}
+
+impl Default for UiSettings {
+    fn default() -> Self {
+        Self {
+            connect_mdrc_server: true,
+            mdrc_server_ipv4: [127, 0, 0, 1],
+            mdrc_server_ws_port: GUI_LISTENER_PORT,
+
+            mdrc_server_collapsed: true,
+            game_server_collapsed: true,
+        }
+    }
+}
 
 fn validated<T: PartialEq>(
     id: &'static str,

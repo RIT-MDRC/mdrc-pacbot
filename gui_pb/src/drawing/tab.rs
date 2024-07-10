@@ -1,5 +1,5 @@
-use crate::game::{draw_game, draw_grid};
-use crate::settings::draw_settings;
+use crate::drawing::game::{draw_game, draw_grid};
+use crate::drawing::settings::draw_settings;
 use crate::transform::Transform;
 use crate::App;
 use core_pb::grid::standard_grid::StandardGrid;
