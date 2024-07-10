@@ -12,19 +12,18 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::future;
 use std::time::Duration;
+#[cfg(not(target_arch = "wasm32"))]
+use {
+    async_tungstenite::async_std::ConnectStream, async_tungstenite::tungstenite::Message,
+    async_tungstenite::WebSocketStream, futures::SinkExt, futures::StreamExt,
+};
 #[cfg(target_arch = "wasm32")]
 use {
-    crate::log,
     wasm_bindgen_futures::spawn_local,
     web_sys::wasm_bindgen::closure::Closure,
     web_sys::wasm_bindgen::JsCast,
     web_sys::WebSocket,
     web_sys::{js_sys, ErrorEvent, MessageEvent},
-};
-#[cfg(not(target_arch = "wasm32"))]
-use {
-    async_tungstenite::async_std::ConnectStream, async_tungstenite::tungstenite::Message,
-    async_tungstenite::WebSocketStream, futures::SinkExt, futures::StreamExt,
 };
 
 /// ipv4 address with port number

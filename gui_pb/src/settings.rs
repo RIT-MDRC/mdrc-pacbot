@@ -1,5 +1,5 @@
 use crate::colors::{network_status_to_color, TRANSLUCENT_YELLOW_COLOR};
-use crate::AppData;
+use crate::App;
 use core_pb::messages::settings::StrategyChoice;
 use eframe::egui;
 use eframe::egui::{Align, Color32, Layout, Ui, WidgetText};
@@ -148,7 +148,7 @@ fn collapsable_section(
     }
 }
 
-pub fn draw_settings(app: &mut AppData, ui: &mut Ui) {
+pub fn draw_settings(app: &mut App, ui: &mut Ui) {
     let mut fields = app.settings_fields.take().unwrap();
 
     egui::Grid::new("settings_grid")
@@ -160,11 +160,7 @@ pub fn draw_settings(app: &mut AppData, ui: &mut Ui) {
 }
 
 /// Reduce indentation
-fn draw_settings_inner(
-    app: &mut AppData,
-    ui: &mut Ui,
-    fields: &mut HashMap<&str, (String, String)>,
-) {
+fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<&str, (String, String)>) {
     ui.checkbox(&mut app.rotated_grid, "Rotated grid");
     ui.end_row();
     ui.checkbox(&mut app.settings.simulate, "Simulated Physics/Game Server");

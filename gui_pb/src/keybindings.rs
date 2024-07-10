@@ -17,33 +17,32 @@ impl App {
                     Event::Key {
                         key, pressed: true, ..
                     } => match key {
-                        Key::Y => self.data.rotated_grid = !self.data.rotated_grid,
+                        Key::Y => self.rotated_grid = !self.rotated_grid,
                         // Game state
                         Key::R => todo!("Reset game"),
                         Key::Space => todo!("Pause/unpause game"),
                         // Strategy
-                        Key::Z => self.data.settings.driving.strategy = StrategyChoice::Manual,
+                        Key::Z => self.settings.driving.strategy = StrategyChoice::Manual,
                         Key::X => todo!("Reinforcement learning strategy"),
-                        Key::C => self.data.settings.driving.strategy = StrategyChoice::TestUniform,
-                        Key::V => self.data.settings.driving.strategy = StrategyChoice::TestForward,
+                        Key::C => self.settings.driving.strategy = StrategyChoice::TestUniform,
+                        Key::V => self.settings.driving.strategy = StrategyChoice::TestForward,
                         // Driving
                         Key::P => todo!("Enable/disable pico"),
                         Key::M => {
-                            self.data.settings.driving.commands_use_pf_angle =
-                                !self.data.settings.driving.commands_use_pf_angle
+                            self.settings.driving.commands_use_pf_angle =
+                                !self.settings.driving.commands_use_pf_angle
                         }
                         // CV source
                         Key::G => {
-                            self.data.settings.particle_filter.cv_position =
-                                CvPositionSource::GameState
+                            self.settings.particle_filter.cv_position = CvPositionSource::GameState
                         }
                         Key::H => {
-                            self.data.settings.particle_filter.cv_position =
+                            self.settings.particle_filter.cv_position =
                                 CvPositionSource::ParticleFilter
                         }
                         Key::T => {
-                            if let Some(pos) = self.data.pointer_pos {
-                                self.data.settings.particle_filter.cv_position =
+                            if let Some(pos) = self.pointer_pos {
+                                self.settings.particle_filter.cv_position =
                                     CvPositionSource::Constant(
                                         pos.x.round() as i8,
                                         pos.y.round() as i8,
@@ -51,8 +50,8 @@ impl App {
                             }
                         }
                         // Grid
-                        Key::B => self.data.settings.grid = StandardGrid::Pacman,
-                        Key::N => self.data.settings.grid = StandardGrid::Playground,
+                        Key::B => self.settings.grid = StandardGrid::Pacman,
+                        Key::N => self.settings.grid = StandardGrid::Playground,
                         _ => {}
                     },
                     // Mouse buttons

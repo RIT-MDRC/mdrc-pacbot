@@ -1,7 +1,7 @@
 use crate::game::{draw_game, draw_grid};
 use crate::settings::draw_settings;
 use crate::transform::Transform;
-use crate::AppData;
+use crate::App;
 use core_pb::grid::standard_grid::StandardGrid;
 use eframe::egui::{Pos2, RichText, Ui, WidgetText};
 use egui_dock::TabViewer;
@@ -21,7 +21,7 @@ pub enum Tab {
     Unknown,
 }
 
-impl TabViewer for AppData {
+impl TabViewer for App {
     type Tab = Tab;
 
     fn title(&mut self, tab: &mut Self::Tab) -> WidgetText {
@@ -95,7 +95,7 @@ pub enum PacbotWidgetStatus {
 }
 
 trait PacbotWidget {
-    fn update(&mut self, _tab_viewer: &AppData) {}
+    fn update(&mut self, _tab_viewer: &App) {}
     fn display_name(&self) -> &'static str;
     fn button_text(&self) -> RichText;
     fn tab(&self) -> Tab {

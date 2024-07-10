@@ -20,14 +20,15 @@ use eframe::egui;
 use eframe::egui::{Align, Color32, Pos2};
 use egui_dock::{DockArea, DockState, NodeIndex, Style};
 // todo use native_dialog::FileDialog;
+use core_pb::console_log;
 use core_pb::messages::GuiToGameServerMessage;
 use core_pb::threaded_websocket::ThreadedSocket;
-use core_pb::{console_log, log};
 use std::collections::HashMap;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
+    console_log!("Hello world!");
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
         "RIT Pacbot",
@@ -74,12 +75,10 @@ fn main() {
     });
 }
 
+/// Stores all the data needed for the application
 pub struct App {
-    dock_state: DockState<Tab>,
-    data: AppData,
-}
+    dock_state: Option<DockState<Tab>>,
 
-pub struct AppData {
     grid: ComputedGrid,
     pointer_pos: Option<Pos2>,
     background_color: Color32,
@@ -130,15 +129,6 @@ impl App {
         surface.split_right(NodeIndex::root(), 0.75, vec![Tab::Settings]);
         surface.split_left(NodeIndex::root(), 0.15, vec![Tab::Keybindings]);
 
-        Self {
-            dock_state,
-            data: AppData::default(),
-        }
-    }
-}
-
-impl Default for AppData {
-    fn default() -> Self {
         let ui_settings = UiSettings::default();
         let mut network = ThreadedSocket::default();
         network.connect(Some((
@@ -147,6 +137,8 @@ impl Default for AppData {
         )));
 
         Self {
+            dock_state: Some(dock_state),
+
             grid: Default::default(),
             pointer_pos: None,
             background_color: Color32::BLACK,
@@ -171,9 +163,9 @@ impl Default for AppData {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.data.pointer_pos = ctx.pointer_latest_pos();
-        self.data.background_color = ctx.style().visuals.panel_fill;
-        self.data.grid = self.data.settings.grid.compute_grid();
+        self.pointer_pos = ctx.pointer_latest_pos();
+        self.background_color = ctx.style().visuals.panel_fill;
+        self.grid = self.settings.grid.compute_grid();
         self.update_keybindings(ctx);
         self.manage_network();
 
@@ -191,11 +183,11 @@ impl App {
                 ui.with_layout(egui::Layout::left_to_right(Align::Center), |ui| {
                     // grid selector
                     egui::ComboBox::from_label("")
-                        .selected_text(format!("{:?}", self.data.settings.grid))
+                        .selected_text(format!("{:?}", self.settings.grid))
                         .show_ui(ui, |ui| {
                             StandardGrid::get_all().iter().for_each(|grid| {
                                 ui.selectable_value(
-                                    &mut self.data.settings.grid,
+                                    &mut self.settings.grid,
                                     *grid,
                                     format!("{:?}", grid),
                                 );
@@ -216,10 +208,10 @@ impl App {
                 });
                 ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
                     ui.label(
-                        &(match self.data.pointer_pos {
+                        &(match self.pointer_pos {
                             None => "".to_string(),
                             Some(pos) => {
-                                let pos = self.data.world_to_screen.inverse().map_point(pos);
+                                let pos = self.world_to_screen.inverse().map_point(pos);
                                 format!("({:.1}, {:.1})", pos.x, pos.y)
                             }
                         }),
@@ -228,9 +220,12 @@ impl App {
             });
         });
 
-        DockArea::new(&mut self.dock_state)
+        // take out dock_state to pass it to DockArea::new and allow tabs to use data from App
+        let mut dock_state = self.dock_state.take().unwrap();
+        DockArea::new(&mut dock_state)
             .style(Style::from_egui(ctx.style().as_ref()))
-            .show(ctx, &mut self.data)
+            .show(ctx, self);
+        self.dock_state = Some(dock_state);
     }
 
     /// Save the current replay to file

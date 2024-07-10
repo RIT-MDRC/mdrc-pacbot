@@ -1,8 +1,8 @@
 use crate::colors::*;
-use crate::AppData;
+use crate::App;
 use eframe::egui::{Color32, Painter, Pos2, Rect, Rounding, Stroke};
 
-pub fn draw_grid(app: &mut AppData, painter: &Painter) {
+pub fn draw_grid(app: &mut App, painter: &Painter) {
     let wts = app.world_to_screen;
 
     // paint the solid walls
@@ -30,7 +30,7 @@ pub fn draw_grid(app: &mut AppData, painter: &Painter) {
     painter.circle_filled(wts.map_point(Pos2::new(-0.5, -0.5)), 2.0, Color32::RED);
 }
 
-pub fn draw_game(app: &mut AppData, painter: &Painter) {
+pub fn draw_game(app: &mut App, painter: &Painter) {
     let wts = app.world_to_screen;
     let pacman_state = &app.server_status.game_state;
 
