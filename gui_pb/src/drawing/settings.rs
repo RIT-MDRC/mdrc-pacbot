@@ -192,7 +192,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<&str, (S
     collapsable_section(
         ui,
         &mut app.ui_settings.mdrc_server_collapsed,
-        network_status_to_color(app.network.status()),
+        network_status_to_color(app.network.0.status()),
         |ui| {
             ui.checkbox(&mut app.ui_settings.connect_mdrc_server, "MDRC Server");
         },

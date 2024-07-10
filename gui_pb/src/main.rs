@@ -20,7 +20,7 @@ use egui_dock::{DockArea, DockState, NodeIndex, Style};
 use crate::drawing::settings::UiSettings;
 use core_pb::console_log;
 use core_pb::messages::GuiToGameServerMessage;
-use core_pb::threaded_websocket::ThreadedSocket;
+use core_pb::threaded_websocket::{Address, ThreadedSocket};
 use std::collections::HashMap;
 
 // When compiling natively:
@@ -83,7 +83,10 @@ pub struct App {
     world_to_screen: Transform,
     // replay_manager: ReplayManager,
     server_status: ServerStatus,
-    network: ThreadedSocket<GuiToGameServerMessage, ServerStatus>,
+    network: (
+        ThreadedSocket<GuiToGameServerMessage, ServerStatus>,
+        Option<Address>,
+    ),
     settings: PacbotSettings,
     ui_settings: UiSettings,
 
@@ -95,7 +98,9 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.pointer_pos = ctx.pointer_latest_pos();
         self.background_color = ctx.style().visuals.panel_fill;
-        self.grid = self.settings.grid.compute_grid();
+        if *self.grid.standard_grid() != Some(self.settings.grid) {
+            self.grid = self.settings.grid.compute_grid();
+        }
         self.read_input(ctx);
         self.manage_network();
 
@@ -117,13 +122,6 @@ impl App {
         surface.split_right(NodeIndex::root(), 0.75, vec![Tab::Settings]);
         surface.split_left(NodeIndex::root(), 0.15, vec![Tab::Keybindings]);
 
-        let ui_settings = UiSettings::default();
-        let mut network = ThreadedSocket::default();
-        network.connect(Some((
-            ui_settings.mdrc_server_ipv4,
-            ui_settings.mdrc_server_ws_port,
-        )));
-
         Self {
             dock_state: Some(dock_state),
 
@@ -139,9 +137,9 @@ impl App {
             ),
             // todo replay_manager: Default::default(),
             server_status: Default::default(),
-            network,
+            network: Default::default(),
             settings: Default::default(),
-            ui_settings,
+            ui_settings: Default::default(),
 
             rotated_grid: true,
             settings_fields: Some(HashMap::new()),
@@ -149,12 +147,25 @@ impl App {
     }
 
     pub fn manage_network(&mut self) {
-        if let Some(status) = self.network.read() {
+        let new_addr = if self.ui_settings.connect_mdrc_server {
+            Some((
+                self.ui_settings.mdrc_server_ipv4,
+                self.ui_settings.mdrc_server_ws_port,
+            ))
+        } else {
+            None
+        };
+        if self.network.1 != new_addr {
+            self.network.1 = new_addr;
+            self.network.0.connect(new_addr)
+        }
+        if let Some(status) = self.network.0.read() {
             self.server_status = status;
             self.settings = self.server_status.settings.clone();
         }
         if self.server_status.settings != self.settings {
             self.network
+                .0
                 .send(GuiToGameServerMessage::Settings(self.settings.clone()));
             self.server_status.settings = self.settings.clone();
         }
