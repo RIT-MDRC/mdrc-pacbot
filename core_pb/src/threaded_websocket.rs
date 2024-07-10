@@ -1,5 +1,7 @@
 #![allow(async_fn_in_trait)]
-
+#![warn(missing_docs)]
+//! See [`ThreadedSocket`], a simple poll-based wrapper around a socket (websocket or TCP) connection
+//! that runs in a separate thread
 use crate::messages::NetworkStatus;
 use crate::{bin_decode, bin_encode, console_log};
 use async_channel::{unbounded, Receiver, Sender};
@@ -25,8 +27,49 @@ use {
     async_tungstenite::WebSocketStream, futures::SinkExt, futures::StreamExt,
 };
 
+/// ipv4 address with port number
 pub type Address = ([u8; 4], u16);
 
+/// Simple poll-based wrapper around a socket (websocket or TCP) connection that runs in a separate thread
+///
+/// Associated methods return immediately even when (for some) the operation might not be completed.
+/// Supports normal std environments as well as WASM.
+///
+/// Use [`ThreadedSocket::default`] for a websocket, or [`ThreadedSocket::new`] to specify another
+/// socket type.
+///
+/// # Usage
+///
+/// ```no_run
+/// use core_pb::threaded_websocket::ThreadedSocket;
+/// use std::thread::sleep;
+/// use std::time::Duration;
+/// use core_pb::messages::NetworkStatus;
+///
+/// // initialization
+/// // by default, doesn't connect to anything
+/// let mut connection: ThreadedSocket<usize, usize> = ThreadedSocket::default();
+/// // try to connect to an address (with infinite retries)
+/// connection.connect(Some(([127, 0, 0, 1], 20_000)));
+/// // wait until connected
+/// while connection.status() != NetworkStatus::Connected {
+///     sleep(Duration::from_millis(100))
+/// }
+/// // send a message to the server (returns immediately)
+/// connection.send(1);
+/// // wait for a message
+/// loop {
+///     // note: read() never blocks, and only returns
+///     // some message when one is available
+///     if let Some(msg) = connection.read() {
+///         println!("Got a message: {msg}");
+///         break;
+///     }
+///     sleep(Duration::from_millis(100))
+/// }
+/// // stop connecting to the server
+/// connection.connect(None);
+/// ```
 pub struct ThreadedSocket<SendType, ReceiveType> {
     status: NetworkStatus,
 
@@ -37,12 +80,16 @@ pub struct ThreadedSocket<SendType, ReceiveType> {
 }
 
 impl<SendType: Send + 'static, ReceiveType: Send + 'static> ThreadedSocket<SendType, ReceiveType> {
-    /// specify an address to connect to (or None to suspend current connection and future attempts)
+    /// Specify an address to connect to (or None to suspend current connection and future attempts)
+    ///
+    /// See [`ThreadedSocket`] for full usage example
     pub fn connect(&mut self, addr: Option<Address>) {
         block_on(self.addr_sender.send(addr)).expect("ThreadedSocket address sender is closed");
     }
 
-    /// fetch the latest information about the status of the connection
+    /// Fetch the latest information about the status of the connection
+    ///
+    /// See [`ThreadedSocket`] for full usage example
     pub fn status(&mut self) -> NetworkStatus {
         while let Ok(status) = self.status_receiver.try_recv() {
             self.status = status
@@ -50,21 +97,38 @@ impl<SendType: Send + 'static, ReceiveType: Send + 'static> ThreadedSocket<SendT
         self.status
     }
 
-    /// queue something to be sent to the socket
+    /// Queue something to be sent to the socket
     ///
-    /// if the connection is not available, the data will be discarded
+    /// If the connection is not available, the data will be discarded
+    ///
+    /// See [`ThreadedSocket`] for full usage example
     pub fn send(&mut self, data: SendType) {
         block_on(self.sender.send(data)).expect("ThreadedSocket data sender is closed");
     }
 
-    /// read new data from the socket, if it is available
+    /// Read new data from the socket, if it is available
     ///
-    /// this should be called frequently
+    /// Expects to be called frequently
+    ///
+    /// See [`ThreadedSocket`] for full usage example
     pub fn read(&mut self) -> Option<ReceiveType> {
         self.status();
         self.receiver.try_recv().ok()
     }
 
+    /// Create a new [`ThreadedSocket`]
+    ///
+    /// # Usage
+    ///
+    /// ```no_run
+    /// use core_pb::threaded_websocket::ThreadedSocket;
+    ///
+    /// // websocket for either std environment or WASM
+    /// let websocket = ThreadedSocket::default();
+    /// // tcp socket to be supported in the future
+    /// ```
+    ///
+    /// See [`ThreadedSocket`] for full usage example
     pub fn new<SocketType: ThreadableSocket<SendType, ReceiveType> + 'static>(
         addr: Option<Address>,
     ) -> Self {
@@ -123,16 +187,28 @@ impl<SendType: Serialize + Send + 'static, ReceiveType: DeserializeOwned + Send 
     }
 }
 
+/// Represents a type that is compatible with [`ThreadedSocket`]
 pub trait ThreadableSocket<SendType, ReceiveType>: Sized {
+    /// Try to connect to the address
+    ///
+    /// Do not do any retries, fail as soon as possible
     async fn my_connect(addr: Address) -> Result<Self, ()>;
 
+    /// Send the data to the socket
+    ///
+    /// If this is impossible, simply drop the data
     async fn my_send(&mut self, data: SendType);
 
+    /// Try to read from the socket
+    ///
+    /// If the connection is no longer available, return Err(())
     async fn my_read(&mut self) -> Result<ReceiveType, ()>;
 
+    /// Close the socket
     async fn my_close(self);
 }
 
+/// A future that yields the next message from the socket, or never if the socket is None
 async fn socket_read_fut<T: ThreadableSocket<S, R>, S, R>(socket: &mut Option<T>) -> Result<R, ()> {
     if let Some(socket) = socket {
         socket.my_read().await
@@ -141,6 +217,7 @@ async fn socket_read_fut<T: ThreadableSocket<S, R>, S, R>(socket: &mut Option<T>
     }
 }
 
+/// Runs on a separate thread to babysit the socket
 async fn run_socket_forever<
     OutgoingType,
     IncomingType,
