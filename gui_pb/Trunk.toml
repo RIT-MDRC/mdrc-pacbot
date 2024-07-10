@@ -1,1 +1,4 @@
 [build]
+
+[watch]
+watch = ["../core_pb/"]
