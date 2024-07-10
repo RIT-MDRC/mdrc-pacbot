@@ -19,6 +19,8 @@ use egui_dock::{DockArea, DockState, NodeIndex, Style};
 // todo use native_dialog::FileDialog;
 use crate::drawing::settings::UiSettings;
 use core_pb::console_log;
+#[cfg(target_arch = "wasm32")]
+pub use core_pb::log;
 use core_pb::messages::GuiToGameServerMessage;
 use core_pb::threaded_websocket::{Address, ThreadedSocket};
 use std::collections::HashMap;
