@@ -349,6 +349,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
 }
 
 #[cfg(target_arch = "wasm32")]
+/// A WASM websocket compatible with [`ThreadedSocket`]
 pub struct WasmThreadableWebsocket {
     ws: WebSocket,
     messages: Receiver<Result<Vec<u8>, ()>>,

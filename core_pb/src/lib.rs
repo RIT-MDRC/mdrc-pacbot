@@ -36,7 +36,7 @@ macro_rules! console_log {
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
+    pub fn log(s: &str);
 }
 
 /// [`bincode::serde::encode_to_vec`] with [`bincode::config::standard`]

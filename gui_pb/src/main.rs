@@ -22,11 +22,8 @@ use egui_dock::{DockArea, DockState, NodeIndex, Style};
 // todo use native_dialog::FileDialog;
 use core_pb::messages::GuiToGameServerMessage;
 use core_pb::threaded_websocket::ThreadedSocket;
+use core_pb::{console_log, log};
 use std::collections::HashMap;
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::wasm_bindgen;
-// use std::fs;
-// use std::fs::File;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
@@ -40,16 +37,11 @@ fn main() {
     .expect("Failed to start egui app!");
 }
 
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = console)]
-    pub fn log(s: &str);
-}
-
 // When compiling to web using trunk:
 #[cfg(target_arch = "wasm32")]
 fn main() {
+    console_log!("Hello world from Rust!");
+
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();
 
@@ -63,7 +55,7 @@ fn main() {
                 Box::new(|cc| Box::new(App::new(cc))),
             )
             .await;
-        let loading_text = eframe::web_sys::window()
+        let loading_text = web_sys::window()
             .and_then(|w| w.document())
             .and_then(|d| d.get_element_by_id("loading_text"));
         match start_result {
