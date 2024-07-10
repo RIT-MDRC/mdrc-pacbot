@@ -26,7 +26,7 @@ use std::collections::HashMap;
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
-    console_log!("Hello world!");
+    console_log!("RIT Pacbot gui starting up");
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
         "RIT Pacbot",
@@ -39,7 +39,7 @@ fn main() {
 // When compiling to web using trunk:
 #[cfg(target_arch = "wasm32")]
 fn main() {
-    console_log!("Hello world from Rust!");
+    console_log!("WASM gui starting up");
 
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();

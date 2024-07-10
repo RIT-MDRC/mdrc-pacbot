@@ -31,6 +31,8 @@ pub struct Robot {
 }
 
 fn main() {
+    println!("Simulation starting up");
+
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())

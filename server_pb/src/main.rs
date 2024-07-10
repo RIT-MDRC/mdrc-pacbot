@@ -27,7 +27,7 @@ pub struct App {
 
 #[tokio::main]
 async fn main() {
-    println!("Hello, world!");
+    println!("RIT Pacbot server starting up");
 
     let (updated_status_tx, mut updated_status_rx) = unbounded_channel();
 
@@ -54,7 +54,7 @@ async fn main() {
                 sockets.gui_outgoing.unbounded_send(app.lock().unwrap().status.clone()).unwrap()
             }
             m = sockets.game_states.next() => {
-                app.lock().unwrap().change_status(|s| s.game_state = m.unwrap())
+                status(&app, |s| s.game_state = m.unwrap())
             },
             m = sockets.commands_from_gui.next() => {
                 match m.unwrap() {
@@ -68,7 +68,7 @@ async fn main() {
             }
             _ = sleep(Duration::from_millis(100)) => {
                 // gui clients expect a status once in a while
-                app.lock().unwrap().change_status(|_| {})
+                status(&app, |_| {})
             }
         }
     }
