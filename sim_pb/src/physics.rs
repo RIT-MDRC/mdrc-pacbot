@@ -27,7 +27,7 @@ pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
 
 impl MyApp {
     pub fn spawn_robot(&mut self, commands: &mut Commands) {
-        let pos = self.grid.get_default_pacbot_isometry().translation;
+        let pos = self.standard_grid.get_default_pacbot_isometry().translation;
 
         let new_robot = commands
             .spawn(RigidBody::Dynamic)
@@ -87,9 +87,9 @@ impl MyApp {
         for wall in &walls {
             commands.entity(wall.0).despawn()
         }
-        spawn_walls(commands, self.grid);
+        spawn_walls(commands, self.standard_grid);
         for (_, mut t, mut v, _, _) in robots {
-            let pos = self.grid.get_default_pacbot_isometry().translation;
+            let pos = self.standard_grid.get_default_pacbot_isometry().translation;
             t.translation = Vec3::new(pos.x, pos.y, 0.0);
             v.linvel = Vect::ZERO;
             v.angvel = 0.0;

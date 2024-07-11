@@ -47,7 +47,7 @@ impl PacbotNetworkSimulation {
             match self.game_server_listener.accept() {
                 Ok((socket, addr)) => {
                     match accept(socket) {
-                        Ok(mut ws) => {
+                        Ok(ws) => {
                             // this message lets clients know that this game server supports
                             // extra messages like pause, reset, custom game state
                             // if let Err(e) =

@@ -8,6 +8,7 @@ use crate::network::{update_network, PacbotNetworkSimulation};
 use crate::physics::spawn_walls;
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
+use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::pacbot_rs::location::LocationState;
 
@@ -16,7 +17,8 @@ const ROBOT_RADIUS: f32 = 0.75;
 
 #[derive(Resource)]
 pub struct MyApp {
-    grid: StandardGrid,
+    standard_grid: StandardGrid,
+    grid: ComputedGrid,
 
     robots: Vec<Entity>,
     selected_robot: Option<Entity>,
@@ -38,7 +40,8 @@ fn main() {
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(RapierDebugRenderPlugin::default())
         .insert_resource(MyApp {
-            grid: StandardGrid::Pacman,
+            standard_grid: StandardGrid::Pacman,
+            grid: StandardGrid::Pacman.compute_grid(),
 
             robots: vec![],
             selected_robot: None,
@@ -69,7 +72,7 @@ fn setup_physics(
 ) {
     rapier_configuration.gravity = Vect::ZERO;
 
-    spawn_walls(&mut commands, app.grid);
+    spawn_walls(&mut commands, app.standard_grid);
     app.spawn_robot(&mut commands);
 }
 
@@ -78,11 +81,11 @@ fn robot_position_to_game_state(
     mut network: ResMut<PacbotNetworkSimulation>,
     robots: Query<(Entity, &Transform)>,
 ) {
-    let grid = app.grid.compute_grid();
     if let Some(selected) = app.selected_robot {
         for robot in &robots {
             if robot.0 == selected {
-                let pos = grid
+                let pos = app
+                    .grid
                     .node_nearest(robot.1.translation.x, robot.1.translation.y)
                     .unwrap();
                 let new_loc = LocationState {
@@ -156,10 +159,11 @@ fn keyboard_input(
     }
     app.apply_robots_target_vel(&mut robots);
     if keys.just_pressed(KeyCode::KeyG) {
-        app.grid = match app.grid {
+        app.standard_grid = match app.standard_grid {
             StandardGrid::Pacman => StandardGrid::Playground,
             _ => StandardGrid::Pacman,
         };
+        app.grid = app.standard_grid.compute_grid();
         app.reset_grid(walls, &mut robots, &mut commands)
     }
 }
