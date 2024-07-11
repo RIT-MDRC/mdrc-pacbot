@@ -22,7 +22,7 @@ use core_pb::console_log;
 #[cfg(target_arch = "wasm32")]
 pub use core_pb::log;
 use core_pb::messages::GuiToGameServerMessage;
-use core_pb::threaded_websocket::{Address, ThreadedSocket};
+use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
 use std::collections::HashMap;
 
 // When compiling natively:
@@ -168,7 +168,7 @@ impl App {
                 .send(GuiToGameServerMessage::Settings(self.settings.clone()));
             self.server_status.settings = self.settings.clone();
         }
-        if let Some(status) = self.network.0.read() {
+        if let Some(TextOrT::T(status)) = self.network.0.read() {
             self.server_status = status;
             // only update settings if there are changes from the server, to avoid overwriting
             // local gui changes which causes a bad UX
