@@ -86,7 +86,11 @@ impl App {
     where
         F: FnOnce(&mut ServerStatus),
     {
+        let old_settings = self.status.settings.clone();
         changes(&mut self.status);
+        if old_settings != self.status.settings {
+            self.status.settings.version += 1;
+        }
         self.send_updated_status.send(()).unwrap()
     }
 

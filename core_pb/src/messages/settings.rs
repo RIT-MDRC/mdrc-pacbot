@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 /// Rarely changed options for the pacbot server
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct PacbotSettings {
+    /// A version number that will be updated by the server whenever the settings have changed
+    pub version: u32,
+
     /// Host a web server for browser clients
     pub host_http: bool,
     /// Launch a fake game server and physics simulation as a child process
@@ -24,6 +27,8 @@ pub struct PacbotSettings {
 impl Default for PacbotSettings {
     fn default() -> Self {
         Self {
+            version: 1,
+
             host_http: true,
             simulate: false,
             grid: Default::default(),

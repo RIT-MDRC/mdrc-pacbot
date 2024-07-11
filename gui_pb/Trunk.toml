@@ -1,4 +1,4 @@
 [build]
 
 [watch]
-watch = ["../core_pb/"]
+watch = ["../core_pb/", "../gui_pb/"]
