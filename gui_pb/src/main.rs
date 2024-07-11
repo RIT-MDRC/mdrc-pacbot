@@ -161,15 +161,17 @@ impl App {
             self.network.1 = new_addr;
             self.network.0.connect(new_addr)
         }
-        if let Some(status) = self.network.0.read() {
-            self.server_status = status;
-            self.settings = self.server_status.settings.clone();
-        }
+        // we must check for changed settings before updating them from the server
         if self.server_status.settings != self.settings {
             self.network
                 .0
                 .send(GuiToGameServerMessage::Settings(self.settings.clone()));
             self.server_status.settings = self.settings.clone();
+            // if our settings changed, skip this update to mitigate flashing
+            let _ = self.network.0.read();
+        } else if let Some(status) = self.network.0.read() {
+            self.server_status = status;
+            self.settings = self.server_status.settings.clone();
         }
     }
 
