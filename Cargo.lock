@@ -4556,7 +4556,6 @@ name = "server_pb"
 version = "0.1.0"
 dependencies = [
  "array-init",
- "async-tungstenite",
  "bincode",
  "candle-core",
  "candle-nn",
@@ -4574,7 +4573,6 @@ dependencies = [
  "serde",
  "simple-websockets",
  "tokio",
- "tokio-tungstenite 0.23.0",
 ]
 
 [[package]]
@@ -4651,7 +4649,7 @@ dependencies = [
  "flume",
  "futures-util",
  "tokio",
- "tokio-tungstenite 0.19.0",
+ "tokio-tungstenite",
 ]
 
 [[package]]
@@ -4992,18 +4990,6 @@ dependencies = [
  "log",
  "tokio",
  "tungstenite 0.19.0",
-]
-
-[[package]]
-name = "tokio-tungstenite"
-version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "becd34a233e7e31a3dbf7c7241b38320f57393dcae8e7324b0167d21b8e320b0"
-dependencies = [
- "futures-util",
- "log",
- "tokio",
- "tungstenite 0.23.0",
 ]
 
 [[package]]
