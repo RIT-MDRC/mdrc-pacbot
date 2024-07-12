@@ -108,7 +108,6 @@ impl PacbotNetworkSimulation {
                                 GameServerCommand::Unpause => self.game_state.paused = false,
                                 GameServerCommand::Reset => self.game_state = GameState::default(),
                                 GameServerCommand::SetState(s) => self.game_state = s,
-                                GameServerCommand::Connect(_) => {}
                             },
                             Err(e) => eprintln!(
                                 "Couldn't deserialize client command from {:?}: {:?}",

@@ -4,6 +4,7 @@ use crate::App;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::{GameServerCommand, GuiToGameServerMessage};
 use core_pb::pacbot_rs::game_state::GameState;
+use core_pb::threaded_websocket::Address;
 use futures_channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use std::sync::{Arc, Mutex};
 
@@ -17,6 +18,7 @@ pub struct Sockets {
     // pico_tcp: Option<TcpStream>,
     pub game_states: UnboundedReceiver<GameState>,
     pub game_server_commands: UnboundedSender<GameServerCommand>,
+    pub game_server_addr: UnboundedSender<Option<Address>>,
 
     pub commands_from_gui: UnboundedReceiver<GuiToGameServerMessage>,
     pub gui_outgoing: UnboundedSender<ServerStatus>,
@@ -26,6 +28,7 @@ impl Sockets {
     pub fn spawn(app: Arc<Mutex<App>>) -> Self {
         let (gs_inc_tx, gs_inc_rx) = unbounded();
         let (gs_out_tx, gs_out_rx) = unbounded();
+        let (gs_addr_tx, gs_addr_rx) = unbounded();
 
         let (gui_incoming_tx, gui_incoming_rx) = unbounded();
         let (gui_outgoing_tx, gui_outgoing_rx) = unbounded();
@@ -35,11 +38,17 @@ impl Sockets {
             gui_incoming_tx,
             gui_outgoing_rx,
         ));
-        tokio::spawn(manage_game_server(app.clone(), gs_inc_tx, gs_out_rx));
+        tokio::spawn(manage_game_server(
+            app.clone(),
+            gs_inc_tx,
+            gs_addr_rx,
+            gs_out_rx,
+        ));
 
         Sockets {
             game_states: gs_inc_rx,
             game_server_commands: gs_out_tx,
+            game_server_addr: gs_addr_tx,
 
             commands_from_gui: gui_incoming_rx,
             gui_outgoing: gui_outgoing_tx,

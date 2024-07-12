@@ -165,7 +165,9 @@ impl App {
         if self.settings != self.server_status.settings {
             self.network
                 .0
-                .send(GuiToGameServerMessage::Settings(self.settings.clone()));
+                .send(TextOrT::T(GuiToGameServerMessage::Settings(
+                    self.settings.clone(),
+                )));
             self.server_status.settings = self.settings.clone();
         }
         if let Some(TextOrT::T(status)) = self.network.0.read() {

@@ -29,7 +29,7 @@ impl Default for PacbotSettings {
         Self {
             version: 1,
 
-            host_http: true,
+            host_http: false,
             simulate: false,
             grid: Default::default(),
             robots: vec![],

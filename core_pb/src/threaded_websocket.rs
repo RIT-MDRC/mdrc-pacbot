@@ -2,15 +2,21 @@
 #![warn(missing_docs)]
 //! See [`ThreadedSocket`], a simple poll-based wrapper around a socket (websocket or TCP) connection
 //! that runs in a separate thread
+
 use crate::messages::NetworkStatus;
 use crate::{bin_decode, bin_encode, console_log};
 use async_channel::{unbounded, Receiver, Sender};
 use async_std::task::sleep;
 use futures::executor::block_on;
+use futures::future::{select, Either};
 use futures::{select, FutureExt};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+#[allow(unused)]
+use std::any::TypeId;
+use std::fmt::Debug;
 use std::future;
+use std::pin::pin;
 use std::time::Duration;
 #[cfg(not(target_arch = "wasm32"))]
 use {
@@ -40,7 +46,7 @@ pub type Address = ([u8; 4], u16);
 /// # Usage
 ///
 /// ```no_run
-/// use core_pb::threaded_websocket::ThreadedSocket;
+/// use core_pb::threaded_websocket::{TextOrT, ThreadedSocket};
 /// use std::thread::sleep;
 /// use std::time::Duration;
 /// use core_pb::messages::NetworkStatus;
@@ -55,7 +61,8 @@ pub type Address = ([u8; 4], u16);
 ///     sleep(Duration::from_millis(100))
 /// }
 /// // send a message to the server (returns immediately)
-/// connection.send(1);
+/// connection.send(TextOrT::T(1));
+/// connection.send(TextOrT::Text("hello".to_string()));
 /// // wait for a message
 /// loop {
 ///     // note: read() never blocks, and only returns
@@ -89,7 +96,9 @@ pub enum TextOrT<T> {
     T(T),
 }
 
-impl<SendType: Send + 'static, ReceiveType: Send + 'static> ThreadedSocket<SendType, ReceiveType> {
+impl<SendType: Serialize + Send + 'static, ReceiveType: DeserializeOwned + Send + 'static>
+    ThreadedSocket<SendType, ReceiveType>
+{
     /// Specify an address to connect to (or None to suspend current connection and future attempts)
     ///
     /// See [`ThreadedSocket`] for full usage example
@@ -112,17 +121,19 @@ impl<SendType: Send + 'static, ReceiveType: Send + 'static> ThreadedSocket<SendT
     /// If the connection is not available, the data will be discarded
     ///
     /// See [`ThreadedSocket`] for full usage example
-    pub fn send(&mut self, data: SendType) {
-        block_on(self.sender.send(TextOrT::T(data))).expect("ThreadedSocket data sender is closed");
+    pub fn send(&mut self, data: TextOrT<SendType>) {
+        block_on(self.sender.send(data)).expect("ThreadedSocket data sender is closed");
     }
 
-    /// Queue text to be sent to the socket
+    /// Queue something to be sent to the socket (blocking await)
     ///
     /// If the connection is not available, the data will be discarded
     ///
     /// See [`ThreadedSocket`] for full usage example
-    pub fn send_text(&mut self, text: String) {
-        block_on(self.sender.send(TextOrT::Text(text)))
+    pub async fn async_send(&mut self, data: TextOrT<SendType>) {
+        self.sender
+            .send(data)
+            .await
             .expect("ThreadedSocket data sender is closed");
     }
 
@@ -134,6 +145,25 @@ impl<SendType: Send + 'static, ReceiveType: Send + 'static> ThreadedSocket<SendT
     pub fn read(&mut self) -> Option<TextOrT<ReceiveType>> {
         self.status();
         self.receiver.try_recv().ok()
+    }
+
+    /// Read new data from the socket (blocking await)
+    ///
+    /// Expects to be called frequently
+    ///
+    /// See [`ThreadedSocket`] for full usage example
+    pub async fn async_read(&mut self) -> Either<TextOrT<ReceiveType>, NetworkStatus> {
+        self.status();
+
+        let data = self.receiver.recv();
+        let status = self.status_receiver.recv();
+
+        return match select(pin!(data), pin!(status)).await {
+            Either::Left(x) => Either::Left(x.0.expect("ThreadedSocket data receiver is closed")),
+            Either::Right(x) => {
+                Either::Right(x.0.expect("ThreadedSocket status receiver is closed"))
+            }
+        };
     }
 
     /// Create a new [`ThreadedSocket`]
@@ -149,8 +179,16 @@ impl<SendType: Send + 'static, ReceiveType: Send + 'static> ThreadedSocket<SendT
     /// ```
     ///
     /// See [`ThreadedSocket`] for full usage example
-    pub fn new<SocketType: ThreadableSocket<SendType, ReceiveType> + 'static>(
+    pub fn new<
+        SocketType: ThreadableSocket<SendType, ReceiveType> + 'static,
+        Serializer: Fn(SendType) -> Result<Vec<u8>, SerializeResult> + Send + 'static,
+        SerializeResult: Debug + 'static,
+        Deserializer: Fn(&[u8]) -> Result<ReceiveType, DeserializeResult> + Send + 'static,
+        DeserializeResult: Debug + 'static,
+    >(
         addr: Option<Address>,
+        serializer: Serializer,
+        deserializer: Deserializer,
     ) -> Self {
         console_log!("[threaded_websocket] Socket created with initial address {addr:?}");
 
@@ -162,19 +200,23 @@ impl<SendType: Send + 'static, ReceiveType: Send + 'static> ThreadedSocket<SendT
         block_on(addr_sender.send(addr)).unwrap();
 
         #[cfg(target_arch = "wasm32")]
-        spawn_local(run_socket_forever::<SendType, ReceiveType, SocketType>(
+        spawn_local(run_socket_forever::<_, _, SocketType, _, _, _, _>(
             addr_rx,
             sender_rx,
             status_tx,
             receiver_tx,
+            serializer,
+            deserializer,
         ));
         #[cfg(not(target_arch = "wasm32"))]
         std::thread::spawn(|| {
-            block_on(run_socket_forever::<SendType, ReceiveType, SocketType>(
+            block_on(run_socket_forever::<_, _, SocketType, _, _, _, _>(
                 addr_rx,
                 sender_rx,
                 status_tx,
                 receiver_tx,
+                serializer,
+                deserializer,
             ))
         });
 
@@ -194,7 +236,7 @@ impl<SendType: Serialize + Send + 'static, ReceiveType: DeserializeOwned + Send 
     for ThreadedSocket<SendType, ReceiveType>
 {
     fn default() -> Self {
-        Self::new::<WasmThreadableWebsocket>(None)
+        Self::new::<WasmThreadableWebsocket, _, _, _, _>(None, bin_encode, bin_decode)
     }
 }
 
@@ -203,7 +245,7 @@ impl<SendType: Serialize + Send + 'static, ReceiveType: DeserializeOwned + Send 
     for ThreadedSocket<SendType, ReceiveType>
 {
     fn default() -> Self {
-        Self::new::<WebSocketStream<ConnectStream>>(None)
+        Self::new::<WebSocketStream<ConnectStream>, _, _, _, _>(None, bin_encode, bin_decode)
     }
 }
 
@@ -217,12 +259,12 @@ pub trait ThreadableSocket<SendType, ReceiveType>: Sized {
     /// Send the data to the socket
     ///
     /// If this is impossible, simply drop the data
-    async fn my_send(&mut self, data: TextOrT<SendType>);
+    async fn my_send(&mut self, data: TextOrT<Vec<u8>>);
 
     /// Try to read from the socket
     ///
     /// If the connection is no longer available, return Err(())
-    async fn my_read(&mut self) -> Result<TextOrT<ReceiveType>, ()>;
+    async fn my_read(&mut self) -> Result<TextOrT<Vec<u8>>, ()>;
 
     /// Close the socket
     async fn my_close(self);
@@ -231,7 +273,7 @@ pub trait ThreadableSocket<SendType, ReceiveType>: Sized {
 /// A future that yields the next message from the socket, or never if the socket is None
 async fn socket_read_fut<T: ThreadableSocket<S, R>, S, R>(
     socket: &mut Option<T>,
-) -> Result<TextOrT<R>, ()> {
+) -> Result<TextOrT<Vec<u8>>, ()> {
     if let Some(socket) = socket {
         socket.my_read().await
     } else {
@@ -241,14 +283,20 @@ async fn socket_read_fut<T: ThreadableSocket<S, R>, S, R>(
 
 /// Runs on a separate thread to babysit the socket
 async fn run_socket_forever<
-    OutgoingType,
-    IncomingType,
+    OutgoingType: Serialize,
+    IncomingType: DeserializeOwned,
     SocketType: ThreadableSocket<OutgoingType, IncomingType>,
+    Serializer: Fn(OutgoingType) -> Result<Vec<u8>, SerializeResult>,
+    SerializeResult: Debug,
+    Deserializer: Fn(&[u8]) -> Result<IncomingType, DeserializeResult>,
+    DeserializeResult: Debug,
 >(
     addresses: Receiver<Option<Address>>,
     data_outgoing: Receiver<TextOrT<OutgoingType>>,
     statuses: Sender<NetworkStatus>,
     data_incoming: Sender<TextOrT<IncomingType>>,
+    serializer: Serializer,
+    deserializer: Deserializer,
 ) {
     let mut addr: Option<Address> = None;
     let mut socket: Option<SocketType> = None;
@@ -292,6 +340,12 @@ async fn run_socket_forever<
             incoming_data = socket_read_fut(&mut socket).fuse() => {
                 if let Ok(incoming_data) = incoming_data {
                     // console_log!("[threaded_websocket] Received data from {addr:?}");
+                    let incoming_data = match incoming_data {
+                        TextOrT::T(data) => {
+                            TextOrT::T(deserializer(&data).expect("failed to deserialize data"))
+                        },
+                        TextOrT::Text(text) => TextOrT::Text(text)
+                    };
                     data_incoming.send(incoming_data).await.unwrap();
                 } else {
                     console_log!("[threaded_websocket] Connection closed to {addr:?} due to error reading");
@@ -305,7 +359,11 @@ async fn run_socket_forever<
             outgoing_data = data_outgoing.recv().fuse() => {
                 if let Some(socket) = &mut socket {
                     console_log!("[threaded_websocket] Sending data to {addr:?}");
-                    socket.my_send(outgoing_data.unwrap()).await
+                    let outgoing_data = match outgoing_data.unwrap() {
+                        TextOrT::T(data) => TextOrT::T(serializer(data).expect("failed to serialize data")),
+                        TextOrT::Text(text) => TextOrT::Text(text)
+                    };
+                    socket.my_send(outgoing_data).await
                 }
             }
         }
@@ -326,30 +384,18 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
         )
     }
 
-    async fn my_send(&mut self, data: TextOrT<SendType>) {
+    async fn my_send(&mut self, data: TextOrT<Vec<u8>>) {
         if let Err(e) = match data {
-            TextOrT::T(data) => self.send(Message::Binary(bin_encode(data).unwrap())).await,
+            TextOrT::T(data) => self.send(Message::Binary(data)).await,
             TextOrT::Text(text) => self.send(Message::Text(text)).await,
         } {
             eprintln!("[threaded_websocket] Error sending data: {:?}", e);
         }
     }
 
-    async fn my_read(&mut self) -> Result<TextOrT<ReceiveType>, ()> {
+    async fn my_read(&mut self) -> Result<TextOrT<Vec<u8>>, ()> {
         match self.next().await {
-            Some(Ok(Message::Binary(bytes))) => {
-                // println!(
-                //     "[threaded_websocket] Received binary data: {} bytes",
-                //     bytes.len()
-                // );
-                match bin_decode(&bytes) {
-                    Ok(data) => Ok(TextOrT::T(data.0)),
-                    Err(e) => {
-                        eprintln!("[threaded_websocket] Error decoding data: {:?}", e);
-                        Err(())
-                    }
-                }
-            }
+            Some(Ok(Message::Binary(bytes))) => Ok(TextOrT::T(bytes)),
             Some(Ok(Message::Text(text))) => Ok(TextOrT::Text(text)),
             Some(Ok(Message::Close(_))) => {
                 eprintln!("[threaded_websocket] Connection closing");
@@ -475,32 +521,20 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
         }
     }
 
-    async fn my_send(&mut self, data: TextOrT<SendType>) {
+    async fn my_send(&mut self, data: TextOrT<Vec<u8>>) {
         if let Err(e) = match data {
-            TextOrT::T(data) => self.ws.send_with_u8_array(&bin_encode(data).unwrap()),
+            TextOrT::T(data) => self.ws.send_with_u8_array(&data),
             TextOrT::Text(text) => self.ws.send_with_str(&text),
         } {
             console_log!("[threaded_websocket] Error sending data: {e:?}");
         }
     }
 
-    async fn my_read(&mut self) -> Result<TextOrT<ReceiveType>, ()> {
+    async fn my_read(&mut self) -> Result<TextOrT<Vec<u8>>, ()> {
         match self.messages.recv().await {
             Ok(Ok(msg)) => match msg {
                 TextOrT::Text(text) => Ok(TextOrT::Text(text)),
-                TextOrT::T(data) => {
-                    // console_log!(
-                    //     "[threaded_websocket] Received binary data: {} bytes",
-                    //     data.len()
-                    // );
-                    match bin_decode(&data) {
-                        Ok(data) => Ok(TextOrT::T(data.0)),
-                        Err(e) => {
-                            console_log!("[threaded_websocket] Error decoding data: {e:?}");
-                            Err(())
-                        }
-                    }
-                }
+                TextOrT::T(data) => Ok(TextOrT::T(data)),
             },
             Ok(Err(_)) => {
                 console_log!("[threaded_websocket] Websocket had a javascript error");

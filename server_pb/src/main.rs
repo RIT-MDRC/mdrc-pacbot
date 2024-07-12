@@ -2,7 +2,7 @@ use crate::network::Sockets;
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::PacbotSettings;
-use core_pb::messages::{GameServerCommand, GuiToGameServerMessage};
+use core_pb::messages::GuiToGameServerMessage;
 use futures_util::StreamExt;
 use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
@@ -111,17 +111,11 @@ impl App {
         ) {
             if new.game_server.connect {
                 sockets
-                    .game_server_commands
-                    .unbounded_send(GameServerCommand::Connect(Some((
-                        new.game_server.ipv4,
-                        new.game_server.ws_port,
-                    ))))
+                    .game_server_addr
+                    .unbounded_send(Some((new.game_server.ipv4, new.game_server.ws_port)))
                     .unwrap();
             } else {
-                sockets
-                    .game_server_commands
-                    .unbounded_send(GameServerCommand::Connect(None))
-                    .unwrap();
+                sockets.game_server_addr.unbounded_send(None).unwrap();
             }
         }
 

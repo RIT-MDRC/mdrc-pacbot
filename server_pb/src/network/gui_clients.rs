@@ -113,7 +113,7 @@ async fn handle_gui_client(
         println!("Received a message from gui client {}", addr);
         match msg {
             Message::Binary(bytes) => match bin_decode(&bytes) {
-                Ok((msg, _)) => incoming_msg.unbounded_send(msg).unwrap(),
+                Ok(msg) => incoming_msg.unbounded_send(msg).unwrap(),
                 Err(e) => eprintln!("Error decoding message from {addr}: {e:?}"),
             },
             Message::Close(_) => {
