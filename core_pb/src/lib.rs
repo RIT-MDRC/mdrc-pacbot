@@ -6,6 +6,7 @@ pub mod constants;
 pub mod driving;
 pub mod grid;
 pub mod messages;
+pub mod names;
 #[cfg(feature = "std")]
 pub mod threaded_websocket;
 
