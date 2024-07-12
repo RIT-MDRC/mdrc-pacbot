@@ -15,6 +15,7 @@ heapless = { version = "0.8.0" }
 async-channel = "2.3.1"
 futures = "0.3.30"
 embedded-graphics = "0.8.1"
+simple-websockets = "0.1.6"
 
 [dependencies.bevy]
 version = "0.13.2"
