@@ -217,7 +217,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<&str, (S
     collapsable_section(
         ui,
         &mut app.ui_settings.game_server_collapsed,
-        TRANSLUCENT_YELLOW_COLOR,
+        network_status_to_color(app.server_status.game_server_connection_status),
         |ui| {
             ui.checkbox(&mut app.settings.game_server.connect, "Game server");
         },
