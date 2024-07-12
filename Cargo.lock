@@ -4572,6 +4572,7 @@ dependencies = [
  "rand_distr",
  "rayon",
  "serde",
+ "simple-websockets",
  "tokio",
  "tokio-tungstenite 0.23.0",
 ]

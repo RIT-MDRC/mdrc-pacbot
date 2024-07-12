@@ -26,3 +26,4 @@ tokio-tungstenite = "0.23.0"
 async-tungstenite = "0.26.2"
 futures-util = { version = "0.3.30", features = ["sink", "std"] }
 futures-channel = "0.3.30"
+simple-websockets = "0.1.6"
