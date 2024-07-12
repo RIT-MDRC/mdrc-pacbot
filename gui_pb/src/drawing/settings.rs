@@ -1,4 +1,4 @@
-use crate::colors::{network_status_to_color, TRANSLUCENT_YELLOW_COLOR};
+use crate::colors::network_status_to_color;
 use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::settings::StrategyChoice;
@@ -219,7 +219,14 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<&str, (S
         &mut app.ui_settings.game_server_collapsed,
         network_status_to_color(app.server_status.game_server_connection_status),
         |ui| {
-            ui.checkbox(&mut app.settings.game_server.connect, "Game server");
+            ui.checkbox(
+                &mut app.settings.game_server.connect,
+                if app.server_status.advanced_game_server {
+                    "Game server++"
+                } else {
+                    "Game server"
+                },
+            );
         },
         |ui| {
             ipv4(

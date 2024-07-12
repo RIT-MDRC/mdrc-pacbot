@@ -2,7 +2,7 @@ use crate::{status, App};
 use async_tungstenite::async_std::ConnectStream;
 use async_tungstenite::WebSocketStream;
 use core_pb::bin_encode;
-use core_pb::messages::GameServerCommand;
+use core_pb::messages::{GameServerCommand, NetworkStatus, GAME_SERVER_MAGIC_NUMBER};
 use core_pb::pacbot_rs::game_state::GameState;
 use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
 use futures_channel::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -40,21 +40,34 @@ pub async fn manage_game_server(
                     GameServerCommand::Reset => {
                         socket.async_send(TextOrT::Text("r".into())).await;
                     }
-                    GameServerCommand::SetState(_) => todo!(),
+                    command => {
+                        if app.lock().unwrap().status.advanced_game_server {
+                            socket.async_send(TextOrT::T(command)).await;
+                        }
+                    }
                 }
             }
             msg = socket.async_read() => {
                 match msg {
                     Either::Left(TextOrT::Text(text)) => eprintln!("Unexpected text from game server: {text}"),
                     Either::Left(TextOrT::T(bytes)) => {
+                        if bytes == GAME_SERVER_MAGIC_NUMBER.to_vec() {
+                            status(&app, |s| s.advanced_game_server = true);
+                        } else {
                         let mut g = GameState::new();
-                        match g.update(&bytes) {
-                            Ok(()) => state_sender.unbounded_send(g).unwrap(),
-                            Err(e) => eprintln!("Error updating game state: {e:?}"),
+                            match g.update(&bytes) {
+                                Ok(()) => state_sender.unbounded_send(g).unwrap(),
+                                Err(e) => eprintln!("Error updating game state: {e:?}"),
+                            }
                         }
                     }
                     Either::Right(new_status) => {
-                        status(&app, |s| s.game_server_connection_status = new_status)
+                        status(&app, |s| {
+                            if new_status != NetworkStatus::Connected {
+                                s.advanced_game_server = false;
+                            }
+                            s.game_server_connection_status = new_status
+                        })
                     }
                 }
             }

@@ -1,6 +1,6 @@
 use bevy::prelude::{ResMut, Resource};
 use core_pb::constants::GAME_SERVER_PORT;
-use core_pb::messages::GameServerCommand;
+use core_pb::messages::{GameServerCommand, GAME_SERVER_MAGIC_NUMBER};
 use core_pb::pacbot_rs::game_state::GameState;
 use core_pb::pacbot_rs::location::{LocationState, DOWN, LEFT, RIGHT, UP};
 use std::io;
@@ -47,14 +47,14 @@ impl PacbotNetworkSimulation {
             match self.game_server_listener.accept() {
                 Ok((socket, addr)) => {
                     match accept(socket) {
-                        Ok(ws) => {
+                        Ok(mut ws) => {
                             // this message lets clients know that this game server supports
                             // extra messages like pause, reset, custom game state
-                            // if let Err(e) =
-                            //     ws.send(Message::Binary(GAME_SERVER_MAGIC_NUMBER.to_vec()))
-                            // {
-                            //     eprintln!("Error sending magic numbers: {:?}", e);
-                            // };
+                            if let Err(e) =
+                                ws.send(Message::Binary(GAME_SERVER_MAGIC_NUMBER.to_vec()))
+                            {
+                                eprintln!("Error sending magic numbers: {:?}", e);
+                            };
                             println!("Client connected from {addr}");
                             self.game_server_clients.push((ws, addr));
                         }
@@ -88,6 +88,7 @@ impl PacbotNetworkSimulation {
             for (client, addr) in &mut self.game_server_clients {
                 if let Err(e) = client.send(Message::Binary(serialized_state.clone())) {
                     eprintln!("Failed to send game state to {:?}: {:?}", addr, e);
+                    let _ = client.close(None);
                 }
             }
             self.last_state_update = Instant::now();

@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 pub struct ServerStatus {
     pub game_state: GameState,
     pub game_server_connection_status: NetworkStatus,
+    pub advanced_game_server: bool,
 
     pub gui_clients: usize,
     pub robots: Vec<RobotStatus>,
