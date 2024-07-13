@@ -34,11 +34,11 @@ pub enum RobotName {
 impl From<usize> for RobotName {
     fn from(value: usize) -> Self {
         match value {
-            0 => Stella,
-            1 => Stevie,
-            2 => Speers,
-            3 => Pierre,
-            4 => Prince,
+            0 => Pierre,
+            1 => Prince,
+            2 => Stella,
+            3 => Stevie,
+            4 => Speers,
             _ => panic!("Invalid robot name index: {}", value),
         }
     }

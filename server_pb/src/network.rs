@@ -10,19 +10,18 @@ use futures_util::FutureExt;
 use simple_websockets::{Event, Message};
 use tokio::time::sleep;
 
+use crate::robots::RobotsNetwork;
+use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::settings::PacbotSettings;
 use core_pb::messages::{
     GuiToServerMessage, NetworkStatus, ServerToGuiMessage, ServerToSimulationMessage,
     GAME_SERVER_MAGIC_NUMBER,
 };
+use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
 use core_pb::threaded_websocket::{TextOrT, ThreadedSocket};
 use core_pb::{bin_decode, bin_encode};
-
-use crate::App;
-
-// todo mod robots;
 
 pub async fn manage_network() {
     let mut app = App {
@@ -43,6 +42,8 @@ pub async fn manage_network() {
         simulation_socket: ThreadedSocket::default(),
 
         gui_clients: HashMap::new(),
+
+        robots: RobotsNetwork::default(),
 
         grid: Default::default(),
     };
@@ -120,9 +121,34 @@ pub async fn manage_network() {
                     }
                 }
             }
+            // handle statuses/messages from robots
+            robot_msg = app.robots.incoming.recv().fuse() => {
+                let (name, robot_msg): (RobotName, _) = robot_msg.unwrap();
+                match robot_msg {
+                    Either::Left(_msg) => println!("Message received from {name}"),
+                    Either::Right(status) => {
+                        app.status.robots[name as usize].connection = status;
+                        println!("Robot status {name}: {status:?}")
+                    },
+                }
+            }
         }
     }
 }
+
+// async fn robot_event_fut(
+//     robots: &mut [ThreadedSocket<ServerToRobotMessage, RobotToServerMessage>; NUM_ROBOT_NAMES],
+// ) -> (
+//     RobotName,
+//     Either<TextOrT<RobotToServerMessage>, NetworkStatus>,
+// ) {
+//     let futures: Vec<_> = robots
+//         .iter_mut()
+//         .map(|robot| robot.async_read().boxed())
+//         .collect();
+//     let (result, index, _remaining) = select_all(futures).await;
+//     (RobotName::from(index), result)
+// }
 
 async fn handle_gui_event(app: &mut App, event: Event) {
     match event {
