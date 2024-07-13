@@ -1,3 +1,4 @@
+use crate::driving::SimRobot;
 use crate::{MyApp, Robot, Wall, ROBOT_RADIUS};
 use bevy::math::Vec3;
 use bevy::prelude::*;
@@ -5,6 +6,7 @@ use bevy_rapier2d::geometry::{Collider, CollisionGroups, Group};
 use bevy_rapier2d::na::Vector2;
 use bevy_rapier2d::prelude::*;
 use core_pb::grid::standard_grid::StandardGrid;
+use core_pb::names::RobotName;
 
 pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
     let grid = grid.compute_grid();
@@ -27,7 +29,7 @@ pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
 }
 
 impl MyApp {
-    pub fn spawn_robot(&mut self, commands: &mut Commands) {
+    pub fn spawn_robot(&mut self, commands: &mut Commands, name: RobotName) {
         let pos = self.standard_grid.get_default_pacbot_isometry().translation;
 
         let new_robot = commands
@@ -40,16 +42,22 @@ impl MyApp {
             .insert(ExternalImpulse::default())
             .insert(Velocity::default())
             .insert(Robot {
+                name,
                 wasd_target_vel: None,
             })
             .id();
 
-        self.robots.push(new_robot);
-        self.selected_robot = Some(new_robot);
+        let sim_robot = SimRobot::start(name);
+
+        self.robots[name as usize] = Some((new_robot, sim_robot));
+        self.selected_robot = name;
     }
 
-    pub fn despawn_robot(&mut self, entity: Entity, commands: &mut Commands) {
-        commands.entity(entity).despawn();
+    pub fn despawn_robot(&mut self, name: RobotName, commands: &mut Commands) {
+        if let Some((entity, sim_robot)) = self.robots[name as usize].take() {
+            commands.entity(entity).despawn();
+            sim_robot.write().unwrap().destroy();
+        }
     }
 
     pub fn apply_robots_target_vel(

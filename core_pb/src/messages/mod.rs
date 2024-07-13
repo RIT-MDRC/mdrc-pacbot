@@ -40,6 +40,16 @@ pub enum ServerToSimulationMessage {
     RobotVelocity(RobotName, Option<(Vector2<f32>, f32)>),
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg(feature = "std")]
+pub enum ServerToRobotMessage {}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg(feature = "std")]
+pub enum RobotToServerMessage {
+    Name(RobotName),
+}
+
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Default, PartialOrd, PartialEq)]
 pub enum NetworkStatus {
     /// Settings dictate that a connection should not be made

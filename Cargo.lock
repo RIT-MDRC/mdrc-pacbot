@@ -1689,6 +1689,7 @@ dependencies = [
  "bincode",
  "defmt",
  "embedded-graphics",
+ "embedded-io-async",
  "futures",
  "heapless",
  "log",
@@ -2123,6 +2124,21 @@ checksum = "ba9ecd261f991856250d2207f6d8376946cd9f412a2165d3b75bc87a0bc7a044"
 dependencies = [
  "az",
  "byteorder",
+]
+
+[[package]]
+name = "embedded-io"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
+
+[[package]]
+name = "embedded-io-async"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ff09972d4073aa8c299395be75161d582e7629cd663171d62af73c8d50dba3f"
+dependencies = [
+ "embedded-io",
 ]
 
 [[package]]
@@ -4611,11 +4627,13 @@ name = "sim_pb"
 version = "0.1.0"
 dependencies = [
  "async-channel 2.3.1",
+ "async-std",
  "bevy",
  "bevy_rapier2d",
  "bincode",
  "core_pb",
  "embedded-graphics",
+ "embedded-io-async",
  "futures",
  "heapless",
  "serde",

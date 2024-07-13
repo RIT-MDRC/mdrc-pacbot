@@ -40,6 +40,7 @@ impl RobotTask for Network {
 
 impl RobotNetworkBehavior for Network {
     type Error = NetworkError;
+    type Socket = TcpStream;
 
     async fn wifi_is_connected(&self) -> Option<[u8; 4]> {
         self.stack.config_v4().map(|x| x.address.address().0)

@@ -136,9 +136,9 @@ impl PacbotNetworkSimulation {
                     Message::Binary(bytes) => match bin_decode::<ServerToSimulationMessage>(&bytes)
                     {
                         Ok(msg) => match msg {
-                            ServerToSimulationMessage::RobotVelocity(_, vel) => {
+                            ServerToSimulationMessage::RobotVelocity(name, vel) => {
                                 println!("Received target velocity: {vel:?}");
-                                app.server_target_vel = vel;
+                                app.server_target_vel[name as usize] = vel;
                             }
                         },
                         Err(e) => eprintln!("Error decoding simulation message: {e:?}"),

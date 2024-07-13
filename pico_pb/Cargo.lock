@@ -163,6 +163,7 @@ dependencies = [
  "bincode",
  "defmt",
  "embedded-graphics",
+ "embedded-io-async",
  "heapless",
  "nalgebra",
  "ordered-float",

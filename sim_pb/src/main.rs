@@ -1,17 +1,23 @@
+use std::sync::{Arc, RwLock};
+
+use bevy::prelude::*;
+use bevy_rapier2d::na::Vector2;
+use bevy_rapier2d::prelude::*;
+
+use core_pb::grid::computed_grid::ComputedGrid;
+use core_pb::grid::standard_grid::StandardGrid;
+use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
+use core_pb::pacbot_rs::location::LocationState;
+
+use crate::driving::SimRobot;
+use crate::network::{update_network, PacbotNetworkSimulation};
+use crate::physics::spawn_walls;
+
 #[allow(dead_code)]
 mod delayed_value;
 mod driving;
 mod network;
 mod physics;
-
-use crate::network::{update_network, PacbotNetworkSimulation};
-use crate::physics::spawn_walls;
-use bevy::prelude::*;
-use bevy_rapier2d::na::Vector2;
-use bevy_rapier2d::prelude::*;
-use core_pb::grid::computed_grid::ComputedGrid;
-use core_pb::grid::standard_grid::StandardGrid;
-use core_pb::pacbot_rs::location::LocationState;
 
 // todo
 const ROBOT_RADIUS: f32 = 0.75;
@@ -21,10 +27,10 @@ pub struct MyApp {
     standard_grid: StandardGrid,
     grid: ComputedGrid,
 
-    server_target_vel: Option<(Vector2<f32>, f32)>,
+    server_target_vel: [Option<(Vector2<f32>, f32)>; NUM_ROBOT_NAMES],
 
-    robots: Vec<Entity>,
-    selected_robot: Option<Entity>,
+    robots: [Option<(Entity, Arc<RwLock<SimRobot>>)>; NUM_ROBOT_NAMES],
+    selected_robot: RobotName,
 }
 
 #[derive(Component)]
@@ -32,6 +38,7 @@ pub struct Wall;
 
 #[derive(Component)]
 pub struct Robot {
+    name: RobotName,
     wasd_target_vel: Option<(Vector2<f32>, f32)>,
 }
 
@@ -46,10 +53,10 @@ fn main() {
             standard_grid: StandardGrid::Pacman,
             grid: StandardGrid::Pacman.compute_grid(),
 
-            server_target_vel: None,
+            server_target_vel: [None; NUM_ROBOT_NAMES],
 
-            robots: vec![],
-            selected_robot: None,
+            robots: RobotName::get_all().map(|_| None),
+            selected_robot: RobotName::Stella,
         })
         .insert_resource(PacbotNetworkSimulation::new().unwrap())
         .add_systems(Startup, setup_graphics)
@@ -78,29 +85,27 @@ fn setup_physics(
     rapier_configuration.gravity = Vect::ZERO;
 
     spawn_walls(&mut commands, app.standard_grid);
-    app.spawn_robot(&mut commands);
+    app.spawn_robot(&mut commands, RobotName::Stella);
 }
 
 fn robot_position_to_game_state(
     app: ResMut<MyApp>,
     mut network: ResMut<PacbotNetworkSimulation>,
-    robots: Query<(Entity, &Transform)>,
+    robots: Query<(Entity, &Transform, &Robot)>,
 ) {
-    if let Some(selected) = app.selected_robot {
-        for robot in &robots {
-            if robot.0 == selected {
-                let pos = app
-                    .grid
-                    .node_nearest(robot.1.translation.x, robot.1.translation.y)
-                    .unwrap();
-                let new_loc = LocationState {
-                    row: pos.x,
-                    col: pos.y,
-                    dir: 0,
-                };
-                if network.game_state.pacman_loc != new_loc {
-                    network.game_state.set_pacman_location(new_loc)
-                }
+    for robot in &robots {
+        if robot.2.name == app.selected_robot {
+            let pos = app
+                .grid
+                .node_nearest(robot.1.translation.x, robot.1.translation.y)
+                .unwrap();
+            let new_loc = LocationState {
+                row: pos.x,
+                col: pos.y,
+                dir: 0,
+            };
+            if network.game_state.pacman_loc != new_loc {
+                network.game_state.set_pacman_location(new_loc)
             }
         }
     }
@@ -109,7 +114,7 @@ fn robot_position_to_game_state(
 fn keyboard_input(
     mut app: ResMut<MyApp>,
     mut commands: Commands,
-    keys: Res<ButtonInput<KeyCode>>,
+    mut keys: ResMut<ButtonInput<KeyCode>>,
     walls: Query<(Entity, &Wall)>,
     mut robots: Query<(
         Entity,
@@ -120,23 +125,26 @@ fn keyboard_input(
     )>,
 ) {
     if keys.just_pressed(KeyCode::KeyR) {
-        app.spawn_robot(&mut commands);
-    }
-    if keys.just_pressed(KeyCode::Tab) {
-        if let Some(selected) = app.selected_robot {
-            let index = app.robots.iter().position(|x| *x == selected).unwrap();
-            let index = (index + 1) % app.robots.len();
-            app.selected_robot = Some(app.robots[index])
-        } else if let Some(selected) = app.robots.first() {
-            app.selected_robot = Some(*selected)
+        if let Some(name) = RobotName::get_all()
+            .into_iter()
+            .filter(|name| name.is_simulated() && app.robots[*name as usize].is_none())
+            .next()
+        {
+            app.spawn_robot(&mut commands, name);
         }
     }
     if keys.just_pressed(KeyCode::Backspace) {
-        if let Some(selected) = app.selected_robot {
-            app.despawn_robot(selected, &mut commands);
-            app.selected_robot = None;
-            app.robots.retain(|x| *x != selected)
-        }
+        let name = app.selected_robot;
+        app.despawn_robot(name, &mut commands);
+        keys.press(KeyCode::Tab);
+    }
+    if keys.just_pressed(KeyCode::Tab) {
+        app.selected_robot = RobotName::get_all()
+            .into_iter()
+            .map(|x| ((x as usize + app.selected_robot as usize + 1) % NUM_ROBOT_NAMES).into())
+            .filter(|x| app.robots[*x as usize].is_some())
+            .next()
+            .unwrap_or(RobotName::Stella);
     }
     let key_directions = [
         (KeyCode::KeyW, (Vector2::new(0.0, 1.0), 0.0)),
@@ -146,18 +154,16 @@ fn keyboard_input(
         (KeyCode::KeyQ, (Vector2::new(0.0, 0.0), 0.3)),
         (KeyCode::KeyE, (Vector2::new(0.0, 0.0), -0.3)),
     ];
-    for (e, _, _, _, mut robot) in &mut robots {
+    for (_, _, _, _, mut robot) in &mut robots {
         let mut target_vel = (Vector2::new(0.0, 0.0), 0.0);
-        if let Some(selected) = app.selected_robot {
-            for (key, dir) in &key_directions {
-                if e == selected && keys.pressed(*key) {
-                    target_vel.0 += dir.0;
-                    target_vel.1 += dir.1;
-                }
+        for (key, dir) in &key_directions {
+            if robot.name == app.selected_robot && keys.pressed(*key) {
+                target_vel.0 += dir.0;
+                target_vel.1 += dir.1;
             }
         }
         if target_vel == (Vector2::new(0.0, 0.0), 0.0) {
-            robot.wasd_target_vel = app.server_target_vel;
+            robot.wasd_target_vel = app.server_target_vel[robot.name as usize];
         } else {
             robot.wasd_target_vel = Some(target_vel)
         }
