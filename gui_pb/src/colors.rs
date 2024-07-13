@@ -26,7 +26,7 @@ pub const TRANSLUCENT_GREEN_COLOR: Color32 = Color32::from_rgba_premultiplied(0,
 pub const TRANSLUCENT_YELLOW_COLOR: Color32 = Color32::from_rgba_premultiplied(50, 50, 0, 50);
 pub const TRANSLUCENT_RED_COLOR: Color32 = Color32::from_rgba_premultiplied(50, 0, 0, 50);
 
-pub fn network_status_to_color(value: NetworkStatus) -> Color32 {
+pub fn network_status_to_color(value: &NetworkStatus) -> Color32 {
     match value {
         NetworkStatus::NotConnected => Color32::DARK_GRAY,
         NetworkStatus::ConnectionFailed => TRANSLUCENT_RED_COLOR,

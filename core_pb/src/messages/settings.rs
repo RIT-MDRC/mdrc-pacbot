@@ -1,4 +1,6 @@
-use crate::constants::{GAME_SERVER_PORT, ROBOT_TCP_PORT, ROBOT_UDP_LISTENING_PORT};
+use crate::constants::{
+    GAME_SERVER_PORT, ROBOT_TCP_PORT, ROBOT_UDP_LISTENING_PORT, SIMULATION_LISTENER_PORT,
+};
 use crate::grid::standard_grid::StandardGrid;
 use serde::{Deserialize, Serialize};
 
@@ -7,30 +9,79 @@ use serde::{Deserialize, Serialize};
 pub struct PacbotSettings {
     /// Host a web server for browser clients
     pub host_http: bool,
-    /// Launch a fake game server and physics simulation as a child process
-    pub simulate: bool,
     /// Which grid is current in use
-    pub grid: StandardGrid,
-    /// Options for the robot
-    pub robots: Vec<RobotSettings>,
+    pub standard_grid: StandardGrid,
+    /// Options for the simulation
+    pub simulation: SimulationSettings,
     /// Options for the go server
     pub game_server: GameServerSettings,
+    /// Options for the robot
+    pub robots: Vec<RobotSettings>,
     /// Options for pathing, speed
     pub driving: DriveSettings,
-    /// Options for localization
-    pub particle_filter: ParticleFilterSettings,
 }
 
 impl Default for PacbotSettings {
     fn default() -> Self {
         Self {
             host_http: false,
-            simulate: false,
-            grid: Default::default(),
+            simulation: Default::default(),
+            standard_grid: Default::default(),
             robots: vec![],
             game_server: Default::default(),
             driving: Default::default(),
-            particle_filter: Default::default(),
+        }
+    }
+}
+
+/// Generic network connection settings
+#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub struct ConnectionSettings {
+    /// Whether the app should try to connect/reconnect
+    pub connect: bool,
+    /// IP address, if it should be connected
+    pub ipv4: [u8; 4],
+    /// Port
+    pub port: u16,
+}
+
+/// Simulation options
+#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub struct SimulationSettings {
+    /// Launch a fake game server and physics simulation as a child process
+    pub simulate: bool,
+    /// Network details
+    pub connection: ConnectionSettings,
+}
+
+impl Default for SimulationSettings {
+    fn default() -> Self {
+        Self {
+            simulate: false,
+            connection: ConnectionSettings {
+                connect: false,
+                ipv4: [127, 0, 0, 1],
+                port: SIMULATION_LISTENER_PORT,
+            },
+        }
+    }
+}
+
+/// Game server network options
+#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub struct GameServerSettings {
+    /// Network details
+    pub connection: ConnectionSettings,
+}
+
+impl Default for GameServerSettings {
+    fn default() -> Self {
+        Self {
+            connection: ConnectionSettings {
+                connect: false,
+                ipv4: [127, 0, 0, 1],
+                port: GAME_SERVER_PORT,
+            },
         }
     }
 }
@@ -73,27 +124,6 @@ impl Default for RobotSettings {
             collision_avoidance_thresholds: (15, 130),
             sensor_range_interval: 5,
             max_accel: 1000.0,
-        }
-    }
-}
-
-/// Game server network options
-#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
-pub struct GameServerSettings {
-    /// Whether the app should try to connect/reconnect to the game server
-    pub connect: bool,
-    /// IP address of the game server, if it should be connected
-    pub ipv4: [u8; 4],
-    /// Websocket port the game server is listening on
-    pub ws_port: u16,
-}
-
-impl Default for GameServerSettings {
-    fn default() -> Self {
-        Self {
-            connect: false,
-            ipv4: [127, 0, 0, 1],
-            ws_port: GAME_SERVER_PORT,
         }
     }
 }
@@ -147,73 +177,4 @@ pub enum StrategyChoice {
     TestUniform,
     /// Test (never goes back on itself)
     TestForward,
-}
-
-#[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
-pub struct ParticleFilterSettings {
-    /// Whether particle filter is calculated
-    pub enable_pf: bool,
-    /// Determines what is used as CV position
-    ///
-    /// When particle filter is disabled, this position is used directly
-    pub cv_position: CvPositionSource,
-
-    /// The number of guesses tracked by ParticleFilter
-    pub pf_total_points: usize,
-    /// The number of points displayed on the gui
-    pub pf_gui_points: usize,
-    /// Chance 0.0-1.0 that a new point will spawn near an existing one instead of randomly
-    pub pf_chance_near_other: f32,
-    /// The average number of times the robot is kidnapped per second, in our theoretical motion
-    /// model. This determines the probability that a particle will be teleported to a random
-    /// position.
-    pub pf_avg_kidnaps_per_sec: f32,
-    /// The standard deviation of the CV position error, in our theoretical sensor model.
-    pub pf_cv_error_std: f32,
-    /// The standard deviation of the distance sensor errors, in our theoretical sensor model.
-    pub pf_sensor_error_std: f32,
-
-    /// When generating a point based on an existing point, how far can it be moved in x and y?
-    pub pf_translation_limit: f32,
-    /// When generating a point based on an existing point, how far can it be moved in rotation?
-    pub pf_rotation_limit: f32,
-
-    /// When moving particles by Rapier-reported distance, add noise proportional to translation
-    pub pf_simulated_translation_noise: f32,
-    /// When moving particles by Rapier-reported distance, add noise proportional to rotation
-    pub pf_simulated_rotation_noise: f32,
-    /// When moving particles by Rapier-reported distance, add noise
-    pub pf_generic_noise: f32,
-}
-
-impl Default for ParticleFilterSettings {
-    fn default() -> Self {
-        Self {
-            enable_pf: false,
-            cv_position: CvPositionSource::default(),
-            pf_total_points: 10000,
-            pf_gui_points: 1000,
-            pf_chance_near_other: 0.99,
-            pf_avg_kidnaps_per_sec: 1.0,
-            pf_cv_error_std: 1.0,
-            pf_sensor_error_std: 1.0,
-            pf_translation_limit: 0.3,
-            pf_rotation_limit: 0.3,
-            pf_simulated_translation_noise: 0.01,
-            pf_simulated_rotation_noise: 0.02,
-            pf_generic_noise: 1.0,
-        }
-    }
-}
-
-/// Determines what is used as CV position
-#[derive(Copy, Clone, Debug, Default, PartialOrd, PartialEq, Serialize, Deserialize)]
-pub enum CvPositionSource {
-    /// Game state
-    #[default]
-    GameState,
-    /// Particle filter position (gives confirmation bias to PF)
-    ParticleFilter,
-    /// Some constant position
-    Constant(i8, i8),
 }

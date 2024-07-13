@@ -76,7 +76,7 @@ pub type Address = ([u8; 4], u16);
 /// // stop connecting to the server
 /// connection.connect(None);
 /// ```
-pub struct ThreadedSocket<SendType, ReceiveType> {
+pub struct ThreadedSocket<SendType: Debug, ReceiveType: Debug> {
     status: NetworkStatus,
 
     addr_sender: Sender<Option<Address>>,
@@ -89,15 +89,18 @@ pub struct ThreadedSocket<SendType, ReceiveType> {
 ///
 /// Used for websockets; the type is transferred using serialization in bytes, text is sent
 /// as regular text
-pub enum TextOrT<T> {
+#[derive(Debug)]
+pub enum TextOrT<T: Debug> {
     /// text
     Text(String),
     /// the type
     T(T),
 }
 
-impl<SendType: Serialize + Send + 'static, ReceiveType: DeserializeOwned + Send + 'static>
-    ThreadedSocket<SendType, ReceiveType>
+impl<
+        SendType: Serialize + Debug + Send + 'static,
+        ReceiveType: DeserializeOwned + Debug + Send + 'static,
+    > ThreadedSocket<SendType, ReceiveType>
 {
     /// Specify an address to connect to (or None to suspend current connection and future attempts)
     ///
@@ -241,8 +244,10 @@ impl<SendType: Serialize + Send + 'static, ReceiveType: DeserializeOwned + Send 
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-impl<SendType: Serialize + Send + 'static, ReceiveType: DeserializeOwned + Send + 'static> Default
-    for ThreadedSocket<SendType, ReceiveType>
+impl<
+        SendType: Serialize + Debug + Send + 'static,
+        ReceiveType: DeserializeOwned + Debug + Send + 'static,
+    > Default for ThreadedSocket<SendType, ReceiveType>
 {
     fn default() -> Self {
         Self::new::<WebSocketStream<ConnectStream>, _, _, _, _>(None, bin_encode, bin_decode)
@@ -283,8 +288,8 @@ async fn socket_read_fut<T: ThreadableSocket<S, R>, S, R>(
 
 /// Runs on a separate thread to babysit the socket
 async fn run_socket_forever<
-    OutgoingType: Serialize,
-    IncomingType: DeserializeOwned,
+    OutgoingType: Serialize + Debug,
+    IncomingType: DeserializeOwned + Debug,
     SocketType: ThreadableSocket<OutgoingType, IncomingType>,
     Serializer: Fn(OutgoingType) -> Result<Vec<u8>, SerializeResult>,
     SerializeResult: Debug,

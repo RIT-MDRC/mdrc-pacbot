@@ -94,15 +94,15 @@ pub struct App {
     ui_settings: UiSettings,
 
     rotated_grid: bool,
-    settings_fields: Option<HashMap<&'static str, (String, String)>>,
+    settings_fields: Option<HashMap<String, (String, String)>>,
 }
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.pointer_pos = ctx.pointer_latest_pos();
         self.background_color = ctx.style().visuals.panel_fill;
-        if *self.grid.standard_grid() != Some(self.settings.grid) {
-            self.grid = self.settings.grid.compute_grid();
+        if *self.grid.standard_grid() != Some(self.settings.standard_grid) {
+            self.grid = self.settings.standard_grid.compute_grid();
         }
         self.read_input(ctx);
         self.manage_network();
@@ -151,10 +151,10 @@ impl App {
     }
 
     pub fn manage_network(&mut self) {
-        let new_addr = if self.ui_settings.connect_mdrc_server {
+        let new_addr = if self.ui_settings.mdrc_server.connect {
             Some((
-                self.ui_settings.mdrc_server_ipv4,
-                self.ui_settings.mdrc_server_ws_port,
+                self.ui_settings.mdrc_server.ipv4,
+                self.ui_settings.mdrc_server.port,
             ))
         } else {
             None
@@ -187,11 +187,11 @@ impl App {
                 ui.with_layout(egui::Layout::left_to_right(Align::Center), |ui| {
                     // grid selector
                     egui::ComboBox::from_label("")
-                        .selected_text(format!("{:?}", self.settings.grid))
+                        .selected_text(format!("{:?}", self.settings.standard_grid))
                         .show_ui(ui, |ui| {
                             StandardGrid::get_all().iter().for_each(|grid| {
                                 ui.selectable_value(
-                                    &mut self.settings.grid,
+                                    &mut self.settings.standard_grid,
                                     *grid,
                                     format!("{:?}", grid),
                                 );

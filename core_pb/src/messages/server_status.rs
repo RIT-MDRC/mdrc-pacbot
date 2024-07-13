@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ServerStatus {
+    pub simulation_connection_status: NetworkStatus,
+
     pub game_state: GameState,
     pub game_server_connection_status: NetworkStatus,
     pub advanced_game_server: bool,

@@ -7,7 +7,7 @@ use simple_websockets::Responder;
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::PacbotSettings;
-use core_pb::messages::GameServerCommand;
+use core_pb::messages::{GameServerCommand, ServerToSimulationMessage, SimulationToServerMessage};
 use core_pb::threaded_websocket::ThreadedSocket;
 
 use crate::network::manage_network;
@@ -27,6 +27,7 @@ pub struct App {
     sim_game_engine_process: Option<Child>,
 
     game_server_socket: ThreadedSocket<GameServerCommand, Vec<u8>>,
+    simulation_socket: ThreadedSocket<ServerToSimulationMessage, SimulationToServerMessage>,
 
     gui_clients: HashMap<u64, Responder>,
 
@@ -42,24 +43,29 @@ async fn main() {
 
 impl App {
     async fn update_settings(&mut self, old: &PacbotSettings, new: PacbotSettings) {
-        if (
-            new.game_server.connect,
-            new.game_server.ipv4,
-            new.game_server.ws_port,
-        ) != (
-            old.game_server.connect,
-            old.game_server.ipv4,
-            old.game_server.ws_port,
-        ) {
-            if new.game_server.connect {
-                self.game_server_socket
-                    .connect(Some((new.game_server.ipv4, new.game_server.ws_port)));
+        if new.game_server.connection != old.game_server.connection {
+            if new.game_server.connection.connect {
+                self.game_server_socket.connect(Some((
+                    new.game_server.connection.ipv4,
+                    new.game_server.connection.port,
+                )));
             } else {
                 self.game_server_socket.connect(None);
             }
         }
 
-        if new.simulate {
+        if new.simulation.connection != old.simulation.connection {
+            if new.simulation.connection.connect {
+                self.simulation_socket.connect(Some((
+                    new.simulation.connection.ipv4,
+                    new.simulation.connection.port,
+                )));
+            } else {
+                self.simulation_socket.connect(None);
+            }
+        }
+
+        if new.simulation.simulate {
             if self.sim_game_engine_process.is_none() {
                 self.sim_game_engine_process = Some(
                     Command::new("cargo")

@@ -1,8 +1,12 @@
 use bevy::prelude::{ResMut, Resource};
-use core_pb::constants::GAME_SERVER_PORT;
-use core_pb::messages::{GameServerCommand, GAME_SERVER_MAGIC_NUMBER};
+use core_pb::constants::{GAME_SERVER_PORT, SIMULATION_LISTENER_PORT};
+use core_pb::messages::{
+    GameServerCommand, ServerToSimulationMessage, SimulationToServerMessage,
+    GAME_SERVER_MAGIC_NUMBER,
+};
 use core_pb::pacbot_rs::game_state::GameState;
 use core_pb::pacbot_rs::location::{LocationState, DOWN, LEFT, RIGHT, UP};
+use core_pb::{bin_decode, bin_encode};
 use simple_websockets::{Event, EventHub, Message, Responder};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -16,6 +20,9 @@ pub struct PacbotNetworkSimulation {
 
     pub event_hub: EventHub,
     pub game_server_clients: HashMap<u64, Responder>,
+
+    pub simulation_event_hub: EventHub,
+    pub simulation_clients: HashMap<u64, Responder>,
 }
 
 pub fn update_network(mut network: ResMut<PacbotNetworkSimulation>) {
@@ -26,6 +33,7 @@ impl PacbotNetworkSimulation {
     pub fn new() -> Result<Self, simple_websockets::Error> {
         let event_hub = simple_websockets::launch(GAME_SERVER_PORT)?;
         println!("Listening on port {GAME_SERVER_PORT}");
+        let mut simulation_event_hub = simple_websockets::launch(SIMULATION_LISTENER_PORT)?;
         let mut game_state = GameState::default();
         game_state.paused = true;
         Ok(Self {
@@ -34,6 +42,9 @@ impl PacbotNetworkSimulation {
 
             event_hub,
             game_server_clients: HashMap::new(),
+
+            simulation_event_hub,
+            simulation_clients: HashMap::new(),
         })
     }
 
@@ -108,6 +119,29 @@ impl PacbotNetworkSimulation {
                         }
                     }
                 },
+            }
+        }
+
+        // simulation specific messages
+        while let Some(event) = self.simulation_event_hub.next_event() {
+            match event {
+                Event::Connect(id, responder) => {
+                    responder.send(Message::Binary(
+                        bin_encode(SimulationToServerMessage::None).unwrap(),
+                    ));
+                    self.simulation_clients.insert(id, responder);
+                }
+                Event::Message(_, message) => match message {
+                    Message::Binary(bytes) => match bin_decode::<ServerToSimulationMessage>(&bytes)
+                    {
+                        Ok(msg) => println!("{msg:?}"),
+                        Err(e) => eprintln!("Error decoding simulation message: {e:?}"),
+                    },
+                    Message::Text(text) => eprintln!("Unexpected simulation message: {text}"),
+                },
+                Event::Disconnect(id) => {
+                    self.simulation_clients.remove(&id);
+                }
             }
         }
 

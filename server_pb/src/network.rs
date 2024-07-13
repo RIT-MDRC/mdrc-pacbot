@@ -39,6 +39,7 @@ pub async fn manage_network() {
             bin_encode,
             |bytes| Ok::<_, ()>(bytes.iter().copied().collect()),
         ),
+        simulation_socket: ThreadedSocket::default(),
 
         gui_clients: HashMap::new(),
 
@@ -106,6 +107,15 @@ pub async fn manage_network() {
                             app.status.advanced_game_server = false;
                         }
                         app.status.game_server_connection_status = new_status
+                    }
+                }
+            }
+            // handle status/messages from simulation
+            simulation_msg = app.simulation_socket.async_read().fuse() => {
+                match simulation_msg {
+                    Either::Left(msg) => println!("Message from simulation: {msg:?}"),
+                    Either::Right(new_status) => {
+                        app.status.simulation_connection_status = new_status
                     }
                 }
             }

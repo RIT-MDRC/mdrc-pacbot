@@ -1,6 +1,6 @@
 use crate::App;
 use core_pb::grid::standard_grid::StandardGrid;
-use core_pb::messages::settings::{CvPositionSource, StrategyChoice};
+use core_pb::messages::settings::StrategyChoice;
 use eframe::egui;
 use eframe::egui::{Event, Key};
 
@@ -33,25 +33,25 @@ impl App {
                                 !self.settings.driving.commands_use_pf_angle
                         }
                         // CV source
-                        Key::G => {
-                            self.settings.particle_filter.cv_position = CvPositionSource::GameState
-                        }
-                        Key::H => {
-                            self.settings.particle_filter.cv_position =
-                                CvPositionSource::ParticleFilter
-                        }
-                        Key::T => {
-                            if let Some(pos) = self.pointer_pos {
-                                self.settings.particle_filter.cv_position =
-                                    CvPositionSource::Constant(
-                                        pos.x.round() as i8,
-                                        pos.y.round() as i8,
-                                    )
-                            }
-                        }
+                        // Key::G => {
+                        //     self.settings.particle_filter.cv_position = CvPositionSource::GameState
+                        // }
+                        // Key::H => {
+                        //     self.settings.particle_filter.cv_position =
+                        //         CvPositionSource::ParticleFilter
+                        // }
+                        // Key::T => {
+                        //     if let Some(pos) = self.pointer_pos {
+                        //         self.settings.particle_filter.cv_position =
+                        //             CvPositionSource::Constant(
+                        //                 pos.x.round() as i8,
+                        //                 pos.y.round() as i8,
+                        //             )
+                        //     }
+                        // }
                         // Grid
-                        Key::B => self.settings.grid = StandardGrid::Pacman,
-                        Key::N => self.settings.grid = StandardGrid::Playground,
+                        Key::B => self.settings.standard_grid = StandardGrid::Pacman,
+                        Key::N => self.settings.standard_grid = StandardGrid::Playground,
                         _ => {}
                     },
                     // Mouse buttons

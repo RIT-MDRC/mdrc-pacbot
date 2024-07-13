@@ -1,7 +1,8 @@
 use crate::colors::network_status_to_color;
 use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
-use core_pb::messages::settings::StrategyChoice;
+use core_pb::messages::settings::{ConnectionSettings, StrategyChoice};
+use core_pb::messages::NetworkStatus;
 use eframe::egui;
 use eframe::egui::{Align, Color32, Layout, Ui, WidgetText};
 use regex::Regex;
@@ -10,31 +11,33 @@ use std::fmt::Debug;
 use std::str::FromStr;
 
 pub struct UiSettings {
-    pub connect_mdrc_server: bool,
-    pub mdrc_server_ipv4: [u8; 4],
-    pub mdrc_server_ws_port: u16,
+    pub mdrc_server: ConnectionSettings,
 
     pub mdrc_server_collapsed: bool,
+    pub simulation_collapsed: bool,
     pub game_server_collapsed: bool,
 }
 
 impl Default for UiSettings {
     fn default() -> Self {
         Self {
-            connect_mdrc_server: true,
-            mdrc_server_ipv4: [127, 0, 0, 1],
-            mdrc_server_ws_port: GUI_LISTENER_PORT,
+            mdrc_server: ConnectionSettings {
+                connect: true,
+                ipv4: [127, 0, 0, 1],
+                port: GUI_LISTENER_PORT,
+            },
 
             mdrc_server_collapsed: true,
+            simulation_collapsed: true,
             game_server_collapsed: true,
         }
     }
 }
 
 fn validated<T: PartialEq>(
-    id: &'static str,
+    id: String,
     ui: &mut Ui,
-    fields: &mut HashMap<&str, (String, String)>,
+    fields: &mut HashMap<String, (String, String)>,
     value: &mut T,
     text: impl Into<WidgetText>,
     validation: fn(&str) -> Option<T>,
@@ -48,7 +51,7 @@ fn validated<T: PartialEq>(
         // if this is the first time seeing this field, set its string to the given value
         if !fields.contains_key(&id) {
             let str = to_str(value);
-            fields.insert(id, (str.clone(), str));
+            fields.insert(id.clone(), (str.clone(), str));
         }
         let (last_typed, last_valid) = fields.get_mut(&id).unwrap();
 
@@ -72,9 +75,9 @@ fn validated<T: PartialEq>(
 }
 
 fn num<T: FromStr + ToString + PartialEq>(
-    id: &'static str,
+    id: String,
     ui: &mut Ui,
-    fields: &mut HashMap<&str, (String, String)>,
+    fields: &mut HashMap<String, (String, String)>,
     value: &mut T,
     text: impl Into<WidgetText>,
 ) {
@@ -90,9 +93,9 @@ fn num<T: FromStr + ToString + PartialEq>(
 }
 
 fn ipv4(
-    id: &'static str,
+    id: String,
     ui: &mut Ui,
-    fields: &mut HashMap<&str, (String, String)>,
+    fields: &mut HashMap<String, (String, String)>,
     value: &mut [u8; 4],
     text: impl Into<WidgetText>,
 ) {
@@ -171,6 +174,30 @@ fn collapsable_section(
     }
 }
 
+pub fn generic_server(
+    ui: &mut Ui,
+    name: &str,
+    fields: &mut HashMap<String, (String, String)>,
+    connection_settings: &mut ConnectionSettings,
+    collapsed: &mut bool,
+    status: &NetworkStatus,
+) {
+    let ip_name = name.to_string() + "server_ip";
+    let port_name = name.to_string() + "server_port";
+    collapsable_section(
+        ui,
+        collapsed,
+        network_status_to_color(&status),
+        |ui| {
+            ui.checkbox(&mut connection_settings.connect, name);
+        },
+        |ui| {
+            ipv4(ip_name, ui, fields, &mut connection_settings.ipv4, "IP");
+            num(port_name, ui, fields, &mut connection_settings.port, "Port");
+        },
+    );
+}
+
 pub fn draw_settings(app: &mut App, ui: &mut Ui) {
     let mut fields = app.settings_fields.take().unwrap();
 
@@ -183,67 +210,40 @@ pub fn draw_settings(app: &mut App, ui: &mut Ui) {
 }
 
 /// Reduce indentation
-fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<&str, (String, String)>) {
+fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, (String, String)>) {
     ui.checkbox(&mut app.rotated_grid, "Rotated grid");
     ui.end_row();
-    ui.checkbox(&mut app.settings.simulate, "Simulated Physics/Game Server");
-    ui.end_row();
 
-    collapsable_section(
+    generic_server(
         ui,
+        "MDRC Server",
+        fields,
+        &mut app.ui_settings.mdrc_server,
         &mut app.ui_settings.mdrc_server_collapsed,
-        network_status_to_color(app.network.0.status()),
-        |ui| {
-            ui.checkbox(&mut app.ui_settings.connect_mdrc_server, "MDRC Server");
-        },
-        |ui| {
-            ipv4(
-                "server_ip",
-                ui,
-                fields,
-                &mut app.ui_settings.mdrc_server_ipv4,
-                "IP",
-            );
-            num(
-                "server_port",
-                ui,
-                fields,
-                &mut app.ui_settings.mdrc_server_ws_port,
-                "Port",
-            );
-        },
+        &app.network.0.status(),
     );
 
-    collapsable_section(
+    generic_server(
         ui,
+        "Simulation",
+        fields,
+        &mut app.settings.simulation.connection,
+        &mut app.ui_settings.simulation_collapsed,
+        &app.server_status.simulation_connection_status,
+    );
+    app.settings.simulation.simulate = app.settings.simulation.connection.connect;
+
+    generic_server(
+        ui,
+        if app.server_status.advanced_game_server {
+            "Game server++"
+        } else {
+            "Game server"
+        },
+        fields,
+        &mut app.settings.game_server.connection,
         &mut app.ui_settings.game_server_collapsed,
-        network_status_to_color(app.server_status.game_server_connection_status),
-        |ui| {
-            ui.checkbox(
-                &mut app.settings.game_server.connect,
-                if app.server_status.advanced_game_server {
-                    "Game server++"
-                } else {
-                    "Game server"
-                },
-            );
-        },
-        |ui| {
-            ipv4(
-                "game_server_ip",
-                ui,
-                fields,
-                &mut app.settings.game_server.ipv4,
-                "IP",
-            );
-            num(
-                "game_server_port",
-                ui,
-                fields,
-                &mut app.settings.game_server.ws_port,
-                "Port",
-            );
-        },
+        &app.server_status.game_server_connection_status,
     );
 
     // collapsable_section(
@@ -265,20 +265,6 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<&str, (S
     //     },
     // );
 
-    num(
-        "cv_err_std",
-        ui,
-        fields,
-        &mut app.settings.particle_filter.pf_cv_error_std,
-        "Cv error std",
-    );
-    num(
-        "num_gui_pts",
-        ui,
-        fields,
-        &mut app.settings.particle_filter.pf_gui_points,
-        "Num gui points",
-    );
     dropdown(
         ui,
         "strategy",

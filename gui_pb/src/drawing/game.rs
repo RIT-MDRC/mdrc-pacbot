@@ -17,7 +17,7 @@ pub fn draw_grid(app: &mut App, painter: &Painter) {
     }
 
     // make sure the area outside the soft boundary is not drawn on
-    for (p1, p2) in app.settings.grid.get_outside_soft_boundaries() {
+    for (p1, p2) in app.settings.standard_grid.get_outside_soft_boundaries() {
         painter.rect(
             Rect::from_two_pos(wts.map_point2(p1), wts.map_point2(p2)),
             Rounding::ZERO,

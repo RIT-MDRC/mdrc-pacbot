@@ -40,7 +40,7 @@ impl TabViewer for App {
         match tab {
             Tab::Grid => {
                 let rect = ui.max_rect();
-                let (src_p1, src_p2) = self.settings.grid.get_soft_boundaries();
+                let (src_p1, src_p2) = self.settings.standard_grid.get_soft_boundaries();
 
                 self.world_to_screen = if self.rotated_grid {
                     Transform::new_letterboxed(
@@ -62,7 +62,7 @@ impl TabViewer for App {
 
                 let painter = ui.painter_at(rect);
                 draw_grid(self, &painter);
-                if self.settings.grid == StandardGrid::Pacman {
+                if self.settings.standard_grid == StandardGrid::Pacman {
                     draw_game(self, &painter);
                 }
             }
