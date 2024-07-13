@@ -13,7 +13,8 @@ use tokio::time::sleep;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::settings::PacbotSettings;
 use core_pb::messages::{
-    GuiToServerMessage, NetworkStatus, ServerToGuiMessage, GAME_SERVER_MAGIC_NUMBER,
+    GuiToServerMessage, NetworkStatus, ServerToGuiMessage, ServerToSimulationMessage,
+    GAME_SERVER_MAGIC_NUMBER,
 };
 use core_pb::pacbot_rs::game_state::GameState;
 use core_pb::threaded_websocket::{TextOrT, ThreadedSocket};
@@ -158,6 +159,11 @@ async fn handle_gui_event(app: &mut App, event: Event) {
                                 }
                             }
                         },
+                        GuiToServerMessage::RobotVelocity(robot, vel) => {
+                            app.simulation_socket.send(TextOrT::T(
+                                ServerToSimulationMessage::RobotVelocity(robot, vel),
+                            ))
+                        }
                     },
                     Err(e) => eprintln!(
                         "Error decoding message from {id}: {e:?}, {} bytes",

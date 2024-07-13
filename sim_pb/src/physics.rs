@@ -2,6 +2,7 @@ use crate::{MyApp, Robot, Wall, ROBOT_RADIUS};
 use bevy::math::Vec3;
 use bevy::prelude::*;
 use bevy_rapier2d::geometry::{Collider, CollisionGroups, Group};
+use bevy_rapier2d::na::Vector2;
 use bevy_rapier2d::prelude::*;
 use core_pb::grid::standard_grid::StandardGrid;
 
@@ -62,12 +63,15 @@ impl MyApp {
         )>,
     ) {
         for (_, _, v, mut imp, robot) in robots {
-            let mut target_vel = robot.wasd_target_vel.unwrap_or((Vec2::ZERO, 0.0));
+            let mut target_vel = robot
+                .wasd_target_vel
+                .unwrap_or((Vector2::new(0.0, 0.0), 0.0));
             let move_scale = 4.0;
-            if target_vel.0 != Vec2::ZERO {
+            if target_vel.0 != Vector2::new(0.0, 0.0) {
                 target_vel.0 = target_vel.0.normalize() * move_scale;
             }
-            imp.impulse = target_vel.0 - v.linvel * 0.6;
+            imp.impulse.x = target_vel.0.x - v.linvel.x * 0.6;
+            imp.impulse.y = target_vel.0.y - v.linvel.y * 0.6;
             imp.torque_impulse = target_vel.1 - v.angvel * 0.1;
         }
     }

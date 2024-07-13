@@ -1,3 +1,4 @@
+use crate::MyApp;
 use bevy::prelude::{ResMut, Resource};
 use core_pb::constants::{GAME_SERVER_PORT, SIMULATION_LISTENER_PORT};
 use core_pb::messages::{
@@ -25,15 +26,15 @@ pub struct PacbotNetworkSimulation {
     pub simulation_clients: HashMap<u64, Responder>,
 }
 
-pub fn update_network(mut network: ResMut<PacbotNetworkSimulation>) {
-    network.update()
+pub fn update_network(app: ResMut<MyApp>, mut network: ResMut<PacbotNetworkSimulation>) {
+    network.update(app)
 }
 
 impl PacbotNetworkSimulation {
     pub fn new() -> Result<Self, simple_websockets::Error> {
         let event_hub = simple_websockets::launch(GAME_SERVER_PORT)?;
         println!("Listening on port {GAME_SERVER_PORT}");
-        let mut simulation_event_hub = simple_websockets::launch(SIMULATION_LISTENER_PORT)?;
+        let simulation_event_hub = simple_websockets::launch(SIMULATION_LISTENER_PORT)?;
         let mut game_state = GameState::default();
         game_state.paused = true;
         Ok(Self {
@@ -50,7 +51,7 @@ impl PacbotNetworkSimulation {
 
     /// All updates for network, game state, and simulation - will complete quickly, expects
     /// to be called in a loop
-    pub fn update(&mut self) {
+    pub fn update(&mut self, mut app: ResMut<MyApp>) {
         while let Some(event) = self.event_hub.next_event() {
             match event {
                 Event::Connect(id, responder) => {
@@ -134,7 +135,12 @@ impl PacbotNetworkSimulation {
                 Event::Message(_, message) => match message {
                     Message::Binary(bytes) => match bin_decode::<ServerToSimulationMessage>(&bytes)
                     {
-                        Ok(msg) => println!("{msg:?}"),
+                        Ok(msg) => match msg {
+                            ServerToSimulationMessage::RobotVelocity(_, vel) => {
+                                println!("Received target velocity: {vel:?}");
+                                app.server_target_vel = vel;
+                            }
+                        },
                         Err(e) => eprintln!("Error decoding simulation message: {e:?}"),
                     },
                     Message::Text(text) => eprintln!("Unexpected simulation message: {text}"),

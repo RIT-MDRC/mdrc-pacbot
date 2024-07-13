@@ -7,6 +7,7 @@ mod physics;
 use crate::network::{update_network, PacbotNetworkSimulation};
 use crate::physics::spawn_walls;
 use bevy::prelude::*;
+use bevy_rapier2d::na::Vector2;
 use bevy_rapier2d::prelude::*;
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::grid::standard_grid::StandardGrid;
@@ -20,6 +21,8 @@ pub struct MyApp {
     standard_grid: StandardGrid,
     grid: ComputedGrid,
 
+    server_target_vel: Option<(Vector2<f32>, f32)>,
+
     robots: Vec<Entity>,
     selected_robot: Option<Entity>,
 }
@@ -29,7 +32,7 @@ pub struct Wall;
 
 #[derive(Component)]
 pub struct Robot {
-    wasd_target_vel: Option<(Vec2, f32)>,
+    wasd_target_vel: Option<(Vector2<f32>, f32)>,
 }
 
 fn main() {
@@ -42,6 +45,8 @@ fn main() {
         .insert_resource(MyApp {
             standard_grid: StandardGrid::Pacman,
             grid: StandardGrid::Pacman.compute_grid(),
+
+            server_target_vel: None,
 
             robots: vec![],
             selected_robot: None,
@@ -134,15 +139,15 @@ fn keyboard_input(
         }
     }
     let key_directions = [
-        (KeyCode::KeyW, (Vec2::new(0.0, 1.0), 0.0)),
-        (KeyCode::KeyA, (Vec2::new(-1.0, 0.0), 0.0)),
-        (KeyCode::KeyD, (Vec2::new(1.0, 0.0), 0.0)),
-        (KeyCode::KeyS, (Vec2::new(0.0, -1.0), 0.0)),
-        (KeyCode::KeyQ, (Vec2::new(0.0, 0.0), 0.3)),
-        (KeyCode::KeyE, (Vec2::new(0.0, 0.0), -0.3)),
+        (KeyCode::KeyW, (Vector2::new(0.0, 1.0), 0.0)),
+        (KeyCode::KeyA, (Vector2::new(-1.0, 0.0), 0.0)),
+        (KeyCode::KeyD, (Vector2::new(1.0, 0.0), 0.0)),
+        (KeyCode::KeyS, (Vector2::new(0.0, -1.0), 0.0)),
+        (KeyCode::KeyQ, (Vector2::new(0.0, 0.0), 0.3)),
+        (KeyCode::KeyE, (Vector2::new(0.0, 0.0), -0.3)),
     ];
     for (e, _, _, _, mut robot) in &mut robots {
-        let mut target_vel = (Vec2::ZERO, 0.0);
+        let mut target_vel = (Vector2::new(0.0, 0.0), 0.0);
         if let Some(selected) = app.selected_robot {
             for (key, dir) in &key_directions {
                 if e == selected && keys.pressed(*key) {
@@ -151,8 +156,8 @@ fn keyboard_input(
                 }
             }
         }
-        if target_vel == (Vec2::ZERO, 0.0) {
-            robot.wasd_target_vel = None
+        if target_vel == (Vector2::new(0.0, 0.0), 0.0) {
+            robot.wasd_target_vel = app.server_target_vel;
         } else {
             robot.wasd_target_vel = Some(target_vel)
         }

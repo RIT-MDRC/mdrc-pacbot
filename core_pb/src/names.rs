@@ -17,7 +17,7 @@ pub const NUM_ROBOT_NAMES: usize = 5;
 /// However, while they are set at compile time, these values are not stable over the
 /// development of the codebase; code should not, for example, specifically rely on
 /// [`Stella`] as index 0
-#[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Ord, Eq)]
+#[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Ord, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum RobotName {
     // [S]imulated robots
@@ -56,6 +56,7 @@ impl Display for RobotName {
     }
 }
 
+use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use RobotName::*;
 

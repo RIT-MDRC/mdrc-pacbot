@@ -23,6 +23,7 @@ use core_pb::console_log;
 pub use core_pb::log;
 use core_pb::messages::{GuiToServerMessage, ServerToGuiMessage};
 use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
+use nalgebra::Vector2;
 use std::collections::HashMap;
 
 // When compiling natively:
@@ -92,6 +93,7 @@ pub struct App {
     old_settings: PacbotSettings,
     settings: PacbotSettings,
     ui_settings: UiSettings,
+    target_vel: Option<(Vector2<f32>, f32)>,
 
     rotated_grid: bool,
     settings_fields: Option<HashMap<String, (String, String)>>,
@@ -144,6 +146,7 @@ impl App {
             old_settings: Default::default(),
             settings: Default::default(),
             ui_settings: Default::default(),
+            target_vel: None,
 
             rotated_grid: true,
             settings_fields: Some(HashMap::new()),

@@ -1,6 +1,8 @@
 use crate::messages::server_status::ServerStatus;
 #[cfg(feature = "std")]
 use crate::messages::settings::PacbotSettings;
+use crate::names::RobotName;
+use nalgebra::Vector2;
 use pacbot_rs::game_state::GameState;
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +18,7 @@ pub const GAME_SERVER_MAGIC_NUMBER: [u8; 4] = [170, 115, 26, 153];
 pub enum GuiToServerMessage {
     Settings(PacbotSettings),
     GameServerCommand(GameServerCommand),
+    RobotVelocity(RobotName, Option<(Vector2<f32>, f32)>),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -33,7 +36,9 @@ pub enum SimulationToServerMessage {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
-pub enum ServerToSimulationMessage {}
+pub enum ServerToSimulationMessage {
+    RobotVelocity(RobotName, Option<(Vector2<f32>, f32)>),
+}
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Default, PartialOrd, PartialEq)]
 pub enum NetworkStatus {
