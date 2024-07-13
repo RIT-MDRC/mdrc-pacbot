@@ -1,10 +1,9 @@
-use crate::messages::settings::PacbotSettings;
 use crate::messages::NetworkStatus;
 use nalgebra::{Rotation2, Vector2};
 use pacbot_rs::game_state::GameState;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ServerStatus {
     pub game_state: GameState,
     pub game_server_connection_status: NetworkStatus,
@@ -14,10 +13,9 @@ pub struct ServerStatus {
     pub robots: Vec<RobotStatus>,
 
     pub wasd_qe_input: Vec<(Vector2<f32>, Rotation2<f32>)>,
-    pub settings: PacbotSettings,
 }
 
-#[derive(Clone, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize, PartialOrd, PartialEq)]
 pub struct RobotStatus {
     pub connected: bool,
 }

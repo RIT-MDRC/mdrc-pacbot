@@ -21,7 +21,7 @@ use crate::drawing::settings::UiSettings;
 use core_pb::console_log;
 #[cfg(target_arch = "wasm32")]
 pub use core_pb::log;
-use core_pb::messages::GuiToGameServerMessage;
+use core_pb::messages::{GuiToServerMessage, ServerToGuiMessage};
 use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
 use std::collections::HashMap;
 
@@ -86,9 +86,10 @@ pub struct App {
     // replay_manager: ReplayManager,
     server_status: ServerStatus,
     network: (
-        ThreadedSocket<GuiToGameServerMessage, ServerStatus>,
+        ThreadedSocket<GuiToServerMessage, ServerToGuiMessage>,
         Option<Address>,
     ),
+    old_settings: PacbotSettings,
     settings: PacbotSettings,
     ui_settings: UiSettings,
 
@@ -140,6 +141,7 @@ impl App {
             // todo replay_manager: Default::default(),
             server_status: Default::default(),
             network: Default::default(),
+            old_settings: Default::default(),
             settings: Default::default(),
             ui_settings: Default::default(),
 
@@ -162,20 +164,18 @@ impl App {
             self.network.0.connect(new_addr)
         }
         // we must check for changed settings before updating them from the server
-        if self.settings != self.server_status.settings {
-            self.network
-                .0
-                .send(TextOrT::T(GuiToGameServerMessage::Settings(
-                    self.settings.clone(),
-                )));
-            self.server_status.settings = self.settings.clone();
+        if self.old_settings != self.settings {
+            self.network.0.send(TextOrT::T(GuiToServerMessage::Settings(
+                self.settings.clone(),
+            )));
         }
-        if let Some(TextOrT::T(status)) = self.network.0.read() {
-            self.server_status = status;
-            // only update settings if there are changes from the server, to avoid overwriting
-            // local gui changes which causes a bad UX
-            if self.server_status.settings.version != self.settings.version {
-                self.settings = self.server_status.settings.clone();
+        if let Some(TextOrT::T(msg)) = self.network.0.read() {
+            match msg {
+                ServerToGuiMessage::Settings(settings) => {
+                    self.settings = settings.clone();
+                    self.old_settings = settings
+                }
+                ServerToGuiMessage::Status(status) => self.server_status = status,
             }
         }
     }

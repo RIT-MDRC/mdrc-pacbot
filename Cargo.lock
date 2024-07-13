@@ -4556,10 +4556,12 @@ name = "server_pb"
 version = "0.1.0"
 dependencies = [
  "array-init",
+ "async-tungstenite",
  "bincode",
  "candle-core",
  "candle-nn",
  "core_pb",
+ "futures",
  "futures-channel",
  "futures-util",
  "nalgebra",

@@ -1,60 +1,168 @@
-use crate::network::game_server::manage_game_server;
-use crate::network::gui_clients::listen_for_gui_clients;
-use crate::App;
-use core_pb::messages::server_status::ServerStatus;
-use core_pb::messages::{GameServerCommand, GuiToGameServerMessage};
-use core_pb::pacbot_rs::game_state::GameState;
-use core_pb::threaded_websocket::Address;
-use futures_channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
-use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
+use std::pin::pin;
+use std::time::{Duration, Instant};
 
-mod game_server;
-mod gui_clients;
+use async_tungstenite::async_std::ConnectStream;
+use async_tungstenite::WebSocketStream;
+use futures_util::future::Either;
+use futures_util::select;
+use futures_util::FutureExt;
+use simple_websockets::{Event, Message};
+use tokio::time::sleep;
+
+use core_pb::constants::GUI_LISTENER_PORT;
+use core_pb::messages::settings::PacbotSettings;
+use core_pb::messages::{
+    GuiToServerMessage, NetworkStatus, ServerToGuiMessage, GAME_SERVER_MAGIC_NUMBER,
+};
+use core_pb::pacbot_rs::game_state::GameState;
+use core_pb::threaded_websocket::{TextOrT, ThreadedSocket};
+use core_pb::{bin_decode, bin_encode};
+
+use crate::App;
+
 // todo mod robots;
 
-pub struct Sockets {
-    // pico_udp_tx: Option<UdpSocket>,
-    // pico_udp_rx: Option<UdpSocket>,
-    // pico_tcp: Option<TcpStream>,
-    pub game_states: UnboundedReceiver<GameState>,
-    pub game_server_commands: UnboundedSender<GameServerCommand>,
-    pub game_server_addr: UnboundedSender<Option<Address>>,
+pub async fn manage_network() {
+    let mut app = App {
+        status: Default::default(),
+        settings: Default::default(),
 
-    pub commands_from_gui: UnboundedReceiver<GuiToGameServerMessage>,
-    pub gui_outgoing: UnboundedSender<ServerStatus>,
-}
+        last_status_update: Instant::now(),
+        settings_update_needed: false,
 
-impl Sockets {
-    pub fn spawn(app: Arc<Mutex<App>>) -> Self {
-        let (gs_inc_tx, gs_inc_rx) = unbounded();
-        let (gs_out_tx, gs_out_rx) = unbounded();
-        let (gs_addr_tx, gs_addr_rx) = unbounded();
+        client_http_host_process: None,
+        sim_game_engine_process: None,
 
-        let (gui_incoming_tx, gui_incoming_rx) = unbounded();
-        let (gui_outgoing_tx, gui_outgoing_rx) = unbounded();
+        game_server_socket: ThreadedSocket::new::<WebSocketStream<ConnectStream>, _, _, _, _>(
+            None,
+            bin_encode,
+            |bytes| Ok::<_, ()>(bytes.iter().copied().collect()),
+        ),
 
-        tokio::spawn(listen_for_gui_clients(
-            app.clone(),
-            gui_incoming_tx,
-            gui_outgoing_rx,
-        ));
-        tokio::spawn(manage_game_server(
-            app.clone(),
-            gs_inc_tx,
-            gs_addr_rx,
-            gs_out_rx,
-        ));
+        gui_clients: HashMap::new(),
 
-        Sockets {
-            game_states: gs_inc_rx,
-            game_server_commands: gs_out_tx,
-            game_server_addr: gs_addr_tx,
+        grid: Default::default(),
+    };
 
-            commands_from_gui: gui_incoming_rx,
-            gui_outgoing: gui_outgoing_tx,
+    let gui_client_event_hub = simple_websockets::launch(GUI_LISTENER_PORT).unwrap();
+
+    println!("Listening on 0.0.0.0:{GUI_LISTENER_PORT}");
+
+    // apply default settings to the app
+    app.update_settings(&PacbotSettings::default(), PacbotSettings::default())
+        .await;
+
+    loop {
+        // if necessary, send updated settings to clients
+        if app.settings_update_needed {
+            app.settings_update_needed = false;
+            let msg = Message::Binary(
+                bin_encode(ServerToGuiMessage::Settings(app.settings.clone())).unwrap(),
+            );
+            for (_, r) in &mut app.gui_clients {
+                r.send(msg.clone());
+            }
+        }
+        // if necessary, send updated status to clients
+        if app.last_status_update.elapsed() > Duration::from_millis(40) {
+            app.last_status_update = Instant::now();
+            let msg = Message::Binary(
+                bin_encode(ServerToGuiMessage::Status(app.status.clone())).unwrap(),
+            );
+            for (_, r) in &mut app.gui_clients {
+                r.send(msg.clone());
+            }
+        }
+
+        // note: this pin! is why gui_client_event_hub is not part of App
+        let gui_event_fut = pin!(gui_client_event_hub.poll_async());
+
+        select! {
+            // we should send a new status message every so often
+            _ = sleep(Duration::from_millis(100)).fuse() => {}
+            // handle connections/messages from GUIs
+            gui_event = gui_event_fut.fuse() => {
+                handle_gui_event(&mut app, gui_event).await;
+            }
+            // handle status/messages from game server
+            game_server_msg = app.game_server_socket.async_read().fuse() => {
+                match game_server_msg {
+                    Either::Left(TextOrT::Text(text)) => eprintln!("Unexpected text from game server: {text}"),
+                    Either::Left(TextOrT::T(bytes)) => {
+                        if bytes == GAME_SERVER_MAGIC_NUMBER.to_vec() {
+                            app.status.advanced_game_server = true;
+                        } else {
+                        let mut g = GameState::new();
+                            match g.update(&bytes) {
+                                Ok(()) => app.status.game_state = g,
+                                Err(e) => eprintln!("Error updating game state: {e:?}"),
+                            }
+                        }
+                    }
+                    Either::Right(new_status) => {
+                        if new_status != NetworkStatus::Connected {
+                            // assume the game server is not advanced until proven otherwise
+                            app.status.advanced_game_server = false;
+                        }
+                        app.status.game_server_connection_status = new_status
+                    }
+                }
+            }
         }
     }
 }
+
+async fn handle_gui_event(app: &mut App, event: Event) {
+    match event {
+        Event::Connect(id, responder) => {
+            println!("Gui client #{id} connected");
+            app.status.gui_clients += 1;
+            println!("{} gui client(s) are connected", app.status.gui_clients);
+            app.gui_clients.insert(id, responder);
+        }
+        Event::Disconnect(id) => {
+            println!("Gui client #{id} disconnected");
+            app.status.gui_clients -= 1;
+            println!("{} gui client(s) remaining", app.status.gui_clients);
+            app.gui_clients.remove(&id);
+        }
+        Event::Message(id, msg) => {
+            println!("Received a message from gui client {}", id);
+            match msg {
+                Message::Binary(bytes) => match bin_decode(&bytes) {
+                    Ok(msg) => match msg {
+                        GuiToServerMessage::Settings(settings) => {
+                            let old_settings = app.settings.clone();
+                            app.update_settings(&old_settings, settings).await;
+                        }
+                        GuiToServerMessage::GameServerCommand(command) => match command.text() {
+                            Some(text) => {
+                                app.game_server_socket
+                                    .async_send(TextOrT::Text(text.into()))
+                                    .await
+                            }
+                            None => {
+                                if app.status.advanced_game_server {
+                                    app.game_server_socket.async_send(TextOrT::T(command)).await;
+                                }
+                            }
+                        },
+                    },
+                    Err(e) => eprintln!(
+                        "Error decoding message from {id}: {e:?}, {} bytes",
+                        bytes.len()
+                    ),
+                },
+                Message::Text(text) => {
+                    eprintln!("Received strange message from gui client {id}: {text}")
+                }
+            }
+        }
+    }
+}
+
+// async fn handle_game_server_message(app: &mut App, msg: )
 
 // pub fn reconnect_sockets(app: &mut App) {
 //     // reconnect pico sockets

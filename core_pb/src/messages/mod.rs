@@ -1,3 +1,4 @@
+use crate::messages::server_status::ServerStatus;
 #[cfg(feature = "std")]
 use crate::messages::settings::PacbotSettings;
 use pacbot_rs::game_state::GameState;
@@ -23,7 +24,15 @@ pub enum NetworkStatus {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
-pub enum GuiToGameServerMessage {
+pub enum GuiToServerMessage {
+    Settings(PacbotSettings),
+    GameServerCommand(GameServerCommand),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg(feature = "std")]
+pub enum ServerToGuiMessage {
+    Status(ServerStatus),
     Settings(PacbotSettings),
 }
 
@@ -36,4 +45,15 @@ pub enum GameServerCommand {
     Unpause,
     Reset,
     SetState(GameState),
+}
+
+impl GameServerCommand {
+    pub fn text(&self) -> Option<&'static str> {
+        match self {
+            GameServerCommand::Pause => Some("p"),
+            GameServerCommand::Unpause => Some("P"),
+            GameServerCommand::Reset => Some("r"),
+            _ => None,
+        }
+    }
 }

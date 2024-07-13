@@ -341,12 +341,18 @@ async fn run_socket_forever<
                 if let Ok(incoming_data) = incoming_data {
                     // console_log!("[threaded_websocket] Received data from {addr:?}");
                     let incoming_data = match incoming_data {
-                        TextOrT::T(data) => {
-                            TextOrT::T(deserializer(&data).expect("failed to deserialize data"))
+                        TextOrT::T(data) => match deserializer(&data) {
+                            Ok(data) => Some(TextOrT::T(data)),
+                            Err(e) => {
+                                console_log!("[threaded_websocket] Error deserializing data: {e:?}");
+                                None
+                            }
                         },
-                        TextOrT::Text(text) => TextOrT::Text(text)
+                        TextOrT::Text(text) => Some(TextOrT::Text(text))
                     };
-                    data_incoming.send(incoming_data).await.unwrap();
+                    if let Some(data) = incoming_data {
+                        data_incoming.send(data).await.unwrap();
+                    }
                 } else {
                     console_log!("[threaded_websocket] Connection closed to {addr:?} due to error reading");
                     statuses.send(NetworkStatus::ConnectionFailed).await.unwrap();
