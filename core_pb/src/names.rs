@@ -20,15 +20,15 @@ pub const NUM_ROBOT_NAMES: usize = 5;
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Ord, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum RobotName {
-    // [S]imulated robots
-    Stella = 0,
-    Stevie = 1,
-    Speers = 2,
     // [P]ico boards
-    Pierre = 3,
-    Pancho = 4,
+    Pierre = 0,
+    Prince = 1,
     // Patric,
-    // Prince,
+    // Pancho,
+    // [S]imulated robots
+    Stella = 2,
+    Stevie = 3,
+    Speers = 4,
 }
 
 impl From<usize> for RobotName {
@@ -38,7 +38,7 @@ impl From<usize> for RobotName {
             1 => Stevie,
             2 => Speers,
             3 => Pierre,
-            4 => Pancho,
+            4 => Prince,
             _ => panic!("Invalid robot name index: {}", value),
         }
     }
@@ -51,7 +51,7 @@ impl Display for RobotName {
             Stevie => write!(f, "Stevie"),
             Speers => write!(f, "Speers"),
             Pierre => write!(f, "Pierre"),
-            Pancho => write!(f, "Pancho"),
+            Prince => write!(f, "Prince"),
         }
     }
 }
@@ -63,7 +63,7 @@ use RobotName::*;
 impl RobotName {
     /// All robot names in order
     pub fn get_all() -> [RobotName; NUM_ROBOT_NAMES] {
-        [Stella, Stevie, Speers, Pierre, Pancho]
+        [Pierre, Prince, Stella, Stevie, Speers]
     }
 
     /// Whether this robot is managed by the simulator
@@ -74,7 +74,7 @@ impl RobotName {
     /// Whether this robot is a raspberry pi pico
     pub fn is_pico(&self) -> bool {
         match self {
-            Pierre | Pancho => true,
+            Pierre | Prince => true,
             _ => false,
         }
     }
@@ -89,7 +89,7 @@ impl RobotName {
             Speers => [0x02, 0, 0, 0, 0, 0x03],
 
             Pierre => [0x28, 0xcd, 0xc1, 0x0f, 0x82, 0x87],
-            Pancho => [0x28, 0xcd, 0xc1, 0x0f, 0x82, 0x88],
+            Prince => [0x28, 0xcd, 0xc1, 0x0f, 0x82, 0x88],
         }
     }
 
@@ -106,9 +106,19 @@ impl RobotName {
             },
 
             [0x28, 0xcd, 0xc1, 0x0f, 0x82, 0x87] => Some(Pierre),
-            [0x28, 0xcd, 0xc1, 0x0f, 0x82, 0x88] => Some(Pancho),
+            [0x28, 0xcd, 0xc1, 0x0f, 0x82, 0x88] => Some(Prince),
 
             _ => None,
+        }
+    }
+
+    /// The default pre-filled ip - robots need not necessarily use this ip
+    pub fn default_ip(&self) -> [u8; 4] {
+        match self {
+            Pierre => [192, 168, 0, 1],
+            Prince => [192, 168, 0, 2],
+            // simulated robots are local
+            _ => [127, 0, 0, 1],
         }
     }
 
@@ -153,6 +163,7 @@ mod tests {
             );
             if name.is_simulated() {
                 assert_eq!(name.mac_address()[0], 0x02);
+                assert_eq!(name.default_ip(), [127, 0, 0, 1]);
             } else {
                 assert_ne!(name.mac_address()[0], 0x02);
             }

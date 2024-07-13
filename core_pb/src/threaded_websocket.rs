@@ -235,8 +235,10 @@ impl<
 }
 
 #[cfg(target_arch = "wasm32")]
-impl<SendType: Serialize + Send + 'static, ReceiveType: DeserializeOwned + Send + 'static> Default
-    for ThreadedSocket<SendType, ReceiveType>
+impl<
+        SendType: Serialize + Debug + Send + 'static,
+        ReceiveType: DeserializeOwned + Debug + Send + 'static,
+    > Default for ThreadedSocket<SendType, ReceiveType>
 {
     fn default() -> Self {
         Self::new::<WasmThreadableWebsocket, _, _, _, _>(None, bin_encode, bin_decode)

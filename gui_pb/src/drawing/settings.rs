@@ -3,6 +3,7 @@ use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::settings::{ConnectionSettings, StrategyChoice};
 use core_pb::messages::NetworkStatus;
+use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
 use eframe::egui;
 use eframe::egui::{Align, Color32, Layout, Ui, WidgetText};
 use regex::Regex;
@@ -11,16 +12,21 @@ use std::fmt::Debug;
 use std::str::FromStr;
 
 pub struct UiSettings {
+    pub selected_robot: RobotName,
+
     pub mdrc_server: ConnectionSettings,
 
     pub mdrc_server_collapsed: bool,
     pub simulation_collapsed: bool,
     pub game_server_collapsed: bool,
+    pub robots_collapsed: [bool; NUM_ROBOT_NAMES],
 }
 
 impl Default for UiSettings {
     fn default() -> Self {
         Self {
+            selected_robot: RobotName::Stella,
+
             mdrc_server: ConnectionSettings {
                 connect: true,
                 ipv4: [127, 0, 0, 1],
@@ -30,6 +36,7 @@ impl Default for UiSettings {
             mdrc_server_collapsed: true,
             simulation_collapsed: true,
             game_server_collapsed: true,
+            robots_collapsed: [true; 5],
         }
     }
 }
@@ -213,6 +220,35 @@ pub fn draw_settings(app: &mut App, ui: &mut Ui) {
 fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, (String, String)>) {
     ui.checkbox(&mut app.rotated_grid, "Rotated grid");
     ui.end_row();
+    ui.checkbox(&mut app.settings.simulation.simulate, "Run simulation");
+    ui.end_row();
+
+    ui.separator();
+    ui.end_row();
+
+    dropdown(
+        ui,
+        "selected_robot",
+        "Selected",
+        &mut app.ui_settings.selected_robot,
+        &RobotName::get_all(),
+    );
+
+    if app.settings.simulation.connection.connect {
+        dropdown(
+            ui,
+            "gs_robot",
+            "Pacman",
+            &mut app.settings.simulation.pacman,
+            &RobotName::get_all()
+                .into_iter()
+                .filter(|name| name.is_simulated())
+                .collect::<Vec<_>>(),
+        );
+    }
+
+    ui.separator();
+    ui.end_row();
 
     generic_server(
         ui,
@@ -229,9 +265,8 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         fields,
         &mut app.settings.simulation.connection,
         &mut app.ui_settings.simulation_collapsed,
-        &app.server_status.simulation_connection_status,
+        &app.server_status.simulation_connection,
     );
-    app.settings.simulation.simulate = app.settings.simulation.connection.connect;
 
     generic_server(
         ui,
@@ -243,8 +278,25 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         fields,
         &mut app.settings.game_server.connection,
         &mut app.ui_settings.game_server_collapsed,
-        &app.server_status.game_server_connection_status,
+        &app.server_status.game_server_connection,
     );
+
+    ui.separator();
+    ui.end_row();
+
+    for name in RobotName::get_all() {
+        generic_server(
+            ui,
+            &format!("{name}"),
+            fields,
+            &mut app.settings.robots[name as usize].connection,
+            &mut app.ui_settings.robots_collapsed[name as usize],
+            &app.server_status.robots[name as usize].connection,
+        );
+    }
+
+    ui.separator();
+    ui.end_row();
 
     // collapsable_section(
     //     ui,

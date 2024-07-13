@@ -2,7 +2,6 @@ use crate::App;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::settings::StrategyChoice;
 use core_pb::messages::GuiToServerMessage;
-use core_pb::names::RobotName;
 use core_pb::threaded_websocket::TextOrT;
 use eframe::egui;
 use eframe::egui::{Event, Key};
@@ -15,7 +14,7 @@ impl App {
             self.network
                 .0
                 .send(TextOrT::T(GuiToServerMessage::RobotVelocity(
-                    RobotName::Pierre,
+                    self.ui_settings.selected_robot,
                     self.target_vel,
                 )))
         }

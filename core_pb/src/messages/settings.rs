@@ -1,7 +1,6 @@
-use crate::constants::{
-    GAME_SERVER_PORT, ROBOT_TCP_PORT, ROBOT_UDP_LISTENING_PORT, SIMULATION_LISTENER_PORT,
-};
+use crate::constants::{GAME_SERVER_PORT, SIMULATION_LISTENER_PORT};
 use crate::grid::standard_grid::StandardGrid;
+use crate::names::{RobotName, NUM_ROBOT_NAMES};
 use serde::{Deserialize, Serialize};
 
 /// Rarely changed options for the pacbot server
@@ -15,8 +14,8 @@ pub struct PacbotSettings {
     pub simulation: SimulationSettings,
     /// Options for the go server
     pub game_server: GameServerSettings,
-    /// Options for the robot
-    pub robots: Vec<RobotSettings>,
+    /// Options for the robots
+    pub robots: [RobotSettings; NUM_ROBOT_NAMES],
     /// Options for pathing, speed
     pub driving: DriveSettings,
 }
@@ -27,7 +26,7 @@ impl Default for PacbotSettings {
             host_http: false,
             simulation: Default::default(),
             standard_grid: Default::default(),
-            robots: vec![],
+            robots: RobotName::get_all().map(|name| RobotSettings::new(name)),
             game_server: Default::default(),
             driving: Default::default(),
         }
@@ -52,6 +51,10 @@ pub struct SimulationSettings {
     pub simulate: bool,
     /// Network details
     pub connection: ConnectionSettings,
+    /// Which robots should be spawned in
+    pub robots: [bool; NUM_ROBOT_NAMES],
+    /// Which robot's position should be used as the pacman location
+    pub pacman: RobotName,
 }
 
 impl Default for SimulationSettings {
@@ -63,6 +66,8 @@ impl Default for SimulationSettings {
                 ipv4: [127, 0, 0, 1],
                 port: SIMULATION_LISTENER_PORT,
             },
+            robots: RobotName::get_all().map(|name| name == RobotName::Stella),
+            pacman: RobotName::Stella,
         }
     }
 }
@@ -89,14 +94,9 @@ impl Default for GameServerSettings {
 /// Pico network options, on-robot drive code options
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct RobotSettings {
-    /// Whether the app should try to connect/reconnect to the robot
-    pub connect: bool,
-    /// IP address of the robot, if it should be connected
-    pub ipv4: [u8; 4],
-    /// The UDP port the robot is listening on
-    pub udp_listening_port: u16,
-    /// The TCP port the robot is listening on
-    pub tcp_port: u16,
+    pub name: RobotName,
+    /// Connection settings
+    pub connection: ConnectionSettings,
 
     /// P, I, and D parameters for the PID loop
     pub pid: [f32; 3],
@@ -112,13 +112,15 @@ pub struct RobotSettings {
     pub max_accel: f32,
 }
 
-impl Default for RobotSettings {
-    fn default() -> Self {
+impl RobotSettings {
+    pub fn new(name: RobotName) -> Self {
         Self {
-            connect: false,
-            ipv4: [127, 0, 0, 2],
-            udp_listening_port: ROBOT_UDP_LISTENING_PORT,
-            tcp_port: ROBOT_TCP_PORT,
+            name,
+            connection: ConnectionSettings {
+                connect: false,
+                ipv4: name.default_ip(),
+                port: name.port(),
+            },
             pid: [18.0, 0.1, 0.0],
             collision_avoidance: true,
             collision_avoidance_thresholds: (15, 130),

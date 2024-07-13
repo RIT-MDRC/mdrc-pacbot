@@ -107,7 +107,7 @@ pub async fn manage_network() {
                             // assume the game server is not advanced until proven otherwise
                             app.status.advanced_game_server = false;
                         }
-                        app.status.game_server_connection_status = new_status
+                        app.status.game_server_connection = new_status
                     }
                 }
             }
@@ -116,7 +116,7 @@ pub async fn manage_network() {
                 match simulation_msg {
                     Either::Left(msg) => println!("Message from simulation: {msg:?}"),
                     Either::Right(new_status) => {
-                        app.status.simulation_connection_status = new_status
+                        app.status.simulation_connection = new_status
                     }
                 }
             }

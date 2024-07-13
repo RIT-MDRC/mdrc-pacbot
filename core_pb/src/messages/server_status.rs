@@ -1,23 +1,46 @@
 use crate::messages::NetworkStatus;
-use nalgebra::{Rotation2, Vector2};
+use crate::names::{RobotName, NUM_ROBOT_NAMES};
 use pacbot_rs::game_state::GameState;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ServerStatus {
-    pub simulation_connection_status: NetworkStatus,
+    pub simulation_connection: NetworkStatus,
 
     pub game_state: GameState,
-    pub game_server_connection_status: NetworkStatus,
+    pub game_server_connection: NetworkStatus,
     pub advanced_game_server: bool,
 
     pub gui_clients: usize,
-    pub robots: Vec<RobotStatus>,
-
-    pub wasd_qe_input: Vec<(Vector2<f32>, Rotation2<f32>)>,
+    pub robots: [RobotStatus; NUM_ROBOT_NAMES],
 }
 
-#[derive(Clone, Default, Debug, Serialize, Deserialize, PartialOrd, PartialEq)]
+impl Default for ServerStatus {
+    fn default() -> Self {
+        Self {
+            simulation_connection: NetworkStatus::default(),
+
+            game_state: GameState::default(),
+            game_server_connection: NetworkStatus::default(),
+            advanced_game_server: false,
+
+            gui_clients: 0,
+            robots: RobotName::get_all().map(|name| RobotStatus::new(name)),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialOrd, PartialEq)]
 pub struct RobotStatus {
-    pub connected: bool,
+    pub name: RobotName,
+    pub connection: NetworkStatus,
+}
+
+impl RobotStatus {
+    pub fn new(name: RobotName) -> Self {
+        Self {
+            name,
+            connection: NetworkStatus::default(),
+        }
+    }
 }
