@@ -130,6 +130,7 @@ async fn handle_gui_event(app: &mut App, event: Event) {
             println!("Gui client #{id} connected");
             app.status.gui_clients += 1;
             println!("{} gui client(s) are connected", app.status.gui_clients);
+            app.settings_update_needed = true;
             app.gui_clients.insert(id, responder);
         }
         Event::Disconnect(id) => {
