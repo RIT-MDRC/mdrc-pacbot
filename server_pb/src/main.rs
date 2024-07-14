@@ -1,24 +1,15 @@
-use futures_util::future::Either;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
-use simple_websockets::Responder;
-use std::collections::HashMap;
-use std::fmt::Debug;
 use std::process::{Child, Command};
-use std::time::Instant;
 
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::{ConnectionSettings, PacbotSettings};
-use core_pb::messages::{GameServerCommand, ServerToSimulationMessage, SimulationToServerMessage};
 use core_pb::names::RobotName;
-use core_pb::threaded_websocket::ThreadedSocket;
 
 use crate::network::manage_network;
-use crate::robots::RobotsNetwork;
+use crate::sockets::{Destination, Outgoing, Sockets};
 
 pub mod network;
-pub mod robots;
+mod sockets;
 // todo pub mod strategy;
 
 #[allow(dead_code)]
@@ -26,18 +17,12 @@ pub struct App {
     status: ServerStatus,
     settings: PacbotSettings,
 
-    last_status_update: Instant,
     settings_update_needed: bool,
 
     client_http_host_process: Option<Child>,
     sim_game_engine_process: Option<Child>,
 
-    game_server_socket: ThreadedSocket<GameServerCommand, Vec<u8>>,
-    simulation_socket: ThreadedSocket<ServerToSimulationMessage, SimulationToServerMessage>,
-
-    gui_clients: HashMap<u64, Responder>,
-
-    robots: RobotsNetwork,
+    sockets: Sockets,
 
     grid: ComputedGrid,
 }
@@ -50,84 +35,60 @@ async fn main() {
 }
 
 impl App {
-    fn update_connection<
-        S: Debug + Serialize + Send + 'static,
-        R: Debug + DeserializeOwned + Send + 'static,
-    >(
+    async fn send(&mut self, destination: Destination, outgoing: Outgoing) {
+        self.sockets
+            .outgoing
+            .send((destination, outgoing))
+            .await
+            .unwrap();
+    }
+
+    async fn update_connection(
+        &mut self,
         old_settings: &ConnectionSettings,
         new_settings: &ConnectionSettings,
-        socket: &mut ThreadedSocket<S, R>,
+        destination: Destination,
     ) {
         if new_settings != old_settings {
             if new_settings.connect {
-                socket.connect(Some((new_settings.ipv4, new_settings.port)));
+                self.send(
+                    destination,
+                    Outgoing::Address(Some((new_settings.ipv4, new_settings.port))),
+                )
+                .await;
             } else {
-                socket.connect(None);
+                self.send(destination, Outgoing::Address(None)).await;
             }
         }
     }
 
     async fn update_settings(&mut self, old: &PacbotSettings, new: PacbotSettings) {
-        Self::update_connection(
+        self.update_connection(
             &old.game_server.connection,
             &new.game_server.connection,
-            &mut self.game_server_socket,
-        );
-        Self::update_connection(
+            Destination::GameServer,
+        )
+        .await;
+        self.update_connection(
             &old.simulation.connection,
             &new.simulation.connection,
-            &mut self.simulation_socket,
-        );
-        Self::update_connection(
+            Destination::Simulation,
+        )
+        .await;
+        self.update_connection(
             &old.game_server.connection,
             &new.game_server.connection,
-            &mut self.game_server_socket,
-        );
+            Destination::GameServer,
+        )
+        .await;
 
         for name in RobotName::get_all() {
-            if new.robots[name as usize].connection != old.robots[name as usize].connection {
-                if new.robots[name as usize].connection.connect {
-                    self.robots
-                        .outgoing
-                        .send((
-                            name,
-                            Either::Right(Some((
-                                new.robots[name as usize].connection.ipv4,
-                                new.robots[name as usize].connection.port,
-                            ))),
-                        ))
-                        .await
-                        .unwrap();
-                } else {
-                    self.robots
-                        .outgoing
-                        .send((name, Either::Right(None)))
-                        .await
-                        .unwrap();
-                }
-            }
-        }
-
-        if new.game_server.connection != old.game_server.connection {
-            if new.game_server.connection.connect {
-                self.game_server_socket.connect(Some((
-                    new.game_server.connection.ipv4,
-                    new.game_server.connection.port,
-                )));
-            } else {
-                self.game_server_socket.connect(None);
-            }
-        }
-
-        if new.simulation.connection != old.simulation.connection {
-            if new.simulation.connection.connect {
-                self.simulation_socket.connect(Some((
-                    new.simulation.connection.ipv4,
-                    new.simulation.connection.port,
-                )));
-            } else {
-                self.simulation_socket.connect(None);
-            }
+            self.update_connection(
+                &old.robots[name as usize].connection,
+                &new.robots[name as usize].connection,
+                Destination::Robot(name),
+            )
+            .await;
         }
 
         if new.simulation.simulate {
