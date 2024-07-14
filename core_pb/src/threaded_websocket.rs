@@ -310,23 +310,32 @@ async fn run_socket_forever<
 
     loop {
         if socket.is_none() {
-            if let Some(addr) = addr {
+            if let Some(address) = addr {
                 console_log!("[threaded_websocket] Connecting to {addr:?}...");
                 statuses.send(NetworkStatus::Connecting).await.unwrap();
-                match SocketType::my_connect(addr).await {
-                    Ok(s) => {
-                        console_log!("[threaded_websocket] Connected to {addr:?}");
-                        statuses.send(NetworkStatus::Connected).await.unwrap();
-                        socket = Some(s);
+                select! {
+                    new_addr = addresses.recv().fuse() => {
+                        console_log!("[threaded_websocket] Address changed from {addr:?} to {new_addr:?}");
+                        statuses.send(NetworkStatus::NotConnected).await.unwrap();
+                        addr = new_addr.unwrap();
                     }
-                    Err(()) => {
-                        console_log!(
-                            "[threaded_websocket] Connection failed to {addr:?}, retrying soon"
-                        );
-                        statuses
-                            .send(NetworkStatus::ConnectionFailed)
-                            .await
-                            .unwrap();
+                    conn = SocketType::my_connect(address).fuse() => {
+                        match conn {
+                            Ok(s) => {
+                                console_log!("[threaded_websocket] Connected to {addr:?}");
+                                statuses.send(NetworkStatus::Connected).await.unwrap();
+                                socket = Some(s);
+                            }
+                            Err(()) => {
+                                console_log!(
+                                    "[threaded_websocket] Connection failed to {addr:?}, retrying soon"
+                                );
+                                statuses
+                                    .send(NetworkStatus::ConnectionFailed)
+                                    .await
+                                    .unwrap();
+                            }
+                        }
                     }
                 }
             }
