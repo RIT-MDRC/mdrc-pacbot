@@ -142,7 +142,10 @@ impl App {
             ),
             // todo replay_manager: Default::default(),
             server_status: Default::default(),
-            network: Default::default(),
+            network: (
+                ThreadedSocket::with_name("gui[server]".to_string()),
+                Default::default(),
+            ),
             old_settings: Default::default(),
             settings: Default::default(),
             ui_settings: Default::default(),

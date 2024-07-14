@@ -84,6 +84,7 @@ async fn receive_outgoing(
     let _ = tokio::spawn(manage_threaded_socket(
         GameServer,
         ThreadedSocket::new::<WebSocketStream<ConnectStream>, _, _, _, _>(
+            "server[game_server]".to_string(),
             None,
             bin_encode,
             |bytes| Ok::<_, ()>(bytes.iter().copied().collect()),
@@ -97,7 +98,7 @@ async fn receive_outgoing(
     let (sim_tx, sim_rx) = unbounded();
     let _ = tokio::spawn(manage_threaded_socket(
         Simulation,
-        ThreadedSocket::default(),
+        ThreadedSocket::with_name("server[simulation]".to_string()),
         sim_rx,
         incoming_tx.clone(),
         |msg| Incoming::FromSimulation(msg),
@@ -108,7 +109,7 @@ async fn receive_outgoing(
         let (robot_tx, robot_rx) = unbounded();
         let _ = tokio::spawn(manage_threaded_socket(
             Robot(name),
-            ThreadedSocket::default(),
+            ThreadedSocket::with_name(format!("server[{name}]")),
             robot_rx,
             incoming_tx.clone(),
             |msg| Incoming::FromRobot(msg),
