@@ -6,10 +6,12 @@
 use crate::messages::NetworkStatus;
 use crate::{bin_decode, bin_encode, console_log};
 use async_channel::{unbounded, Receiver, Sender};
+use async_std::io::ReadExt;
+use async_std::net::TcpStream;
 use async_std::task::sleep;
 use futures::executor::block_on;
 use futures::future::{select, Either};
-use futures::{select, FutureExt};
+use futures::{select, AsyncWriteExt, FutureExt};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 #[allow(unused)]
@@ -605,6 +607,72 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
             console_log!(
                 "[threaded_websocket/WasmThreadableWebsocket] Error closing websocket: {e:?}"
             );
+        }
+    }
+}
+
+/// A TCP socket compatible with [`ThreadedSocket`]
+pub struct TcpStreamThreadableSocket {
+    stream: TcpStream,
+}
+
+impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendType, ReceiveType>
+    for TcpStreamThreadableSocket
+{
+    async fn my_connect(addr: Address) -> Result<Self, ()> {
+        let ([a, b, c, d], port) = addr;
+        match TcpStream::connect(format!("{a}.{b}.{c}.{d}:{port}")).await {
+            Ok(stream) => Ok(Self { stream }),
+            Err(e) => {
+                eprintln!("[threaded_websocket/TcpStreamThreadableSocket] Error connecting: {e:?}");
+                Err(())
+            }
+        }
+    }
+
+    async fn my_send(&mut self, data: TextOrT<Vec<u8>>) {
+        if let TextOrT::T(bytes) = data {
+            // first send the length
+            let len = bytes.len() as u32;
+            if let Err(e) = self.stream.write_all(&len.to_be_bytes()).await {
+                eprintln!(
+                    "[threaded_websocket/TcpStreamThreadableSocket] Error sending length: {e:?}"
+                );
+                return;
+            }
+            // then send the data
+            if let Err(e) = self.stream.write_all(&bytes).await {
+                eprintln!(
+                    "[threaded_websocket/TcpStreamThreadableSocket] Error sending data: {e:?}"
+                );
+            }
+        } else {
+            eprintln!("[threaded_websocket/TcpStreamThreadableSocket] Cannot send text")
+        }
+    }
+
+    async fn my_read(&mut self) -> Result<TextOrT<Vec<u8>>, ()> {
+        // first read the length
+        let mut len_buf = [0; 4];
+        if let Err(e) = self.stream.read_exact(&mut len_buf).await {
+            eprintln!("[threaded_websocket/TcpStreamThreadableSocket] Error reading length: {e:?}");
+            return Err(());
+        }
+        let len = u32::from_be_bytes(len_buf) as usize;
+
+        // then read the data
+        let mut received = vec![0; len];
+        if let Err(e) = self.stream.read_exact(&mut received).await {
+            eprintln!("[threaded_websocket/TcpStreamThreadableSocket] Error reading data: {e:?}");
+            return Err(());
+        }
+
+        Ok(TextOrT::T(received))
+    }
+
+    async fn my_close(mut self) {
+        if let Err(e) = self.stream.close().await {
+            eprintln!("[threaded_websocket/TcpStreamThreadableSocket] Error closing stream: {e:?}");
         }
     }
 }

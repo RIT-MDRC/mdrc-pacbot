@@ -19,7 +19,7 @@ use core_pb::messages::{
     ServerToRobotMessage, ServerToSimulationMessage, SimulationToServerMessage,
 };
 use core_pb::names::RobotName;
-use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
+use core_pb::threaded_websocket::{Address, TcpStreamThreadableSocket, TextOrT, ThreadedSocket};
 use core_pb::{bin_decode, bin_encode};
 use Destination::*;
 
@@ -109,7 +109,12 @@ async fn receive_outgoing(
         let (robot_tx, robot_rx) = unbounded();
         let _ = tokio::spawn(manage_threaded_socket(
             Robot(name),
-            ThreadedSocket::with_name(format!("server[{name}]")),
+            ThreadedSocket::new::<TcpStreamThreadableSocket, _, _, _, _>(
+                format!("server[{name}]"),
+                None,
+                bin_encode,
+                bin_decode,
+            ),
             robot_rx,
             incoming_tx.clone(),
             |msg| Incoming::FromRobot(msg),

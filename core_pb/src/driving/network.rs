@@ -62,6 +62,7 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                 let mut buf = [0; 1000];
                 loop {
                     match socket.read(&mut buf).await {
+                        Ok(0) => break,
                         Ok(x) => info!("{name} read {x} bytes from socket"),
                         Err(_) => {
                             info!("{name} error reading from socket");
