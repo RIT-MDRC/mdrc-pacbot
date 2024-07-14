@@ -166,6 +166,7 @@ dependencies = [
 name = "core_pb"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "bincode",
  "defmt",
  "embedded-graphics",

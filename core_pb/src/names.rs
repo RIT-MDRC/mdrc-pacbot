@@ -69,6 +69,7 @@ impl defmt::Format for RobotName {
     }
 }
 
+use crate::robot_definition::RobotDefinition;
 use core::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 use RobotName::*;
@@ -149,6 +150,11 @@ impl RobotName {
             // picos may share ports
             _ => 20020,
         }
+    }
+
+    /// The characteristics of this robot
+    pub fn robot(&self) -> RobotDefinition<3> {
+        RobotDefinition::default()
     }
 }
 

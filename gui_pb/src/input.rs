@@ -1,7 +1,7 @@
 use crate::App;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::settings::StrategyChoice;
-use core_pb::messages::GuiToServerMessage;
+use core_pb::messages::{GameServerCommand, GuiToServerMessage};
 use core_pb::threaded_websocket::TextOrT;
 use eframe::egui;
 use eframe::egui::{Event, Key};
@@ -52,44 +52,62 @@ impl App {
                 match event {
                     Event::Key {
                         key, pressed: true, ..
-                    } => match key {
-                        Key::Y => self.rotated_grid = !self.rotated_grid,
-                        // Game state
-                        Key::R => todo!("Reset game"),
-                        Key::Space => todo!("Pause/unpause game"),
-                        // Strategy
-                        Key::Z => self.settings.driving.strategy = StrategyChoice::Manual,
-                        Key::X => todo!("Reinforcement learning strategy"),
-                        Key::C => self.settings.driving.strategy = StrategyChoice::TestUniform,
-                        Key::V => self.settings.driving.strategy = StrategyChoice::TestForward,
-                        // Driving
-                        Key::P => todo!("Enable/disable pico"),
-                        Key::M => {
-                            self.settings.driving.commands_use_pf_angle =
-                                !self.settings.driving.commands_use_pf_angle
+                    } => {
+                        match key {
+                            Key::Y => self.rotated_grid = !self.rotated_grid,
+                            // Game state
+                            Key::R => self.network.0.send(TextOrT::T(
+                                GuiToServerMessage::GameServerCommand(GameServerCommand::Reset),
+                            )),
+                            Key::Space => {
+                                if self.server_status.game_state.paused {
+                                    self.network.0.send(TextOrT::T(
+                                        GuiToServerMessage::GameServerCommand(
+                                            GameServerCommand::Unpause,
+                                        ),
+                                    ))
+                                } else {
+                                    self.network.0.send(TextOrT::T(
+                                        GuiToServerMessage::GameServerCommand(
+                                            GameServerCommand::Pause,
+                                        ),
+                                    ))
+                                }
+                            }
+                            // Strategy
+                            Key::Z => self.settings.driving.strategy = StrategyChoice::Manual,
+                            Key::X => todo!("Reinforcement learning strategy"),
+                            Key::C => self.settings.driving.strategy = StrategyChoice::TestUniform,
+                            Key::V => self.settings.driving.strategy = StrategyChoice::TestForward,
+                            // Driving
+                            Key::P => todo!("Enable/disable pico"),
+                            Key::M => {
+                                self.settings.driving.commands_use_pf_angle =
+                                    !self.settings.driving.commands_use_pf_angle
+                            }
+                            // CV source
+                            // Key::G => {
+                            //     self.settings.particle_filter.cv_position = CvPositionSource::GameState
+                            // }
+                            // Key::H => {
+                            //     self.settings.particle_filter.cv_position =
+                            //         CvPositionSource::ParticleFilter
+                            // }
+                            // Key::T => {
+                            //     if let Some(pos) = self.pointer_pos {
+                            //         self.settings.particle_filter.cv_position =
+                            //             CvPositionSource::Constant(
+                            //                 pos.x.round() as i8,
+                            //                 pos.y.round() as i8,
+                            //             )
+                            //     }
+                            // }
+                            // Grid
+                            Key::B => self.settings.standard_grid = StandardGrid::Pacman,
+                            Key::N => self.settings.standard_grid = StandardGrid::Playground,
+                            _ => {}
                         }
-                        // CV source
-                        // Key::G => {
-                        //     self.settings.particle_filter.cv_position = CvPositionSource::GameState
-                        // }
-                        // Key::H => {
-                        //     self.settings.particle_filter.cv_position =
-                        //         CvPositionSource::ParticleFilter
-                        // }
-                        // Key::T => {
-                        //     if let Some(pos) = self.pointer_pos {
-                        //         self.settings.particle_filter.cv_position =
-                        //             CvPositionSource::Constant(
-                        //                 pos.x.round() as i8,
-                        //                 pos.y.round() as i8,
-                        //             )
-                        //     }
-                        // }
-                        // Grid
-                        Key::B => self.settings.standard_grid = StandardGrid::Pacman,
-                        Key::N => self.settings.standard_grid = StandardGrid::Playground,
-                        _ => {}
-                    },
+                    }
                     // Mouse buttons
                     // Event::PointerButton {
                     //     button: PointerButton::Primary,

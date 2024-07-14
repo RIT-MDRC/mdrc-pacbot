@@ -1,5 +1,5 @@
 use crate::driving::SimRobot;
-use crate::{MyApp, Robot, Wall, ROBOT_RADIUS};
+use crate::{MyApp, Robot, Wall};
 use bevy::math::Vec3;
 use bevy::prelude::*;
 use bevy_rapier2d::geometry::{Collider, CollisionGroups, Group};
@@ -34,7 +34,7 @@ impl MyApp {
 
         let new_robot = commands
             .spawn(RigidBody::Dynamic)
-            .insert(Collider::ball(ROBOT_RADIUS))
+            .insert(Collider::ball(name.robot().radius))
             .insert(CollisionGroups::new(Group::GROUP_2, Group::GROUP_1))
             .insert(TransformBundle::from(Transform::from_xyz(
                 pos.x, pos.y, 0.0,

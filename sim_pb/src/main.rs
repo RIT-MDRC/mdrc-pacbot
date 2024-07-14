@@ -19,9 +19,6 @@ mod driving;
 mod network;
 mod physics;
 
-// todo
-const ROBOT_RADIUS: f32 = 0.75;
-
 #[derive(Resource)]
 pub struct MyApp {
     standard_grid: StandardGrid,

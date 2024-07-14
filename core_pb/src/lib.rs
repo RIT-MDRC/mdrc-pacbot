@@ -1,12 +1,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod constants;
+pub mod drive_system;
 #[cfg(feature = "robot")]
 #[allow(async_fn_in_trait)]
 pub mod driving;
 pub mod grid;
 pub mod messages;
 pub mod names;
+pub mod robot_definition;
 #[cfg(feature = "std")]
 pub mod threaded_websocket;
 

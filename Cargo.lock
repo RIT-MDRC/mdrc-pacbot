@@ -1683,6 +1683,7 @@ dependencies = [
 name = "core_pb"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "async-channel 2.3.1",
  "async-std",
  "async-tungstenite",
