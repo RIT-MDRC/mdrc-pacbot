@@ -7,7 +7,6 @@ use crate::messages::NetworkStatus;
 use crate::{bin_decode, bin_encode, console_log};
 use async_channel::{unbounded, Receiver, Sender};
 use async_std::io::ReadExt;
-use async_std::net::TcpStream;
 use async_std::task::sleep;
 use futures::executor::block_on;
 use futures::future::{select, Either};
@@ -22,8 +21,9 @@ use std::pin::pin;
 use std::time::Duration;
 #[cfg(not(target_arch = "wasm32"))]
 use {
-    async_tungstenite::async_std::ConnectStream, async_tungstenite::tungstenite::Message,
-    async_tungstenite::WebSocketStream, futures::SinkExt, futures::StreamExt,
+    async_std::net::TcpStream, async_tungstenite::async_std::ConnectStream,
+    async_tungstenite::tungstenite::Message, async_tungstenite::WebSocketStream, futures::SinkExt,
+    futures::StreamExt,
 };
 #[cfg(target_arch = "wasm32")]
 use {
@@ -611,11 +611,13 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 /// A TCP socket compatible with [`ThreadedSocket`]
 pub struct TcpStreamThreadableSocket {
     stream: TcpStream,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendType, ReceiveType>
     for TcpStreamThreadableSocket
 {
