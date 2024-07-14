@@ -41,14 +41,15 @@ pub enum ServerToSimulationMessage {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg(feature = "std")]
 pub enum ServerToRobotMessage {}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg(feature = "std")]
 pub enum RobotToServerMessage {
     Name(RobotName),
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RobotStatus {}
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Default, PartialOrd, PartialEq)]
 pub enum NetworkStatus {

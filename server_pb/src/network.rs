@@ -77,7 +77,7 @@ pub async fn manage_network() {
                 }
             }
             (_, FromSimulation(msg)) => println!("Message from simulation: {msg:?}"),
-            (Robot(name), FromRobot(_msg)) => println!("Message received from {name}"),
+            (Robot(name), FromRobot(msg)) => println!("Message received from {name}: {msg:?}"),
             (Robot(_), _) => {}
             (_, FromRobot(_)) => {}
             (_, FromGui(msg)) => match msg {

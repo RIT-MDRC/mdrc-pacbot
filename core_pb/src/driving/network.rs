@@ -1,4 +1,5 @@
 use crate::driving::{info, RobotTask};
+use crate::messages::{RobotToServerMessage, ServerToRobotMessage};
 use crate::names::RobotName;
 use core::fmt::Debug;
 use embedded_io_async::{Read, Write};
@@ -52,28 +53,77 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
             network
                 .connect_wifi("Fios-DwYj6", option_env!("WIFI_PASSWORD"))
                 .await?;
-            info!("{name} Network connected");
+            info!("{name} network connected");
         }
 
         match network.tcp_accept(name.port()).await {
             Ok(mut socket) => {
-                info!("Client connected");
+                info!("{name} client connected");
 
-                let mut buf = [0; 1000];
-                loop {
-                    match socket.read(&mut buf).await {
-                        Ok(0) => break,
-                        Ok(x) => info!("{name} read {x} bytes from socket"),
-                        Err(_) => {
-                            info!("{name} error reading from socket");
-                            break;
-                        }
-                    }
+                if let Err(_) = write(name, &mut socket, RobotToServerMessage::Name(name)).await {
+                    info!("{name} failed to send name");
+                    continue;
                 }
+
+                info!("{name} sent name");
+
+                let _ = read(name, &mut socket).await;
             }
             Err(_) => {
-                info!("Failed to accept socket");
+                info!("{name} failed to accept socket");
             }
         }
     }
+}
+
+async fn read<T: Read + Write>(
+    name: RobotName,
+    socket: &mut T,
+) -> Result<ServerToRobotMessage, ()> {
+    let mut buf = [0; 1000];
+
+    // first read the length of the message (u32)
+    let mut len_buf = [0; 4];
+    match socket.read(&mut len_buf).await {
+        Ok(4) => (),
+        _ => return Err(()),
+    }
+    let len = u32::from_le_bytes(len_buf) as usize;
+    // then read the message
+    match socket.read_exact(&mut buf[..len]).await {
+        Ok(()) => {
+            info!("{name} received message of length {len}");
+            Err(())
+        }
+        _ => Err(()),
+    }
+}
+
+async fn write<T: Read + Write>(
+    name: RobotName,
+    socket: &mut T,
+    message: RobotToServerMessage,
+) -> Result<(), ()> {
+    let mut buf = [0; 1000];
+    let len =
+        match bincode::serde::encode_into_slice(message, &mut buf, bincode::config::standard()) {
+            Ok(len) => len,
+            Err(e) => {
+                info!("{name} failed to encode message: {e}");
+                return Err(());
+            }
+        };
+
+    // first write the length of the message (u32)
+    let len_buf = (len as u32).to_be_bytes();
+    if let Err(_) = socket.write_all(&len_buf).await {
+        return Err(());
+    }
+
+    // then write the message
+    if let Err(_) = socket.write_all(&buf[..len]).await {
+        return Err(());
+    }
+
+    Ok(())
 }
