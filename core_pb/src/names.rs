@@ -45,7 +45,7 @@ impl From<usize> for RobotName {
 }
 
 impl Display for RobotName {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
             Stella => write!(f, "Stella"),
             Stevie => write!(f, "Stevie"),
@@ -56,8 +56,21 @@ impl Display for RobotName {
     }
 }
 
+#[cfg(feature = "defmt")]
+impl defmt::Format for RobotName {
+    fn format(&self, fmt: defmt::Formatter) {
+        let _ = match self {
+            Stella => defmt::write!(fmt, "Stella"),
+            Stevie => defmt::write!(fmt, "Stevie"),
+            Speers => defmt::write!(fmt, "Speers"),
+            Pierre => defmt::write!(fmt, "Pierre"),
+            Prince => defmt::write!(fmt, "Prince"),
+        };
+    }
+}
+
+use core::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
 use RobotName::*;
 
 impl RobotName {
@@ -82,7 +95,7 @@ impl RobotName {
     /// The mac address of this robot, must be unique
     ///
     /// Simulated robots look like 02:00:00:00::00:xx
-    pub fn mac_address(&self) -> [u16; 6] {
+    pub fn mac_address(&self) -> [u8; 6] {
         match self {
             Stella => [0x02, 0, 0, 0, 0, 0x01],
             Stevie => [0x02, 0, 0, 0, 0, 0x02],
@@ -96,7 +109,7 @@ impl RobotName {
     /// Uniquely determine the robot name from the mac address, if recognized
     ///
     /// Simulated robots look like 02:00:00:00::00:xx
-    pub fn from_mac_address(address: &[u16; 6]) -> Option<Self> {
+    pub fn from_mac_address(address: &[u8; 6]) -> Option<Self> {
         match address {
             [0x02, 0x00, 0x00, 0x00, 0x00, x] => match x {
                 0x01 => Some(Stella),

@@ -64,7 +64,7 @@ impl RobotNetworkBehavior for SimNetwork {
     type Error = SimNetworkError;
     type Socket = TcpStreamReadWrite;
 
-    async fn mac_address(&self) -> [u16; 6] {
+    async fn mac_address(&mut self) -> [u8; 6] {
         self.name.mac_address()
     }
 

@@ -13,10 +13,10 @@ pub struct NetworkScanInfo {
 
 pub trait RobotNetworkBehavior: RobotTask {
     type Error: Debug;
-    type Socket: Read + Write;
+    type Socket<'a>: Read + Write;
 
     /// Get the device's mac address
-    async fn mac_address(&self) -> [u16; 6];
+    async fn mac_address(&mut self) -> [u8; 6];
 
     /// If the device is currently connected to a wifi network, its IP, else None
     async fn wifi_is_connected(&self) -> Option<[u8; 4]>;
@@ -38,10 +38,10 @@ pub trait RobotNetworkBehavior: RobotTask {
     async fn disconnect_wifi(&mut self) -> ();
 
     /// Accept a socket that meets the requirements
-    async fn tcp_accept(&mut self, port: u16) -> Result<Self::Socket, Self::Error>;
+    async fn tcp_accept(&mut self, port: u16) -> Result<Self::Socket<'_>, Self::Error>;
 
     /// Dispose of the given socket
-    async fn tcp_close(&mut self, socket: Self::Socket);
+    async fn tcp_close(&mut self, socket: Self::Socket<'_>);
 }
 
 pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(), T::Error> {
@@ -53,24 +53,24 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
             network
                 .connect_wifi("Fios-DwYj6", option_env!("WIFI_PASSWORD"))
                 .await?;
-            info!("{name} network connected");
+            info!("{} network connected", name);
         }
 
         match network.tcp_accept(name.port()).await {
             Ok(mut socket) => {
-                info!("{name} client connected");
+                info!("{} client connected", name);
 
                 if let Err(_) = write(name, &mut socket, RobotToServerMessage::Name(name)).await {
-                    info!("{name} failed to send name");
+                    info!("{} failed to send name", name);
                     continue;
                 }
 
-                info!("{name} sent name");
+                info!("{} sent name", name);
 
                 let _ = read(name, &mut socket).await;
             }
             Err(_) => {
-                info!("{name} failed to accept socket");
+                info!("{} failed to accept socket", name);
             }
         }
     }
@@ -92,7 +92,7 @@ async fn read<T: Read + Write>(
     // then read the message
     match socket.read_exact(&mut buf[..len]).await {
         Ok(()) => {
-            info!("{name} received message of length {len}");
+            info!("{} received message of length {}", name, len);
             Err(())
         }
         _ => Err(()),
@@ -108,8 +108,8 @@ async fn write<T: Read + Write>(
     let len =
         match bincode::serde::encode_into_slice(message, &mut buf, bincode::config::standard()) {
             Ok(len) => len,
-            Err(e) => {
-                info!("{name} failed to encode message: {e}");
+            Err(_) => {
+                info!("{} failed to encode message", name);
                 return Err(());
             }
         };

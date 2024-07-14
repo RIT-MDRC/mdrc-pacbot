@@ -60,7 +60,7 @@ async fn main(spawner: Spawner) {
 
     unwrap!(spawner.spawn(do_wifi(network)));
     unwrap!(spawner.spawn(do_motors(Motors {})));
-    unwrap!(spawner.spawn(do_i2c(RobotPeripherals {})));
+    unwrap!(spawner.spawn(do_i2c(RobotPeripherals::new(p.I2C0, p.PIN_17, p.PIN_16))));
 }
 
 #[embassy_executor::task]

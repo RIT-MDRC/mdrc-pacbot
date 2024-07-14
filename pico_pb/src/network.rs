@@ -1,12 +1,12 @@
 use crate::{send, Irqs};
-use core::future::{ready, Future};
 use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use cyw43::{Control, NetDriver};
 use cyw43_pio::PioSpi;
 use defmt::{info, unwrap, Format};
 use embassy_executor::Spawner;
-use embassy_net::{Config, Stack, StackResources};
+use embassy_net::tcp::{AcceptError, TcpSocket};
+use embassy_net::{Config, IpEndpoint, Stack, StackResources};
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
 use embassy_rp::pio::Pio;
@@ -14,6 +14,7 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_time::Timer;
 use heapless::Vec;
+use smoltcp::wire::IpAddress;
 use static_cell::StaticCell;
 
 pub static NETWORK_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64> = Channel::new();
@@ -21,11 +22,15 @@ pub static NETWORK_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 6
 pub struct Network {
     control: Control<'static>,
     stack: &'static Stack<NetDriver<'static>>,
+
+    tx_buffer: [u8; 4000],
+    rx_buffer: [u8; 4000],
 }
 
 #[derive(Debug, Format)]
 pub enum NetworkError {
     ConnectionError(u32),
+    AcceptError(AcceptError),
 }
 
 impl RobotTask for Network {
@@ -40,7 +45,11 @@ impl RobotTask for Network {
 
 impl RobotNetworkBehavior for Network {
     type Error = NetworkError;
-    type Socket = TcpStream;
+    type Socket<'a> = TcpSocket<'a>;
+
+    async fn mac_address(&mut self) -> [u8; 6] {
+        self.control.address().await
+    }
 
     async fn wifi_is_connected(&self) -> Option<[u8; 4]> {
         self.stack.config_v4().map(|x| x.address.address().0)
@@ -92,6 +101,21 @@ impl RobotNetworkBehavior for Network {
 
     async fn disconnect_wifi(&mut self) {
         self.control.leave().await;
+    }
+
+    async fn tcp_accept(&mut self, port: u16) -> Result<Self::Socket<'_>, Self::Error> {
+        let mut socket = TcpSocket::new(self.stack, &mut self.rx_buffer, &mut self.tx_buffer);
+
+        socket
+            .accept(IpEndpoint::new(IpAddress::v4(0, 0, 0, 0), port))
+            .await
+            .map_err(|e| NetworkError::AcceptError(e))?;
+
+        Ok(socket)
+    }
+
+    async fn tcp_close(&mut self, mut socket: Self::Socket<'_>) {
+        socket.close()
     }
 }
 
@@ -169,5 +193,10 @@ pub async fn initialize_network(
 
     info!("Network stack initialized");
 
-    Network { control, stack }
+    Network {
+        control,
+        stack,
+        tx_buffer: [0; 4000],
+        rx_buffer: [0; 4000],
+    }
 }

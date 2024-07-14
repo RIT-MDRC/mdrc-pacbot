@@ -1,7 +1,9 @@
+#[cfg(feature = "std")]
 use crate::messages::server_status::ServerStatus;
 #[cfg(feature = "std")]
 use crate::messages::settings::PacbotSettings;
 use crate::names::RobotName;
+#[cfg(feature = "std")]
 use nalgebra::Vector2;
 use pacbot_rs::game_state::GameState;
 use serde::{Deserialize, Serialize};
