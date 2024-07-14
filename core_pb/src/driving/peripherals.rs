@@ -14,7 +14,9 @@ pub trait RobotPeripheralsBehavior: RobotTask {
 }
 
 pub async fn peripherals_task<T: RobotPeripheralsBehavior>(
-    _peripherals: T,
+    mut peripherals: T,
 ) -> Result<(), T::Error> {
-    Ok(())
+    loop {
+        let _ = peripherals.receive_message().await;
+    }
 }

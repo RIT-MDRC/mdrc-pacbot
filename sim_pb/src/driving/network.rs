@@ -62,7 +62,7 @@ impl RobotTask for SimNetwork {
 
 impl RobotNetworkBehavior for SimNetwork {
     type Error = SimNetworkError;
-    type Socket = TcpStreamReadWrite;
+    type Socket<'a> = TcpStreamReadWrite;
 
     async fn mac_address(&mut self) -> [u8; 6] {
         self.name.mac_address()
@@ -93,7 +93,7 @@ impl RobotNetworkBehavior for SimNetwork {
         self.network_connected = false;
     }
 
-    async fn tcp_accept(&mut self, port: u16) -> Result<Self::Socket, Self::Error> {
+    async fn tcp_accept(&mut self, port: u16) -> Result<Self::Socket<'_>, Self::Error> {
         match TcpListener::bind(format!("0.0.0.0:{port}")).await {
             Ok(listener) => match listener.accept().await {
                 Err(e) => {
@@ -111,7 +111,7 @@ impl RobotNetworkBehavior for SimNetwork {
         Err(SimNetworkError::TcpAcceptFailed)
     }
 
-    async fn tcp_close(&mut self, mut socket: Self::Socket) {
+    async fn tcp_close(&mut self, mut socket: Self::Socket<'_>) {
         let _ = socket.stream.close().await;
     }
 }

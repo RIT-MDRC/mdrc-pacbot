@@ -1,14 +1,15 @@
 use std::fmt::Debug;
-use std::future::{pending, Future};
+use std::future::Future;
 use std::sync::{Arc, RwLock};
 use std::thread::spawn;
 
 use async_channel::unbounded;
 use async_channel::{Receiver, Sender};
+use bevy::log::info;
 use bevy::tasks::block_on;
 use embedded_graphics::mock_display::MockDisplay;
 use embedded_graphics::pixelcolor::BinaryColor;
-use futures::{join, select, FutureExt};
+use futures::{select, FutureExt};
 
 use core_pb::driving::motors::motors_task;
 use core_pb::driving::network::network_task;
@@ -63,6 +64,7 @@ impl SimRobot {
         let peripherals = SimPeripherals::new(robot.clone(), peripherals);
 
         let f = Self::start_async(
+            name,
             motors,
             network,
             peripherals,
@@ -102,6 +104,7 @@ impl SimRobot {
     }
 
     async fn start_async(
+        name: RobotName,
         motors: SimMotors,
         network: SimNetwork,
         peripherals: SimPeripherals,
@@ -111,18 +114,27 @@ impl SimRobot {
     ) {
         let [r0, r1, r2] = receivers;
         select! {
-            _ = thread_stopper.recv().fuse() => {}
-            _ = {
-                join!(
-                    handle_task(motors_task(motors)),
-                    handle_task(network_task(network)),
-                    handle_task(peripherals_task(peripherals)),
-                    Self::handle_one_task_messages(r0, senders.clone()),
-                    Self::handle_one_task_messages(r1, senders.clone()),
-                    Self::handle_one_task_messages(r2, senders.clone()),
-                );
-                pending::<()>()
-            }.fuse() => {}
+            _ = thread_stopper.recv().fuse() => {
+                info!("{name} destroyed");
+            }
+            _ = handle_task(motors_task(motors)).fuse() => {
+                info!("{name} motors task ended early");
+            }
+            _ = handle_task(network_task(network)).fuse() => {
+                info!("{name} network task ended early");
+            }
+            _ = handle_task(peripherals_task(peripherals)).fuse() => {
+                info!("{name} peripherals task ended early");
+            }
+            _ = Self::handle_one_task_messages(r0, senders.clone()).fuse() => {
+                info!("{name} messages task ended early");
+            }
+            _ = Self::handle_one_task_messages(r1, senders.clone()).fuse() => {
+                info!("{name} messages task ended early");
+            }
+            _ = Self::handle_one_task_messages(r2, senders.clone()).fuse() => {
+                info!("{name} messages task ended early");
+            }
         }
     }
 }
