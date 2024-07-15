@@ -1,4 +1,4 @@
-use crate::driving::error;
+use crate::driving::{error, info};
 use crate::driving::{RobotInterTaskMessage, RobotTask};
 use crate::names::RobotName;
 use core::fmt::Debug;
@@ -29,7 +29,7 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
     loop {
         #[allow(irrefutable_let_patterns)]
         if let RobotInterTaskMessage::TargetVelocity(lin, ang) = motors.receive_message().await {
-            println!("{} received new motor velocities", name);
+            info!("{} received new motor velocities", name);
             let outputs = drive_system.get_motor_speed_omni(lin, ang);
 
             for (i, v) in outputs.iter().enumerate() {

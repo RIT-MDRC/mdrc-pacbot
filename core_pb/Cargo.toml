@@ -7,7 +7,7 @@ edition = "2021"
 default = ["std"]
 std = ["pacbot-rs/std", "nalgebra/std", "serde/std", "ordered-float/std", "bincode/std", "async-channel", "futures", "async-std", "async-tungstenite"]
 wasm = ["pacbot-rs/wasm"]
-robot = ["heapless", "embedded-graphics"]
+robot = ["heapless", "embedded-graphics", "nalgebra/libm-force"]
 
 [dependencies]
 nalgebra = { version = "0.32.5", default-features = false, features = ["serde-serialize-no-std"] }
@@ -24,6 +24,8 @@ futures = { version = "0.3.30", optional = true }
 async-std = { version = "1.12.0", optional = true }
 embedded-io-async = "0.6.1"
 approx = "0.5.1"
+micromath = "2.1.0"
+libm = "0.2.8"
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

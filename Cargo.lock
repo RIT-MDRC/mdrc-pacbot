@@ -1693,7 +1693,9 @@ dependencies = [
  "embedded-io-async",
  "futures",
  "heapless",
+ "libm",
  "log",
+ "micromath",
  "nalgebra",
  "ordered-float",
  "pacbot-rs",
@@ -4650,6 +4652,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "061507c94fc6ab4ba1c9a0305018408e312e17c041eb63bef8aa726fa33aceae"
 dependencies = [
  "approx",
+ "libm",
  "num-complex",
  "num-traits",
  "paste",

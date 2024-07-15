@@ -3,8 +3,9 @@
 //! Note: one must be especially careful about length units when working with [`DriveSystem`].
 //! Ensure all lengths are in grid units (gu)
 
+use core::f32::consts::{FRAC_PI_2, FRAC_PI_6, PI};
+use micromath::F32Ext;
 use nalgebra::{Rotation2, Vector2};
-use std::f32::consts::{FRAC_PI_2, FRAC_PI_6, PI};
 
 #[derive(Copy, Clone, Debug)]
 pub enum DriveSystem<const WHEELS: usize> {

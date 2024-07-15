@@ -19,6 +19,7 @@ use core_pb::driving::motors::motors_task;
 use core_pb::driving::network::network_task;
 use core_pb::driving::peripherals::peripherals_task;
 use core_pb::driving::{RobotInterTaskMessage, Task};
+use core_pb::names::RobotName;
 use defmt::unwrap;
 use embassy_executor::Spawner;
 use embassy_rp::bind_interrupts;
@@ -70,7 +71,7 @@ async fn do_wifi(network: Network) {
 
 #[embassy_executor::task]
 async fn do_motors(motors: Motors) {
-    unwrap!(motors_task(motors).await)
+    unwrap!(motors_task(RobotName::Pierre, motors).await)
 }
 
 #[embassy_executor::task]

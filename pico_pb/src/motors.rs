@@ -24,4 +24,12 @@ impl RobotTask for Motors {
 
 impl RobotMotorsBehavior for Motors {
     type Error = ();
+
+    fn do_pid(&self) -> bool {
+        true
+    }
+
+    async fn set_motor_speed(&mut self, index: usize, to: f32) {
+        todo!()
+    }
 }

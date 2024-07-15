@@ -23,8 +23,7 @@ pub struct Network {
     control: Control<'static>,
     stack: &'static Stack<NetDriver<'static>>,
 
-    tx_buffer: [u8; 4000],
-    rx_buffer: [u8; 4000],
+    socket: Option<TcpSocket<'static>>,
 }
 
 #[derive(Debug, Format)]
@@ -103,19 +102,28 @@ impl RobotNetworkBehavior for Network {
         self.control.leave().await;
     }
 
-    async fn tcp_accept(&mut self, port: u16) -> Result<Self::Socket<'_>, Self::Error> {
-        let mut socket = TcpSocket::new(self.stack, &mut self.rx_buffer, &mut self.tx_buffer);
+    async fn socket_mut(&mut self) -> Option<&mut Self::Socket<'_>> {
+        self.socket.as_mut()
+    }
+
+    async fn tcp_accept(&mut self, port: u16) -> Result<(), Self::Error> {
+        let (tx_buffer, rx_buffer) = tx_rx_buffers();
+        let mut socket = TcpSocket::new(self.stack, rx_buffer, tx_buffer);
 
         socket
             .accept(IpEndpoint::new(IpAddress::v4(0, 0, 0, 0), port))
             .await
             .map_err(|e| NetworkError::AcceptError(e))?;
 
-        Ok(socket)
+        self.socket = Some(socket);
+
+        Ok(())
     }
 
-    async fn tcp_close(&mut self, mut socket: Self::Socket<'_>) {
-        socket.close()
+    async fn tcp_close(&mut self) {
+        if let Some(mut socket) = self.socket.take() {
+            socket.close()
+        }
     }
 }
 
@@ -196,7 +204,16 @@ pub async fn initialize_network(
     Network {
         control,
         stack,
-        tx_buffer: [0; 4000],
-        rx_buffer: [0; 4000],
+        socket: None,
     }
+}
+
+fn tx_rx_buffers() -> (&'static mut [u8; 4000], &'static mut [u8; 4000]) {
+    static TX_BUFFER: StaticCell<[u8; 4000]> = StaticCell::new();
+    static RX_BUFFER: StaticCell<[u8; 4000]> = StaticCell::new();
+
+    let tx_buffer = TX_BUFFER.init([0; 4000]);
+    let rx_buffer = RX_BUFFER.init([0; 4000]);
+
+    (tx_buffer, rx_buffer)
 }

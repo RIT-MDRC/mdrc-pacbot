@@ -1,7 +1,7 @@
 use crate::constants::{INCHES_PER_GU, MM_PER_GU};
 use crate::drive_system::DriveSystem;
+use core::f32::consts::PI;
 use nalgebra::Rotation2;
-use std::f32::consts::PI;
 
 #[derive(Copy, Clone, Debug)]
 /// All the information that may vary from robot to robot
