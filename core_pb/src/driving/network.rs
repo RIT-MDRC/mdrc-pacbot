@@ -4,6 +4,7 @@ use crate::names::RobotName;
 use core::fmt::Debug;
 use embedded_io_async::{Read, Write};
 use heapless::Vec;
+use static_cell::StaticCell;
 
 #[derive(Copy, Clone)]
 pub struct NetworkScanInfo {
@@ -11,8 +12,11 @@ pub struct NetworkScanInfo {
     pub is_5g: bool,
 }
 
-pub trait RobotNetworkBehavior: RobotTask + Read + Write {
+pub trait RobotNetworkBehavior: RobotTask {
     type Error: Debug;
+    type Socket<'a>: Read + Write
+    where
+        Self: 'a;
 
     /// Get the device's mac address
     async fn mac_address(&mut self) -> [u8; 6];
@@ -37,7 +41,14 @@ pub trait RobotNetworkBehavior: RobotTask + Read + Write {
     async fn disconnect_wifi(&mut self) -> ();
 
     /// Accept a socket that meets the requirements. Close the previous one if one exists
-    async fn tcp_accept(&mut self, port: u16) -> Result<(), <Self as RobotNetworkBehavior>::Error>;
+    async fn tcp_accept<'a>(
+        &mut self,
+        port: u16,
+        tx_buffer: &'a mut [u8; 4000],
+        rx_buffer: &'a mut [u8; 4000],
+    ) -> Result<Self::Socket<'a>, <Self as RobotNetworkBehavior>::Error>
+    where
+        Self: 'a;
 
     /// Dispose of the current socket, if one exists
     async fn tcp_close(&mut self);
@@ -50,6 +61,12 @@ pub async fn network_task<T: RobotNetworkBehavior>(
         .expect("Unrecognized mac address");
     info!("{} initialized", name);
 
+    static TX_BUFFER: StaticCell<[u8; 4000]> = StaticCell::new();
+    static RX_BUFFER: StaticCell<[u8; 4000]> = StaticCell::new();
+
+    let tx_buffer = TX_BUFFER.init([0; 4000]);
+    let rx_buffer = RX_BUFFER.init([0; 4000]);
+
     loop {
         if network.wifi_is_connected().await.is_none() {
             network
@@ -58,11 +75,11 @@ pub async fn network_task<T: RobotNetworkBehavior>(
             info!("{} network connected", name);
         }
 
-        match network.tcp_accept(1234).await {
-            Ok(_) => {
+        match network.tcp_accept(1234, rx_buffer, tx_buffer).await {
+            Ok(mut socket) => {
                 info!("{} client connected", name);
 
-                if let Err(_) = write(name, &mut network, RobotToServerMessage::Name(name)).await {
+                if let Err(_) = write(name, &mut socket, RobotToServerMessage::Name(name)).await {
                     info!("{} failed to send name", name);
                     continue;
                 }
@@ -70,7 +87,7 @@ pub async fn network_task<T: RobotNetworkBehavior>(
                 info!("{} sent name", name);
 
                 loop {
-                    match read(name, &mut network).await {
+                    match read(name, &mut socket).await {
                         Err(_) => break,
                         Ok(ServerToRobotMessage::TargetVelocity(lin, ang)) => network
                             .send_message(
@@ -92,6 +109,7 @@ pub async fn network_task<T: RobotNetworkBehavior>(
 async fn read<T: Read>(name: RobotName, network: &mut T) -> Result<ServerToRobotMessage, ()> {
     let mut buf = [0; 1000];
 
+    info!("{} listening for message...", name);
     // first read the length of the message (u32)
     let mut len_buf = [0; 4];
     match network.read(&mut len_buf).await {
@@ -99,6 +117,7 @@ async fn read<T: Read>(name: RobotName, network: &mut T) -> Result<ServerToRobot
         _ => return Err(()),
     }
     let len = u32::from_be_bytes(len_buf) as usize;
+    info!("{} got length {}", name, len);
     // then read the message
     match network.read_exact(&mut buf[..len]).await {
         Ok(()) => {

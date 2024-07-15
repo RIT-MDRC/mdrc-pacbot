@@ -6,16 +6,14 @@ use cyw43_pio::PioSpi;
 use defmt::{info, unwrap, Format};
 use embassy_executor::Spawner;
 use embassy_net::tcp::{AcceptError, TcpSocket};
-use embassy_net::{Config, IpEndpoint, Stack, StackResources};
+use embassy_net::{Config, Stack, StackResources};
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
 use embassy_rp::pio::Pio;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_time::{Duration, Timer};
-use embedded_io_async::{ErrorType, Read, ReadExactError, Write};
 use heapless::Vec;
-use smoltcp::wire::IpAddress;
 use static_cell::StaticCell;
 
 pub static NETWORK_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64> = Channel::new();
@@ -45,6 +43,7 @@ impl RobotTask for Network {
 
 impl RobotNetworkBehavior for Network {
     type Error = NetworkError;
+    type Socket<'a> = TcpSocket<'a>;
 
     async fn mac_address(&mut self) -> [u8; 6] {
         self.control.address().await
@@ -104,12 +103,19 @@ impl RobotNetworkBehavior for Network {
         self.control.leave().await;
     }
 
-    async fn tcp_accept(&mut self, port: u16) -> Result<(), <Self as RobotNetworkBehavior>::Error> {
-        let (tx_buffer, rx_buffer) = tx_rx_buffers();
+    async fn tcp_accept<'a>(
+        &mut self,
+        port: u16,
+        tx_buffer: &'a mut [u8; 4000],
+        rx_buffer: &'a mut [u8; 4000],
+    ) -> Result<Self::Socket<'a>, <Self as RobotNetworkBehavior>::Error>
+    where
+        Self: 'a,
+    {
         let mut socket = TcpSocket::new(self.stack, rx_buffer, tx_buffer);
-        socket.set_timeout(Some(Duration::from_secs(10)));
+        // socket.set_timeout(Some(Duration::from_secs(10)));
 
-        self.control.gpio_set(0, false).await;
+        // self.control.gpio_set(0, false).await;
         info!("Listening for connections on port {}", port);
         socket
             .accept(port)
@@ -117,9 +123,7 @@ impl RobotNetworkBehavior for Network {
             .map_err(|e| NetworkError::AcceptError(e))?;
         info!("Connection successful");
 
-        self.socket = Some(socket);
-
-        Ok(())
+        Ok(socket)
     }
 
     async fn tcp_close(&mut self) {
@@ -207,60 +211,5 @@ pub async fn initialize_network(
         control,
         stack,
         socket: None,
-    }
-}
-
-fn tx_rx_buffers() -> (&'static mut [u8; 4000], &'static mut [u8; 4000]) {
-    static TX_BUFFER: StaticCell<[u8; 4000]> = StaticCell::new();
-    static RX_BUFFER: StaticCell<[u8; 4000]> = StaticCell::new();
-
-    let tx_buffer = TX_BUFFER.init([0; 4000]);
-    let rx_buffer = RX_BUFFER.init([0; 4000]);
-
-    (tx_buffer, rx_buffer)
-}
-
-impl ErrorType for Network {
-    type Error = embassy_net::tcp::Error;
-}
-
-impl Read for Network {
-    async fn read(&mut self, buf: &mut [u8]) -> Result<usize, embassy_net::tcp::Error> {
-        match &mut self.socket {
-            Some(socket) => socket.read(buf).await,
-            None => Err(embassy_net::tcp::Error::ConnectionReset),
-        }
-    }
-
-    async fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), ReadExactError<Self::Error>> {
-        match &mut self.socket {
-            Some(socket) => socket.read_exact(buf).await,
-            None => Err(ReadExactError::Other(
-                embassy_net::tcp::Error::ConnectionReset,
-            )),
-        }
-    }
-}
-
-impl Write for Network {
-    async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        match &mut self.socket {
-            Some(socket) => socket.write(buf).await,
-            None => Err(embassy_net::tcp::Error::ConnectionReset),
-        }
-    }
-
-    async fn flush(&mut self) -> Result<(), Self::Error> {
-        match &mut self.socket {
-            Some(socket) => socket.flush().await,
-            None => Err(embassy_net::tcp::Error::ConnectionReset),
-        }
-    }
-
-    async fn write_all(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        match &mut self.socket {
-            Some(socket) => socket.write_all(buf).await,
-            None => Err(embassy_net::tcp::Error::ConnectionReset),
-        }
     }
 }

@@ -97,6 +97,7 @@ pub async fn manage_network() {
                 },
                 GuiToServerMessage::RobotVelocity(robot, vel) => {
                     let (lin, ang) = vel.unwrap_or((Vector2::zeros(), 0.0));
+                    println!("sending vel to robot..");
                     app.send(
                         Robot(robot),
                         ToRobot(ServerToRobotMessage::TargetVelocity(lin, ang)),

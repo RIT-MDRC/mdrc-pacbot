@@ -178,6 +178,7 @@ dependencies = [
  "ordered-float",
  "pacbot-rs",
  "serde",
+ "static_cell",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
