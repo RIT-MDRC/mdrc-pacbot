@@ -6,6 +6,7 @@ pub mod peripherals;
 pub use defmt::*;
 #[cfg(feature = "log")]
 pub use log::*;
+use nalgebra::Vector2;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Task {
@@ -16,7 +17,9 @@ pub enum Task {
 
 /// Messages passed between the various tasks
 #[derive(Copy, Clone)]
-pub enum RobotInterTaskMessage {}
+pub enum RobotInterTaskMessage {
+    TargetVelocity(Vector2<f32>, f32),
+}
 
 pub trait RobotTask {
     /// Send a message to all other tasks

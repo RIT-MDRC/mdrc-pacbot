@@ -1,8 +1,8 @@
-use std::sync::{Arc, RwLock};
-
+use async_channel::{unbounded, Receiver, Sender};
 use bevy::prelude::*;
 use bevy_rapier2d::na::Vector2;
 use bevy_rapier2d::prelude::*;
+use std::sync::{Arc, RwLock};
 
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::grid::standard_grid::StandardGrid;
@@ -27,7 +27,19 @@ pub struct MyApp {
     server_target_vel: [Option<(Vector2<f32>, f32)>; NUM_ROBOT_NAMES],
 
     robots: [Option<(Entity, Arc<RwLock<SimRobot>>)>; NUM_ROBOT_NAMES],
+    from_robots: (
+        Sender<(RobotName, RobotToSimulationMessage)>,
+        Receiver<(RobotName, RobotToSimulationMessage)>,
+    ),
     selected_robot: RobotName,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum SimulationToRobotMessage {}
+
+#[derive(Copy, Clone, Debug)]
+pub enum RobotToSimulationMessage {
+    SimulatedVelocity(Vector2<f32>, f32),
 }
 
 #[derive(Component)]
@@ -53,6 +65,8 @@ fn main() {
             server_target_vel: [None; NUM_ROBOT_NAMES],
 
             robots: RobotName::get_all().map(|_| None),
+            from_robots: unbounded(),
+
             selected_robot: RobotName::Stella,
         })
         .insert_resource(PacbotNetworkSimulation::new().unwrap())

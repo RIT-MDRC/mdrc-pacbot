@@ -1,4 +1,4 @@
-use crate::MyApp;
+use crate::{MyApp, RobotToSimulationMessage};
 use bevy::prelude::{ResMut, Resource};
 use core_pb::constants::{GAME_SERVER_PORT, SIMULATION_LISTENER_PORT};
 use core_pb::messages::{
@@ -135,18 +135,23 @@ impl PacbotNetworkSimulation {
                 Event::Message(_, message) => match message {
                     Message::Binary(bytes) => match bin_decode::<ServerToSimulationMessage>(&bytes)
                     {
-                        Ok(msg) => match msg {
-                            ServerToSimulationMessage::RobotVelocity(name, vel) => {
-                                println!("Received target velocity: {vel:?}");
-                                app.server_target_vel[name as usize] = vel;
-                            }
-                        },
+                        Ok(msg) => println!("got message: {msg:?}"),
                         Err(e) => eprintln!("Error decoding simulation message: {e:?}"),
                     },
                     Message::Text(text) => eprintln!("Unexpected simulation message: {text}"),
                 },
                 Event::Disconnect(id) => {
                     self.simulation_clients.remove(&id);
+                }
+            }
+        }
+
+        // robot messages
+        while let Ok((name, msg)) = app.from_robots.1.try_recv() {
+            match msg {
+                RobotToSimulationMessage::SimulatedVelocity(lin, ang) => {
+                    println!("Received target velocity: {lin:?} {ang:?}");
+                    app.server_target_vel[name as usize] = Some((lin, ang))
                 }
             }
         }

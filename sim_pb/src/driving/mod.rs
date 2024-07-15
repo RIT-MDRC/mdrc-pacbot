@@ -20,6 +20,7 @@ use core_pb::names::RobotName;
 use crate::driving::motors::SimMotors;
 use crate::driving::network::SimNetwork;
 use crate::driving::peripherals::SimPeripherals;
+use crate::RobotToSimulationMessage;
 
 mod motors;
 mod network;
@@ -43,7 +44,10 @@ where
 }
 
 impl SimRobot {
-    pub fn start(name: RobotName) -> Arc<RwLock<Self>> {
+    pub fn start(
+        name: RobotName,
+        sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
+    ) -> Arc<RwLock<Self>> {
         let (thread_stopper_tx, thread_stopper_rx) = unbounded();
 
         let robot = Arc::new(RwLock::new(Self {
@@ -59,7 +63,7 @@ impl SimRobot {
         let (network, network_rx, network_tx) = TaskChannels::new();
         let (peripherals, peripherals_rx, peripherals_tx) = TaskChannels::new();
 
-        let motors = SimMotors::new(motors);
+        let motors = SimMotors::new(name, motors, sim_tx.clone());
         let network = SimNetwork::new(name, network);
         let peripherals = SimPeripherals::new(robot.clone(), peripherals);
 
@@ -68,8 +72,8 @@ impl SimRobot {
             motors,
             network,
             peripherals,
-            [motors_tx, network_tx, peripherals_tx],
-            [motors_rx, network_rx, peripherals_rx],
+            [network_tx, motors_tx, peripherals_tx],
+            [network_rx, motors_rx, peripherals_rx],
             thread_stopper_rx,
         );
 
@@ -117,7 +121,7 @@ impl SimRobot {
             _ = thread_stopper.recv().fuse() => {
                 info!("{name} destroyed");
             }
-            _ = handle_task(motors_task(motors)).fuse() => {
+            _ = handle_task(motors_task(name, motors)).fuse() => {
                 info!("{name} motors task ended early");
             }
             _ = handle_task(network_task(network)).fuse() => {

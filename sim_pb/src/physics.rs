@@ -47,7 +47,7 @@ impl MyApp {
             })
             .id();
 
-        let sim_robot = SimRobot::start(name);
+        let sim_robot = SimRobot::start(name, self.from_robots.0.clone());
 
         self.robots[name as usize] = Some((new_robot, sim_robot));
         self.selected_robot = name;

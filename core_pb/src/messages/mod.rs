@@ -38,12 +38,12 @@ pub enum SimulationToServerMessage {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
-pub enum ServerToSimulationMessage {
-    RobotVelocity(RobotName, Option<(Vector2<f32>, f32)>),
-}
+pub enum ServerToSimulationMessage {}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum ServerToRobotMessage {}
+pub enum ServerToRobotMessage {
+    TargetVelocity(Vector2<f32>, f32),
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum RobotToServerMessage {

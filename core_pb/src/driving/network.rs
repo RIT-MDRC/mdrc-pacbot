@@ -1,4 +1,4 @@
-use crate::driving::{info, RobotTask};
+use crate::driving::{info, RobotInterTaskMessage, RobotTask, Task};
 use crate::messages::{RobotToServerMessage, ServerToRobotMessage};
 use crate::names::RobotName;
 use core::fmt::Debug;
@@ -13,7 +13,9 @@ pub struct NetworkScanInfo {
 
 pub trait RobotNetworkBehavior: RobotTask {
     type Error: Debug;
-    type Socket<'a>: Read + Write;
+    type Socket<'a>: Read + Write
+    where
+        Self: 'a;
 
     /// Get the device's mac address
     async fn mac_address(&mut self) -> [u8; 6];
@@ -37,11 +39,14 @@ pub trait RobotNetworkBehavior: RobotTask {
     /// Disconnect from any active wifi network
     async fn disconnect_wifi(&mut self) -> ();
 
-    /// Accept a socket that meets the requirements
-    async fn tcp_accept(&mut self, port: u16) -> Result<Self::Socket<'_>, Self::Error>;
+    /// Get a mutable reference to the current socket, if one exists
+    async fn socket_mut(&mut self) -> Option<&mut Self::Socket<'_>>;
 
-    /// Dispose of the given socket
-    async fn tcp_close(&mut self, socket: Self::Socket<'_>);
+    /// Accept a socket that meets the requirements. Close the previous one if one exists
+    async fn tcp_accept(&mut self, port: u16) -> Result<(), Self::Error>;
+
+    /// Dispose of the current socket, if one exists
+    async fn tcp_close(&mut self);
 }
 
 pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(), T::Error> {
@@ -57,17 +62,28 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
         }
 
         match network.tcp_accept(name.port()).await {
-            Ok(mut socket) => {
+            Ok(_) => {
                 info!("{} client connected", name);
 
-                if let Err(_) = write(name, &mut socket, RobotToServerMessage::Name(name)).await {
+                if let Err(_) = write(name, &mut network, RobotToServerMessage::Name(name)).await {
                     info!("{} failed to send name", name);
                     continue;
                 }
 
                 info!("{} sent name", name);
 
-                let _ = read(name, &mut socket).await;
+                loop {
+                    match read(name, &mut network).await {
+                        Err(_) => break,
+                        Ok(ServerToRobotMessage::TargetVelocity(lin, ang)) => network
+                            .send_message(
+                                RobotInterTaskMessage::TargetVelocity(lin, ang),
+                                Task::Motors,
+                            )
+                            .await
+                            .unwrap(),
+                    }
+                }
             }
             Err(_) => {
                 info!("{} failed to accept socket", name);
@@ -76,54 +92,69 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
     }
 }
 
-async fn read<T: Read + Write>(
+async fn read<T: RobotNetworkBehavior>(
     name: RobotName,
-    socket: &mut T,
+    network: &mut T,
 ) -> Result<ServerToRobotMessage, ()> {
-    let mut buf = [0; 1000];
+    if let Some(socket) = network.socket_mut().await {
+        let mut buf = [0; 1000];
 
-    // first read the length of the message (u32)
-    let mut len_buf = [0; 4];
-    match socket.read(&mut len_buf).await {
-        Ok(4) => (),
-        _ => return Err(()),
-    }
-    let len = u32::from_le_bytes(len_buf) as usize;
-    // then read the message
-    match socket.read_exact(&mut buf[..len]).await {
-        Ok(()) => {
-            info!("{} received message of length {}", name, len);
-            Err(())
+        // first read the length of the message (u32)
+        let mut len_buf = [0; 4];
+        match socket.read(&mut len_buf).await {
+            Ok(4) => (),
+            _ => return Err(()),
         }
-        _ => Err(()),
+        let len = u32::from_be_bytes(len_buf) as usize;
+        // then read the message
+        match socket.read_exact(&mut buf[..len]).await {
+            Ok(()) => {
+                info!("{} received message of length {}", name, len);
+                match bincode::serde::decode_from_slice(&buf[..len], bincode::config::standard()) {
+                    Ok((msg, _)) => Ok(msg),
+                    Err(_) => {
+                        info!("Failed to decode message");
+                        Err(())
+                    }
+                }
+            }
+            _ => Err(()),
+        }
+    } else {
+        Err(())
     }
 }
 
-async fn write<T: Read + Write>(
+async fn write<T: RobotNetworkBehavior>(
     name: RobotName,
-    socket: &mut T,
+    network: &mut T,
     message: RobotToServerMessage,
 ) -> Result<(), ()> {
-    let mut buf = [0; 1000];
-    let len =
-        match bincode::serde::encode_into_slice(message, &mut buf, bincode::config::standard()) {
-            Ok(len) => len,
-            Err(_) => {
-                info!("{} failed to encode message", name);
-                return Err(());
-            }
-        };
+    if let Some(socket) = network.socket_mut().await {
+        let mut buf = [0; 1000];
+        let len =
+            match bincode::serde::encode_into_slice(message, &mut buf, bincode::config::standard())
+            {
+                Ok(len) => len,
+                Err(_) => {
+                    info!("{} failed to encode message", name);
+                    return Err(());
+                }
+            };
 
-    // first write the length of the message (u32)
-    let len_buf = (len as u32).to_be_bytes();
-    if let Err(_) = socket.write_all(&len_buf).await {
-        return Err(());
+        // first write the length of the message (u32)
+        let len_buf = (len as u32).to_be_bytes();
+        if let Err(_) = socket.write_all(&len_buf).await {
+            return Err(());
+        }
+
+        // then write the message
+        if let Err(_) = socket.write_all(&buf[..len]).await {
+            return Err(());
+        }
+
+        Ok(())
+    } else {
+        Err(())
     }
-
-    // then write the message
-    if let Err(_) = socket.write_all(&buf[..len]).await {
-        return Err(());
-    }
-
-    Ok(())
 }

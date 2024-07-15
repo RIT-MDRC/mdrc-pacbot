@@ -1,6 +1,7 @@
 use std::io;
 
 use async_std::net::{TcpListener, TcpStream};
+use bevy::tasks::block_on;
 use embedded_io_async::{ErrorType, Read, Write};
 use futures::{AsyncReadExt, AsyncWriteExt};
 
@@ -12,6 +13,7 @@ use core_pb::names::RobotName;
 pub struct SimNetwork {
     name: RobotName,
     channels: TaskChannels,
+    socket: Option<TcpStreamReadWrite>,
     network_connected: bool,
 }
 
@@ -20,6 +22,7 @@ impl SimNetwork {
         Self {
             name,
             channels,
+            socket: None,
             network_connected: false,
         }
     }
@@ -93,7 +96,11 @@ impl RobotNetworkBehavior for SimNetwork {
         self.network_connected = false;
     }
 
-    async fn tcp_accept(&mut self, port: u16) -> Result<Self::Socket<'_>, Self::Error> {
+    async fn socket_mut(&mut self) -> Option<&mut Self::Socket<'_>> {
+        self.socket.as_mut()
+    }
+
+    async fn tcp_accept(&mut self, port: u16) -> Result<(), Self::Error> {
         match TcpListener::bind(format!("0.0.0.0:{port}")).await {
             Ok(listener) => match listener.accept().await {
                 Err(e) => {
@@ -101,7 +108,8 @@ impl RobotNetworkBehavior for SimNetwork {
                 }
                 Ok((stream, addr)) => {
                     println!("Client connected to a robot from {addr}");
-                    return Ok(TcpStreamReadWrite { stream });
+                    self.socket = Some(TcpStreamReadWrite { stream });
+                    return Ok(());
                 }
             },
             Err(e) => {
@@ -111,7 +119,7 @@ impl RobotNetworkBehavior for SimNetwork {
         Err(SimNetworkError::TcpAcceptFailed)
     }
 
-    async fn tcp_close(&mut self, mut socket: Self::Socket<'_>) {
-        let _ = socket.stream.close().await;
+    async fn tcp_close(&mut self) {
+        let _ = self.socket.take().map(|mut x| block_on(x.stream.close()));
     }
 }

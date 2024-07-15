@@ -1,7 +1,9 @@
+use nalgebra::Vector2;
+
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::settings::PacbotSettings;
 use core_pb::messages::{
-    GuiToServerMessage, NetworkStatus, ServerToGuiMessage, ServerToSimulationMessage,
+    GuiToServerMessage, NetworkStatus, ServerToGuiMessage, ServerToRobotMessage,
     GAME_SERVER_MAGIC_NUMBER,
 };
 use core_pb::pacbot_rs::game_state::GameState;
@@ -94,9 +96,10 @@ pub async fn manage_network() {
                     }
                 },
                 GuiToServerMessage::RobotVelocity(robot, vel) => {
+                    let (lin, ang) = vel.unwrap_or((Vector2::zeros(), 0.0));
                     app.send(
-                        Simulation,
-                        ToSimulation(ServerToSimulationMessage::RobotVelocity(robot, vel)),
+                        Robot(robot),
+                        ToRobot(ServerToRobotMessage::TargetVelocity(lin, ang)),
                     )
                     .await
                 }
