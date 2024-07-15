@@ -1,9 +1,9 @@
-use std::io;
-
 use async_std::net::{TcpListener, TcpStream};
 use bevy::tasks::block_on;
 use embedded_io_async::{ErrorType, Read, Write};
 use futures::{AsyncReadExt, AsyncWriteExt};
+use std::io;
+use std::io::ErrorKind;
 
 use crate::driving::TaskChannels;
 use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
@@ -13,7 +13,7 @@ use core_pb::names::RobotName;
 pub struct SimNetwork {
     name: RobotName,
     channels: TaskChannels,
-    socket: Option<TcpStreamReadWrite>,
+    socket: Option<TcpStream>,
     network_connected: bool,
 }
 
@@ -33,23 +33,25 @@ pub enum SimNetworkError {
     TcpAcceptFailed,
 }
 
-pub struct TcpStreamReadWrite {
-    stream: TcpStream,
-}
-
-impl ErrorType for TcpStreamReadWrite {
+impl ErrorType for SimNetwork {
     type Error = io::Error;
 }
 
-impl Read for TcpStreamReadWrite {
+impl Read for SimNetwork {
     async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        self.stream.read(buf).await
+        match &mut self.socket {
+            Some(socket) => socket.read(buf).await,
+            None => Err(io::Error::new(ErrorKind::ConnectionReset, "")),
+        }
     }
 }
 
-impl Write for TcpStreamReadWrite {
+impl Write for SimNetwork {
     async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        self.stream.write(buf).await
+        match &mut self.socket {
+            Some(socket) => socket.write(buf).await,
+            None => Err(io::Error::new(ErrorKind::ConnectionReset, "")),
+        }
     }
 }
 
@@ -65,7 +67,6 @@ impl RobotTask for SimNetwork {
 
 impl RobotNetworkBehavior for SimNetwork {
     type Error = SimNetworkError;
-    type Socket<'a> = TcpStreamReadWrite;
 
     async fn mac_address(&mut self) -> [u8; 6] {
         self.name.mac_address()
@@ -87,7 +88,7 @@ impl RobotNetworkBehavior for SimNetwork {
         &mut self,
         _network: &str,
         _password: Option<&str>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), <Self as RobotNetworkBehavior>::Error> {
         self.network_connected = true;
         Ok(())
     }
@@ -96,11 +97,7 @@ impl RobotNetworkBehavior for SimNetwork {
         self.network_connected = false;
     }
 
-    async fn socket_mut(&mut self) -> Option<&mut Self::Socket<'_>> {
-        self.socket.as_mut()
-    }
-
-    async fn tcp_accept(&mut self, port: u16) -> Result<(), Self::Error> {
+    async fn tcp_accept(&mut self, port: u16) -> Result<(), <Self as RobotNetworkBehavior>::Error> {
         match TcpListener::bind(format!("0.0.0.0:{port}")).await {
             Ok(listener) => match listener.accept().await {
                 Err(e) => {
@@ -108,7 +105,7 @@ impl RobotNetworkBehavior for SimNetwork {
                 }
                 Ok((stream, addr)) => {
                     println!("Client connected to a robot from {addr}");
-                    self.socket = Some(TcpStreamReadWrite { stream });
+                    self.socket = Some(stream);
                     return Ok(());
                 }
             },
@@ -120,6 +117,6 @@ impl RobotNetworkBehavior for SimNetwork {
     }
 
     async fn tcp_close(&mut self) {
-        let _ = self.socket.take().map(|mut x| block_on(x.stream.close()));
+        let _ = self.socket.take().map(|mut x| block_on(x.close()));
     }
 }

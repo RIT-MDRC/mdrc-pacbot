@@ -11,11 +11,8 @@ pub struct NetworkScanInfo {
     pub is_5g: bool,
 }
 
-pub trait RobotNetworkBehavior: RobotTask {
+pub trait RobotNetworkBehavior: RobotTask + Read + Write {
     type Error: Debug;
-    type Socket<'a>: Read + Write
-    where
-        Self: 'a;
 
     /// Get the device's mac address
     async fn mac_address(&mut self) -> [u8; 6];
@@ -34,22 +31,21 @@ pub trait RobotNetworkBehavior: RobotTask {
         &mut self,
         network: &str,
         password: Option<&str>,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<(), <Self as RobotNetworkBehavior>::Error>;
 
     /// Disconnect from any active wifi network
     async fn disconnect_wifi(&mut self) -> ();
 
-    /// Get a mutable reference to the current socket, if one exists
-    async fn socket_mut(&mut self) -> Option<&mut Self::Socket<'_>>;
-
     /// Accept a socket that meets the requirements. Close the previous one if one exists
-    async fn tcp_accept(&mut self, port: u16) -> Result<(), Self::Error>;
+    async fn tcp_accept(&mut self, port: u16) -> Result<(), <Self as RobotNetworkBehavior>::Error>;
 
     /// Dispose of the current socket, if one exists
     async fn tcp_close(&mut self);
 }
 
-pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(), T::Error> {
+pub async fn network_task<T: RobotNetworkBehavior>(
+    mut network: T,
+) -> Result<(), <T as RobotNetworkBehavior>::Error> {
     let name = RobotName::from_mac_address(&network.mac_address().await)
         .expect("Unrecognized mac address");
 
@@ -92,69 +88,57 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
     }
 }
 
-async fn read<T: RobotNetworkBehavior>(
-    name: RobotName,
-    network: &mut T,
-) -> Result<ServerToRobotMessage, ()> {
-    if let Some(socket) = network.socket_mut().await {
-        let mut buf = [0; 1000];
+async fn read<T: Read>(name: RobotName, network: &mut T) -> Result<ServerToRobotMessage, ()> {
+    let mut buf = [0; 1000];
 
-        // first read the length of the message (u32)
-        let mut len_buf = [0; 4];
-        match socket.read(&mut len_buf).await {
-            Ok(4) => (),
-            _ => return Err(()),
-        }
-        let len = u32::from_be_bytes(len_buf) as usize;
-        // then read the message
-        match socket.read_exact(&mut buf[..len]).await {
-            Ok(()) => {
-                info!("{} received message of length {}", name, len);
-                match bincode::serde::decode_from_slice(&buf[..len], bincode::config::standard()) {
-                    Ok((msg, _)) => Ok(msg),
-                    Err(_) => {
-                        info!("Failed to decode message");
-                        Err(())
-                    }
+    // first read the length of the message (u32)
+    let mut len_buf = [0; 4];
+    match network.read(&mut len_buf).await {
+        Ok(4) => (),
+        _ => return Err(()),
+    }
+    let len = u32::from_be_bytes(len_buf) as usize;
+    // then read the message
+    match network.read_exact(&mut buf[..len]).await {
+        Ok(()) => {
+            info!("{} received message of length {}", name, len);
+            match bincode::serde::decode_from_slice(&buf[..len], bincode::config::standard()) {
+                Ok((msg, _)) => Ok(msg),
+                Err(_) => {
+                    info!("Failed to decode message");
+                    Err(())
                 }
             }
-            _ => Err(()),
         }
-    } else {
-        Err(())
+        _ => Err(()),
     }
 }
 
-async fn write<T: RobotNetworkBehavior>(
+async fn write<T: Write>(
     name: RobotName,
     network: &mut T,
     message: RobotToServerMessage,
 ) -> Result<(), ()> {
-    if let Some(socket) = network.socket_mut().await {
-        let mut buf = [0; 1000];
-        let len =
-            match bincode::serde::encode_into_slice(message, &mut buf, bincode::config::standard())
-            {
-                Ok(len) => len,
-                Err(_) => {
-                    info!("{} failed to encode message", name);
-                    return Err(());
-                }
-            };
+    let mut buf = [0; 1000];
+    let len =
+        match bincode::serde::encode_into_slice(message, &mut buf, bincode::config::standard()) {
+            Ok(len) => len,
+            Err(_) => {
+                info!("{} failed to encode message", name);
+                return Err(());
+            }
+        };
 
-        // first write the length of the message (u32)
-        let len_buf = (len as u32).to_be_bytes();
-        if let Err(_) = socket.write_all(&len_buf).await {
-            return Err(());
-        }
-
-        // then write the message
-        if let Err(_) = socket.write_all(&buf[..len]).await {
-            return Err(());
-        }
-
-        Ok(())
-    } else {
-        Err(())
+    // first write the length of the message (u32)
+    let len_buf = (len as u32).to_be_bytes();
+    if let Err(_) = network.write_all(&len_buf).await {
+        return Err(());
     }
+
+    // then write the message
+    if let Err(_) = network.write_all(&buf[..len]).await {
+        return Err(());
+    }
+
+    Ok(())
 }

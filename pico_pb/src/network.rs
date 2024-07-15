@@ -13,6 +13,7 @@ use embassy_rp::pio::Pio;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_time::Timer;
+use embedded_io_async::{ErrorType, Read, ReadExactError, Write};
 use heapless::Vec;
 use smoltcp::wire::IpAddress;
 use static_cell::StaticCell;
@@ -44,7 +45,6 @@ impl RobotTask for Network {
 
 impl RobotNetworkBehavior for Network {
     type Error = NetworkError;
-    type Socket<'a> = TcpSocket<'a>;
 
     async fn mac_address(&mut self) -> [u8; 6] {
         self.control.address().await
@@ -76,7 +76,7 @@ impl RobotNetworkBehavior for Network {
         &mut self,
         network: &str,
         password: Option<&str>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), <Self as RobotNetworkBehavior>::Error> {
         info!("Joining network {}", network);
 
         if let Some(password) = password {
@@ -102,11 +102,7 @@ impl RobotNetworkBehavior for Network {
         self.control.leave().await;
     }
 
-    async fn socket_mut(&mut self) -> Option<&mut Self::Socket<'_>> {
-        self.socket.as_mut()
-    }
-
-    async fn tcp_accept(&mut self, port: u16) -> Result<(), Self::Error> {
+    async fn tcp_accept(&mut self, port: u16) -> Result<(), <Self as RobotNetworkBehavior>::Error> {
         let (tx_buffer, rx_buffer) = tx_rx_buffers();
         let mut socket = TcpSocket::new(self.stack, rx_buffer, tx_buffer);
 
@@ -216,4 +212,49 @@ fn tx_rx_buffers() -> (&'static mut [u8; 4000], &'static mut [u8; 4000]) {
     let rx_buffer = RX_BUFFER.init([0; 4000]);
 
     (tx_buffer, rx_buffer)
+}
+
+impl ErrorType for Network {
+    type Error = embassy_net::tcp::Error;
+}
+
+impl Read for Network {
+    async fn read(&mut self, buf: &mut [u8]) -> Result<usize, embassy_net::tcp::Error> {
+        match &mut self.socket {
+            Some(socket) => socket.read(buf).await,
+            None => Err(embassy_net::tcp::Error::ConnectionReset),
+        }
+    }
+
+    async fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), ReadExactError<Self::Error>> {
+        match &mut self.socket {
+            Some(socket) => socket.read_exact(buf).await,
+            None => Err(ReadExactError::Other(
+                embassy_net::tcp::Error::ConnectionReset,
+            )),
+        }
+    }
+}
+
+impl Write for Network {
+    async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
+        match &mut self.socket {
+            Some(socket) => socket.write(buf).await,
+            None => Err(embassy_net::tcp::Error::ConnectionReset),
+        }
+    }
+
+    async fn flush(&mut self) -> Result<(), Self::Error> {
+        match &mut self.socket {
+            Some(socket) => socket.flush().await,
+            None => Err(embassy_net::tcp::Error::ConnectionReset),
+        }
+    }
+
+    async fn write_all(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        match &mut self.socket {
+            Some(socket) => socket.write_all(buf).await,
+            None => Err(embassy_net::tcp::Error::ConnectionReset),
+        }
+    }
 }
