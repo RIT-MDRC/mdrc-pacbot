@@ -60,7 +60,10 @@ async fn main(spawner: Spawner) {
     .await;
 
     unwrap!(spawner.spawn(do_wifi(network)));
-    unwrap!(spawner.spawn(do_motors(Motors {})));
+    unwrap!(spawner.spawn(do_motors(Motors::new(
+        (p.PIN_6, p.PIN_7, p.PIN_8, p.PIN_9, p.PIN_14, p.PIN_15),
+        (p.PWM_SLICE3, p.PWM_SLICE4, p.PWM_SLICE7)
+    ))));
     unwrap!(spawner.spawn(do_i2c(RobotPeripherals::new(p.I2C0, p.PIN_17, p.PIN_16))));
 }
 
@@ -70,7 +73,7 @@ async fn do_wifi(network: Network) {
 }
 
 #[embassy_executor::task]
-async fn do_motors(motors: Motors) {
+async fn do_motors(motors: Motors<3>) {
     unwrap!(motors_task(RobotName::Pierre, motors).await)
 }
 
