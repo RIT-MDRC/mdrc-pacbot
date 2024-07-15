@@ -48,6 +48,7 @@ pub async fn network_task<T: RobotNetworkBehavior>(
 ) -> Result<(), <T as RobotNetworkBehavior>::Error> {
     let name = RobotName::from_mac_address(&network.mac_address().await)
         .expect("Unrecognized mac address");
+    info!("{} initialized", name);
 
     loop {
         if network.wifi_is_connected().await.is_none() {
@@ -57,7 +58,7 @@ pub async fn network_task<T: RobotNetworkBehavior>(
             info!("{} network connected", name);
         }
 
-        match network.tcp_accept(name.port()).await {
+        match network.tcp_accept(1234).await {
             Ok(_) => {
                 info!("{} client connected", name);
 

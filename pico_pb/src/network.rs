@@ -12,7 +12,7 @@ use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
 use embassy_rp::pio::Pio;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
-use embassy_time::Timer;
+use embassy_time::{Duration, Timer};
 use embedded_io_async::{ErrorType, Read, ReadExactError, Write};
 use heapless::Vec;
 use smoltcp::wire::IpAddress;
@@ -95,6 +95,8 @@ impl RobotNetworkBehavior for Network {
         }
         info!("DHCP is now up!");
 
+        info!("ip = {}", self.stack.config_v4().unwrap().address);
+
         Ok(())
     }
 
@@ -105,11 +107,15 @@ impl RobotNetworkBehavior for Network {
     async fn tcp_accept(&mut self, port: u16) -> Result<(), <Self as RobotNetworkBehavior>::Error> {
         let (tx_buffer, rx_buffer) = tx_rx_buffers();
         let mut socket = TcpSocket::new(self.stack, rx_buffer, tx_buffer);
+        socket.set_timeout(Some(Duration::from_secs(10)));
 
+        self.control.gpio_set(0, false).await;
+        info!("Listening for connections on port {}", port);
         socket
-            .accept(IpEndpoint::new(IpAddress::v4(0, 0, 0, 0), port))
+            .accept(port)
             .await
             .map_err(|e| NetworkError::AcceptError(e))?;
+        info!("Connection successful");
 
         self.socket = Some(socket);
 
@@ -185,11 +191,11 @@ pub async fn initialize_network(
 
     // Init network stack
     static STACK: StaticCell<Stack<NetDriver<'static>>> = StaticCell::new();
-    static RESOURCES: StaticCell<StackResources<2>> = StaticCell::new();
+    static RESOURCES: StaticCell<StackResources<6>> = StaticCell::new();
     let stack = &*STACK.init(Stack::new(
         net_device,
         config,
-        RESOURCES.init(StackResources::<2>::new()),
+        RESOURCES.init(StackResources::<6>::new()),
         seed,
     ));
 

@@ -55,7 +55,7 @@ impl<const WHEELS: usize> RobotMotorsBehavior for Motors<WHEELS> {
     type Error = ();
 
     fn do_pid(&self) -> bool {
-        true
+        false
     }
 
     async fn set_motor_speed(&mut self, index: usize, to: f32) {
