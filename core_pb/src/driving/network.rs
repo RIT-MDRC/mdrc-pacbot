@@ -35,7 +35,7 @@ pub trait RobotNetworkBehavior: RobotTask {
         &mut self,
         network: &str,
         password: Option<&str>,
-    ) -> Result<(), <Self as RobotNetworkBehavior>::Error>;
+    ) -> Result<(), Self::Error>;
 
     /// Disconnect from any active wifi network
     async fn disconnect_wifi(&mut self) -> ();
@@ -44,28 +44,44 @@ pub trait RobotNetworkBehavior: RobotTask {
     async fn tcp_accept<'a>(
         &mut self,
         port: u16,
-        tx_buffer: &'a mut [u8; 4000],
-        rx_buffer: &'a mut [u8; 4000],
-    ) -> Result<Self::Socket<'a>, <Self as RobotNetworkBehavior>::Error>
+        tx_buffer: &'a mut [u8; 5000],
+        rx_buffer: &'a mut [u8; 5000],
+    ) -> Result<Self::Socket<'a>, Self::Error>
     where
         Self: 'a;
 
     /// Dispose of the current socket, if one exists
     async fn tcp_close(&mut self);
+
+    /// See https://docs.embassy.dev/embassy-boot/git/default/struct.FirmwareUpdater.html#method.write_firmware
+    async fn write_firmware(&mut self, offset: usize, data: &[u8]) -> Result<(), Self::Error>;
+
+    /// See https://docs.embassy.dev/embassy-boot/git/default/struct.FirmwareUpdater.html#method.hash
+    async fn hash_firmware(&mut self, update_len: u32, output: &mut [u8; 32]);
+
+    /// See https://docs.embassy.dev/embassy-boot/git/default/struct.FirmwareUpdater.html#method.mark_updated
+    async fn mark_firmware_updated(&mut self);
+
+    /// See https://docs.embassy.dev/embassy-boot/git/default/struct.FirmwareUpdater.html#method.get_state
+    async fn firmware_swapped(&mut self) -> bool;
+
+    /// Reboot the microcontroller, as fully as possible
+    async fn reboot(self);
+
+    /// See https://docs.embassy.dev/embassy-boot/git/default/struct.FirmwareUpdater.html#method.mark_booted
+    async fn mark_firmware_booted(&mut self);
 }
 
-pub async fn network_task<T: RobotNetworkBehavior>(
-    mut network: T,
-) -> Result<(), <T as RobotNetworkBehavior>::Error> {
+pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(), T::Error> {
     let name = RobotName::from_mac_address(&network.mac_address().await)
         .expect("Unrecognized mac address");
     info!("{} initialized", name);
 
-    static TX_BUFFER: StaticCell<[u8; 4000]> = StaticCell::new();
-    static RX_BUFFER: StaticCell<[u8; 4000]> = StaticCell::new();
+    static TX_BUFFER: StaticCell<[u8; 5000]> = StaticCell::new();
+    static RX_BUFFER: StaticCell<[u8; 5000]> = StaticCell::new();
 
-    let tx_buffer = TX_BUFFER.init([0; 4000]);
-    let rx_buffer = RX_BUFFER.init([0; 4000]);
+    let tx_buffer = TX_BUFFER.init([0; 5000]);
+    let rx_buffer = RX_BUFFER.init([0; 5000]);
 
     loop {
         if network.wifi_is_connected().await.is_none() {
@@ -96,6 +112,71 @@ pub async fn network_task<T: RobotNetworkBehavior>(
                             )
                             .await
                             .unwrap(),
+                        Ok(ServerToRobotMessage::FirmwareWritePart { offset, .. }) => {
+                            let mut buf4 = [0; 4];
+                            let mut buf = [0; 4096];
+                            // the first number should be 4096
+                            if let Ok(_) = socket.read_exact(&mut buf4).await {
+                                let len = u32::from_be_bytes(buf4) as usize;
+                                if len == 4096 {
+                                    if let Ok(_) = socket.read_exact(&mut buf).await {
+                                        if let Ok(_) = network.write_firmware(offset, &buf).await {
+                                            let _ = write(
+                                                name,
+                                                &mut socket,
+                                                RobotToServerMessage::ConfirmFirmwarePart {
+                                                    offset,
+                                                    len,
+                                                },
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Ok(ServerToRobotMessage::CalculateFirmwareHash(len)) => {
+                            let mut buf = Default::default();
+                            network.hash_firmware(len, &mut buf).await;
+                            let _ =
+                                write(name, &mut socket, RobotToServerMessage::FirmwareHash(buf));
+                        }
+                        Ok(ServerToRobotMessage::MarkFirmwareUpdated) => {
+                            let _ = write(
+                                name,
+                                &mut socket,
+                                RobotToServerMessage::MarkedFirmwareUpdated,
+                            );
+                        }
+                        Ok(ServerToRobotMessage::IsFirmwareSwapped) => {
+                            let _ = write(
+                                name,
+                                &mut socket,
+                                RobotToServerMessage::FirmwareIsSwapped(
+                                    network.firmware_swapped().await,
+                                ),
+                            );
+                        }
+                        Ok(ServerToRobotMessage::MarkFirmwareBooted) => {
+                            network.mark_firmware_booted().await;
+                            let _ = write(
+                                name,
+                                &mut socket,
+                                RobotToServerMessage::MarkedFirmwareBooted,
+                            );
+                        }
+                        Ok(ServerToRobotMessage::ReadyToStartUpdate) => {
+                            let _ =
+                                write(name, &mut socket, RobotToServerMessage::ReadyToStartUpdate);
+                        }
+                        Ok(ServerToRobotMessage::Reboot) => {
+                            if let Ok(_) =
+                                write(name, &mut socket, RobotToServerMessage::Rebooting).await
+                            {
+                                network.reboot().await;
+                                unreachable!("o7")
+                            }
+                        }
+                        Ok(ServerToRobotMessage::CancelFirmwareUpdate) => {}
                     }
                 }
             }

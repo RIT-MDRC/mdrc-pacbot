@@ -1,26 +1,38 @@
 use crate::{send, Irqs};
+use core::cell::RefCell;
 use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use cyw43::{Control, NetDriver};
 use cyw43_pio::PioSpi;
 use defmt::{info, unwrap, Format};
+use embassy_boot_rp::{AlignedBuffer, BlockingFirmwareUpdater, FirmwareUpdaterConfig, State};
+use embassy_embedded_hal::flash::partition::BlockingPartition;
 use embassy_executor::Spawner;
 use embassy_net::tcp::{AcceptError, TcpSocket};
 use embassy_net::{Config, Stack, StackResources};
+use embassy_rp::flash::{Blocking, Flash};
 use embassy_rp::gpio::{Level, Output};
-use embassy_rp::peripherals::{DMA_CH0, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
+use embassy_rp::peripherals::{DMA_CH0, FLASH, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
 use embassy_rp::pio::Pio;
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
+use embassy_sync::blocking_mutex::Mutex;
 use embassy_sync::channel::Channel;
-use embassy_time::{Duration, Timer};
+use embassy_time::Timer;
 use heapless::Vec;
 use static_cell::StaticCell;
+
+const FLASH_SIZE: usize = 2 * 1024 * 1024;
 
 pub static NETWORK_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64> = Channel::new();
 
 pub struct Network {
     control: Control<'static>,
     stack: &'static Stack<NetDriver<'static>>,
+    updater: BlockingFirmwareUpdater<
+        'static,
+        BlockingPartition<'static, NoopRawMutex, Flash<'static, FLASH, Blocking, 2097152>>,
+        BlockingPartition<'static, NoopRawMutex, Flash<'static, FLASH, Blocking, 2097152>>,
+    >,
 
     socket: Option<TcpSocket<'static>>,
 }
@@ -29,6 +41,7 @@ pub struct Network {
 pub enum NetworkError {
     ConnectionError(u32),
     AcceptError(AcceptError),
+    FirmwareUpdaterError,
 }
 
 impl RobotTask for Network {
@@ -106,8 +119,8 @@ impl RobotNetworkBehavior for Network {
     async fn tcp_accept<'a>(
         &mut self,
         port: u16,
-        tx_buffer: &'a mut [u8; 4000],
-        rx_buffer: &'a mut [u8; 4000],
+        tx_buffer: &'a mut [u8; 5000],
+        rx_buffer: &'a mut [u8; 5000],
     ) -> Result<Self::Socket<'a>, <Self as RobotNetworkBehavior>::Error>
     where
         Self: 'a,
@@ -131,6 +144,36 @@ impl RobotNetworkBehavior for Network {
             socket.close()
         }
     }
+
+    async fn write_firmware(&mut self, offset: usize, data: &[u8]) -> Result<(), Self::Error> {
+        self.updater
+            .write_firmware(offset, data)
+            .map_err(|_| NetworkError::FirmwareUpdaterError)
+    }
+
+    async fn hash_firmware(&mut self, update_len: u32, output: &mut [u8; 32]) {
+        // todo
+    }
+
+    async fn mark_firmware_updated(&mut self) {
+        let _ = self.updater.mark_updated();
+    }
+
+    async fn firmware_swapped(&mut self) -> bool {
+        if let Ok(State::Swap) = self.updater.get_state() {
+            true
+        } else {
+            false
+        }
+    }
+
+    async fn reboot(self) {
+        cortex_m::peripheral::SCB::sys_reset();
+    }
+
+    async fn mark_firmware_booted(&mut self) {
+        let _ = self.updater.mark_booted();
+    }
 }
 
 #[embassy_executor::task]
@@ -153,6 +196,7 @@ pub async fn initialize_network(
     dio: PIN_24,
     clk: PIN_29,
     dma: DMA_CH0,
+    flash: FLASH,
 ) -> Network {
     info!("Wifi task started");
 
@@ -161,15 +205,15 @@ pub async fn initialize_network(
     let mut pio = Pio::new(pio, Irqs);
     let spi = PioSpi::new(&mut pio.common, pio.sm0, pio.irq0, cs, dio, clk, dma);
 
-    // let fw = include_bytes!("../cyw43-firmware/43439A0.bin");
-    // let clm = include_bytes!("../cyw43-firmware/43439A0_clm.bin");
+    let fw = include_bytes!("../cyw43-firmware/43439A0.bin");
+    let clm = include_bytes!("../cyw43-firmware/43439A0_clm.bin");
 
     // To make flashing faster for development, you may want to flash the firmwares independently
     // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
     //     probe-rs download 43439A0.bin --format bin --chip RP2040 --base-address 0x10100000
     //     probe-rs download 43439A0_clm.bin --format bin --chip RP2040 --base-address 0x10140000
-    let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
-    let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
+    // let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
+    // let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
 
     static STATE: StaticCell<cyw43::State> = StaticCell::new();
     let state = STATE.init(cyw43::State::new());
@@ -207,9 +251,22 @@ pub async fn initialize_network(
 
     info!("Network stack initialized");
 
+    let flash = Flash::<_, _, FLASH_SIZE>::new_blocking(flash);
+    // let flash = Mutex::new(RefCell::new(flash));
+    static FLASH_CELL: StaticCell<Mutex<NoopRawMutex, RefCell<Flash<FLASH, Blocking, 2097152>>>> =
+        StaticCell::new();
+    let flash = &*FLASH_CELL.init_with(|| Mutex::new(RefCell::new(flash)));
+
+    let config = FirmwareUpdaterConfig::from_linkerfile_blocking(&flash, &flash);
+    static ALIGNED: StaticCell<AlignedBuffer<1>> = StaticCell::new();
+    let aligned = ALIGNED.init_with(|| AlignedBuffer([0; 1]));
+    let updater = BlockingFirmwareUpdater::new(config, &mut aligned.0);
+
     Network {
         control,
         stack,
+        updater,
+
         socket: None,
     }
 }

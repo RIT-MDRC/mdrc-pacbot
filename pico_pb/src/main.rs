@@ -26,6 +26,7 @@ use embassy_rp::bind_interrupts;
 use embassy_rp::peripherals::{I2C0, PIO0};
 use embassy_sync::channel::TrySendError;
 #[allow(unused_imports)]
+// use panic_probe as _
 use {defmt_rtt as _, panic_probe as _};
 
 bind_interrupts!(struct Irqs {
@@ -56,6 +57,7 @@ async fn main(spawner: Spawner) {
         p.PIN_24,
         p.PIN_29,
         p.DMA_CH0,
+        p.FLASH,
     )
     .await;
 

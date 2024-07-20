@@ -8,6 +8,7 @@ use core_pb::messages::{
 };
 use core_pb::pacbot_rs::game_state::GameState;
 
+use crate::ota::OverTheAirProgramming;
 use crate::sockets::Destination::*;
 use crate::sockets::Incoming::*;
 use crate::sockets::Outgoing::*;
@@ -15,6 +16,8 @@ use crate::sockets::{Incoming, Outgoing, Sockets};
 use crate::App;
 
 pub async fn manage_network() {
+    let sockets = Sockets::spawn();
+
     let mut app = App {
         status: Default::default(),
         settings: Default::default(),
@@ -24,7 +27,9 @@ pub async fn manage_network() {
         client_http_host_process: None,
         sim_game_engine_process: None,
 
-        sockets: Sockets::spawn(),
+        over_the_air_programming: OverTheAirProgramming::new(sockets.outgoing.clone()),
+
+        sockets,
 
         grid: Default::default(),
     };
@@ -46,7 +51,17 @@ pub async fn manage_network() {
             .await;
         }
 
-        match app.sockets.incoming.recv().await.unwrap() {
+        app.over_the_air_programming.tick(&mut app.status).await;
+
+        let msg = app.sockets.incoming.recv().await.unwrap();
+        app.over_the_air_programming
+            .update(&msg, &mut app.status)
+            .await;
+        match msg {
+            (dest, Bytes(data)) => eprintln!(
+                "Unexpectedly received {} raw bytes from {dest:?}",
+                data.len()
+            ),
             (_, SleepFinished) => {
                 // send updated status to clients every so often
                 app.send(
@@ -104,6 +119,7 @@ pub async fn manage_network() {
                     )
                     .await
                 }
+                _ => {}
             },
             (_, GuiConnected(id)) => {
                 app.status.gui_clients += 1;

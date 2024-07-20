@@ -20,6 +20,9 @@ pub enum GuiToServerMessage {
     Settings(PacbotSettings),
     GameServerCommand(GameServerCommand),
     RobotVelocity(RobotName, Option<(Vector2<f32>, f32)>),
+    StartOtaFirmwareUpdate(RobotName),
+    CancelOtaFirmwareUpdate(RobotName),
+    ConfirmFirmwareUpdate(RobotName),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -39,13 +42,30 @@ pub enum SimulationToServerMessage {
 #[cfg(feature = "std")]
 pub enum ServerToSimulationMessage {}
 
+/// Firmware related items MUST remain first, or OTA programming will break
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ServerToRobotMessage {
+    ReadyToStartUpdate,
+    FirmwareWritePart { offset: usize, len: usize },
+    CalculateFirmwareHash(u32),
+    MarkFirmwareUpdated,
+    IsFirmwareSwapped,
+    Reboot,
+    MarkFirmwareBooted,
+    CancelFirmwareUpdate,
     TargetVelocity(Vector2<f32>, f32),
 }
 
+/// Firmware related items MUST remain first, or OTA programming will break
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum RobotToServerMessage {
+    ReadyToStartUpdate,
+    ConfirmFirmwarePart { offset: usize, len: usize },
+    MarkedFirmwareUpdated,
+    FirmwareHash([u8; 32]),
+    Rebooting,
+    FirmwareIsSwapped(bool),
+    MarkedFirmwareBooted,
     Name(RobotName),
 }
 

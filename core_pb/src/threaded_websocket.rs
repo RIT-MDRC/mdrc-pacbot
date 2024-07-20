@@ -6,11 +6,10 @@
 use crate::messages::NetworkStatus;
 use crate::{bin_decode, bin_encode, console_log};
 use async_channel::{unbounded, Receiver, Sender};
-use async_std::io::ReadExt;
 use async_std::task::sleep;
 use futures::executor::block_on;
 use futures::future::{select, Either};
-use futures::{select, AsyncWriteExt, FutureExt};
+use futures::{select, FutureExt};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 #[allow(unused)]
@@ -97,6 +96,8 @@ pub enum TextOrT<T: Debug> {
     Text(String),
     /// the type
     T(T),
+    /// raw bytes
+    Bytes(Vec<u8>),
 }
 
 impl<
@@ -373,7 +374,8 @@ async fn run_socket_forever<
                                 None
                             }
                         },
-                        TextOrT::Text(text) => Some(TextOrT::Text(text))
+                        TextOrT::Text(text) => Some(TextOrT::Text(text)),
+                        TextOrT::Bytes(data) => Some(TextOrT::Bytes(data))
                     };
                     if let Some(data) = incoming_data {
                         data_incoming.send(data).await.unwrap();
@@ -392,7 +394,8 @@ async fn run_socket_forever<
                     console_log!("[threaded_websocket : {name}] Sending data to {addr:?}");
                     let outgoing_data = match outgoing_data.unwrap() {
                         TextOrT::T(data) => TextOrT::T(serializer(data).expect("failed to serialize data")),
-                        TextOrT::Text(text) => TextOrT::Text(text)
+                        TextOrT::Text(text) => TextOrT::Text(text),
+                        TextOrT::Bytes(data) => TextOrT::Bytes(data)
                     };
                     socket.my_send(outgoing_data).await
                 }
@@ -422,7 +425,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
 
     async fn my_send(&mut self, data: TextOrT<Vec<u8>>) {
         if let Err(e) = match data {
-            TextOrT::T(data) => self.send(Message::Binary(data)).await,
+            TextOrT::T(data) | TextOrT::Bytes(data) => self.send(Message::Binary(data)).await,
             TextOrT::Text(text) => self.send(Message::Text(text)).await,
         } {
             eprintln!(
@@ -579,6 +582,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
         if let Err(e) = match data {
             TextOrT::T(data) => self.ws.send_with_u8_array(&data),
             TextOrT::Text(text) => self.ws.send_with_str(&text),
+            TextOrT::Bytes(data) => self.ws.send_with_u8_array(&data),
         } {
             console_log!("[threaded_websocket/WasmThreadableWebsocket] Error sending data: {e:?}");
         }
@@ -589,6 +593,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
             Ok(Ok(msg)) => match msg {
                 TextOrT::Text(text) => Ok(TextOrT::Text(text)),
                 TextOrT::T(data) => Ok(TextOrT::T(data)),
+                TextOrT::Bytes(data) => Ok(TextOrT::Bytes(data)),
             },
             Ok(Err(_)) => {
                 console_log!(

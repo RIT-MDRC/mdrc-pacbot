@@ -37,6 +37,7 @@ pub enum Destination {
 pub enum Incoming {
     Status(NetworkStatus),
     Text(String),
+    Bytes(Vec<u8>),
     SleepFinished,
     FromSimulation(SimulationToServerMessage),
     FromRobot(RobotToServerMessage),
@@ -49,6 +50,7 @@ pub enum Incoming {
 pub enum Outgoing {
     Address(Option<Address>),
     Text(String),
+    RawBytes(Vec<u8>),
     ToSimulation(ServerToSimulationMessage),
     ToRobot(ServerToRobotMessage),
     ToGui(ServerToGuiMessage),
@@ -156,6 +158,10 @@ async fn receive_outgoing(
                     .send(Right(TextOrT::T(cmd)))
                     .await
                     .unwrap(),
+                (Robot(name), Outgoing::RawBytes(data)) => robots[name as usize]
+                    .send(Right(TextOrT::Bytes(data)))
+                    .await
+                    .unwrap(),
                 (GuiClients, Outgoing::ToGui(cmd)) => gui_tx.send(cmd).await.unwrap(),
                 (NotApplicable, _)
                 | (GameServer, _)
@@ -204,6 +210,7 @@ async fn manage_threaded_socket<
                         match r {
                             TextOrT::T(r) => tx.send((destination, r_to_inc(r))).await.unwrap(),
                             TextOrT::Text(text) => tx.send((destination, Incoming::Text(text))).await.unwrap(),
+                            TextOrT::Bytes(data) => tx.send((destination, Incoming::Bytes(data))).await.unwrap(),
                         }
                     },
                     Right(status) => {

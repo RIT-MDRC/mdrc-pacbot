@@ -6,9 +6,11 @@ use core_pb::messages::settings::{ConnectionSettings, PacbotSettings};
 use core_pb::names::RobotName;
 
 use crate::network::manage_network;
+use crate::ota::OverTheAirProgramming;
 use crate::sockets::{Destination, Outgoing, Sockets};
 
 pub mod network;
+mod ota;
 mod sockets;
 // todo pub mod strategy;
 
@@ -23,6 +25,8 @@ pub struct App {
     sim_game_engine_process: Option<Child>,
 
     sockets: Sockets,
+
+    over_the_air_programming: OverTheAirProgramming,
 
     grid: ComputedGrid,
 }
