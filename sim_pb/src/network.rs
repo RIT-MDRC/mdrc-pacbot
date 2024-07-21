@@ -1,5 +1,9 @@
-use crate::{MyApp, RobotToSimulationMessage};
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+
 use bevy::prelude::{ResMut, Resource};
+use simple_websockets::{Event, EventHub, Message, Responder};
+
 use core_pb::constants::{GAME_SERVER_PORT, SIMULATION_LISTENER_PORT};
 use core_pb::messages::{
     GameServerCommand, ServerToSimulationMessage, SimulationToServerMessage,
@@ -8,9 +12,9 @@ use core_pb::messages::{
 use core_pb::pacbot_rs::game_state::GameState;
 use core_pb::pacbot_rs::location::{LocationState, DOWN, LEFT, RIGHT, UP};
 use core_pb::{bin_decode, bin_encode};
-use simple_websockets::{Event, EventHub, Message, Responder};
-use std::collections::HashMap;
-use std::time::{Duration, Instant};
+
+use crate::driving::SimRobot;
+use crate::{MyApp, RobotToSimulationMessage};
 
 pub const GAME_FPS: f32 = 24.0;
 
@@ -152,6 +156,23 @@ impl PacbotNetworkSimulation {
                 RobotToSimulationMessage::SimulatedVelocity(lin, ang) => {
                     println!("Received target velocity: {lin:?} {ang:?}");
                     app.server_target_vel[name as usize] = Some((lin, ang))
+                }
+                RobotToSimulationMessage::MarkFirmwareUpdated => {
+                    if let Some((_, sim_robot)) = &mut app.robots[name as usize] {
+                        sim_robot.write().unwrap().firmware_updated = true;
+                    }
+                }
+                RobotToSimulationMessage::Reboot => {
+                    let tx = app.from_robots.0.clone();
+                    if let Some((_, sim_robot)) = &mut app.robots[name as usize] {
+                        let swapped;
+                        {
+                            let mut r = sim_robot.write().unwrap();
+                            swapped = r.firmware_updated;
+                            r.destroy();
+                        }
+                        *sim_robot = SimRobot::start(name, swapped, tx);
+                    }
                 }
             }
         }

@@ -33,8 +33,6 @@ pub struct Network {
         BlockingPartition<'static, NoopRawMutex, Flash<'static, FLASH, Blocking, 2097152>>,
         BlockingPartition<'static, NoopRawMutex, Flash<'static, FLASH, Blocking, 2097152>>,
     >,
-
-    socket: Option<TcpSocket<'static>>,
 }
 
 #[derive(Debug, Format)]
@@ -139,10 +137,8 @@ impl RobotNetworkBehavior for Network {
         Ok(socket)
     }
 
-    async fn tcp_close(&mut self) {
-        if let Some(mut socket) = self.socket.take() {
-            socket.close()
-        }
+    async fn tcp_close<'a>(&mut self, mut socket: Self::Socket<'a>) {
+        socket.close()
     }
 
     async fn write_firmware(&mut self, offset: usize, data: &[u8]) -> Result<(), Self::Error> {
@@ -266,7 +262,5 @@ pub async fn initialize_network(
         control,
         stack,
         updater,
-
-        socket: None,
     }
 }

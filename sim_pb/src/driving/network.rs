@@ -1,29 +1,39 @@
-use async_std::net::{TcpListener, TcpStream};
-use bevy::tasks::block_on;
-use embedded_io_async::{ErrorType, Read, Write};
-use futures::{AsyncReadExt, AsyncWriteExt};
-use std::io;
-use std::io::ErrorKind;
-
 use crate::driving::TaskChannels;
+use crate::RobotToSimulationMessage;
+use async_channel::Sender;
+use async_std::io::{ReadExt, WriteExt};
+use async_std::net::{TcpListener, TcpStream};
+use async_std::task::sleep;
 use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use core_pb::names::RobotName;
+use embedded_io_async::{ErrorType, Read, ReadExactError, Write};
+use std::io;
+use std::io::ErrorKind;
+use std::time::Duration;
 
 pub struct SimNetwork {
     name: RobotName,
     channels: TaskChannels,
-    socket: Option<TcpStream>,
+    sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
     network_connected: bool,
+
+    firmware_swapped: bool,
 }
 
 impl SimNetwork {
-    pub fn new(name: RobotName, channels: TaskChannels) -> Self {
+    pub fn new(
+        name: RobotName,
+        firmware_swapped: bool,
+        channels: TaskChannels,
+        sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
+    ) -> Self {
         Self {
             name,
             channels,
-            socket: None,
+            sim_tx,
             network_connected: false,
+            firmware_swapped,
         }
     }
 }
@@ -33,25 +43,28 @@ pub enum SimNetworkError {
     TcpAcceptFailed,
 }
 
-impl ErrorType for SimNetwork {
+pub struct TcpStreamReadWrite(TcpStream);
+
+impl ErrorType for TcpStreamReadWrite {
     type Error = io::Error;
 }
 
-impl Read for SimNetwork {
+impl Read for TcpStreamReadWrite {
     async fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        match &mut self.socket {
-            Some(socket) => socket.read(buf).await,
-            None => Err(io::Error::new(ErrorKind::ConnectionReset, "")),
-        }
+        self.0.read(buf).await
+    }
+
+    async fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), ReadExactError<Self::Error>> {
+        self.0
+            .read_exact(buf)
+            .await
+            .map_err(|_| ReadExactError::Other(io::Error::new(ErrorKind::Other, "")))
     }
 }
 
-impl Write for SimNetwork {
+impl Write for TcpStreamReadWrite {
     async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
-        match &mut self.socket {
-            Some(socket) => socket.write(buf).await,
-            None => Err(io::Error::new(ErrorKind::ConnectionReset, "")),
-        }
+        self.0.write(buf).await
     }
 }
 
@@ -67,6 +80,7 @@ impl RobotTask for SimNetwork {
 
 impl RobotNetworkBehavior for SimNetwork {
     type Error = SimNetworkError;
+    type Socket<'a> = TcpStreamReadWrite where Self: 'a;
 
     async fn mac_address(&mut self) -> [u8; 6] {
         self.name.mac_address()
@@ -97,7 +111,15 @@ impl RobotNetworkBehavior for SimNetwork {
         self.network_connected = false;
     }
 
-    async fn tcp_accept(&mut self, port: u16) -> Result<(), <Self as RobotNetworkBehavior>::Error> {
+    async fn tcp_accept<'a>(
+        &mut self,
+        port: u16,
+        _tx: &'a mut [u8; 5000],
+        _rx: &'a mut [u8; 5000],
+    ) -> Result<Self::Socket<'a>, <Self as RobotNetworkBehavior>::Error>
+    where
+        Self: 'a,
+    {
         match TcpListener::bind(format!("0.0.0.0:{port}")).await {
             Ok(listener) => match listener.accept().await {
                 Err(e) => {
@@ -105,8 +127,7 @@ impl RobotNetworkBehavior for SimNetwork {
                 }
                 Ok((stream, addr)) => {
                     println!("Client connected to a robot from {addr}");
-                    self.socket = Some(stream);
-                    return Ok(());
+                    return Ok(TcpStreamReadWrite(stream));
                 }
             },
             Err(e) => {
@@ -116,7 +137,36 @@ impl RobotNetworkBehavior for SimNetwork {
         Err(SimNetworkError::TcpAcceptFailed)
     }
 
-    async fn tcp_close(&mut self) {
-        let _ = self.socket.take().map(|mut x| block_on(x.close()));
+    async fn tcp_close<'a>(&mut self, _socket: Self::Socket<'a>) {}
+
+    async fn write_firmware(&mut self, _offset: usize, _data: &[u8]) -> Result<(), Self::Error> {
+        sleep(Duration::from_millis(50)).await;
+        Ok(())
+    }
+
+    async fn hash_firmware(&mut self, _update_len: u32, _output: &mut [u8; 32]) {
+        sleep(Duration::from_millis(50)).await;
+    }
+
+    async fn mark_firmware_updated(&mut self) {
+        self.sim_tx
+            .send((self.name, RobotToSimulationMessage::MarkFirmwareUpdated))
+            .await
+            .unwrap();
+    }
+
+    async fn firmware_swapped(&mut self) -> bool {
+        self.firmware_swapped
+    }
+
+    async fn reboot(self) {
+        self.sim_tx
+            .send((self.name, RobotToSimulationMessage::Reboot))
+            .await
+            .unwrap();
+    }
+
+    async fn mark_firmware_booted(&mut self) {
+        self.firmware_swapped = false;
     }
 }

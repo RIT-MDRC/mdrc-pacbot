@@ -34,6 +34,7 @@ pub struct SimRobot {
     pub display_ready: bool,
 
     pub thread_stopper: Sender<()>,
+    pub firmware_updated: bool,
 }
 
 async fn handle_task<F, E: Debug>(task: F)
@@ -46,6 +47,7 @@ where
 impl SimRobot {
     pub fn start(
         name: RobotName,
+        firmware_swapped: bool,
         sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
     ) -> Arc<RwLock<Self>> {
         let (thread_stopper_tx, thread_stopper_rx) = unbounded();
@@ -57,6 +59,7 @@ impl SimRobot {
             display_ready: true,
 
             thread_stopper: thread_stopper_tx,
+            firmware_updated: false,
         }));
 
         let (motors, motors_rx, motors_tx) = TaskChannels::new();
@@ -64,20 +67,20 @@ impl SimRobot {
         let (peripherals, peripherals_rx, peripherals_tx) = TaskChannels::new();
 
         let motors = SimMotors::new(name, motors, sim_tx.clone());
-        let network = SimNetwork::new(name, network);
+        let network = SimNetwork::new(name, firmware_swapped, network, sim_tx.clone());
         let peripherals = SimPeripherals::new(robot.clone(), peripherals);
 
-        let f = Self::start_async(
-            name,
-            motors,
-            network,
-            peripherals,
-            [network_tx, motors_tx, peripherals_tx],
-            [network_rx, motors_rx, peripherals_rx],
-            thread_stopper_rx,
-        );
-
-        spawn(|| block_on(f));
+        spawn(move || {
+            block_on(Self::start_async(
+                name,
+                motors,
+                network,
+                peripherals,
+                [network_tx, motors_tx, peripherals_tx],
+                [network_rx, motors_rx, peripherals_rx],
+                thread_stopper_rx,
+            ))
+        });
 
         robot
     }

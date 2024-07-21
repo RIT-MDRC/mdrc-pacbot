@@ -40,6 +40,8 @@ pub enum SimulationToRobotMessage {}
 #[derive(Copy, Clone, Debug)]
 pub enum RobotToSimulationMessage {
     SimulatedVelocity(Vector2<f32>, f32),
+    MarkFirmwareUpdated,
+    Reboot,
 }
 
 #[derive(Component)]

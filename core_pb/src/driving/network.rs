@@ -50,8 +50,8 @@ pub trait RobotNetworkBehavior: RobotTask {
     where
         Self: 'a;
 
-    /// Dispose of the current socket, if one exists
-    async fn tcp_close(&mut self);
+    /// Dispose of the current socket
+    async fn tcp_close<'a>(&mut self, socket: Self::Socket<'a>);
 
     /// See https://docs.embassy.dev/embassy-boot/git/default/struct.FirmwareUpdater.html#method.write_firmware
     async fn write_firmware(&mut self, offset: usize, data: &[u8]) -> Result<(), Self::Error>;
