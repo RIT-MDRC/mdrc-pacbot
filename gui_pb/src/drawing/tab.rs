@@ -1,4 +1,5 @@
 use crate::drawing::game::{draw_game, draw_grid};
+use crate::drawing::over_the_air::draw_over_the_air;
 use crate::drawing::settings::draw_settings;
 use crate::transform::Transform;
 use crate::App;
@@ -17,6 +18,8 @@ pub enum Tab {
     Robot,
     /// Keybindings
     Keybindings,
+    /// Status of OTA programming
+    OverTheAirProgramming,
     /// For widgets that don't have corresponding tabs
     Unknown,
 }
@@ -31,6 +34,7 @@ impl TabViewer for App {
             Tab::Settings => "Settings",
             Tab::Robot => "Robot",
             Tab::Keybindings => "Keybindings",
+            Tab::OverTheAirProgramming => "OTA Programming",
             Tab::Unknown => "?",
         }
         .into()
@@ -67,6 +71,7 @@ impl TabViewer for App {
                 }
             }
             Tab::Settings => draw_settings(self, ui),
+            Tab::OverTheAirProgramming => draw_over_the_air(self, ui),
             _ => {
                 ui.label(match tab {
                     Tab::Grid => "Main Grid",
@@ -74,6 +79,7 @@ impl TabViewer for App {
                     Tab::Settings => "Settings",
                     Tab::Robot => "Robot",
                     Tab::Keybindings => "Keybindings",
+                    Tab::OverTheAirProgramming => "OTA Programming",
                     Tab::Unknown => "?",
                 });
             }

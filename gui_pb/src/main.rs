@@ -125,7 +125,11 @@ impl App {
         let mut dock_state = DockState::new(vec![Tab::Grid, Tab::Robot]);
         let surface = dock_state.main_surface_mut();
         surface.split_right(NodeIndex::root(), 0.75, vec![Tab::Settings]);
-        surface.split_left(NodeIndex::root(), 0.15, vec![Tab::Keybindings]);
+        surface.split_left(
+            NodeIndex::root(),
+            0.15,
+            vec![Tab::OverTheAirProgramming, Tab::Keybindings],
+        );
 
         Self {
             dock_state: Some(dock_state),

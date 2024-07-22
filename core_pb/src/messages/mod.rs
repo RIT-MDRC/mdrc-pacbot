@@ -8,6 +8,8 @@ use pacbot_rs::game_state::GameState;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
+pub mod ota;
+#[cfg(feature = "std")]
 pub mod server_status;
 #[cfg(feature = "std")]
 pub mod settings;
@@ -23,6 +25,7 @@ pub enum GuiToServerMessage {
     StartOtaFirmwareUpdate(RobotName),
     CancelOtaFirmwareUpdate(RobotName),
     ConfirmFirmwareUpdate(RobotName),
+    ClearFirmwareUpdateHistory(RobotName),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

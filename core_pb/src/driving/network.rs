@@ -4,7 +4,6 @@ use crate::names::RobotName;
 use core::fmt::Debug;
 use embedded_io_async::{Read, Write};
 use heapless::Vec;
-use static_cell::StaticCell;
 
 #[derive(Copy, Clone)]
 pub struct NetworkScanInfo {
@@ -77,11 +76,8 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
         .expect("Unrecognized mac address");
     info!("{} initialized", name);
 
-    static TX_BUFFER: StaticCell<[u8; 5000]> = StaticCell::new();
-    static RX_BUFFER: StaticCell<[u8; 5000]> = StaticCell::new();
-
-    let tx_buffer = TX_BUFFER.init([0; 5000]);
-    let rx_buffer = RX_BUFFER.init([0; 5000]);
+    let mut tx_buffer = [0; 5000];
+    let mut rx_buffer = [0; 5000];
 
     loop {
         if network.wifi_is_connected().await.is_none() {
@@ -91,7 +87,10 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
             info!("{} network connected", name);
         }
 
-        match network.tcp_accept(1234, rx_buffer, tx_buffer).await {
+        match network
+            .tcp_accept(name.port(), &mut rx_buffer, &mut tx_buffer)
+            .await
+        {
             Ok(mut socket) => {
                 info!("{} client connected", name);
 
@@ -118,18 +117,18 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                             // the first number should be 4096
                             if let Ok(_) = socket.read_exact(&mut buf4).await {
                                 let len = u32::from_be_bytes(buf4) as usize;
-                                if len == 4096 {
-                                    if let Ok(_) = socket.read_exact(&mut buf).await {
-                                        if let Ok(_) = network.write_firmware(offset, &buf).await {
-                                            let _ = write(
-                                                name,
-                                                &mut socket,
-                                                RobotToServerMessage::ConfirmFirmwarePart {
-                                                    offset,
-                                                    len,
-                                                },
-                                            );
-                                        }
+                                info!("{} is receiving {} bytes", name, len);
+                                if let Ok(_) = socket.read_exact(&mut buf[..len]).await {
+                                    if let Ok(_) = network.write_firmware(offset, &buf).await {
+                                        let _ = write(
+                                            name,
+                                            &mut socket,
+                                            RobotToServerMessage::ConfirmFirmwarePart {
+                                                offset,
+                                                len,
+                                            },
+                                        )
+                                        .await;
                                     }
                                 }
                             }
@@ -138,14 +137,17 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                             let mut buf = Default::default();
                             network.hash_firmware(len, &mut buf).await;
                             let _ =
-                                write(name, &mut socket, RobotToServerMessage::FirmwareHash(buf));
+                                write(name, &mut socket, RobotToServerMessage::FirmwareHash(buf))
+                                    .await;
                         }
                         Ok(ServerToRobotMessage::MarkFirmwareUpdated) => {
+                            network.mark_firmware_updated().await;
                             let _ = write(
                                 name,
                                 &mut socket,
                                 RobotToServerMessage::MarkedFirmwareUpdated,
-                            );
+                            )
+                            .await;
                         }
                         Ok(ServerToRobotMessage::IsFirmwareSwapped) => {
                             let _ = write(
@@ -154,7 +156,8 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                                 RobotToServerMessage::FirmwareIsSwapped(
                                     network.firmware_swapped().await,
                                 ),
-                            );
+                            )
+                            .await;
                         }
                         Ok(ServerToRobotMessage::MarkFirmwareBooted) => {
                             network.mark_firmware_booted().await;
@@ -162,11 +165,14 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                                 name,
                                 &mut socket,
                                 RobotToServerMessage::MarkedFirmwareBooted,
-                            );
+                            )
+                            .await;
                         }
                         Ok(ServerToRobotMessage::ReadyToStartUpdate) => {
+                            info!("{} is ready for an update", name);
                             let _ =
-                                write(name, &mut socket, RobotToServerMessage::ReadyToStartUpdate);
+                                write(name, &mut socket, RobotToServerMessage::ReadyToStartUpdate)
+                                    .await;
                         }
                         Ok(ServerToRobotMessage::Reboot) => {
                             if let Ok(_) =
@@ -188,7 +194,7 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
 }
 
 async fn read<T: Read>(name: RobotName, network: &mut T) -> Result<ServerToRobotMessage, ()> {
-    let mut buf = [0; 1000];
+    let mut buf = [0; 6000];
 
     info!("{} listening for message...", name);
     // first read the length of the message (u32)
@@ -233,13 +239,17 @@ async fn write<T: Write>(
     // first write the length of the message (u32)
     let len_buf = (len as u32).to_be_bytes();
     if let Err(_) = network.write_all(&len_buf).await {
+        info!("{} error writing to socket", name);
         return Err(());
     }
 
     // then write the message
     if let Err(_) = network.write_all(&buf[..len]).await {
+        info!("{} error writing to socket", name);
         return Err(());
     }
+
+    info!("{} sent message of length {}", name, len);
 
     Ok(())
 }

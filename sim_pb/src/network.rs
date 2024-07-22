@@ -159,6 +159,7 @@ impl PacbotNetworkSimulation {
                 }
                 RobotToSimulationMessage::MarkFirmwareUpdated => {
                     if let Some((_, sim_robot)) = &mut app.robots[name as usize] {
+                        println!("{name} declared updated firmware");
                         sim_robot.write().unwrap().firmware_updated = true;
                     }
                 }

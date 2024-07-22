@@ -30,6 +30,7 @@ use {
 };
 #[cfg(target_arch = "wasm32")]
 use {
+    futures::FutureExt,
     wasm_bindgen_futures::spawn_local,
     web_sys::wasm_bindgen::closure::Closure,
     web_sys::wasm_bindgen::JsCast,
@@ -642,7 +643,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
     }
 
     async fn my_send(&mut self, data: TextOrT<Vec<u8>>) {
-        if let TextOrT::T(bytes) = data {
+        if let TextOrT::T(bytes) | TextOrT::Bytes(bytes) = data {
             // first send the length
             let len = bytes.len() as u32;
             if let Err(e) = self.stream.write_all(&len.to_be_bytes()).await {

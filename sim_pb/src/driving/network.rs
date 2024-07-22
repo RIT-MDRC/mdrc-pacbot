@@ -120,6 +120,7 @@ impl RobotNetworkBehavior for SimNetwork {
     where
         Self: 'a,
     {
+        println!("{} listening on {port}!", self.name);
         match TcpListener::bind(format!("0.0.0.0:{port}")).await {
             Ok(listener) => match listener.accept().await {
                 Err(e) => {
@@ -164,6 +165,7 @@ impl RobotNetworkBehavior for SimNetwork {
             .send((self.name, RobotToSimulationMessage::Reboot))
             .await
             .unwrap();
+        sleep(Duration::from_secs(99999)).await
     }
 
     async fn mark_firmware_booted(&mut self) {
