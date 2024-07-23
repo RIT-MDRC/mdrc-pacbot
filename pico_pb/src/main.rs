@@ -21,13 +21,14 @@ use core_pb::driving::peripherals::peripherals_task;
 use core_pb::driving::{RobotInterTaskMessage, Task};
 use core_pb::names::RobotName;
 use defmt::unwrap;
+#[allow(unused_imports)]
+// use panic_probe as _
+use defmt_rtt as _;
 use embassy_executor::Spawner;
 use embassy_rp::bind_interrupts;
 use embassy_rp::peripherals::{I2C0, PIO0};
 use embassy_sync::channel::TrySendError;
-#[allow(unused_imports)]
-// use panic_probe as _
-use {defmt_rtt as _, panic_probe as _};
+use panic_probe as _;
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;

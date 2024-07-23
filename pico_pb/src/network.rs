@@ -17,7 +17,7 @@ use embassy_rp::pio::Pio;
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
 use embassy_sync::blocking_mutex::Mutex;
 use embassy_sync::channel::Channel;
-use embassy_time::Timer;
+use embassy_time::{Duration, Timer};
 use heapless::Vec;
 use static_cell::StaticCell;
 
@@ -104,6 +104,8 @@ impl RobotNetworkBehavior for Network {
             Timer::after_millis(100).await;
         }
         info!("DHCP is now up!");
+
+        blink(&mut self.control, 1, Duration::from_millis(400)).await;
 
         info!("ip = {}", self.stack.config_v4().unwrap().address);
 
@@ -201,15 +203,15 @@ pub async fn initialize_network(
     let mut pio = Pio::new(pio, Irqs);
     let spi = PioSpi::new(&mut pio.common, pio.sm0, pio.irq0, cs, dio, clk, dma);
 
-    let fw = include_bytes!("../cyw43-firmware/43439A0.bin");
-    let clm = include_bytes!("../cyw43-firmware/43439A0_clm.bin");
+    // let fw = include_bytes!("../cyw43-firmware/43439A0.bin");
+    // let clm = include_bytes!("../cyw43-firmware/43439A0_clm.bin");
 
     // To make flashing faster for development, you may want to flash the firmwares independently
     // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
     //     probe-rs download 43439A0.bin --format bin --chip RP2040 --base-address 0x10100000
     //     probe-rs download 43439A0_clm.bin --format bin --chip RP2040 --base-address 0x10140000
-    // let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
-    // let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
+    let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
+    let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
 
     static STATE: StaticCell<cyw43::State> = StaticCell::new();
     let state = STATE.init(cyw43::State::new());
@@ -258,9 +260,21 @@ pub async fn initialize_network(
     let aligned = ALIGNED.init_with(|| AlignedBuffer([0; 1]));
     let updater = BlockingFirmwareUpdater::new(config, &mut aligned.0);
 
+    blink(&mut control, 1, Duration::from_millis(400)).await;
+
     Network {
         control,
         stack,
         updater,
     }
+}
+
+async fn blink<'a>(control: &mut Control<'a>, count: usize, duration: Duration) {
+    for _ in 0..count {
+        control.gpio_set(0, true).await;
+        Timer::after(duration).await;
+        control.gpio_set(0, false).await;
+        Timer::after(duration).await;
+    }
+    Timer::after(Duration::from_secs(1)).await;
 }
