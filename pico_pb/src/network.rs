@@ -87,7 +87,7 @@ impl RobotNetworkBehavior for Network {
         network: &str,
         password: Option<&str>,
     ) -> Result<(), <Self as RobotNetworkBehavior>::Error> {
-        info!("Joining network {}", network);
+        info!("Joining network {} with password {:?}", network, password);
 
         if let Some(password) = password {
             self.control.join_wpa2(network, password).await
@@ -203,15 +203,15 @@ pub async fn initialize_network(
     let mut pio = Pio::new(pio, Irqs);
     let spi = PioSpi::new(&mut pio.common, pio.sm0, pio.irq0, cs, dio, clk, dma);
 
-    // let fw = include_bytes!("../cyw43-firmware/43439A0.bin");
-    // let clm = include_bytes!("../cyw43-firmware/43439A0_clm.bin");
+    let fw = include_bytes!("../cyw43-firmware/43439A0.bin");
+    let clm = include_bytes!("../cyw43-firmware/43439A0_clm.bin");
 
     // To make flashing faster for development, you may want to flash the firmwares independently
     // at hardcoded addresses, instead of baking them into the program with `include_bytes!`:
     //     probe-rs download 43439A0.bin --format bin --chip RP2040 --base-address 0x10100000
     //     probe-rs download 43439A0_clm.bin --format bin --chip RP2040 --base-address 0x10140000
-    let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
-    let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
+    // let fw = unsafe { core::slice::from_raw_parts(0x10100000 as *const u8, 230321) };
+    // let clm = unsafe { core::slice::from_raw_parts(0x10140000 as *const u8, 4752) };
 
     static STATE: StaticCell<cyw43::State> = StaticCell::new();
     let state = STATE.init(cyw43::State::new());
@@ -224,6 +224,8 @@ pub async fn initialize_network(
         .await;
 
     info!("Wifi startup complete");
+
+    Timer::after_secs(1).await;
 
     let config = Config::dhcpv4(Default::default());
     // let config = Config::ipv4_static(embassy_net::StaticConfigV4 {

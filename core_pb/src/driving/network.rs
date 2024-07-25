@@ -81,9 +81,14 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
 
     loop {
         if network.wifi_is_connected().await.is_none() {
-            network
-                .connect_wifi("Fios-DwYj6", option_env!("WIFI_PASSWORD"))
-                .await?;
+            loop {
+                if let Ok(()) = network
+                    .connect_wifi("Fios-DwYj6", option_env!("WIFI_PASSWORD"))
+                    .await
+                {
+                    break;
+                }
+            }
             info!("{} network connected", name);
         }
 
