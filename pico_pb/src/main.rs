@@ -18,16 +18,16 @@ use crate::network::{initialize_network, Network, NETWORK_CHANNEL};
 use core_pb::driving::motors::motors_task;
 use core_pb::driving::network::network_task;
 use core_pb::driving::peripherals::peripherals_task;
-use core_pb::driving::{RobotInterTaskMessage, Task};
+use core_pb::driving::{info, RobotInterTaskMessage, Task};
 use core_pb::names::RobotName;
 use defmt::unwrap;
-#[allow(unused_imports)]
-// use panic_probe as _
 use defmt_rtt as _;
 use embassy_executor::Spawner;
 use embassy_rp::bind_interrupts;
 use embassy_rp::peripherals::{I2C0, PIO0};
+use embassy_rp::watchdog::Watchdog;
 use embassy_sync::channel::TrySendError;
+use embassy_time::{Duration, Timer};
 use panic_probe as _;
 
 bind_interrupts!(struct Irqs {
@@ -48,26 +48,38 @@ async fn send(
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
+    info!("Hello world!");
+
     let p = embassy_rp::init(Default::default());
 
-    let network = initialize_network(
-        spawner.clone(),
-        p.PIN_23,
-        p.PIN_25,
-        p.PIO0,
-        p.PIN_24,
-        p.PIN_29,
-        p.DMA_CH0,
-        p.FLASH,
-    )
-    .await;
+    // Override bootloader watchdog
+    let mut watchdog = Watchdog::new(p.WATCHDOG);
+    watchdog.start(Duration::from_secs(8));
 
-    unwrap!(spawner.spawn(do_wifi(network)));
-    unwrap!(spawner.spawn(do_motors(Motors::new(
-        (p.PIN_6, p.PIN_7, p.PIN_8, p.PIN_9, p.PIN_14, p.PIN_15),
-        (p.PWM_SLICE3, p.PWM_SLICE4, p.PWM_SLICE7)
-    ))));
-    unwrap!(spawner.spawn(do_i2c(RobotPeripherals::new(p.I2C0, p.PIN_17, p.PIN_16))));
+    // let network = initialize_network(
+    //     spawner.clone(),
+    //     p.PIN_23,
+    //     p.PIN_25,
+    //     p.PIO0,
+    //     p.PIN_24,
+    //     p.PIN_29,
+    //     p.DMA_CH0,
+    //     p.FLASH,
+    // )
+    // .await;
+    //
+    // unwrap!(spawner.spawn(do_wifi(network)));
+    // unwrap!(spawner.spawn(do_motors(Motors::new(
+    //     (p.PIN_6, p.PIN_7, p.PIN_8, p.PIN_9, p.PIN_14, p.PIN_15),
+    //     (p.PWM_SLICE3, p.PWM_SLICE4, p.PWM_SLICE7)
+    // ))));
+    // unwrap!(spawner.spawn(do_i2c(RobotPeripherals::new(p.I2C0, p.PIN_17, p.PIN_16))));
+
+    loop {
+        info!("I'm alive!");
+        watchdog.feed();
+        Timer::after_secs(1).await;
+    }
 }
 
 #[embassy_executor::task]

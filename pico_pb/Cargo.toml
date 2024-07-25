@@ -57,7 +57,7 @@ num-traits = { version = "0.2.18", default-features = false }
 smoltcp = { version = "0.11.0", default-features = false, features = ["defmt"] }
 
 [profile.release]
-lto = true
+debug = 2
 
 [profile.dev]
 lto = true

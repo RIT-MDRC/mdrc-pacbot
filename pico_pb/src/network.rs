@@ -269,7 +269,7 @@ pub async fn initialize_network(
     }
 }
 
-async fn blink<'a>(control: &mut Control<'a>, count: usize, duration: Duration) {
+pub async fn blink<'a>(control: &mut Control<'a>, count: usize, duration: Duration) {
     for _ in 0..count {
         control.gpio_set(0, true).await;
         Timer::after(duration).await;
