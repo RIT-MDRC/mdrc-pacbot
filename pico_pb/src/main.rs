@@ -16,7 +16,7 @@ use crate::i2c::{RobotPeripherals, PERIPHERALS_CHANNEL};
 use crate::motors::{Motors, MOTORS_CHANNEL};
 use crate::network::{initialize_network, Network, NETWORK_CHANNEL};
 use core_pb::driving::motors::motors_task;
-use core_pb::driving::network::network_task;
+use core_pb::driving::network::{network_task, RobotNetworkBehavior};
 use core_pb::driving::peripherals::peripherals_task;
 use core_pb::driving::{info, RobotInterTaskMessage, Task};
 use core_pb::names::RobotName;
@@ -56,7 +56,7 @@ async fn main(spawner: Spawner) {
     let mut watchdog = Watchdog::new(p.WATCHDOG);
     watchdog.start(Duration::from_secs(8));
 
-    let network = initialize_network(
+    let mut network = initialize_network(
         spawner.clone(),
         p.PIN_23,
         p.PIN_25,
@@ -68,11 +68,18 @@ async fn main(spawner: Spawner) {
     )
     .await;
 
+    let mac_address = network.mac_address().await;
+    let name = RobotName::from_mac_address(&mac_address).expect("Unrecognized mac address");
+    info!("I am {}, mac address {:?}", name, mac_address);
+
     unwrap!(spawner.spawn(do_wifi(network)));
-    unwrap!(spawner.spawn(do_motors(Motors::new(
-        (p.PIN_6, p.PIN_7, p.PIN_8, p.PIN_9, p.PIN_14, p.PIN_15),
-        (p.PWM_SLICE3, p.PWM_SLICE4, p.PWM_SLICE7)
-    ))));
+    unwrap!(spawner.spawn(do_motors(
+        name,
+        Motors::new(
+            (p.PIN_6, p.PIN_7, p.PIN_8, p.PIN_9, p.PIN_14, p.PIN_15),
+            (p.PWM_SLICE3, p.PWM_SLICE4, p.PWM_SLICE7)
+        )
+    )));
     unwrap!(spawner.spawn(do_i2c(RobotPeripherals::new(p.I2C0, p.PIN_17, p.PIN_16))));
 
     loop {
@@ -88,8 +95,8 @@ async fn do_wifi(network: Network) {
 }
 
 #[embassy_executor::task]
-async fn do_motors(motors: Motors<3>) {
-    unwrap!(motors_task(RobotName::Pierre, motors).await)
+async fn do_motors(name: RobotName, motors: Motors<3>) {
+    unwrap!(motors_task(name, motors).await)
 }
 
 #[embassy_executor::task]
