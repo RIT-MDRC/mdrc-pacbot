@@ -143,6 +143,10 @@ impl RobotNetworkBehavior for Network {
         socket.close()
     }
 
+    async fn prepare_firmware_update(&mut self) {
+        // let _ = self.updater.prepare_update();
+    }
+
     async fn write_firmware(&mut self, offset: usize, data: &[u8]) -> Result<(), Self::Error> {
         self.updater
             .write_firmware(offset, data)
@@ -166,6 +170,7 @@ impl RobotNetworkBehavior for Network {
     }
 
     async fn reboot(self) {
+        Timer::after_secs(3).await;
         cortex_m::peripheral::SCB::sys_reset();
     }
 

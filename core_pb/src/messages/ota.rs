@@ -79,7 +79,7 @@ impl OverTheAirStep {
     pub fn message(&self) -> String {
         match self {
             OverTheAirStep::GuiRequest => "GUI request".into(),
-            OverTheAirStep::RobotReadyConfirmation => "Robot ready confirmation".into(),
+            OverTheAirStep::RobotReadyConfirmation => "Robot prepare update".into(),
             OverTheAirStep::FetchBinary => "Fetch binary".into(),
             OverTheAirStep::DataTransfer { received, total } => format!(
                 "Upload ({received}/{total}, {:.1}%)",

@@ -2,6 +2,7 @@
 # will have compiled files and executables
 debug/
 target/
+pico_pb/latest.bin
 
 # Pacbot replay files
 replays/**/*.bin

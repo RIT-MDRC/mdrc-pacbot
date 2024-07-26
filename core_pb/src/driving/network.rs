@@ -52,6 +52,8 @@ pub trait RobotNetworkBehavior: RobotTask {
     /// Dispose of the current socket
     async fn tcp_close<'a>(&mut self, socket: Self::Socket<'a>);
 
+    async fn prepare_firmware_update(&mut self);
+
     /// See https://docs.embassy.dev/embassy-boot/git/default/struct.FirmwareUpdater.html#method.write_firmware
     async fn write_firmware(&mut self, offset: usize, data: &[u8]) -> Result<(), Self::Error>;
 
@@ -124,7 +126,8 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                                 let len = u32::from_be_bytes(buf4) as usize;
                                 info!("{} is receiving {} bytes", name, len);
                                 if let Ok(_) = socket.read_exact(&mut buf[..len]).await {
-                                    if let Ok(_) = network.write_firmware(offset, &buf).await {
+                                    if let Ok(_) = network.write_firmware(offset, &buf[..len]).await
+                                    {
                                         let _ = write(
                                             name,
                                             &mut socket,
@@ -174,6 +177,7 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                             .await;
                         }
                         Ok(ServerToRobotMessage::ReadyToStartUpdate) => {
+                            network.prepare_firmware_update().await;
                             info!("{} is ready for an update", name);
                             let _ =
                                 write(name, &mut socket, RobotToServerMessage::ReadyToStartUpdate)
