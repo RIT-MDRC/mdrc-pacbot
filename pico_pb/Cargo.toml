@@ -58,6 +58,7 @@ smoltcp = { version = "0.11.0", default-features = false, features = ["defmt"] }
 
 [profile.release]
 debug = 2
+opt-level = "z"
 
 [profile.dev]
 lto = true
