@@ -1,9 +1,8 @@
-use std::process::{Child, Command};
-
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::{ConnectionSettings, PacbotSettings};
 use core_pb::names::RobotName;
+use std::process::{Child, Command};
 
 use crate::network::manage_network;
 use crate::ota::OverTheAirProgramming;

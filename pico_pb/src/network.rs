@@ -136,6 +136,8 @@ impl RobotNetworkBehavior for Network {
             .map_err(|e| NetworkError::AcceptError(e))?;
         info!("Connection successful");
 
+        blink(&mut self.control, 1, Duration::from_millis(100)).await;
+
         Ok(socket)
     }
 

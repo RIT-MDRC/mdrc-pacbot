@@ -85,7 +85,7 @@ impl OverTheAirStep {
                 "Upload ({received}/{total}, {:.1}%)",
                 100.0 * *received as f32 / *total as f32
             ),
-            OverTheAirStep::HashConfirmation => "Matching hash".into(),
+            OverTheAirStep::HashConfirmation => "Matching hash (NOT CHECKED)".into(),
             OverTheAirStep::GuiConfirmation => "Gui go-ahead".into(),
             OverTheAirStep::MarkUpdateReady => "Mark update ready".into(),
             OverTheAirStep::Reboot => "Reboot robot".into(),

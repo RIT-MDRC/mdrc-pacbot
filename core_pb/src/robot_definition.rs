@@ -1,4 +1,4 @@
-use crate::constants::{INCHES_PER_GU, MM_PER_GU};
+use crate::constants::{GU_PER_INCH, GU_PER_M};
 use crate::drive_system::DriveSystem;
 use core::f32::consts::PI;
 use nalgebra::Rotation2;
@@ -27,8 +27,8 @@ impl Default for RobotDefinition<3> {
             radius: 0.715,
 
             drive_system: DriveSystem::new_omniwheel(
-                19.0 * MM_PER_GU,
-                2.1 * INCHES_PER_GU,
+                0.019 * GU_PER_M,
+                2.1 * GU_PER_INCH,
                 [0.0, 2.0 * PI / 3.0, 4.0 * PI / 3.0].map(|a| Rotation2::new(a)),
                 [true, true, true],
             )

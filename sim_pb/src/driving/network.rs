@@ -140,6 +140,8 @@ impl RobotNetworkBehavior for SimNetwork {
 
     async fn tcp_close<'a>(&mut self, _socket: Self::Socket<'a>) {}
 
+    async fn prepare_firmware_update(&mut self) {}
+
     async fn write_firmware(&mut self, _offset: usize, _data: &[u8]) -> Result<(), Self::Error> {
         sleep(Duration::from_millis(50)).await;
         Ok(())

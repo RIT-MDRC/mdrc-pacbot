@@ -7,7 +7,7 @@ default-run = "server_pb"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-core_pb = { path = "../core_pb" }
+core_pb = { path = "../core_pb", features = ["robot", "log"] }
 nalgebra = { version = "0.32.5", features = ["serde", "serde-serialize"] }
 num_enum = "0.7.2"
 ordered-float = "4.2.0"
