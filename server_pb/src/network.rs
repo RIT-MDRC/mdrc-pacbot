@@ -1,5 +1,11 @@
 use nalgebra::Vector2;
 
+use crate::ota::OverTheAirProgramming;
+use crate::sockets::Destination::*;
+use crate::sockets::Incoming::*;
+use crate::sockets::Outgoing::*;
+use crate::sockets::{Incoming, Outgoing, Sockets};
+use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::settings::PacbotSettings;
 use core_pb::messages::{
@@ -7,13 +13,7 @@ use core_pb::messages::{
     GAME_SERVER_MAGIC_NUMBER,
 };
 use core_pb::pacbot_rs::game_state::GameState;
-
-use crate::ota::OverTheAirProgramming;
-use crate::sockets::Destination::*;
-use crate::sockets::Incoming::*;
-use crate::sockets::Outgoing::*;
-use crate::sockets::{Incoming, Outgoing, Sockets};
-use crate::App;
+use core_pb::robot_definition::RobotDefinition;
 
 pub async fn manage_network() {
     let sockets = Sockets::spawn();
@@ -112,7 +112,12 @@ pub async fn manage_network() {
                 },
                 GuiToServerMessage::RobotVelocity(robot, vel) => {
                     let (lin, ang) = vel.unwrap_or((Vector2::zeros(), 0.0));
-                    println!("sending vel to robot..");
+                    println!(
+                        "sending vel {lin:?} {ang:?} = {:?} to robot..",
+                        RobotDefinition::default()
+                            .drive_system
+                            .get_motor_speed_omni(lin, ang)
+                    );
                     app.send(
                         Robot(robot),
                         ToRobot(ServerToRobotMessage::TargetVelocity(lin, ang)),

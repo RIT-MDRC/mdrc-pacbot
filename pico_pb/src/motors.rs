@@ -9,6 +9,7 @@ use embassy_rp::pwm;
 use embassy_rp::pwm::Pwm;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
+use num_traits::Signed;
 
 pub static MOTORS_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64> = Channel::new();
 
@@ -59,13 +60,15 @@ impl<const WHEELS: usize> RobotMotorsBehavior for Motors<WHEELS> {
     }
 
     async fn set_motor_speed(&mut self, index: usize, to: f32) {
-        if to == 0.0 {
+        // self.motor_io
+        //     .set_motor_speeds(index, self.pwm_top, self.pwm_top)
+        if to.abs() < 0.001 {
             self.motor_io
                 .set_motor_speeds(index, self.pwm_top, self.pwm_top)
         } else if to > 0.0 {
-            self.motor_io.set_motor_speeds(index, self.pwm_top, 0)
+            self.motor_io.set_motor_speeds(index, 0x2000, 0)
         } else {
-            self.motor_io.set_motor_speeds(index, 0, self.pwm_top)
+            self.motor_io.set_motor_speeds(index, 0, 0x2000)
         }
     }
 }
