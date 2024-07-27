@@ -1,4 +1,5 @@
-use crate::{send, Irqs};
+use crate::{receive_timeout, send, Irqs};
+use core::time::Duration;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use defmt::Format;
@@ -53,6 +54,13 @@ impl RobotTask for RobotPeripherals {
 
     async fn receive_message(&mut self) -> RobotInterTaskMessage {
         PERIPHERALS_CHANNEL.receive().await
+    }
+
+    async fn receive_message_timeout(
+        &mut self,
+        timeout: Duration,
+    ) -> Option<RobotInterTaskMessage> {
+        receive_timeout(&PERIPHERALS_CHANNEL, timeout).await
     }
 }
 

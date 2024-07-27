@@ -13,6 +13,10 @@ pub struct RobotDefinition<const WHEELS: usize> {
     pub drive_system: DriveSystem<WHEELS>,
     /// Describes physical characteristics of the motors
     pub motors: [WheelDefinition; WHEELS],
+    /// The maximum value for motor PWM pins
+    pub pwm_top: u16,
+    /// Which pwm pin corresponds to forwards and backwards for each motor - can change
+    pub default_motor_config: [[usize; 2]; WHEELS],
 
     /// Whether the robot should expect to have access to a screen
     pub has_screen: bool,
@@ -34,6 +38,8 @@ impl Default for RobotDefinition<3> {
             )
             .expect("Default robot drive definition couldn't be constructed"),
             motors: [WheelDefinition {}; 3],
+            pwm_top: 0x8000,
+            default_motor_config: [[0, 1], [2, 3], [4, 5]],
 
             has_screen: false,
         }

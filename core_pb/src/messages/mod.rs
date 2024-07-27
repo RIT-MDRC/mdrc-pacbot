@@ -57,6 +57,8 @@ pub enum ServerToRobotMessage {
     MarkFirmwareBooted,
     CancelFirmwareUpdate,
     TargetVelocity(Vector2<f32>, f32),
+    PwmOverride([[Option<u16>; 2]; 3]),
+    MotorConfig([[usize; 2]; 3]),
 }
 
 /// Firmware related items MUST remain first, or OTA programming will break

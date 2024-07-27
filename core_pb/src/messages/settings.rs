@@ -100,16 +100,10 @@ pub struct RobotSettings {
 
     /// P, I, and D parameters for the PID loop
     pub pid: [f32; 3],
-    /// Whether the robot will modify the requested velocity to avoid collisions
-    pub collision_avoidance: bool,
-    /// Minimum and maximum thresholds, in mm, for the distance at which the robot will modify the requested velocity to avoid collisions
-    pub collision_avoidance_thresholds: (u8, u8),
-    /// Distance sensor continuous range interval
-    ///
-    /// period = 0 means 10ms intervals. Then + 1 adds 10ms, so period = 2 means 30ms intervals.
-    pub sensor_range_interval: u8,
-    /// The maximum change in velocity, in gu/s/s, for the setpoint of the PID loop
-    pub max_accel: f32,
+    /// Which pwm pin corresponds to forwards and backwards for each motor
+    pub motor_config: [[usize; 2]; 3],
+    /// Overrides the outputs from wheel speed
+    pub pwm_override: [[Option<u16>; 2]; 3],
 }
 
 impl RobotSettings {
@@ -122,10 +116,8 @@ impl RobotSettings {
                 port: name.port(),
             },
             pid: [18.0, 0.1, 0.0],
-            collision_avoidance: true,
-            collision_avoidance_thresholds: (15, 130),
-            sensor_range_interval: 5,
-            max_accel: 1000.0,
+            motor_config: name.robot().default_motor_config,
+            pwm_override: [[None; 2]; 3],
         }
     }
 }

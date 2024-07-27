@@ -1,4 +1,4 @@
-use crate::{send, Irqs};
+use crate::{receive_timeout, send, Irqs};
 use core::cell::RefCell;
 use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
@@ -49,6 +49,13 @@ impl RobotTask for Network {
 
     async fn receive_message(&mut self) -> RobotInterTaskMessage {
         NETWORK_CHANNEL.receive().await
+    }
+
+    async fn receive_message_timeout(
+        &mut self,
+        timeout: core::time::Duration,
+    ) -> Option<RobotInterTaskMessage> {
+        receive_timeout(&NETWORK_CHANNEL, timeout).await
     }
 }
 

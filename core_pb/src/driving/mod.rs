@@ -2,6 +2,7 @@ pub mod motors;
 pub mod network;
 pub mod peripherals;
 
+use core::time::Duration;
 #[cfg(feature = "defmt")]
 pub use defmt::*;
 #[cfg(feature = "log")]
@@ -18,6 +19,8 @@ pub enum Task {
 /// Messages passed between the various tasks
 #[derive(Copy, Clone)]
 pub enum RobotInterTaskMessage {
+    MotorConfig([[usize; 2]; 3]),
+    PwmOverride([[Option<u16>; 2]; 3]),
     TargetVelocity(Vector2<f32>, f32),
 }
 
@@ -29,4 +32,10 @@ pub trait RobotTask {
 
     /// Receive a message from other tasks; may be cancelled
     async fn receive_message(&mut self) -> RobotInterTaskMessage;
+
+    /// Receive a message from other tasks
+    ///
+    /// If timeout has passed, return None
+    async fn receive_message_timeout(&mut self, timeout: Duration)
+        -> Option<RobotInterTaskMessage>;
 }

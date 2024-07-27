@@ -20,13 +20,17 @@ use core_pb::driving::network::{network_task, RobotNetworkBehavior};
 use core_pb::driving::peripherals::peripherals_task;
 use core_pb::driving::{info, RobotInterTaskMessage, Task};
 use core_pb::names::RobotName;
+use core_pb::robot_definition::RobotDefinition;
 use defmt::unwrap;
 use defmt_rtt as _;
 use embassy_executor::Spawner;
+use embassy_futures::select::select;
+use embassy_futures::select::Either;
 use embassy_rp::bind_interrupts;
 use embassy_rp::peripherals::{I2C0, PIO0};
 use embassy_rp::watchdog::Watchdog;
-use embassy_sync::channel::TrySendError;
+use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::channel::{Channel, TrySendError};
 use embassy_time::{Duration, Timer};
 use panic_probe as _;
 
@@ -76,8 +80,9 @@ async fn main(spawner: Spawner) {
     unwrap!(spawner.spawn(do_motors(
         name,
         Motors::new(
+            RobotDefinition::default(),
             (p.PIN_6, p.PIN_7, p.PIN_8, p.PIN_9, p.PIN_14, p.PIN_15),
-            (p.PWM_SLICE3, p.PWM_SLICE4, p.PWM_SLICE7)
+            (p.PWM_SLICE3, p.PWM_SLICE4, p.PWM_SLICE7),
         )
     )));
     unwrap!(spawner.spawn(do_i2c(RobotPeripherals::new(p.I2C0, p.PIN_17, p.PIN_16))));
@@ -102,4 +107,14 @@ async fn do_motors(name: RobotName, motors: Motors<3>) {
 #[embassy_executor::task]
 async fn do_i2c(i2c: RobotPeripherals) {
     unwrap!(peripherals_task(i2c).await)
+}
+
+async fn receive_timeout(
+    channel: &Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64>,
+    timeout: core::time::Duration,
+) -> Option<RobotInterTaskMessage> {
+    match select(channel.receive(), Timer::after(timeout.try_into().unwrap())).await {
+        Either::First(msg) => Some(msg),
+        Either::Second(_) => None,
+    }
 }

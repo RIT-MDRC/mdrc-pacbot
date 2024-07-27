@@ -1,12 +1,12 @@
-use core_pb::grid::computed_grid::ComputedGrid;
-use core_pb::messages::server_status::ServerStatus;
-use core_pb::messages::settings::{ConnectionSettings, PacbotSettings};
-use core_pb::names::RobotName;
-use std::process::{Child, Command};
-
 use crate::network::manage_network;
 use crate::ota::OverTheAirProgramming;
 use crate::sockets::{Destination, Outgoing, Sockets};
+use core_pb::grid::computed_grid::ComputedGrid;
+use core_pb::messages::server_status::ServerStatus;
+use core_pb::messages::settings::{ConnectionSettings, PacbotSettings};
+use core_pb::messages::ServerToRobotMessage;
+use core_pb::names::RobotName;
+use std::process::{Child, Command};
 
 pub mod network;
 mod ota;
@@ -86,12 +86,31 @@ impl App {
         .await;
 
         for name in RobotName::get_all() {
+            let id = name as usize;
             self.update_connection(
-                &old.robots[name as usize].connection,
-                &new.robots[name as usize].connection,
+                &old.robots[id].connection,
+                &new.robots[id].connection,
                 Destination::Robot(name),
             )
             .await;
+            if old.robots[id].motor_config != new.robots[id].motor_config {
+                self.send(
+                    Destination::Robot(name),
+                    Outgoing::ToRobot(ServerToRobotMessage::MotorConfig(
+                        new.robots[id].motor_config,
+                    )),
+                )
+                .await;
+            }
+            if old.robots[id].pwm_override != new.robots[id].pwm_override {
+                self.send(
+                    Destination::Robot(name),
+                    Outgoing::ToRobot(ServerToRobotMessage::PwmOverride(
+                        new.robots[id].pwm_override,
+                    )),
+                )
+                .await;
+            }
         }
 
         if new.simulation.simulate {

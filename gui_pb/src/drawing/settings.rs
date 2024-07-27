@@ -131,9 +131,9 @@ fn ipv4(
     )
 }
 
-fn dropdown<T: Debug + PartialEq + Clone>(
+pub fn dropdown<T: Debug + PartialEq + Clone>(
     ui: &mut Ui,
-    id: &str,
+    id: String,
     text: impl Into<WidgetText>,
     value: &mut T,
     options: &[T],
@@ -147,7 +147,6 @@ fn dropdown<T: Debug + PartialEq + Clone>(
                 ui.selectable_value(value, t.clone(), str);
             }
         });
-    ui.end_row();
 }
 
 fn collapsable_section(
@@ -228,16 +227,17 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
 
     dropdown(
         ui,
-        "selected_robot",
+        "selected_robot".to_string(),
         "Selected",
         &mut app.ui_settings.selected_robot,
         &RobotName::get_all(),
     );
+    ui.end_row();
 
     if app.settings.simulation.connection.connect {
         dropdown(
             ui,
-            "gs_robot",
+            "gs_robot".to_string(),
             "Pacman",
             &mut app.settings.simulation.pacman,
             &RobotName::get_all()
@@ -245,6 +245,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
                 .filter(|name| name.is_simulated())
                 .collect::<Vec<_>>(),
         );
+        ui.end_row();
     }
 
     ui.separator();
@@ -319,7 +320,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
 
     dropdown(
         ui,
-        "strategy",
+        "strategy".to_string(),
         "Strategy",
         &mut app.settings.driving.strategy,
         &[
@@ -328,4 +329,5 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
             StrategyChoice::TestForward,
         ],
     );
+    ui.end_row();
 }

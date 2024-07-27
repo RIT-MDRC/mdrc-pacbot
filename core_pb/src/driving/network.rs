@@ -111,6 +111,19 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                 loop {
                     match read(name, &mut socket).await {
                         Err(_) => break,
+                        Ok(ServerToRobotMessage::PwmOverride(overrides)) => {
+                            network
+                                .send_message(
+                                    RobotInterTaskMessage::PwmOverride(overrides),
+                                    Task::Motors,
+                                )
+                                .await
+                                .unwrap();
+                        }
+                        Ok(ServerToRobotMessage::MotorConfig(config)) => network
+                            .send_message(RobotInterTaskMessage::MotorConfig(config), Task::Motors)
+                            .await
+                            .unwrap(),
                         Ok(ServerToRobotMessage::TargetVelocity(lin, ang)) => network
                             .send_message(
                                 RobotInterTaskMessage::TargetVelocity(lin, ang),

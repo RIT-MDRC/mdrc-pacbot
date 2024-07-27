@@ -1,4 +1,5 @@
 use nalgebra::Vector2;
+use std::time::{Duration, Instant};
 
 use crate::ota::OverTheAirProgramming;
 use crate::sockets::Destination::*;
@@ -9,9 +10,10 @@ use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::settings::PacbotSettings;
 use core_pb::messages::{
-    GuiToServerMessage, NetworkStatus, ServerToGuiMessage, ServerToRobotMessage,
-    GAME_SERVER_MAGIC_NUMBER,
+    GuiToServerMessage, NetworkStatus, RobotToServerMessage, ServerToGuiMessage,
+    ServerToRobotMessage, GAME_SERVER_MAGIC_NUMBER,
 };
+use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
 use core_pb::robot_definition::RobotDefinition;
 
@@ -40,6 +42,8 @@ pub async fn manage_network() {
     app.update_settings(&PacbotSettings::default(), PacbotSettings::default())
         .await;
 
+    let mut previous_200ms_tick = Instant::now();
+
     loop {
         // if necessary, send updated settings to clients
         if app.settings_update_needed {
@@ -49,6 +53,28 @@ pub async fn manage_network() {
                 ToGui(ServerToGuiMessage::Settings(app.settings.clone())),
             )
             .await;
+        }
+
+        // frequently send motor commands to robots
+        if previous_200ms_tick.elapsed() > Duration::from_millis(200) {
+            previous_200ms_tick = Instant::now();
+            for name in RobotName::get_all() {
+                let id = name as usize;
+                // pwm overrides
+                if app.settings.robots[id]
+                    .pwm_override
+                    .iter()
+                    .any(|x| x[0].is_some() || x[1].is_some())
+                {
+                    app.send(
+                        Robot(name),
+                        ToRobot(ServerToRobotMessage::PwmOverride(
+                            app.settings.robots[id].pwm_override,
+                        )),
+                    )
+                    .await;
+                }
+            }
         }
 
         app.over_the_air_programming.tick(&mut app.status).await;
@@ -94,6 +120,16 @@ pub async fn manage_network() {
                 }
             }
             (_, FromSimulation(msg)) => println!("Message from simulation: {msg:?}"),
+            (Robot(name), FromRobot(RobotToServerMessage::Name(_))) => {
+                println!("Received name from {name}");
+                app.send(
+                    Robot(name),
+                    ToRobot(ServerToRobotMessage::MotorConfig(
+                        app.settings.robots[name as usize].motor_config,
+                    )),
+                )
+                .await;
+            }
             (Robot(name), FromRobot(msg)) => println!("Message received from {name}: {msg:?}"),
             (Robot(_), _) => {}
             (_, FromRobot(_)) => {}

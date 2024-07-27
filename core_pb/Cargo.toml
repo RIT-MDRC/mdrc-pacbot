@@ -5,7 +5,18 @@ edition = "2021"
 
 [features]
 default = ["std"]
-std = ["pacbot-rs/std", "nalgebra/std", "serde/std", "ordered-float/std", "bincode/std", "async-channel", "futures", "async-std", "async-tungstenite"]
+std = [
+    "pacbot-rs/std",
+    "nalgebra/std",
+    "serde/std",
+    "ordered-float/std",
+    "bincode/std",
+    "async-channel",
+    "async-std",
+    "async-tungstenite",
+    "futures/executor",
+    "futures/async-await"
+]
 wasm = ["pacbot-rs/wasm"]
 robot = ["heapless", "embedded-graphics", "nalgebra/libm-force"]
 
@@ -20,7 +31,7 @@ heapless = { version = "0.8.0", optional = true }
 log = { version = "0.4.22", optional = true }
 embedded-graphics = { version = "0.8.1", optional = true }
 async-channel = { version = "2.3.1", optional = true }
-futures = { version = "0.3.30", optional = true }
+futures = { version = "0.3.30", default-features = false }
 async-std = { version = "1.12.0", optional = true }
 embedded-io-async = "0.6.1"
 approx = "0.5.1"

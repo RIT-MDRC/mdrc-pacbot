@@ -1,4 +1,5 @@
 use crate::drawing::game::{draw_game, draw_grid};
+use crate::drawing::motors::draw_motors;
 use crate::drawing::over_the_air::draw_over_the_air;
 use crate::drawing::settings::draw_settings;
 use crate::transform::Transform;
@@ -14,6 +15,8 @@ pub enum Tab {
     Stopwatch,
     /// User settings
     Settings,
+    /// Motor configuration and testing
+    Motors,
     /// Robot view
     Robot,
     /// Keybindings
@@ -32,6 +35,7 @@ impl TabViewer for App {
             Tab::Grid => "Main Grid",
             Tab::Stopwatch => "Stopwatch",
             Tab::Settings => "Settings",
+            Tab::Motors => "Motors",
             Tab::Robot => "Robot",
             Tab::Keybindings => "Keybindings",
             Tab::OverTheAirProgramming => "OTA Programming",
@@ -72,12 +76,14 @@ impl TabViewer for App {
             }
             Tab::Settings => draw_settings(self, ui),
             Tab::OverTheAirProgramming => draw_over_the_air(self, ui),
+            Tab::Motors => draw_motors(self, ui),
             _ => {
                 ui.label(match tab {
                     Tab::Grid => "Main Grid",
                     Tab::Stopwatch => "Stopwatch",
                     Tab::Settings => "Settings",
                     Tab::Robot => "Robot",
+                    Tab::Motors => "Motors",
                     Tab::Keybindings => "Keybindings",
                     Tab::OverTheAirProgramming => "OTA Programming",
                     Tab::Unknown => "?",
