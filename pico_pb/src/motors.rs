@@ -1,4 +1,4 @@
-use crate::{receive_timeout, send};
+use crate::{receive_timeout, send_blocking2, send_or_drop2};
 use core::time::Duration;
 use core_pb::driving::motors::RobotMotorsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
@@ -48,8 +48,12 @@ impl Motors<3> {
 pub enum MotorError {}
 
 impl<const WHEELS: usize> RobotTask for Motors<WHEELS> {
-    async fn send_message(&mut self, message: RobotInterTaskMessage, to: Task) -> Result<(), ()> {
-        send(message, to).await.map_err(|_| ())
+    fn send_or_drop(&mut self, message: RobotInterTaskMessage, to: Task) -> bool {
+        send_or_drop2(message, to)
+    }
+
+    async fn send_blocking(&mut self, message: RobotInterTaskMessage, to: Task) {
+        send_blocking2(message, to).await
     }
 
     async fn receive_message(&mut self) -> RobotInterTaskMessage {

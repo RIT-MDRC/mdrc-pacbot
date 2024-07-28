@@ -1,4 +1,4 @@
-use crate::{receive_timeout, send, Irqs};
+use crate::{receive_timeout, send_blocking2, send_or_drop2, Irqs};
 use core::time::Duration;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
@@ -48,8 +48,12 @@ impl RobotPeripherals {
 pub enum I2cError {}
 
 impl RobotTask for RobotPeripherals {
-    async fn send_message(&mut self, message: RobotInterTaskMessage, to: Task) -> Result<(), ()> {
-        send(message, to).await.map_err(|_| ())
+    fn send_or_drop(&mut self, message: RobotInterTaskMessage, to: Task) -> bool {
+        send_or_drop2(message, to)
+    }
+
+    async fn send_blocking(&mut self, message: RobotInterTaskMessage, to: Task) {
+        send_blocking2(message, to).await
     }
 
     async fn receive_message(&mut self) -> RobotInterTaskMessage {

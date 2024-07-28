@@ -27,10 +27,15 @@ pub enum RobotInterTaskMessage {
 }
 
 pub trait RobotTask {
-    /// Send a message to all other tasks
+    /// Send a message to the given task
     ///
-    /// If the receiver's buffer is full, returns Err(())
-    async fn send_message(&mut self, message: RobotInterTaskMessage, to: Task) -> Result<(), ()>;
+    /// If the receiver's buffer is full, drops the message and returns false
+    fn send_or_drop(&mut self, message: RobotInterTaskMessage, to: Task) -> bool;
+
+    /// Send a message to the given task
+    ///
+    /// Blocks until the receiver's buffer has space
+    async fn send_blocking(&mut self, message: RobotInterTaskMessage, to: Task);
 
     /// Receive a message from other tasks; may be cancelled
     async fn receive_message(&mut self) -> RobotInterTaskMessage;

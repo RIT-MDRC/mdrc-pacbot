@@ -84,18 +84,13 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
         let time_to_wait = match time_to_wait {
             None => {
                 // just skip it if network buffer is full
-                let _ = data
-                    .motors
-                    .send_message(
-                        RobotInterTaskMessage::ToServer(RobotToServerMessage::MotorControlStatus(
-                            (
-                                data.motors.elapsed(&task_start),
-                                MotorControlStatus { pwm: data.pwm },
-                            ),
-                        )),
-                        Task::Wifi,
-                    )
-                    .await;
+                data.motors.send_or_drop(
+                    RobotInterTaskMessage::ToServer(RobotToServerMessage::MotorControlStatus((
+                        data.motors.elapsed(&task_start),
+                        MotorControlStatus { pwm: data.pwm },
+                    ))),
+                    Task::Wifi,
+                );
                 last_motor_control_status = data.motors.now();
                 run_pid_every
                     .checked_sub(data.motors.elapsed(&last_motor_control_status))

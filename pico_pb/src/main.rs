@@ -30,7 +30,7 @@ use embassy_rp::bind_interrupts;
 use embassy_rp::peripherals::{I2C0, PIO0};
 use embassy_rp::watchdog::Watchdog;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
-use embassy_sync::channel::{Channel, TrySendError};
+use embassy_sync::channel::Channel;
 use embassy_time::{Duration, Timer};
 use panic_probe as _;
 
@@ -39,14 +39,23 @@ bind_interrupts!(struct Irqs {
     I2C0_IRQ => embassy_rp::i2c::InterruptHandler<I2C0>;
 });
 
-async fn send(
-    message: RobotInterTaskMessage,
-    to: Task,
-) -> Result<(), TrySendError<RobotInterTaskMessage>> {
-    match to {
+fn send_or_drop2(message: RobotInterTaskMessage, to: Task) -> bool {
+    let result = match to {
         Task::Wifi => NETWORK_CHANNEL.try_send(message),
         Task::Motors => MOTORS_CHANNEL.try_send(message),
         Task::Peripherals => PERIPHERALS_CHANNEL.try_send(message),
+    };
+    match result {
+        Ok(_) => true,
+        Err(_) => false,
+    }
+}
+
+async fn send_blocking2(message: RobotInterTaskMessage, to: Task) {
+    match to {
+        Task::Wifi => NETWORK_CHANNEL.send(message).await,
+        Task::Motors => MOTORS_CHANNEL.send(message).await,
+        Task::Peripherals => PERIPHERALS_CHANNEL.send(message).await,
     }
 }
 

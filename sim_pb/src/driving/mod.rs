@@ -1,5 +1,4 @@
-use async_channel::unbounded;
-use async_channel::{Receiver, Sender};
+use async_channel::{bounded, Receiver, Sender, TrySendError};
 use async_std::task::sleep;
 use bevy::log::info;
 use bevy::tasks::block_on;
@@ -28,6 +27,8 @@ mod motors;
 mod network;
 mod peripherals;
 
+pub const CHANNEL_BUFFER_SIZE: usize = 64;
+
 pub struct SimRobot {
     #[allow(unused)]
     pub name: RobotName,
@@ -52,7 +53,7 @@ impl SimRobot {
         firmware_swapped: bool,
         sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
     ) -> Arc<RwLock<Self>> {
-        let (thread_stopper_tx, thread_stopper_rx) = unbounded();
+        let (thread_stopper_tx, thread_stopper_rx) = bounded(CHANNEL_BUFFER_SIZE);
 
         let robot = Arc::new(RwLock::new(Self {
             name,
@@ -159,8 +160,8 @@ impl TaskChannels {
         Receiver<(RobotInterTaskMessage, Task)>,
         Sender<RobotInterTaskMessage>,
     ) {
-        let (from_tx, from_rx) = async_channel::unbounded();
-        let (to_tx, to_rx) = async_channel::unbounded();
+        let (from_tx, from_rx) = bounded(CHANNEL_BUFFER_SIZE);
+        let (to_tx, to_rx) = bounded(CHANNEL_BUFFER_SIZE);
 
         (
             Self {
@@ -174,8 +175,16 @@ impl TaskChannels {
 }
 
 impl RobotTask for TaskChannels {
-    async fn send_message(&mut self, message: RobotInterTaskMessage, to: Task) -> Result<(), ()> {
-        self.tx.send((message, to)).await.map_err(|_| ())
+    fn send_or_drop(&mut self, message: RobotInterTaskMessage, to: Task) -> bool {
+        match self.tx.try_send((message, to)) {
+            Ok(_) => true,
+            Err(TrySendError::Closed(_)) => unreachable!(),
+            _ => false,
+        }
+    }
+
+    async fn send_blocking(&mut self, message: RobotInterTaskMessage, to: Task) {
+        self.tx.send((message, to)).await.unwrap();
     }
 
     async fn receive_message(&mut self) -> RobotInterTaskMessage {

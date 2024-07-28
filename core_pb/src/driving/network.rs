@@ -113,30 +113,32 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                 loop {
                     match next_event(name, &mut network, &mut socket).await {
                         Either::Right(RobotInterTaskMessage::ToServer(msg)) => {
-                            write(name, &mut socket, msg).await.unwrap();
+                            if let Err(_) = write(name, &mut socket, msg).await {
+                                break;
+                            }
                         }
                         Either::Right(_) => {}
                         Either::Left(Err(())) => break,
                         Either::Left(Ok(ServerToRobotMessage::PwmOverride(overrides))) => {
+                            network.send_or_drop(
+                                RobotInterTaskMessage::PwmOverride(overrides),
+                                Task::Motors,
+                            );
+                        }
+                        Either::Left(Ok(ServerToRobotMessage::MotorConfig(config))) => {
                             network
-                                .send_message(
-                                    RobotInterTaskMessage::PwmOverride(overrides),
+                                .send_blocking(
+                                    RobotInterTaskMessage::MotorConfig(config),
                                     Task::Motors,
                                 )
                                 .await
-                                .unwrap();
                         }
-                        Either::Left(Ok(ServerToRobotMessage::MotorConfig(config))) => network
-                            .send_message(RobotInterTaskMessage::MotorConfig(config), Task::Motors)
-                            .await
-                            .unwrap(),
-                        Either::Left(Ok(ServerToRobotMessage::TargetVelocity(lin, ang))) => network
-                            .send_message(
+                        Either::Left(Ok(ServerToRobotMessage::TargetVelocity(lin, ang))) => {
+                            network.send_or_drop(
                                 RobotInterTaskMessage::TargetVelocity(lin, ang),
                                 Task::Motors,
-                            )
-                            .await
-                            .unwrap(),
+                            );
+                        }
                         Either::Left(Ok(ServerToRobotMessage::FirmwareWritePart {
                             offset,
                             ..
@@ -227,25 +229,37 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
 async fn next_event<'a, T: RobotNetworkBehavior>(
     name: RobotName,
     network: &mut T,
-    socket: &mut T::Socket<'a>,
+    mut socket: &mut T::Socket<'a>,
 ) -> Either<Result<ServerToRobotMessage, ()>, RobotInterTaskMessage> {
-    match select(pin!(read(name, socket)), pin!(network.receive_message())).await {
-        Either::Left((msg, _)) => Either::Left(msg),
-        Either::Right((msg, _)) => Either::Right(msg),
-    }
+    // if the socket has data, we need to be sure to completely read it, or we'll only have half
+    // a message
+    let mut len_buf = [0; 4];
+    match select(
+        pin!(socket.read(&mut len_buf)),
+        pin!(network.receive_message()),
+    )
+    .await
+    {
+        Either::Left((read_result, _)) => match read_result {
+            Ok(4) => (),
+            _ => return Either::Left(Err(())),
+        },
+        Either::Right((msg, _)) => return Either::Right(msg),
+    };
+    // after dropping future
+    let len = u32::from_be_bytes(len_buf) as usize;
+    Either::Left(read_rest(name, &mut socket, len).await)
 }
 
-async fn read<T: Read>(_name: RobotName, network: &mut T) -> Result<ServerToRobotMessage, ()> {
+async fn read_rest<T: Read>(
+    _name: RobotName,
+    network: &mut T,
+    len: usize,
+) -> Result<ServerToRobotMessage, ()> {
     let mut buf = [0; 6000];
 
     // info!("{} listening for message...", name);
-    // first read the length of the message (u32)
-    let mut len_buf = [0; 4];
-    match network.read(&mut len_buf).await {
-        Ok(4) => (),
-        _ => return Err(()),
-    }
-    let len = u32::from_be_bytes(len_buf) as usize;
+    // after read the length of the message (u32)
     // info!("{} got length {}", name, len);
     // then read the message
     if len > buf.len() {

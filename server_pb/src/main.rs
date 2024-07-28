@@ -1,6 +1,7 @@
 use crate::network::manage_network;
 use crate::ota::OverTheAirProgramming;
 use crate::sockets::{Destination, Outgoing, Sockets};
+use core_pb::bin_encode;
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::{ConnectionSettings, PacbotSettings};

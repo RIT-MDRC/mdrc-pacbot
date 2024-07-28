@@ -38,8 +38,12 @@ impl SimMotors {
 pub enum SimMotorsError {}
 
 impl RobotTask for SimMotors {
-    async fn send_message(&mut self, message: RobotInterTaskMessage, to: Task) -> Result<(), ()> {
-        self.channels.send_message(message, to).await
+    fn send_or_drop(&mut self, message: RobotInterTaskMessage, to: Task) -> bool {
+        self.channels.send_or_drop(message, to)
+    }
+
+    async fn send_blocking(&mut self, message: RobotInterTaskMessage, to: Task) {
+        self.channels.send_blocking(message, to).await
     }
 
     async fn receive_message(&mut self) -> RobotInterTaskMessage {
