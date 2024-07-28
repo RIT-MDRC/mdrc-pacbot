@@ -12,6 +12,8 @@ use embassy_rp::pwm::Pwm;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_time::Instant;
+use fixed::types::extra::U4;
+use fixed::FixedU16;
 
 pub static MOTORS_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64> = Channel::new();
 
@@ -28,6 +30,7 @@ impl Motors<3> {
     ) -> Self {
         let mut pwm_config = pwm::Config::default();
         pwm_config.top = robot.pwm_top;
+        pwm_config.divider = FixedU16::<U4>::from_num(0.7);
 
         let pins = [
             Pwm::new_output_ab(pwm.0, pwm_pins.0, pwm_pins.1, pwm_config.clone()),

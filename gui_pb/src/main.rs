@@ -184,7 +184,7 @@ impl App {
                 self.settings.clone(),
             )));
         }
-        if let Some(TextOrT::T(msg)) = self.network.0.read() {
+        while let Some(TextOrT::T(msg)) = self.network.0.read() {
             match msg {
                 ServerToGuiMessage::Settings(settings) => {
                     self.settings = settings.clone();
