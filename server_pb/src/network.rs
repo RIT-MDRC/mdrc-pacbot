@@ -122,13 +122,13 @@ pub async fn manage_network() {
             (_, FromSimulation(msg)) => println!("Message from simulation: {msg:?}"),
             (Robot(name), FromRobot(RobotToServerMessage::Name(_))) => {
                 println!("Received name from {name}");
-                app.send(
-                    Robot(name),
-                    ToRobot(ServerToRobotMessage::MotorConfig(
-                        app.settings.robots[name as usize].motor_config,
-                    )),
-                )
-                .await;
+                // app.send(
+                //     Robot(name),
+                //     ToRobot(ServerToRobotMessage::MotorConfig(
+                //         app.settings.robots[name as usize].motor_config,
+                //     )),
+                // )
+                // .await;
             }
             (Robot(name), FromRobot(msg)) => println!("Message received from {name}: {msg:?}"),
             (Robot(_), _) => {}
@@ -146,19 +146,19 @@ pub async fn manage_network() {
                         }
                     }
                 },
-                GuiToServerMessage::RobotVelocity(robot, vel) => {
-                    let (lin, ang) = vel.unwrap_or((Vector2::zeros(), 0.0));
-                    println!(
-                        "sending vel {lin:?} {ang:?} = {:?} to robot..",
-                        RobotDefinition::default()
-                            .drive_system
-                            .get_motor_speed_omni(lin, ang)
-                    );
-                    app.send(
-                        Robot(robot),
-                        ToRobot(ServerToRobotMessage::TargetVelocity(lin, ang)),
-                    )
-                    .await
+                GuiToServerMessage::RobotVelocity(_robot, _vel) => {
+                    // let (lin, ang) = vel.unwrap_or((Vector2::zeros(), 0.0));
+                    // println!(
+                    //     "sending vel {lin:?} {ang:?} = {:?} to robot..",
+                    //     RobotDefinition::default()
+                    //         .drive_system
+                    //         .get_motor_speed_omni(lin, ang)
+                    // );
+                    // app.send(
+                    //     Robot(robot),
+                    //     ToRobot(ServerToRobotMessage::TargetVelocity(lin, ang)),
+                    // )
+                    // .await
                 }
                 _ => {}
             },

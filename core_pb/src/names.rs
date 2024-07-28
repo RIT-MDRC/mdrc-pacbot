@@ -154,7 +154,13 @@ impl RobotName {
 
     /// The characteristics of this robot
     pub fn robot(&self) -> RobotDefinition<3> {
-        RobotDefinition::default()
+        let mut robot = RobotDefinition::default();
+        robot.default_motor_config = if self.is_simulated() {
+            [[0, 1], [2, 3], [4, 5]]
+        } else {
+            [[5, 4], [3, 2], [1, 0]]
+        };
+        robot
     }
 }
 

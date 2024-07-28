@@ -39,6 +39,7 @@ impl Default for RobotDefinition<3> {
             .expect("Default robot drive definition couldn't be constructed"),
             motors: [WheelDefinition {}; 3],
             pwm_top: 0x8000,
+            // overriden by `RobotName::robot()`
             default_motor_config: [[0, 1], [2, 3], [4, 5]],
 
             has_screen: false,

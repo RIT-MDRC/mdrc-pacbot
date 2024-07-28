@@ -102,15 +102,6 @@ impl App {
                 )
                 .await;
             }
-            if old.robots[id].pwm_override != new.robots[id].pwm_override {
-                self.send(
-                    Destination::Robot(name),
-                    Outgoing::ToRobot(ServerToRobotMessage::PwmOverride(
-                        new.robots[id].pwm_override,
-                    )),
-                )
-                .await;
-            }
         }
 
         if new.simulation.simulate {

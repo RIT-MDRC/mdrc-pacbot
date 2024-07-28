@@ -1,21 +1,23 @@
-use std::fmt::Debug;
-use std::future::Future;
-use std::sync::{Arc, RwLock};
-use std::thread::spawn;
-
 use async_channel::unbounded;
 use async_channel::{Receiver, Sender};
+use async_std::task::sleep;
 use bevy::log::info;
 use bevy::tasks::block_on;
-use embedded_graphics::mock_display::MockDisplay;
-use embedded_graphics::pixelcolor::BinaryColor;
-use futures::{select, FutureExt};
-
 use core_pb::driving::motors::motors_task;
 use core_pb::driving::network::network_task;
 use core_pb::driving::peripherals::peripherals_task;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use core_pb::names::RobotName;
+use embedded_graphics::mock_display::MockDisplay;
+use embedded_graphics::pixelcolor::BinaryColor;
+use futures::future::{select, Either};
+use futures::{select, FutureExt};
+use std::fmt::Debug;
+use std::future::Future;
+use std::pin::pin;
+use std::sync::{Arc, RwLock};
+use std::thread::spawn;
+use std::time::Duration;
 
 use crate::driving::motors::SimMotors;
 use crate::driving::network::SimNetwork;
@@ -181,6 +183,16 @@ impl RobotTask for TaskChannels {
             if let Ok(m) = self.rx.recv().await {
                 return m;
             }
+        }
+    }
+
+    async fn receive_message_timeout(
+        &mut self,
+        timeout: Duration,
+    ) -> Option<RobotInterTaskMessage> {
+        match select(pin!(sleep(timeout)), pin!(self.rx.recv())).await {
+            Either::Left(_) => None,
+            Either::Right(msg) => Some(msg.0.unwrap()),
         }
     }
 }

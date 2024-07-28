@@ -4,6 +4,7 @@ use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use embedded_graphics::mock_display::MockDisplay;
 use embedded_graphics::pixelcolor::BinaryColor;
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
 
 pub struct SimPeripherals {
     robot: Arc<RwLock<SimRobot>>,
@@ -26,6 +27,13 @@ impl RobotTask for SimPeripherals {
 
     async fn receive_message(&mut self) -> RobotInterTaskMessage {
         self.channels.receive_message().await
+    }
+
+    async fn receive_message_timeout(
+        &mut self,
+        timeout: Duration,
+    ) -> Option<RobotInterTaskMessage> {
+        self.channels.receive_message_timeout(timeout).await
     }
 }
 

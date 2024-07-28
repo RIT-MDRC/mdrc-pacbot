@@ -76,6 +76,13 @@ impl RobotTask for SimNetwork {
     async fn receive_message(&mut self) -> RobotInterTaskMessage {
         self.channels.receive_message().await
     }
+
+    async fn receive_message_timeout(
+        &mut self,
+        timeout: Duration,
+    ) -> Option<RobotInterTaskMessage> {
+        self.channels.receive_message_timeout(timeout).await
+    }
 }
 
 impl RobotNetworkBehavior for SimNetwork {

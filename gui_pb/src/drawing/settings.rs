@@ -25,7 +25,7 @@ pub struct UiSettings {
 impl Default for UiSettings {
     fn default() -> Self {
         Self {
-            selected_robot: RobotName::Stella,
+            selected_robot: RobotName::Pierre,
 
             mdrc_server: ConnectionSettings {
                 connect: true,

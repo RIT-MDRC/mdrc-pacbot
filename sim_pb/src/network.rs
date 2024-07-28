@@ -154,8 +154,10 @@ impl PacbotNetworkSimulation {
         while let Ok((name, msg)) = app.from_robots.1.try_recv() {
             match msg {
                 RobotToSimulationMessage::SimulatedVelocity(lin, ang) => {
-                    println!("Received target velocity: {lin:?} {ang:?}");
-                    app.server_target_vel[name as usize] = Some((lin, ang))
+                    if Some((lin, ang)) != app.server_target_vel[name as usize] {
+                        println!("Received target velocity: {lin:?} {ang:?}");
+                        app.server_target_vel[name as usize] = Some((lin, ang))
+                    }
                 }
                 RobotToSimulationMessage::MarkFirmwareUpdated => {
                     if let Some((_, sim_robot)) = &mut app.robots[name as usize] {
