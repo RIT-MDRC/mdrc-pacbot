@@ -25,6 +25,8 @@ pub trait RobotMotorsBehavior: RobotTask {
     /// - 0 <= pin < 2*WHEELS
     /// - 0 <= to <= [`robot_definition.pwm_max`]
     async fn set_pwm(&mut self, pin: usize, to: u16);
+
+    async fn get_motor_speed(&mut self, motor: usize) -> f32;
 }
 
 #[allow(dead_code)]
@@ -84,10 +86,18 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
         let time_to_wait = match time_to_wait {
             None => {
                 // just skip it if network buffer is full
+                let measured_speeds = [
+                    data.motors.get_motor_speed(0).await,
+                    data.motors.get_motor_speed(1).await,
+                    data.motors.get_motor_speed(2).await,
+                ];
                 data.motors.send_or_drop(
                     RobotInterTaskMessage::ToServer(RobotToServerMessage::MotorControlStatus((
                         data.motors.elapsed(&task_start),
-                        MotorControlStatus { pwm: data.pwm },
+                        MotorControlStatus {
+                            pwm: data.pwm,
+                            measured_speeds,
+                        },
                     ))),
                     Task::Wifi,
                 );

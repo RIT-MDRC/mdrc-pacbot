@@ -10,6 +10,7 @@ pub struct MotorStatusGraphFrames<const WHEELS: usize> {
     first_x: Option<f64>,
     last_x: f64,
     pwm: [[Vec<[f64; 2]>; 2]; WHEELS],
+    speeds: [Vec<[f64; 2]>; WHEELS],
 }
 
 impl<const WHEELS: usize> MotorStatusGraphFrames<WHEELS> {
@@ -17,6 +18,7 @@ impl<const WHEELS: usize> MotorStatusGraphFrames<WHEELS> {
         Self {
             name,
             pwm: [0; WHEELS].map(|_| [vec![], vec![]]),
+            speeds: [0; WHEELS].map(|_| vec![]),
             first_x: None,
             last_x: 0.0,
         }
@@ -141,6 +143,7 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                 x,
                 status.pwm[i][1] as f64 / app.ui_settings.selected_robot.robot().pwm_top as f64,
             ]);
+            app.motor_status_frames.speeds[i].push([x, status.measured_speeds[i] as f64]);
         }
     }
 
@@ -162,7 +165,7 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                 }
                 plot_ui.points(Points::new(extra_points).color(app.background_color));
                 plot_ui.line(
-                    Line::new(PlotPoints::new(vec![]))
+                    Line::new(PlotPoints::new(app.motor_status_frames.speeds[m].clone()))
                         .name(format!("{m} Speed"))
                         .color(color.0),
                 );

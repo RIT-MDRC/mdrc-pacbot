@@ -90,4 +90,8 @@ impl RobotMotorsBehavior for SimMotors {
                 .unwrap();
         }
     }
+
+    async fn get_motor_speed(&mut self, motor: usize) -> f32 {
+        self.motor_speeds[motor]
+    }
 }

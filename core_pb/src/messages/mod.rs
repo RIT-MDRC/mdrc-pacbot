@@ -65,6 +65,7 @@ pub enum ServerToRobotMessage {
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MotorControlStatus {
     pub pwm: [[u16; 2]; 3],
+    pub measured_speeds: [f32; 3],
 }
 
 /// Firmware related items MUST remain first, or OTA programming will break
