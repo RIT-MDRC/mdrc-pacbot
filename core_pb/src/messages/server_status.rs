@@ -1,8 +1,9 @@
 use crate::messages::ota::{OverTheAirStep, OverTheAirStepCompletion};
-use crate::messages::NetworkStatus;
+use crate::messages::{MotorControlStatus, NetworkStatus};
 use crate::names::{RobotName, NUM_ROBOT_NAMES};
 use pacbot_rs::game_state::GameState;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ServerStatus {
@@ -31,13 +32,15 @@ impl Default for ServerStatus {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialOrd, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RobotStatus {
     pub name: RobotName,
     pub connection: NetworkStatus,
 
     pub ota_current: OverTheAirStep,
     pub ota_completed: Vec<OverTheAirStepCompletion>,
+
+    pub last_motor_status: (Duration, MotorControlStatus),
 }
 
 impl RobotStatus {
@@ -48,6 +51,8 @@ impl RobotStatus {
 
             ota_current: OverTheAirStep::GuiRequest,
             ota_completed: vec![],
+
+            last_motor_status: Default::default(),
         }
     }
 }

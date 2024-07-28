@@ -5,7 +5,7 @@ use core_pb::drive_system::DriveSystem;
 use core_pb::driving::motors::RobotMotorsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use core_pb::names::RobotName;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub struct SimMotors {
     name: RobotName,
@@ -57,23 +57,33 @@ impl RobotTask for SimMotors {
 impl RobotMotorsBehavior for SimMotors {
     type Error = SimMotorsError;
 
+    type Instant = Instant;
+    fn now(&self) -> Self::Instant {
+        Instant::now()
+    }
+    fn elapsed(&self, instant: &Self::Instant) -> Duration {
+        instant.elapsed()
+    }
+
     fn do_pid(&self) -> bool {
         false
     }
 
     async fn set_pwm(&mut self, pin: usize, to: u16) {
         let motor = pin / 2;
-        self.pwm_values[motor][pin % 2] = to;
-        self.motor_speeds[motor] = (self.pwm_values[motor][0] as f32
-            - self.pwm_values[motor][1] as f32)
-            / self.name.robot().pwm_top as f32;
-        let (lin, ang) = self.drive_system.get_actual_vel_omni(self.motor_speeds);
-        self.sim_tx
-            .send((
-                self.name,
-                RobotToSimulationMessage::SimulatedVelocity(lin, ang),
-            ))
-            .await
-            .unwrap();
+        if self.pwm_values[motor][pin % 2] != to {
+            self.pwm_values[motor][pin % 2] = to;
+            self.motor_speeds[motor] = (self.pwm_values[motor][0] as f32
+                - self.pwm_values[motor][1] as f32)
+                / self.name.robot().pwm_top as f32;
+            let (lin, ang) = self.drive_system.get_actual_vel_omni(self.motor_speeds);
+            self.sim_tx
+                .send((
+                    self.name,
+                    RobotToSimulationMessage::SimulatedVelocity(lin, ang),
+                ))
+                .await
+                .unwrap();
+        }
     }
 }

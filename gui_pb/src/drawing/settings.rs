@@ -13,6 +13,7 @@ use std::str::FromStr;
 
 pub struct UiSettings {
     pub selected_robot: RobotName,
+    pub any_robot_has_been_selected: bool,
 
     pub mdrc_server: ConnectionSettings,
 
@@ -20,12 +21,15 @@ pub struct UiSettings {
     pub simulation_collapsed: bool,
     pub game_server_collapsed: bool,
     pub robots_collapsed: [bool; NUM_ROBOT_NAMES],
+
+    pub record_motor_data: bool,
 }
 
 impl Default for UiSettings {
     fn default() -> Self {
         Self {
             selected_robot: RobotName::Pierre,
+            any_robot_has_been_selected: false,
 
             mdrc_server: ConnectionSettings {
                 connect: true,
@@ -37,6 +41,8 @@ impl Default for UiSettings {
             simulation_collapsed: true,
             game_server_collapsed: true,
             robots_collapsed: [true; 5],
+
+            record_motor_data: false,
         }
     }
 }
@@ -285,6 +291,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
     ui.separator();
     ui.end_row();
 
+    let mut any_robot_enabled = None;
     for name in RobotName::get_all() {
         generic_server(
             ui,
@@ -294,6 +301,15 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
             &mut app.ui_settings.robots_collapsed[name as usize],
             &app.server_status.robots[name as usize].connection,
         );
+        if app.settings.robots[name as usize].connection.connect {
+            any_robot_enabled = Some(name);
+        }
+    }
+    if let Some(name) = any_robot_enabled {
+        if !app.ui_settings.any_robot_has_been_selected {
+            app.ui_settings.selected_robot = name;
+            app.ui_settings.any_robot_has_been_selected = true;
+        }
     }
 
     ui.separator();

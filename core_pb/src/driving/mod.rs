@@ -2,6 +2,7 @@ pub mod motors;
 pub mod network;
 pub mod peripherals;
 
+use crate::messages::RobotToServerMessage;
 use core::time::Duration;
 #[cfg(feature = "defmt")]
 pub use defmt::*;
@@ -17,9 +18,10 @@ pub enum Task {
 }
 
 /// Messages passed between the various tasks
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub enum RobotInterTaskMessage {
     MotorConfig([[usize; 2]; 3]),
+    ToServer(RobotToServerMessage),
     PwmOverride([[Option<u16>; 2]; 3]),
     TargetVelocity(Vector2<f32>, f32),
 }

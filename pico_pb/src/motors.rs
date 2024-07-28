@@ -11,6 +11,7 @@ use embassy_rp::pwm;
 use embassy_rp::pwm::Pwm;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
+use embassy_time::Instant;
 
 pub static MOTORS_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64> = Channel::new();
 
@@ -65,6 +66,14 @@ impl<const WHEELS: usize> RobotTask for Motors<WHEELS> {
 
 impl<const WHEELS: usize> RobotMotorsBehavior for Motors<WHEELS> {
     type Error = MotorError;
+
+    type Instant = Instant;
+    fn elapsed(&self, instant: &Self::Instant) -> Duration {
+        instant.elapsed().into()
+    }
+    fn now(&self) -> Self::Instant {
+        Instant::now()
+    }
 
     fn do_pid(&self) -> bool {
         false

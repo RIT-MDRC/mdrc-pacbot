@@ -2,7 +2,9 @@ use crate::driving::{info, RobotInterTaskMessage, RobotTask, Task};
 use crate::messages::{RobotToServerMessage, ServerToRobotMessage};
 use crate::names::RobotName;
 use core::fmt::Debug;
+use core::pin::pin;
 use embedded_io_async::{Read, Write};
+use futures::future::{select, Either};
 use heapless::Vec;
 
 #[derive(Copy, Clone)]
@@ -109,9 +111,13 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                 info!("{} sent name", name);
 
                 loop {
-                    match read(name, &mut socket).await {
-                        Err(_) => break,
-                        Ok(ServerToRobotMessage::PwmOverride(overrides)) => {
+                    match next_event(name, &mut network, &mut socket).await {
+                        Either::Right(RobotInterTaskMessage::ToServer(msg)) => {
+                            write(name, &mut socket, msg).await.unwrap();
+                        }
+                        Either::Right(_) => {}
+                        Either::Left(Err(())) => break,
+                        Either::Left(Ok(ServerToRobotMessage::PwmOverride(overrides))) => {
                             network
                                 .send_message(
                                     RobotInterTaskMessage::PwmOverride(overrides),
@@ -120,18 +126,21 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                                 .await
                                 .unwrap();
                         }
-                        Ok(ServerToRobotMessage::MotorConfig(config)) => network
+                        Either::Left(Ok(ServerToRobotMessage::MotorConfig(config))) => network
                             .send_message(RobotInterTaskMessage::MotorConfig(config), Task::Motors)
                             .await
                             .unwrap(),
-                        Ok(ServerToRobotMessage::TargetVelocity(lin, ang)) => network
+                        Either::Left(Ok(ServerToRobotMessage::TargetVelocity(lin, ang))) => network
                             .send_message(
                                 RobotInterTaskMessage::TargetVelocity(lin, ang),
                                 Task::Motors,
                             )
                             .await
                             .unwrap(),
-                        Ok(ServerToRobotMessage::FirmwareWritePart { offset, .. }) => {
+                        Either::Left(Ok(ServerToRobotMessage::FirmwareWritePart {
+                            offset,
+                            ..
+                        })) => {
                             let mut buf4 = [0; 4];
                             let mut buf = [0; 4096];
                             // the first number should be 4096
@@ -154,14 +163,14 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                                 }
                             }
                         }
-                        Ok(ServerToRobotMessage::CalculateFirmwareHash(len)) => {
+                        Either::Left(Ok(ServerToRobotMessage::CalculateFirmwareHash(len))) => {
                             let mut buf = Default::default();
                             network.hash_firmware(len, &mut buf).await;
                             let _ =
                                 write(name, &mut socket, RobotToServerMessage::FirmwareHash(buf))
                                     .await;
                         }
-                        Ok(ServerToRobotMessage::MarkFirmwareUpdated) => {
+                        Either::Left(Ok(ServerToRobotMessage::MarkFirmwareUpdated)) => {
                             network.mark_firmware_updated().await;
                             let _ = write(
                                 name,
@@ -170,7 +179,7 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                             )
                             .await;
                         }
-                        Ok(ServerToRobotMessage::IsFirmwareSwapped) => {
+                        Either::Left(Ok(ServerToRobotMessage::IsFirmwareSwapped)) => {
                             let _ = write(
                                 name,
                                 &mut socket,
@@ -180,7 +189,7 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                             )
                             .await;
                         }
-                        Ok(ServerToRobotMessage::MarkFirmwareBooted) => {
+                        Either::Left(Ok(ServerToRobotMessage::MarkFirmwareBooted)) => {
                             network.mark_firmware_booted().await;
                             let _ = write(
                                 name,
@@ -189,14 +198,14 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                             )
                             .await;
                         }
-                        Ok(ServerToRobotMessage::ReadyToStartUpdate) => {
+                        Either::Left(Ok(ServerToRobotMessage::ReadyToStartUpdate)) => {
                             network.prepare_firmware_update().await;
                             info!("{} is ready for an update", name);
                             let _ =
                                 write(name, &mut socket, RobotToServerMessage::ReadyToStartUpdate)
                                     .await;
                         }
-                        Ok(ServerToRobotMessage::Reboot) => {
+                        Either::Left(Ok(ServerToRobotMessage::Reboot)) => {
                             if let Ok(_) =
                                 write(name, &mut socket, RobotToServerMessage::Rebooting).await
                             {
@@ -204,7 +213,7 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                                 unreachable!("o7")
                             }
                         }
-                        Ok(ServerToRobotMessage::CancelFirmwareUpdate) => {}
+                        Either::Left(Ok(ServerToRobotMessage::CancelFirmwareUpdate)) => {}
                     }
                 }
             }
@@ -215,10 +224,21 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
     }
 }
 
-async fn read<T: Read>(name: RobotName, network: &mut T) -> Result<ServerToRobotMessage, ()> {
+async fn next_event<'a, T: RobotNetworkBehavior>(
+    name: RobotName,
+    network: &mut T,
+    socket: &mut T::Socket<'a>,
+) -> Either<Result<ServerToRobotMessage, ()>, RobotInterTaskMessage> {
+    match select(pin!(read(name, socket)), pin!(network.receive_message())).await {
+        Either::Left((msg, _)) => Either::Left(msg),
+        Either::Right((msg, _)) => Either::Right(msg),
+    }
+}
+
+async fn read<T: Read>(_name: RobotName, network: &mut T) -> Result<ServerToRobotMessage, ()> {
     let mut buf = [0; 6000];
 
-    info!("{} listening for message...", name);
+    // info!("{} listening for message...", name);
     // first read the length of the message (u32)
     let mut len_buf = [0; 4];
     match network.read(&mut len_buf).await {
@@ -226,11 +246,14 @@ async fn read<T: Read>(name: RobotName, network: &mut T) -> Result<ServerToRobot
         _ => return Err(()),
     }
     let len = u32::from_be_bytes(len_buf) as usize;
-    info!("{} got length {}", name, len);
+    // info!("{} got length {}", name, len);
     // then read the message
+    if len > buf.len() {
+        return Err(());
+    }
     match network.read_exact(&mut buf[..len]).await {
         Ok(()) => {
-            info!("{} received message of length {}", name, len);
+            // info!("{} received message of length {}", name, len);
             match bincode::serde::decode_from_slice(&buf[..len], bincode::config::standard()) {
                 Ok((msg, _)) => Ok(msg),
                 Err(_) => {
@@ -271,7 +294,7 @@ async fn write<T: Write>(
         return Err(());
     }
 
-    info!("{} sent message of length {}", name, len);
+    // info!("{} sent message of length {}", name, len);
 
     Ok(())
 }

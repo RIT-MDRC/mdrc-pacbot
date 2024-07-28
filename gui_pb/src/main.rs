@@ -17,6 +17,7 @@ use eframe::egui;
 use eframe::egui::{Align, Color32, Pos2};
 use egui_dock::{DockArea, DockState, NodeIndex, Style};
 // todo use native_dialog::FileDialog;
+use crate::drawing::motors::MotorStatusGraphFrames;
 use crate::drawing::settings::UiSettings;
 use core_pb::console_log;
 #[cfg(target_arch = "wasm32")]
@@ -94,6 +95,7 @@ pub struct App {
     settings: PacbotSettings,
     ui_settings: UiSettings,
     target_vel: Option<(Vector2<f32>, f32)>,
+    motor_status_frames: MotorStatusGraphFrames<3>,
 
     rotated_grid: bool,
     settings_fields: Option<HashMap<String, (String, String)>>,
@@ -131,6 +133,8 @@ impl App {
             vec![Tab::OverTheAirProgramming, Tab::Keybindings],
         );
 
+        let ui_settings: UiSettings = Default::default();
+
         Self {
             dock_state: Some(dock_state),
 
@@ -152,7 +156,8 @@ impl App {
             ),
             old_settings: Default::default(),
             settings: Default::default(),
-            ui_settings: Default::default(),
+            motor_status_frames: MotorStatusGraphFrames::new(ui_settings.selected_robot),
+            ui_settings,
             target_vel: None,
 
             rotated_grid: true,

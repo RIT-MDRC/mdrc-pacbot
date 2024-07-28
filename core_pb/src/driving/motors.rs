@@ -1,7 +1,8 @@
 use crate::drive_system::DriveSystem;
-use crate::driving::info;
 use crate::driving::RobotTask;
+use crate::driving::Task;
 use crate::driving::{error, RobotInterTaskMessage};
+use crate::messages::{MotorControlStatus, RobotToServerMessage};
 use crate::names::RobotName;
 use crate::robot_definition::RobotDefinition;
 use core::fmt::Debug;
@@ -9,6 +10,10 @@ use core::time::Duration;
 
 pub trait RobotMotorsBehavior: RobotTask {
     type Error: Debug;
+
+    type Instant;
+    fn now(&self) -> Self::Instant;
+    fn elapsed(&self, instant: &Self::Instant) -> Duration;
 
     /// Whether this task should attempt to continuously compute PID for motors
     ///
@@ -29,7 +34,8 @@ struct MotorsData<const WHEELS: usize, T: RobotMotorsBehavior> {
     drive_system: DriveSystem<WHEELS>,
 
     motors: T,
-    config: [[usize; 2]; 3],
+    config: [[usize; 2]; WHEELS],
+    pwm: [[u16; 2]; WHEELS],
 }
 
 pub async fn motors_task<T: RobotMotorsBehavior>(
@@ -53,35 +59,69 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
 
         motors,
         config,
+        pwm: Default::default(),
     };
 
+    let task_start = data.motors.now();
+
+    let mut last_motor_control_status = data.motors.now();
+    let run_pid_every = Duration::from_millis(30);
+
+    let mut last_command = data.motors.now();
+
     loop {
-        match data
-            .motors
-            .receive_message_timeout(Duration::from_millis(500))
-            .await
-        {
+        if data.motors.elapsed(&last_command) > Duration::from_millis(400) {
+            // we might have disconnected, set all motors to stop
+            data.pwm = Default::default();
+            for p in 0..6 {
+                data.motors.set_pwm(p, 0).await;
+            }
+        }
+
+        let time_to_wait =
+            run_pid_every.checked_sub(data.motors.elapsed(&last_motor_control_status));
+
+        let time_to_wait = match time_to_wait {
+            None => {
+                // just skip it if network buffer is full
+                let _ = data
+                    .motors
+                    .send_message(
+                        RobotInterTaskMessage::ToServer(RobotToServerMessage::MotorControlStatus(
+                            (
+                                data.motors.elapsed(&task_start),
+                                MotorControlStatus { pwm: data.pwm },
+                            ),
+                        )),
+                        Task::Wifi,
+                    )
+                    .await;
+                last_motor_control_status = data.motors.now();
+                run_pid_every
+                    .checked_sub(data.motors.elapsed(&last_motor_control_status))
+                    .unwrap()
+            }
+            Some(t) => t,
+        };
+
+        match data.motors.receive_message_timeout(time_to_wait).await {
             Some(RobotInterTaskMessage::TargetVelocity(_lin, _ang)) => {
+                last_command = data.motors.now();
                 // todo
             }
             Some(RobotInterTaskMessage::PwmOverride(overrides)) => {
+                last_command = data.motors.now();
                 for m in 0..3 {
                     for i in 0..2 {
-                        data.motors
-                            .set_pwm(data.config[m][i], overrides[m][i].unwrap_or(0))
-                            .await;
+                        data.pwm[m][i] = overrides[m][i].unwrap_or(0);
+                        data.motors.set_pwm(data.config[m][i], data.pwm[m][i]).await;
                     }
                 }
             }
             Some(RobotInterTaskMessage::MotorConfig(config)) => {
                 data.config = config;
             }
-            None => {
-                // sleep finished, set all motors to stop
-                for p in 0..6 {
-                    data.motors.set_pwm(p, 0).await;
-                }
-            }
+            _ => {}
         }
     }
 }

@@ -47,6 +47,7 @@ pub enum Incoming {
     FromGameServer(Vec<u8>),
 }
 
+#[allow(dead_code)]
 pub enum Outgoing {
     Address(Option<Address>),
     Text(String),

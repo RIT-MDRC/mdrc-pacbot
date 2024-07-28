@@ -3,6 +3,7 @@ use crate::messages::server_status::ServerStatus;
 #[cfg(feature = "std")]
 use crate::messages::settings::PacbotSettings;
 use crate::names::RobotName;
+use core::time::Duration;
 use nalgebra::Vector2;
 use pacbot_rs::game_state::GameState;
 use serde::{Deserialize, Serialize};
@@ -61,6 +62,11 @@ pub enum ServerToRobotMessage {
     MotorConfig([[usize; 2]; 3]),
 }
 
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+pub struct MotorControlStatus {
+    pub pwm: [[u16; 2]; 3],
+}
+
 /// Firmware related items MUST remain first, or OTA programming will break
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum RobotToServerMessage {
@@ -72,6 +78,7 @@ pub enum RobotToServerMessage {
     FirmwareIsSwapped(bool),
     MarkedFirmwareBooted,
     Name(RobotName),
+    MotorControlStatus((Duration, MotorControlStatus)),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

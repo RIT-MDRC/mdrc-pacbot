@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-use std::time::{Duration, Instant};
-
+use bevy::log::info;
 use bevy::prelude::{ResMut, Resource};
 use simple_websockets::{Event, EventHub, Message, Responder};
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 use core_pb::constants::{GAME_SERVER_PORT, SIMULATION_LISTENER_PORT};
 use core_pb::messages::{
@@ -155,7 +155,7 @@ impl PacbotNetworkSimulation {
             match msg {
                 RobotToSimulationMessage::SimulatedVelocity(lin, ang) => {
                     if Some((lin, ang)) != app.server_target_vel[name as usize] {
-                        println!("Received target velocity: {lin:?} {ang:?}");
+                        info!("Received target velocity: {lin:?} {ang:?}");
                         app.server_target_vel[name as usize] = Some((lin, ang))
                     }
                 }

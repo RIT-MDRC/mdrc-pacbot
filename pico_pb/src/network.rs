@@ -162,7 +162,7 @@ impl RobotNetworkBehavior for Network {
             .map_err(|_| NetworkError::FirmwareUpdaterError)
     }
 
-    async fn hash_firmware(&mut self, update_len: u32, output: &mut [u8; 32]) {
+    async fn hash_firmware(&mut self, _update_len: u32, _output: &mut [u8; 32]) {
         // todo
     }
 
@@ -276,7 +276,7 @@ pub async fn initialize_network(
     let aligned = ALIGNED.init_with(|| AlignedBuffer([0; 1]));
     let updater = BlockingFirmwareUpdater::new(config, &mut aligned.0);
 
-    blink(&mut control, 1, Duration::from_millis(400)).await;
+    blink(&mut control, 2, Duration::from_millis(200)).await;
 
     Network {
         control,

@@ -1,4 +1,3 @@
-use nalgebra::Vector2;
 use std::time::{Duration, Instant};
 
 use crate::ota::OverTheAirProgramming;
@@ -15,7 +14,6 @@ use core_pb::messages::{
 };
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
-use core_pb::robot_definition::RobotDefinition;
 
 pub async fn manage_network() {
     let sockets = Sockets::spawn();
@@ -122,13 +120,16 @@ pub async fn manage_network() {
             (_, FromSimulation(msg)) => println!("Message from simulation: {msg:?}"),
             (Robot(name), FromRobot(RobotToServerMessage::Name(_))) => {
                 println!("Received name from {name}");
-                // app.send(
-                //     Robot(name),
-                //     ToRobot(ServerToRobotMessage::MotorConfig(
-                //         app.settings.robots[name as usize].motor_config,
-                //     )),
-                // )
-                // .await;
+                app.send(
+                    Robot(name),
+                    ToRobot(ServerToRobotMessage::MotorConfig(
+                        app.settings.robots[name as usize].motor_config,
+                    )),
+                )
+                .await;
+            }
+            (Robot(name), FromRobot(RobotToServerMessage::MotorControlStatus(status))) => {
+                app.status.robots[name as usize].last_motor_status = status;
             }
             (Robot(name), FromRobot(msg)) => println!("Message received from {name}: {msg:?}"),
             (Robot(_), _) => {}

@@ -1,8 +1,27 @@
 use crate::drawing::settings::dropdown;
 use crate::App;
+use core_pb::names::RobotName;
 use eframe::egui;
-use eframe::egui::{Color32, Pos2, Ui};
-use egui_plot::{Legend, Line, Plot, PlotPoints};
+use eframe::egui::{Color32, Ui};
+use egui_plot::{Legend, Line, Plot, PlotPoints, Points};
+
+pub struct MotorStatusGraphFrames<const WHEELS: usize> {
+    name: RobotName,
+    first_x: Option<f64>,
+    last_x: f64,
+    pwm: [[Vec<[f64; 2]>; 2]; WHEELS],
+}
+
+impl<const WHEELS: usize> MotorStatusGraphFrames<WHEELS> {
+    pub fn new(name: RobotName) -> Self {
+        Self {
+            name,
+            pwm: [0; WHEELS].map(|_| [vec![], vec![]]),
+            first_x: None,
+            last_x: 0.0,
+        }
+    }
+}
 
 pub fn draw_motors(app: &mut App, ui: &mut Ui) {
     ui.horizontal(|ui| {
@@ -11,8 +30,10 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
             app.ui_settings.selected_robot
         ));
         ui.separator();
-        // ui.checkbox(&mut motor_config[0].2, "Record data");
-        // ui.button("Clear data").clicked();
+        ui.checkbox(&mut app.ui_settings.record_motor_data, "Record data");
+        if ui.button("Clear data").clicked() {
+            app.motor_status_frames = MotorStatusGraphFrames::new(app.ui_settings.selected_robot);
+        }
     });
     ui.separator();
 
@@ -45,10 +66,14 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                     } else if !override_is_some {
                         *current_override = None;
                     }
+                    let mut def = app.server_status.robots[app.ui_settings.selected_robot as usize]
+                        .last_motor_status
+                        .1
+                        .pwm[i][0];
                     ui.add_enabled(
                         override_is_some,
                         egui::Slider::new(
-                            current_override.as_mut().unwrap_or(&mut 0),
+                            current_override.as_mut().unwrap_or(&mut def),
                             0..=app.ui_settings.selected_robot.robot().pwm_top,
                         )
                         .text("Set PWM"),
@@ -74,10 +99,14 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                     } else if !override_is_some {
                         *current_override = None;
                     }
+                    let mut def = app.server_status.robots[app.ui_settings.selected_robot as usize]
+                        .last_motor_status
+                        .1
+                        .pwm[i][1];
                     ui.add_enabled(
                         override_is_some,
                         egui::Slider::new(
-                            current_override.as_mut().unwrap_or(&mut 0),
+                            current_override.as_mut().unwrap_or(&mut def),
                             0..=app.ui_settings.selected_robot.robot().pwm_top,
                         )
                         .text("Set PWM"),
@@ -88,57 +117,70 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
             }
         });
     });
-    let pwm1_line = Line::new(PlotPoints::new(vec![[0.0, 0.0]]))
-        .name("1 Speed")
-        .color(Color32::RED);
-    let pwm2_line = Line::new(PlotPoints::new(vec![[0.0, 0.0]]))
-        .name("2 Speed")
-        .color(Color32::BLUE);
-    let pwm3_line = Line::new(PlotPoints::new(vec![[0.0, 0.0]]))
-        .name("3 Speed")
-        .color(Color32::GREEN);
-    let setpnt1_line = Line::new(PlotPoints::new(vec![[0.0, 0.0]]))
-        .name("1 Setpoint")
-        .color(Color32::RED);
-    let setpnt2_line = Line::new(PlotPoints::new(vec![[0.0, 0.0]]))
-        .name("2 Setpoint")
-        .color(Color32::BLUE);
-    let setpnt3_line = Line::new(PlotPoints::new(vec![[0.0, 0.0]]))
-        .name("3 Setpoint")
-        .color(Color32::GREEN);
-    let pid_line1a = Line::new(PlotPoints::new(vec![[0.0, 0.0]]))
-        .name("1a PID Output")
-        .color(Color32::DARK_RED);
-    let pid_line2a = Line::new(PlotPoints::new(vec![[0.0, 0.0]]))
-        .name("2a PID Output")
-        .color(Color32::DARK_BLUE);
-    let pid_line3a = Line::new(PlotPoints::new(vec![[0.0, 0.0]]))
-        .name("3a PID Output")
-        .color(Color32::DARK_GREEN);
-    let pid_line1b = Line::new(PlotPoints::new(vec![[0.0, 0.0]]))
-        .name("1b PID Output")
-        .color(Color32::DARK_RED);
-    let pid_line2b = Line::new(PlotPoints::new(vec![[0.0, 0.0]]))
-        .name("2b PID Output")
-        .color(Color32::DARK_BLUE);
-    let pid_line3b = Line::new(PlotPoints::new(vec![[0.0, 0.0]]))
-        .name("3b PID Output")
-        .color(Color32::DARK_GREEN);
+
+    if app.ui_settings.record_motor_data {
+        let (dur, status) =
+            &app.server_status.robots[app.ui_settings.selected_robot as usize].last_motor_status;
+        let x = dur.as_secs_f64();
+        if app.motor_status_frames.first_x.is_none() {
+            app.motor_status_frames.first_x = Some(x);
+        }
+        if app.ui_settings.selected_robot != app.motor_status_frames.name {
+            app.motor_status_frames = MotorStatusGraphFrames::new(app.ui_settings.selected_robot);
+        }
+        if x < app.motor_status_frames.last_x {
+            app.motor_status_frames = MotorStatusGraphFrames::new(app.ui_settings.selected_robot);
+        }
+        app.motor_status_frames.last_x = x;
+        for i in 0..3 {
+            app.motor_status_frames.pwm[i][0].push([
+                x,
+                status.pwm[i][0] as f64 / app.ui_settings.selected_robot.robot().pwm_top as f64,
+            ]);
+            app.motor_status_frames.pwm[i][1].push([
+                x,
+                status.pwm[i][1] as f64 / app.ui_settings.selected_robot.robot().pwm_top as f64,
+            ]);
+        }
+    }
+
     Plot::new("motor_plot")
-        .x_axis_label("t (s)")
+        .x_axis_label("uptime (s)")
         .legend(Legend::default())
         .show(ui, |plot_ui| {
-            plot_ui.line(pwm1_line);
-            plot_ui.line(pwm2_line);
-            plot_ui.line(pwm3_line);
-            plot_ui.line(setpnt1_line);
-            plot_ui.line(setpnt2_line);
-            plot_ui.line(setpnt3_line);
-            plot_ui.line(pid_line1a);
-            plot_ui.line(pid_line2a);
-            plot_ui.line(pid_line3a);
-            plot_ui.line(pid_line1b);
-            plot_ui.line(pid_line2b);
-            plot_ui.line(pid_line3b);
+            for m in 0..3 {
+                let color = match m {
+                    0 => (Color32::RED, Color32::DARK_RED),
+                    1 => (Color32::GREEN, Color32::DARK_GREEN),
+                    _ => (Color32::BLUE, Color32::DARK_BLUE),
+                };
+                let last_x = app.motor_status_frames.last_x;
+                let first_x = app.motor_status_frames.first_x.unwrap_or(0.0);
+                let mut extra_points = vec![[last_x, 0.0], [last_x, 3.0]];
+                if last_x - first_x < 10.0 {
+                    extra_points.push([first_x + 10.0, 0.0]);
+                }
+                plot_ui.points(Points::new(extra_points).color(app.background_color));
+                plot_ui.line(
+                    Line::new(PlotPoints::new(vec![]))
+                        .name(format!("{m} Speed"))
+                        .color(color.0),
+                );
+                plot_ui.line(
+                    Line::new(PlotPoints::new(app.motor_status_frames.pwm[m][0].clone()))
+                        .name(format!("{m}a PWM"))
+                        .color(color.1),
+                );
+                plot_ui.line(
+                    Line::new(PlotPoints::new(app.motor_status_frames.pwm[m][1].clone()))
+                        .name(format!("{m}b PWM"))
+                        .color(color.1),
+                );
+                plot_ui.line(
+                    Line::new(PlotPoints::new(vec![]))
+                        .name(format!("{m} Setpoint"))
+                        .color(color.0),
+                );
+            }
         });
 }

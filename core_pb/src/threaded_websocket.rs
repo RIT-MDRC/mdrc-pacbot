@@ -396,7 +396,7 @@ async fn run_socket_forever<
             }
             outgoing_data = data_outgoing.recv().fuse() => {
                 if let Some(socket) = &mut socket {
-                    console_log!("[threaded_websocket : {name}] Sending data to {addr:?}");
+                    // console_log!("[threaded_websocket : {name}] Sending data to {addr:?}");
                     let outgoing_data = match outgoing_data.unwrap() {
                         TextOrT::T(data) => TextOrT::T(serializer(data).expect("failed to serialize data")),
                         TextOrT::Text(text) => TextOrT::Text(text),
