@@ -30,7 +30,6 @@ use core_pb::util::CrossPlatformInstant;
 use defmt::unwrap;
 use defmt_rtt as _;
 use embassy_executor::{Executor, InterruptExecutor, Spawner};
-use embassy_futures::block_on;
 use embassy_futures::select::select;
 use embassy_futures::select::Either;
 use embassy_rp::interrupt::{InterruptExt, Priority};
@@ -79,7 +78,7 @@ async fn send_blocking2(message: RobotInterTaskMessage, to: Task) {
 }
 
 #[embassy_executor::main]
-async fn main(_spawner: Spawner) {
+async fn main(spawner: Spawner) {
     info!("Hello world!");
 
     let p = embassy_rp::init(Default::default());
@@ -105,37 +104,42 @@ async fn main(_spawner: Spawner) {
     let int_spawner = EXECUTOR_HIGH.start(interrupt::SWI_IRQ_1);
     unwrap!(int_spawner.spawn(run_encoders((encoder_a, encoder_b, encoder_c))));
 
-    // Low priority executor: runs in thread mode, using WFE/SEV
-    let executor = EXECUTOR_LOW.init(Executor::new());
-    executor.run(|spawner| {
-        let mut network = block_on(initialize_network(
-            spawner.clone(),
-            p.PIN_23,
-            p.PIN_25,
-            p.PIO0,
-            p.PIN_24,
-            p.PIN_29,
-            p.DMA_CH0,
-            p.FLASH,
-        ));
+    let mut network = initialize_network(
+        spawner.clone(),
+        p.PIN_23,
+        p.PIN_25,
+        p.PIO0,
+        p.PIN_24,
+        p.PIN_29,
+        p.DMA_CH0,
+        p.FLASH,
+    )
+    .await;
 
-        let mac_address = block_on(network.mac_address());
-        let name = RobotName::from_mac_address(&mac_address).expect("Unrecognized mac address");
-        info!("I am {}, mac address {:?}", name, mac_address);
+    let mac_address = network.mac_address().await;
+    info!("mac_address {:?}", mac_address);
 
-        unwrap!(spawner.spawn(do_wifi(network)));
-        unwrap!(spawner.spawn(do_motors(
-            name,
-            Motors::new(
-                RobotDefinition::default(),
-                (p.PIN_6, p.PIN_7, p.PIN_8, p.PIN_9, p.PIN_14, p.PIN_15),
-                (p.PWM_SLICE3, p.PWM_SLICE4, p.PWM_SLICE7),
-            )
-        )));
-        unwrap!(spawner.spawn(do_i2c(RobotPeripherals::new(p.I2C0, p.PIN_17, p.PIN_16))));
+    let name = RobotName::from_mac_address(&mac_address).expect("Unrecognized mac address");
+    info!("I am {}, mac address {:?}", name, mac_address);
 
-        unwrap!(spawner.spawn(keep_watchdog_happy(watchdog)));
-    });
+    unwrap!(spawner.spawn(do_wifi(network)));
+    unwrap!(spawner.spawn(do_motors(
+        name,
+        Motors::new(
+            RobotDefinition::default(),
+            (p.PIN_6, p.PIN_7, p.PIN_8, p.PIN_9, p.PIN_14, p.PIN_15),
+            (p.PWM_SLICE3, p.PWM_SLICE4, p.PWM_SLICE7),
+        )
+    )));
+    unwrap!(spawner.spawn(do_i2c(RobotPeripherals::new(p.I2C0, p.PIN_17, p.PIN_16))));
+
+    info!("Finished spawning tasks");
+
+    loop {
+        info!("I'm alive!");
+        watchdog.feed();
+        Timer::after_secs(1).await;
+    }
 }
 
 #[embassy_executor::task]
@@ -143,7 +147,7 @@ async fn keep_watchdog_happy(mut watchdog: Watchdog) {
     loop {
         info!("I'm alive!");
         watchdog.feed();
-        embassy_time::Timer::after_secs(1).await;
+        Timer::after_secs(1).await;
     }
 }
 

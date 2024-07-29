@@ -120,7 +120,7 @@ impl RobotName {
             },
 
             [0x28, 0xcd, 0xc1, 0x0f, 0x82, 0x87] => Some(Pierre),
-            [0x28, 0xcd, 0xc1, 0x0f, 0x82, 0x88] => Some(Prince),
+            [0x28, 0xcd, 0xc1, 0x0c, 0x81, 0xca] => Some(Prince),
 
             _ => None,
         }
@@ -130,7 +130,7 @@ impl RobotName {
     pub fn default_ip(&self) -> [u8; 4] {
         match self {
             Pierre => [192, 168, 1, 212],
-            Prince => [192, 168, 1, 213],
+            Prince => [192, 168, 1, 226],
             // simulated robots are local
             _ => [127, 0, 0, 1],
         }
