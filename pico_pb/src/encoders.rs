@@ -6,11 +6,11 @@ use embassy_rp::peripherals::PIO1;
 use embassy_rp::pio;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
+use embassy_time::Instant;
 use fixed::traits::ToFixed;
 use pio::{Common, Config, FifoJoin, Instance, PioPin, ShiftDirection, StateMachine};
 
-pub static ENCODER_VELOCITIES: Signal<CriticalSectionRawMutex, [f32; 3]> = Signal::new();
-pub static FULL_ENCODER_INFO: Signal<CriticalSectionRawMutex, ([i64; 3], [f32; 3])> = Signal::new();
+pub static ENCODER_VELOCITIES: Signal<CriticalSectionRawMutex, ([f32; 3], Instant)> = Signal::new();
 
 #[embassy_executor::task]
 pub async fn run_encoders(
@@ -31,8 +31,7 @@ pub async fn run_encoders(
             };
         ticks[i] = tick;
         velocities[i] = -velocity / 12.0 / 2.0;
-        ENCODER_VELOCITIES.signal(velocities);
-        FULL_ENCODER_INFO.signal((ticks, velocities));
+        ENCODER_VELOCITIES.signal((velocities, Instant::now()));
     }
 }
 

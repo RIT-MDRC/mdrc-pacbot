@@ -12,6 +12,7 @@ use embassy_rp::pwm;
 use embassy_rp::pwm::Pwm;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
+use embassy_time::Instant;
 use fixed::types::extra::U4;
 use fixed::FixedU16;
 
@@ -20,7 +21,7 @@ pub static MOTORS_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64
 pub struct Motors<const WHEELS: usize> {
     pwm_pairs: [Pwm<'static>; WHEELS],
     pwm_configs: [pwm::Config; WHEELS],
-    motor_speeds: [f32; WHEELS],
+    motor_speeds: ([f32; WHEELS], Instant),
 }
 
 impl Motors<3> {
@@ -44,7 +45,7 @@ impl Motors<3> {
         Self {
             pwm_pairs: pins,
             pwm_configs,
-            motor_speeds: [0.0; 3],
+            motor_speeds: ([0.0; 3], Instant::now()),
         }
     }
 }
@@ -94,6 +95,10 @@ impl RobotMotorsBehavior for Motors<3> {
         if let Some(speeds) = ENCODER_VELOCITIES.try_take() {
             self.motor_speeds = speeds;
         }
-        self.motor_speeds[motor]
+        if self.motor_speeds.1.elapsed() > embassy_time::Duration::from_millis(80) {
+            0.0
+        } else {
+            self.motor_speeds.0[motor]
+        }
     }
 }

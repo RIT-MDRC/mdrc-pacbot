@@ -29,7 +29,7 @@ use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::CrossPlatformInstant;
 use defmt::unwrap;
 use defmt_rtt as _;
-use embassy_executor::{Executor, InterruptExecutor, Spawner};
+use embassy_executor::{InterruptExecutor, Spawner};
 use embassy_futures::select::select;
 use embassy_futures::select::Either;
 use embassy_rp::interrupt::{InterruptExt, Priority};
@@ -41,7 +41,6 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_time::{Duration, Instant, Timer};
 use panic_probe as _;
-use static_cell::StaticCell;
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
@@ -50,7 +49,6 @@ bind_interrupts!(struct Irqs {
 });
 
 static EXECUTOR_HIGH: InterruptExecutor = InterruptExecutor::new();
-static EXECUTOR_LOW: StaticCell<Executor> = StaticCell::new();
 
 #[interrupt]
 unsafe fn SWI_IRQ_1() {
