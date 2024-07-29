@@ -1,23 +1,19 @@
 use crate::drive_system::DriveSystem;
+use crate::driving::RobotInterTaskMessage;
 use crate::driving::RobotTask;
 use crate::driving::Task;
-use crate::driving::{error, RobotInterTaskMessage};
 use crate::messages::{MotorControlStatus, RobotToServerMessage};
 use crate::names::RobotName;
 use crate::robot_definition::RobotDefinition;
 use crate::util::CrossPlatformInstant;
 use core::fmt::Debug;
 use core::time::Duration;
+use nalgebra::Vector2;
 
 pub trait RobotMotorsBehavior: RobotTask {
     type Error: Debug;
 
     type Instant: CrossPlatformInstant + Default;
-
-    /// Whether this task should attempt to continuously compute PID for motors
-    ///
-    /// Generally, simulated robots should return false, while real robots should return true
-    fn do_pid(&self) -> bool;
 
     /// Set PWM for the given pin
     ///
@@ -36,6 +32,11 @@ struct MotorsData<const WHEELS: usize, T: RobotMotorsBehavior> {
 
     motors: T,
     config: [[usize; 2]; WHEELS],
+    pwm_override: [[Option<u16>; 2]; WHEELS],
+    motor_override: [Option<f32>; WHEELS],
+    target_vel: Option<(Vector2<f32>, f32)>,
+
+    set_points: [f32; WHEELS],
     pwm: [[u16; 2]; WHEELS],
 }
 
@@ -46,11 +47,6 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
     let robot = RobotDefinition::default();
     let config = robot.default_motor_config;
 
-    if motors.do_pid() {
-        error!("PID not yet implemented!");
-        todo!()
-    }
-
     let drive_system = robot.drive_system;
 
     let mut data = MotorsData {
@@ -60,6 +56,11 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
 
         motors,
         config,
+        pwm_override: Default::default(),
+        motor_override: Default::default(),
+        target_vel: Default::default(),
+
+        set_points: Default::default(),
         pwm: Default::default(),
     };
 
@@ -71,9 +72,11 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
     let mut last_command = T::Instant::default();
 
     loop {
-        if last_command.elapsed() > Duration::from_millis(400) {
+        if last_command.elapsed() > Duration::from_millis(300) {
             // we might have disconnected, set all motors to stop
-            data.pwm = Default::default();
+            data.pwm_override = Default::default();
+            data.motor_override = Default::default();
+            data.target_vel = None;
             for p in 0..6 {
                 data.motors.set_pwm(p, 0).await;
             }
@@ -83,18 +86,37 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
 
         let time_to_wait = match time_to_wait {
             None => {
-                // just skip it if network buffer is full
                 let measured_speeds = [
                     data.motors.get_motor_speed(0).await,
                     data.motors.get_motor_speed(1).await,
                     data.motors.get_motor_speed(2).await,
                 ];
+                data.set_points = [0.0; 3];
+                data.pwm = [[0; 2]; 3];
+                if let Some((lin, ang)) = data.target_vel {
+                    data.set_points = data.drive_system.get_motor_speed_omni(lin, ang);
+                }
+                for m in 0..3 {
+                    if let Some(motor_override) = data.motor_override[m] {
+                        data.set_points[m] = motor_override;
+                    }
+                }
+                // todo calculate pid
+                for m in 0..3 {
+                    for p in 0..2 {
+                        if let Some(pwm_override) = data.pwm_override[m][p] {
+                            data.pwm[m][p] = pwm_override;
+                            data.motors.set_pwm(data.config[m][p], data.pwm[m][p]).await;
+                        }
+                    }
+                }
                 data.motors.send_or_drop(
                     RobotInterTaskMessage::ToServer(RobotToServerMessage::MotorControlStatus((
                         task_start.elapsed(),
                         MotorControlStatus {
                             pwm: data.pwm,
                             measured_speeds,
+                            speed_set_points: data.set_points,
                         },
                     ))),
                     Task::Wifi,
@@ -108,18 +130,17 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
         };
 
         match data.motors.receive_message_timeout(time_to_wait).await {
-            Some(RobotInterTaskMessage::TargetVelocity(_lin, _ang)) => {
+            Some(RobotInterTaskMessage::TargetVelocity(vel)) => {
                 last_command = T::Instant::default();
-                // todo
+                data.target_vel = vel;
+            }
+            Some(RobotInterTaskMessage::MotorsOverride(overrides)) => {
+                last_command = T::Instant::default();
+                data.motor_override = overrides;
             }
             Some(RobotInterTaskMessage::PwmOverride(overrides)) => {
                 last_command = T::Instant::default();
-                for m in 0..3 {
-                    for i in 0..2 {
-                        data.pwm[m][i] = overrides[m][i].unwrap_or(0);
-                        data.motors.set_pwm(data.config[m][i], data.pwm[m][i]).await;
-                    }
-                }
+                data.pwm_override = overrides;
             }
             Some(RobotInterTaskMessage::MotorConfig(config)) => {
                 data.config = config;

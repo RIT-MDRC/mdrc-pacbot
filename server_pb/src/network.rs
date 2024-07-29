@@ -72,6 +72,20 @@ pub async fn manage_network() {
                     )
                     .await;
                 }
+                // motor overrides
+                if app.settings.robots[id]
+                    .set_point_override
+                    .iter()
+                    .any(|x| x.is_some())
+                {
+                    app.send(
+                        Robot(name),
+                        ToRobot(ServerToRobotMessage::MotorsOverride(
+                            app.settings.robots[id].set_point_override,
+                        )),
+                    )
+                    .await;
+                }
             }
         }
 

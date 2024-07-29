@@ -64,10 +64,6 @@ impl RobotMotorsBehavior for SimMotors {
 
     type Instant = StdInstant;
 
-    fn do_pid(&self) -> bool {
-        false
-    }
-
     async fn set_pwm(&mut self, pin: usize, to: u16) {
         let motor = pin / 2;
         if self.pwm_values[motor][pin % 2] != to {

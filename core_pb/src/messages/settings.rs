@@ -104,6 +104,8 @@ pub struct RobotSettings {
     pub motor_config: [[usize; 2]; 3],
     /// Overrides the outputs from wheel speed
     pub pwm_override: [[Option<u16>; 2]; 3],
+    /// Overrides the set points of the motors
+    pub set_point_override: [Option<f32>; 3],
 }
 
 impl RobotSettings {
@@ -118,6 +120,7 @@ impl RobotSettings {
             pid: [18.0, 0.1, 0.0],
             motor_config: name.robot().default_motor_config,
             pwm_override: [[None; 2]; 3],
+            set_point_override: [None; 3],
         }
     }
 }

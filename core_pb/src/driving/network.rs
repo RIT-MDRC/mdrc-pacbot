@@ -135,9 +135,15 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                                 )
                                 .await
                         }
-                        Either::Left(Ok(ServerToRobotMessage::TargetVelocity(lin, ang))) => {
+                        Either::Left(Ok(ServerToRobotMessage::MotorsOverride(ov))) => {
                             network.send_or_drop(
-                                RobotInterTaskMessage::TargetVelocity(lin, ang),
+                                RobotInterTaskMessage::MotorsOverride(ov),
+                                Task::Motors,
+                            );
+                        }
+                        Either::Left(Ok(ServerToRobotMessage::TargetVelocity(vel))) => {
+                            network.send_or_drop(
+                                RobotInterTaskMessage::TargetVelocity(vel),
                                 Task::Motors,
                             );
                         }

@@ -78,10 +78,6 @@ impl RobotMotorsBehavior for Motors<3> {
     type Error = MotorError;
     type Instant = EmbassyInstant;
 
-    fn do_pid(&self) -> bool {
-        false
-    }
-
     async fn set_pwm(&mut self, pin: usize, to: u16) {
         if pin % 2 == 0 {
             self.pwm_configs[pin / 2].compare_a = to;

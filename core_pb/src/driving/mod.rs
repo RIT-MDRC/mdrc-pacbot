@@ -23,7 +23,8 @@ pub enum RobotInterTaskMessage {
     MotorConfig([[usize; 2]; 3]),
     ToServer(RobotToServerMessage),
     PwmOverride([[Option<u16>; 2]; 3]),
-    TargetVelocity(Vector2<f32>, f32),
+    MotorsOverride([Option<f32>; 3]),
+    TargetVelocity(Option<(Vector2<f32>, f32)>),
 }
 
 pub trait RobotTask {

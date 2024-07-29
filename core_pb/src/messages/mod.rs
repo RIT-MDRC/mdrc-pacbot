@@ -57,7 +57,8 @@ pub enum ServerToRobotMessage {
     Reboot,
     MarkFirmwareBooted,
     CancelFirmwareUpdate,
-    TargetVelocity(Vector2<f32>, f32),
+    TargetVelocity(Option<(Vector2<f32>, f32)>),
+    MotorsOverride([Option<f32>; 3]),
     PwmOverride([[Option<u16>; 2]; 3]),
     MotorConfig([[usize; 2]; 3]),
 }
@@ -65,6 +66,7 @@ pub enum ServerToRobotMessage {
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MotorControlStatus {
     pub pwm: [[u16; 2]; 3],
+    pub speed_set_points: [f32; 3],
     pub measured_speeds: [f32; 3],
 }
 
