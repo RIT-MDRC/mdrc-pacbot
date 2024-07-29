@@ -227,6 +227,8 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
     ui.end_row();
     ui.checkbox(&mut app.settings.simulation.simulate, "Run simulation");
     ui.end_row();
+    ui.checkbox(&mut app.settings.safe_mode, "Safe mode");
+    ui.end_row();
 
     ui.separator();
     ui.end_row();

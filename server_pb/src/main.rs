@@ -1,6 +1,7 @@
 use crate::network::manage_network;
 use crate::ota::OverTheAirProgramming;
 use crate::sockets::{Destination, Outgoing, Sockets};
+use core_pb::bin_encode;
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::{ConnectionSettings, PacbotSettings};
@@ -39,6 +40,14 @@ async fn main() {
 
 impl App {
     async fn send(&mut self, destination: Destination, outgoing: Outgoing) {
+        if self.settings.safe_mode {
+            if let Outgoing::ToRobot(msg) = &outgoing {
+                let encoded = bin_encode(msg.clone()).unwrap();
+                if encoded[0] > 7 {
+                    return;
+                }
+            }
+        }
         self.sockets
             .outgoing
             .send((destination, outgoing))

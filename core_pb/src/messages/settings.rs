@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 pub struct PacbotSettings {
     /// Host a web server for browser clients
     pub host_http: bool,
+    /// In safe mode, only messages related to over the air programming will be sent and received
+    pub safe_mode: bool,
     /// Which grid is current in use
     pub standard_grid: StandardGrid,
     /// Options for the simulation
@@ -24,6 +26,7 @@ impl Default for PacbotSettings {
     fn default() -> Self {
         Self {
             host_http: false,
+            safe_mode: false,
             simulation: Default::default(),
             standard_grid: Default::default(),
             robots: RobotName::get_all().map(|name| RobotSettings::new(name)),

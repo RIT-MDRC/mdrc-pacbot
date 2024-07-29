@@ -1,11 +1,10 @@
-use std::time::{Duration, Instant};
-
 use crate::ota::OverTheAirProgramming;
 use crate::sockets::Destination::*;
 use crate::sockets::Incoming::*;
 use crate::sockets::Outgoing::*;
 use crate::sockets::{Incoming, Outgoing, Sockets};
 use crate::App;
+use core_pb::bin_encode;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::settings::PacbotSettings;
 use core_pb::messages::{
@@ -14,6 +13,7 @@ use core_pb::messages::{
 };
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
+use std::time::{Duration, Instant};
 
 pub async fn manage_network() {
     let sockets = Sockets::spawn();
@@ -92,6 +92,14 @@ pub async fn manage_network() {
         app.over_the_air_programming.tick(&mut app.status).await;
 
         let msg = app.sockets.incoming.recv().await.unwrap();
+        if app.settings.safe_mode {
+            if let FromRobot(msg) = &msg.1 {
+                let encoded = bin_encode(msg.clone()).unwrap();
+                if encoded[0] > 7 {
+                    continue;
+                }
+            }
+        }
         app.over_the_air_programming
             .update(&msg, &mut app.status)
             .await;
