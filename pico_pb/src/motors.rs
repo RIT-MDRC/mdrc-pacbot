@@ -1,4 +1,5 @@
-use crate::{receive_timeout, send_blocking2, send_or_drop2};
+use crate::encoders::ENCODER_VELOCITIES;
+use crate::{receive_timeout, send_blocking2, send_or_drop2, EmbassyInstant};
 use core::time::Duration;
 use core_pb::driving::motors::RobotMotorsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
@@ -11,7 +12,6 @@ use embassy_rp::pwm;
 use embassy_rp::pwm::Pwm;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
-use embassy_time::Instant;
 use fixed::types::extra::U4;
 use fixed::FixedU16;
 
@@ -20,6 +20,7 @@ pub static MOTORS_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64
 pub struct Motors<const WHEELS: usize> {
     pwm_pairs: [Pwm<'static>; WHEELS],
     pwm_configs: [pwm::Config; WHEELS],
+    motor_speeds: [f32; WHEELS],
 }
 
 impl Motors<3> {
@@ -43,6 +44,7 @@ impl Motors<3> {
         Self {
             pwm_pairs: pins,
             pwm_configs,
+            motor_speeds: [0.0; 3],
         }
     }
 }
@@ -71,16 +73,9 @@ impl<const WHEELS: usize> RobotTask for Motors<WHEELS> {
     }
 }
 
-impl<const WHEELS: usize> RobotMotorsBehavior for Motors<WHEELS> {
+impl RobotMotorsBehavior for Motors<3> {
     type Error = MotorError;
-
-    type Instant = Instant;
-    fn elapsed(&self, instant: &Self::Instant) -> Duration {
-        instant.elapsed().into()
-    }
-    fn now(&self) -> Self::Instant {
-        Instant::now()
-    }
+    type Instant = EmbassyInstant;
 
     fn do_pid(&self) -> bool {
         false
@@ -93,5 +88,12 @@ impl<const WHEELS: usize> RobotMotorsBehavior for Motors<WHEELS> {
             self.pwm_configs[pin / 2].compare_b = to;
         }
         self.pwm_pairs[pin / 2].set_config(&self.pwm_configs[pin / 2]);
+    }
+
+    async fn get_motor_speed(&mut self, motor: usize) -> f32 {
+        if let Some(speeds) = ENCODER_VELOCITIES.try_take() {
+            self.motor_speeds = speeds;
+        }
+        self.motor_speeds[motor]
     }
 }

@@ -11,6 +11,7 @@ pub mod names;
 pub mod robot_definition;
 #[cfg(feature = "std")]
 pub mod threaded_websocket;
+pub mod util;
 
 pub use pacbot_rs;
 

@@ -5,7 +5,8 @@ use core_pb::drive_system::DriveSystem;
 use core_pb::driving::motors::RobotMotorsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use core_pb::names::RobotName;
-use std::time::{Duration, Instant};
+use core_pb::util::StdInstant;
+use std::time::Duration;
 
 pub struct SimMotors {
     name: RobotName,
@@ -61,13 +62,7 @@ impl RobotTask for SimMotors {
 impl RobotMotorsBehavior for SimMotors {
     type Error = SimMotorsError;
 
-    type Instant = Instant;
-    fn now(&self) -> Self::Instant {
-        Instant::now()
-    }
-    fn elapsed(&self, instant: &Self::Instant) -> Duration {
-        instant.elapsed()
-    }
+    type Instant = StdInstant;
 
     fn do_pid(&self) -> bool {
         false
