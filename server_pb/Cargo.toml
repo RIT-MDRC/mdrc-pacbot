@@ -1,0 +1,30 @@
+[package]
+name = "server_pb"
+version = "0.1.0"
+edition = "2021"
+default-run = "server_pb"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+core_pb = { path = "../core_pb", features = ["log"] }
+nalgebra = { version = "0.32.5", features = ["serde", "serde-serialize"] }
+num_enum = "0.7.2"
+ordered-float = "4.2.0"
+serde = { version = "1.0.198", features = ["derive", "std"] }
+candle-core = { git = "https://github.com/huggingface/candle.git", version = "0.5.0" }
+candle-nn = { git = "https://github.com/huggingface/candle.git", version = "0.5.0" }
+ndarray = "0.15.6"
+rand = "0.8.5"
+rayon = "1.10.0"
+rand_distr = "0.4.3"
+num-traits = "0.2.18"
+array-init = "2.1.0"
+bincode = { version = "2.0.0-rc.3", features = ["serde"] }
+tokio = { version = "1.38.0", features = ["full"] }
+futures-util = { version = "0.3.30", features = ["sink", "std"] }
+futures-channel = "0.3.30"
+simple-websockets = "0.1.6"
+async-tungstenite = "0.26.2"
+futures = "0.3.30"
+async-channel = "2.3.1"

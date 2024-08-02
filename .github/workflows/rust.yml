@@ -16,22 +16,66 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: Swatinem/rust-cache@v2
-      with:
-        save-if: ${{ github.ref == 'refs/heads/main' }}
-    - name: Build
-      run: |
-       sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0
-       cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
-    - name: Install latest mdbook
-      run: |
-       tag=$(curl 'https://api.github.com/repos/rust-lang/mdbook/releases/latest' | jq -r '.tag_name')
-       url="https://github.com/rust-lang/mdbook/releases/download/${tag}/mdbook-${tag}-x86_64-unknown-linux-gnu.tar.gz"
-       mkdir bin
-       curl -sSL $url | tar -xz --directory=bin
-       echo "$(pwd)/bin" >> $GITHUB_PATH
-    - name: Run book tests
-      run: mdbook test mdrc-pacbot-book
+      - uses: actions/checkout@v3
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install WASM target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install pico target
+        run: rustup target add thumbv6m-none-eabi
+
+      - name: Build default
+        run: |
+          sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0
+          cargo build --verbose
+
+      - name: Build core_pb (default features/target)
+        working-directory: core_pb
+        run: cargo build
+
+      - name: Build core_pb --no-default-features --features robot,defmt
+        working-directory: core_pb
+        run: cargo build --no-default-features --features robot,defmt
+
+      - name: Build core_pb --features std,wasm --target wasm32-unknown-unknown
+        working-directory: core_pb
+        run: cargo build --features std,wasm --target wasm32-unknown-unknown
+
+      - name: Build core_pb --features std,robot,log
+        working-directory: core_pb
+        run: cargo build --features std,robot,log
+
+      - name: Build gui_pb
+        working-directory: gui_pb
+        run: cargo build
+
+      - name: Build gui_pb --target wasm32-unknown-unknown
+        working-directory: gui_pb
+        run: cargo build --target wasm32-unknown-unknown
+
+      - name: Build pico_pb
+        working-directory: pico_pb
+        run: cargo build
+
+      - name: Build server_pb
+        working-directory: server_pb
+        run: cargo build
+
+      - name: Build sim_pb
+        working-directory: sim_pb
+        run: cargo build
+
+      - name: Run tests
+        run: cargo test
+      - name: Install latest mdbook
+        run: |
+          tag=$(curl 'https://api.github.com/repos/rust-lang/mdbook/releases/latest' | jq -r '.tag_name')
+          url="https://github.com/rust-lang/mdbook/releases/download/${tag}/mdbook-${tag}-x86_64-unknown-linux-gnu.tar.gz"
+          mkdir bin
+          curl -sSL $url | tar -xz --directory=bin
+          echo "$(pwd)/bin" >> $GITHUB_PATH
+      - name: Run book tests
+        run: mdbook test book

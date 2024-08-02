@@ -1,0 +1,33 @@
+[package]
+name = "sim_pb"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+core_pb = { path = "../core_pb", features = ["std", "robot", "log"] }
+serde = { version = "1.0.198", features = ["derive", "std"] }
+tungstenite = "0.21.0"
+bincode = { version = "2.0.0-rc.3", features = ["serde"] }
+bevy_rapier2d = { version = "0.26.0", features = ["debug-render-2d"] }
+heapless = { version = "0.8.0" }
+async-channel = "2.3.1"
+futures = "0.3.30"
+embedded-graphics = "0.8.1"
+simple-websockets = "0.1.6"
+async-std = "1.12.0"
+embedded-io-async = { version = "0.6.1", features = ["std"] }
+
+[dependencies.bevy]
+version = "0.13.2"
+default-features = false
+features = [
+    # Bevy functionality:
+    "multi-threaded", # Run with multithreading
+    "bevy_winit", # Window management (cross-platform Winit backend)
+    "x11", # Window management for linux
+
+    # Development/Debug features:
+    "dynamic_linking", # Dynamic linking for faster compile-times
+]

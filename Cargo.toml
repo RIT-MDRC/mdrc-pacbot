@@ -1,51 +1,13 @@
-[package]
-name = "mdrc-pacbot"
-version = "0.1.0"
-edition = "2021"
-documentation = "https://rit-mdrc.github.io/mdrc-pacbot-util/"
+[workspace]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+resolver = "2"
 
-[dependencies]
-anyhow = "1.0.75"
-bincode = { version = "2.0.0-rc.3", features = ["serde"] }
-candle-core = { git = "https://github.com/huggingface/candle.git", version = "0.4.0" }
-candle-nn = { git = "https://github.com/huggingface/candle.git", version = "0.4.0" }
-chrono = "0.4.31"
-eframe = { version = "0.24.1", default-features = false, features = ["accesskit", "default_fonts", "glow", "wayland", "web_screen_reader", "x11"] }
-egui_dock = "0.9.1"
-futures-util = "0.3.28"
-native-dialog = { version = "0.6.4", features = ["windows_dpi_awareness", "windows_visual_styles"] }
-num_enum = "0.7.0"
-rand = "0.8.5"
-rapier2d = { version = "0.17.2", features = ["serde-serialize", "parallel"] }
-rayon = "1.8.0"
-serde = { version = "1.0.188", features = ["derive"] }
-tokio = { version = "1.32.0", features = ["macros", "parking_lot", "rt", "time", "sync"] }
-tokio-tungstenite = "0.20.1"
-array-init = "2.1.0"
-ndarray = "0.15.6"
-pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "2601948dac7b7debabbb61322a453a770ae83240" }
-egui-phosphor = "=0.3.1"
-bevy_egui = "0.24.0"
-bevy_ecs = { version = "0.12.1", features = ["multi-threaded"] }
-num-traits = "0.2.18"
-rand_distr = "0.4.3"
-ordered-float = "4.2.0"
-tungstenite = "0.21.0"
-
-[dependencies.bevy]
-version = "0.12.1"
-default-features = false
-features = [
-    # Bevy functionality:
-    "multi-threaded", # Run with multithreading
-    "bevy_winit", # Window management (cross-platform Winit backend)
-
-    # Development/Debug features:
-    "dynamic_linking", # Dynamic linking for faster compile-times
+members = [
+    "core_pb",
+    "gui_pb",
+    "server_pb",
+    "sim_pb",
 ]
-
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]

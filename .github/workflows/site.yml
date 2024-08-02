@@ -26,11 +26,11 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./mdrc-pacbot-book/book
-        
+
       - name: Generate cargo docs
         run: |
           cargo doc --no-deps --document-private-items
-          echo "<meta http-equiv=\"refresh\" content=\"0; url=mdrc_pacbot_util\">" > target/doc/index.html
+          echo "<meta http-equiv=\"refresh\" content=\"0; url=mdrc_pacbot\">" > target/doc/index.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
