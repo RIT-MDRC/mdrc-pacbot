@@ -59,7 +59,7 @@ pub type Address = ([u8; 4], u16);
 ///
 /// // initialization
 /// // by default, doesn't connect to anything
-/// let mut connection: ThreadedSocket<usize, usize> = ThreadedSocket::default();
+/// let mut connection: ThreadedSocket<usize, usize> = ThreadedSocket::with_name("test connection".to_string());
 /// // try to connect to an address (with infinite retries)
 /// connection.connect(Some(([127, 0, 0, 1], 20_000)));
 /// // wait until connected
@@ -74,7 +74,7 @@ pub type Address = ([u8; 4], u16);
 ///     // note: read() never blocks, and only returns
 ///     // some message when one is available
 ///     if let Some(msg) = connection.read() {
-///         println!("Got a message: {msg}");
+///         println!("Got a message: {msg:?}");
 ///         break;
 ///     }
 ///     sleep(Duration::from_millis(100))
@@ -185,7 +185,7 @@ impl<
     /// use core_pb::threaded_websocket::ThreadedSocket;
     ///
     /// // websocket for either std environment or WASM
-    /// let websocket = ThreadedSocket::default();
+    /// // let websocket = ThreadedSocket::with_name("test connection".to_string());
     /// // tcp socket to be supported in the future
     /// ```
     ///
