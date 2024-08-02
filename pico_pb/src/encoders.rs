@@ -30,7 +30,7 @@ pub async fn run_encoders(
                 Either3::Third(_) => (2, encoders.2.ticks(), encoders.2.average_rate()),
             };
         ticks[i] = tick;
-        velocities[i] = -velocity / 12.0 / 2.0;
+        velocities[i] = velocity / 12.0 / 2.0;
         ENCODER_VELOCITIES.signal((velocities, Instant::now()));
     }
 }

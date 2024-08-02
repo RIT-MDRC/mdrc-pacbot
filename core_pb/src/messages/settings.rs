@@ -120,7 +120,7 @@ impl RobotSettings {
                 ipv4: name.default_ip(),
                 port: name.port(),
             },
-            pid: [18.0, 0.1, 0.0],
+            pid: name.robot().default_pid,
             motor_config: name.robot().default_motor_config,
             pwm_override: [[None; 2]; 3],
             set_point_override: [None; 3],

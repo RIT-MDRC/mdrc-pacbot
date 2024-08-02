@@ -59,6 +59,7 @@ pub enum ServerToRobotMessage {
     CancelFirmwareUpdate,
     TargetVelocity(Option<(Vector2<f32>, f32)>),
     MotorsOverride([Option<f32>; 3]),
+    Pid([f32; 3]),
     PwmOverride([[Option<u16>; 2]; 3]),
     MotorConfig([[usize; 2]; 3]),
 }

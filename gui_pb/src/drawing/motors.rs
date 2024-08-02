@@ -1,9 +1,9 @@
-use crate::drawing::settings::dropdown;
+use crate::drawing::settings::{dropdown, num};
 use crate::App;
 use core_pb::names::RobotName;
 use eframe::egui;
 use eframe::egui::{Color32, Ui};
-use egui_plot::{Legend, Line, Plot, PlotPoints, Points};
+use egui_plot::{Legend, Line, LineStyle, Plot, PlotPoints, Points};
 
 pub struct MotorStatusGraphFrames<const WHEELS: usize> {
     name: RobotName,
@@ -38,6 +38,28 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
         if ui.button("Clear data").clicked() {
             app.motor_status_frames = MotorStatusGraphFrames::new(app.ui_settings.selected_robot);
         }
+        ui.separator();
+        num(
+            "motor_p".to_string(),
+            ui,
+            app.settings_fields.as_mut().unwrap(),
+            &mut app.settings.robots[app.ui_settings.selected_robot as usize].pid[0],
+            "P",
+        );
+        num(
+            "motor_i".to_string(),
+            ui,
+            app.settings_fields.as_mut().unwrap(),
+            &mut app.settings.robots[app.ui_settings.selected_robot as usize].pid[1],
+            "I",
+        );
+        num(
+            "motor_d".to_string(),
+            ui,
+            app.settings_fields.as_mut().unwrap(),
+            &mut app.settings.robots[app.ui_settings.selected_robot as usize].pid[2],
+            "D",
+        );
     });
     ui.separator();
 
@@ -194,6 +216,7 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                         app.motor_status_frames.set_points[m].clone(),
                     ))
                     .name(format!("{m} Setpoint"))
+                    .style(LineStyle::Dashed { length: 6.0 })
                     .color(color.0),
                 );
                 plot_ui.line(

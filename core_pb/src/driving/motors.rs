@@ -8,7 +8,10 @@ use crate::robot_definition::RobotDefinition;
 use crate::util::CrossPlatformInstant;
 use core::fmt::Debug;
 use core::time::Duration;
+#[cfg(not(feature = "std"))]
+use nalgebra::ComplexField;
 use nalgebra::Vector2;
+use pid::Pid;
 
 pub trait RobotMotorsBehavior: RobotTask {
     type Error: Debug;
@@ -32,6 +35,8 @@ struct MotorsData<const WHEELS: usize, T: RobotMotorsBehavior> {
 
     motors: T,
     config: [[usize; 2]; WHEELS],
+    pid: [f32; 3],
+    pid_controllers: [Pid<f32>; WHEELS],
     pwm_override: [[Option<u16>; 2]; WHEELS],
     motor_override: [Option<f32>; WHEELS],
     target_vel: Option<(Vector2<f32>, f32)>,
@@ -44,8 +49,18 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
     name: RobotName,
     motors: T,
 ) -> Result<(), T::Error> {
-    let robot = RobotDefinition::default();
+    let robot = name.robot();
     let config = robot.default_motor_config;
+    let pid = robot.default_pid;
+
+    let pid_controllers = [0; 3].map(|_| {
+        let mut pid_controller = Pid::new(0.0, robot.pwm_top as f32);
+        pid_controller
+            .p(pid[0], robot.pwm_top as f32)
+            .i(pid[1], robot.pwm_top as f32)
+            .d(pid[2], robot.pwm_top as f32);
+        pid_controller
+    });
 
     let drive_system = robot.drive_system;
 
@@ -56,6 +71,8 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
 
         motors,
         config,
+        pid,
+        pid_controllers,
         pwm_override: Default::default(),
         motor_override: Default::default(),
         target_vel: Default::default(),
@@ -100,14 +117,20 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
                     if let Some(motor_override) = data.motor_override[m] {
                         data.set_points[m] = motor_override;
                     }
-                }
-                // todo calculate pid
-                for m in 0..3 {
+                    // calculate pid
+                    data.pid_controllers[m].setpoint(data.set_points[m]);
+                    let output = data.pid_controllers[m].next_control_output(measured_speeds[m]);
+                    let output = output.output;
+                    if output > 0.0 {
+                        data.pwm[m] = [output.abs().round() as u16, 0];
+                    } else {
+                        data.pwm[m] = [0, output.abs().round() as u16];
+                    }
                     for p in 0..2 {
                         if let Some(pwm_override) = data.pwm_override[m][p] {
                             data.pwm[m][p] = pwm_override;
-                            data.motors.set_pwm(data.config[m][p], data.pwm[m][p]).await;
                         }
+                        data.motors.set_pwm(data.config[m][p], data.pwm[m][p]).await;
                     }
                 }
                 data.motors.send_or_drop(
@@ -144,6 +167,15 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
             }
             Some(RobotInterTaskMessage::MotorConfig(config)) => {
                 data.config = config;
+            }
+            Some(RobotInterTaskMessage::Pid(pid)) => {
+                data.pid = pid;
+                for pid_controller in &mut data.pid_controllers {
+                    pid_controller
+                        .p(pid[0], robot.pwm_top as f32)
+                        .i(pid[1], robot.pwm_top as f32)
+                        .d(pid[2], robot.pwm_top as f32);
+                }
             }
             _ => {}
         }

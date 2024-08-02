@@ -38,6 +38,7 @@ approx = "0.5.1"
 micromath = "2.1.0"
 libm = "0.2.8"
 static_cell = "2"
+pid = "4.0.0"
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

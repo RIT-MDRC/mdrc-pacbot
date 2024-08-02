@@ -1,6 +1,7 @@
 use crate::driving::TaskChannels;
 use crate::RobotToSimulationMessage;
 use async_channel::Sender;
+use bevy::log::info;
 use core_pb::drive_system::DriveSystem;
 use core_pb::driving::motors::RobotMotorsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
@@ -68,8 +69,8 @@ impl RobotMotorsBehavior for SimMotors {
         let motor = pin / 2;
         if self.pwm_values[motor][pin % 2] != to {
             self.pwm_values[motor][pin % 2] = to;
-            self.motor_speeds[motor] = (self.pwm_values[motor][0] as f32
-                - self.pwm_values[motor][1] as f32)
+            self.motor_speeds[motor] = 60.0
+                * (self.pwm_values[motor][0] as f32 - self.pwm_values[motor][1] as f32)
                 / self.name.robot().pwm_top as f32;
             let (lin, ang) = self.drive_system.get_actual_vel_omni(self.motor_speeds);
             self.sim_tx

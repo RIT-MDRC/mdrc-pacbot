@@ -187,6 +187,7 @@ dependencies = [
  "nalgebra",
  "ordered-float",
  "pacbot-rs",
+ "pid",
  "serde",
  "static_cell",
  "wasm-bindgen",

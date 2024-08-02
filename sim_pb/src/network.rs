@@ -155,7 +155,7 @@ impl PacbotNetworkSimulation {
             match msg {
                 RobotToSimulationMessage::SimulatedVelocity(lin, ang) => {
                     if Some((lin, ang)) != app.server_target_vel[name as usize] {
-                        info!("Received target velocity: {lin:?} {ang:?}");
+                        // info!("Received target velocity: {lin:?} {ang:?}");
                         app.server_target_vel[name as usize] = Some((lin, ang))
                     }
                 }

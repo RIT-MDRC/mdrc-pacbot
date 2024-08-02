@@ -74,7 +74,7 @@ impl MyApp {
             let mut target_vel = robot
                 .wasd_target_vel
                 .unwrap_or((Vector2::new(0.0, 0.0), 0.0));
-            let move_scale = 4.0;
+            let move_scale = target_vel.0.magnitude();
             if target_vel.0 != Vector2::new(0.0, 0.0) {
                 target_vel.0 = target_vel.0.normalize() * move_scale;
             }

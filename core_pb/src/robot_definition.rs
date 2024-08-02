@@ -1,5 +1,6 @@
 use crate::constants::{GU_PER_INCH, GU_PER_M};
 use crate::drive_system::DriveSystem;
+use crate::names::RobotName;
 use core::f32::consts::PI;
 use nalgebra::Rotation2;
 
@@ -13,6 +14,8 @@ pub struct RobotDefinition<const WHEELS: usize> {
     pub drive_system: DriveSystem<WHEELS>,
     /// Describes physical characteristics of the motors
     pub motors: [WheelDefinition; WHEELS],
+    /// Default PID parameters - can change
+    pub default_pid: [f32; 3],
     /// The maximum value for motor PWM pins
     pub pwm_top: u16,
     /// Which pwm pin corresponds to forwards and backwards for each motor - can change
@@ -25,8 +28,8 @@ pub struct RobotDefinition<const WHEELS: usize> {
 #[derive(Copy, Clone, Debug)]
 pub struct WheelDefinition {}
 
-impl Default for RobotDefinition<3> {
-    fn default() -> Self {
+impl RobotDefinition<3> {
+    pub fn new(name: RobotName) -> Self {
         Self {
             radius: 0.715,
 
@@ -38,9 +41,17 @@ impl Default for RobotDefinition<3> {
             )
             .expect("Default robot drive definition couldn't be constructed"),
             motors: [WheelDefinition {}; 3],
+            default_pid: if name.is_simulated() {
+                [250.0, 15.0, 0.0]
+            } else {
+                [0.0, 0.0, 0.0]
+            },
             pwm_top: 0x8000,
-            // overriden by `RobotName::robot()`
-            default_motor_config: [[0, 1], [2, 3], [4, 5]],
+            default_motor_config: if name.is_simulated() {
+                [[0, 1], [2, 3], [4, 5]]
+            } else {
+                [[5, 4], [3, 2], [1, 0]]
+            },
 
             has_screen: false,
         }

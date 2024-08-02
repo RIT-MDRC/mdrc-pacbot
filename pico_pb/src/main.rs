@@ -124,7 +124,7 @@ async fn main(spawner: Spawner) {
     unwrap!(spawner.spawn(do_motors(
         name,
         Motors::new(
-            RobotDefinition::default(),
+            RobotDefinition::new(name),
             (p.PIN_6, p.PIN_7, p.PIN_8, p.PIN_9, p.PIN_14, p.PIN_15),
             (p.PWM_SLICE3, p.PWM_SLICE4, p.PWM_SLICE7),
         )

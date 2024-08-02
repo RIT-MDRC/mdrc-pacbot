@@ -5,7 +5,7 @@ use core_pb::messages::settings::{ConnectionSettings, StrategyChoice};
 use core_pb::messages::NetworkStatus;
 use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
 use eframe::egui;
-use eframe::egui::{Align, Color32, Layout, Ui, WidgetText};
+use eframe::egui::{Align, Color32, Layout, TextEdit, Ui, WidgetText};
 use regex::Regex;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -68,7 +68,7 @@ fn validated<T: PartialEq>(
         }
         let (last_typed, last_valid) = fields.get_mut(&id).unwrap();
 
-        let field = ui.text_edit_singleline(last_typed);
+        let field = ui.add(TextEdit::singleline(last_typed).desired_width(80.0));
         if let Some(t) = validation(last_typed.to_string().as_str()) {
             *last_valid = last_typed.to_string();
             // if they're not in the text box, and a new value has come in, replace it
@@ -87,7 +87,7 @@ fn validated<T: PartialEq>(
     ui.end_row();
 }
 
-fn num<T: FromStr + ToString + PartialEq>(
+pub fn num<T: FromStr + ToString + PartialEq>(
     id: String,
     ui: &mut Ui,
     fields: &mut HashMap<String, (String, String)>,

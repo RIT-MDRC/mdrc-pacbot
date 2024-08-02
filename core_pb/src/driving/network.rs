@@ -121,6 +121,9 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                         }
                         Either::Right(_) => {}
                         Either::Left(Err(())) => break,
+                        Either::Left(Ok(ServerToRobotMessage::Pid(pid))) => {
+                            network.send_or_drop(RobotInterTaskMessage::Pid(pid), Task::Motors);
+                        }
                         Either::Left(Ok(ServerToRobotMessage::PwmOverride(overrides))) => {
                             network.send_or_drop(
                                 RobotInterTaskMessage::PwmOverride(overrides),

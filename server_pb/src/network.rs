@@ -149,6 +149,13 @@ pub async fn manage_network() {
                     )),
                 )
                 .await;
+                app.send(
+                    Robot(name),
+                    ToRobot(ServerToRobotMessage::Pid(
+                        app.settings.robots[name as usize].pid,
+                    )),
+                )
+                .await;
             }
             (Robot(name), FromRobot(RobotToServerMessage::MotorControlStatus(status))) => {
                 app.status.robots[name as usize].last_motor_status = status;

@@ -25,6 +25,7 @@ pub enum RobotInterTaskMessage {
     PwmOverride([[Option<u16>; 2]; 3]),
     MotorsOverride([Option<f32>; 3]),
     TargetVelocity(Option<(Vector2<f32>, f32)>),
+    Pid([f32; 3]),
 }
 
 pub trait RobotTask {

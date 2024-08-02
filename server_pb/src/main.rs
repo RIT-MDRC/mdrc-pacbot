@@ -111,6 +111,13 @@ impl App {
                 )
                 .await;
             }
+            if old.robots[id].pid != new.robots[id].pid {
+                self.send(
+                    Destination::Robot(name),
+                    Outgoing::ToRobot(ServerToRobotMessage::Pid(new.robots[id].pid)),
+                )
+                .await;
+            }
         }
 
         if new.simulation.simulate {
