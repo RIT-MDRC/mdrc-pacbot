@@ -21,6 +21,12 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
+      - name: Install WASM target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Install pico target
+        run: rustup target add thumbv6m-none-eabi
+
       - name: Build default
         run: |
           sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0
