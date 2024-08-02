@@ -86,7 +86,11 @@ impl<'a> TabViewer<'a> {
             &mut self.settings.collision_avoidance,
             "Collision avoidance",
         );
-        int_edit(ui, "Bot Update Period",&mut self.settings.bot_update_period);
+        int_edit(
+            ui,
+            "Bot Update Period",
+            &mut self.settings.bot_update_period,
+        );
         ui.separator();
 
         let mut pico_enabled = self.settings.pico_address.is_some();
@@ -98,7 +102,7 @@ impl<'a> TabViewer<'a> {
                 .settings
                 .pico_address
                 .clone()
-                .unwrap_or("10.181.92.51:20002".to_string());
+                .unwrap_or("192.168.0.101:20002".to_string());
             ui.text_edit_singleline(&mut pico_addr);
             self.settings.pico_address = Some(pico_addr);
         }

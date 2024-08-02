@@ -475,7 +475,6 @@ impl HighLevelContext {
                         && (!ghost_within(target_row, target_col, ghost_deny_distance)
                             || super_pellet_within(target_row, target_col, 0))
                 });
-
                 if action_mask == [false; 5] {
                     action_mask[0] = true;
                 }
