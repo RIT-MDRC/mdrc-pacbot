@@ -125,6 +125,7 @@ impl App {
                 self.sim_game_engine_process = Some(
                     Command::new("cargo")
                         .args(["run", "--bin", "sim_pb", "--release"])
+                        .current_dir(env!("CARGO_MANIFEST_DIR").to_string() + "/../")
                         .spawn()
                         .unwrap(),
                 );
@@ -140,6 +141,7 @@ impl App {
                 self.client_http_host_process = Some(
                     Command::new("trunk")
                         .args(["serve", "--config", "gui_pb/Trunk.toml"])
+                        .current_dir(env!("CARGO_MANIFEST_DIR").to_string() + "/../")
                         .spawn()
                         .unwrap(),
                 );

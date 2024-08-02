@@ -76,8 +76,7 @@ pub trait RobotNetworkBehavior: RobotTask {
 }
 
 pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(), T::Error> {
-    info!("wifi? (1)");
-    info!("wifi? {:?}", network.mac_address().await);
+    info!("mac address: {:?}", network.mac_address().await);
     let name = RobotName::from_mac_address(&network.mac_address().await)
         .expect("Unrecognized mac address");
     info!("{} initialized", name);

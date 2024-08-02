@@ -170,7 +170,13 @@ impl OverTheAirProgramming {
         for name in RobotName::get_all() {
             let do_update = match self.robots[name as usize].last_update {
                 None => true,
-                Some(t) => t.elapsed() > Duration::from_millis(5000),
+                Some(t) => {
+                    t.elapsed()
+                        > match status.robots[name as usize].ota_current {
+                            OverTheAirStep::DataTransfer { .. } => Duration::from_millis(100),
+                            _ => Duration::from_millis(5000),
+                        }
+                }
             } && status.robots[name as usize].ota_current
                 != OverTheAirStep::GuiRequest;
             if do_update {
@@ -243,7 +249,9 @@ impl OverTheAirProgramming {
                     {
                         self.robots[*name as usize].update_completed(status);
                         // read binary
-                        match fs::read("pico_pb/latest.bin") {
+                        match fs::read(
+                            env!("CARGO_MANIFEST_DIR").to_string() + "/../pico_pb/latest.bin",
+                        ) {
                             Ok(bytes) => {
                                 self.binary = bytes;
                                 self.robots[*name as usize].update_completed(status);
