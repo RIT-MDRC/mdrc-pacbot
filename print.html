@@ -89,7 +89,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rust_api.html"><strong aria-hidden="true">1.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="game.html"><strong aria-hidden="true">2.</strong> Game</a></li><li class="chapter-item expanded "><a href="the_grid.html"><strong aria-hidden="true">3.</strong> Grid</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="grid_and_coordinates.html"><strong aria-hidden="true">3.1.</strong> Grid & Coordinate System</a></li><li class="chapter-item expanded "><a href="computed_grid.html"><strong aria-hidden="true">3.2.</strong> Computed Grid</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rust_api.html"><strong aria-hidden="true">1.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="game.html"><strong aria-hidden="true">2.</strong> Game</a></li><li class="chapter-item expanded "><a href="the_grid.html"><strong aria-hidden="true">3.</strong> Grid</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="grid_and_coordinates.html"><strong aria-hidden="true">3.1.</strong> Grid & Coordinate System</a></li><li class="chapter-item expanded "><a href="computed_grid.html"><strong aria-hidden="true">3.2.</strong> Computed Grid</a></li></ol></li><li class="chapter-item expanded "><a href="network.html"><strong aria-hidden="true">4.</strong> Network</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -267,6 +267,47 @@ all of the following must be true:</p>
 <h2 id="pre-computed-information"><a class="header" href="#pre-computed-information">Pre-computed Information</a></h2>
 <p>When a <code>ComputedGrid</code> is constructed, it spends extra time calculating a number of variables related to
 the game grid. This information is documented in the <a href="https://rit-mdrc.github.io/mdrc-pacbot-util/api/mdrc_pacbot_util/grid/struct.ComputedGrid.html">ComputedGrid documentation</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div><pre><code class="language-mermaid">---
+title: RIT MDRC Pacbot Network Architecture (github.com/RIT-MDRC/mdrc-pacbot)
+---
+flowchart LR
+    subgraph Legend
+        direction TB
+        Y(GUI):::gui
+        Z(Game Server):::game_server
+        X(Robot):::robot
+    end
+    %% ensure the legend is vertical
+    Y ~~~ A 
+    subgraph "mdrc-pacbot"
+        A(WASM GUIs):::gui &amp; B(Rust GUIs):::gui &lt;--&gt;|Websocket| D{MDRC Pacbot Server\nserver_pb}
+        D &lt;--&gt;|TCP| E(Raspberry Pi Picos):::robot
+        D &lt;--&gt;|TCP| F(Simulated Robots):::robot
+        D &lt;--&gt;|Websocket| J(Simulation Manager)
+        I(Rust Game Server):::game_server &lt;--&gt;|Websocket| D
+        subgraph gui_pb
+            A
+            B
+        end
+        subgraph pico_pb
+            E
+        end
+        subgraph sim_pb
+            I
+            J
+            F
+        end
+    end
+    subgraph "Pacbot-2 (github.com/Pacbot-Competition/Pacbot-2)"
+        C(Competition GUIs):::gui &lt;--&gt;|Websocket| G(Official Go Game Server):::game_server
+    end
+    C &lt;--&gt;|Websocket| I
+    G &lt;--&gt;|Websocket| D
+
+    classDef gui stroke:#f00
+    classDef game_server stroke:#0f0
+    classDef robot stroke:#ff0
+</code></pre>
 
                     </main>
 
@@ -302,6 +343,8 @@ the game grid. This information is documented in the <a href="https://rit-mdrc.g
         <script src="book.js"></script>
 
         <!-- Custom JS scripts -->
+        <script src="mermaid.min.js"></script>
+        <script src="mermaid-init.js"></script>
 
         <script>
         window.addEventListener('load', function() {

@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Rust API - MDRC Pacbot</title>
+        <title>Network - MDRC Pacbot</title>
 
 
         <!-- Custom HTML head -->
@@ -88,7 +88,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rust_api.html" class="active"><strong aria-hidden="true">1.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="game.html"><strong aria-hidden="true">2.</strong> Game</a></li><li class="chapter-item expanded "><a href="the_grid.html"><strong aria-hidden="true">3.</strong> Grid</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="grid_and_coordinates.html"><strong aria-hidden="true">3.1.</strong> Grid & Coordinate System</a></li><li class="chapter-item expanded "><a href="computed_grid.html"><strong aria-hidden="true">3.2.</strong> Computed Grid</a></li></ol></li><li class="chapter-item expanded "><a href="network.html"><strong aria-hidden="true">4.</strong> Network</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rust_api.html"><strong aria-hidden="true">1.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="game.html"><strong aria-hidden="true">2.</strong> Game</a></li><li class="chapter-item expanded "><a href="the_grid.html"><strong aria-hidden="true">3.</strong> Grid</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="grid_and_coordinates.html"><strong aria-hidden="true">3.1.</strong> Grid & Coordinate System</a></li><li class="chapter-item expanded "><a href="computed_grid.html"><strong aria-hidden="true">3.2.</strong> Computed Grid</a></li></ol></li><li class="chapter-item expanded "><a href="network.html" class="active"><strong aria-hidden="true">4.</strong> Network</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -173,17 +173,56 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="rust-api"><a class="header" href="#rust-api">Rust API</a></h1>
-<p>Documentation for the Rust crate can be found at <a href="https://rit-mdrc.github.io/mdrc-pacbot-util/api/">https://rit-mdrc.github.io/mdrc-pacbot-util/api/</a></p>
+                        <pre><code class="language-mermaid">---
+title: RIT MDRC Pacbot Network Architecture (github.com/RIT-MDRC/mdrc-pacbot)
+---
+flowchart LR
+    subgraph Legend
+        direction TB
+        Y(GUI):::gui
+        Z(Game Server):::game_server
+        X(Robot):::robot
+    end
+    %% ensure the legend is vertical
+    Y ~~~ A 
+    subgraph "mdrc-pacbot"
+        A(WASM GUIs):::gui &amp; B(Rust GUIs):::gui &lt;--&gt;|Websocket| D{MDRC Pacbot Server\nserver_pb}
+        D &lt;--&gt;|TCP| E(Raspberry Pi Picos):::robot
+        D &lt;--&gt;|TCP| F(Simulated Robots):::robot
+        D &lt;--&gt;|Websocket| J(Simulation Manager)
+        I(Rust Game Server):::game_server &lt;--&gt;|Websocket| D
+        subgraph gui_pb
+            A
+            B
+        end
+        subgraph pico_pb
+            E
+        end
+        subgraph sim_pb
+            I
+            J
+            F
+        end
+    end
+    subgraph "Pacbot-2 (github.com/Pacbot-Competition/Pacbot-2)"
+        C(Competition GUIs):::gui &lt;--&gt;|Websocket| G(Official Go Game Server):::game_server
+    end
+    C &lt;--&gt;|Websocket| I
+    G &lt;--&gt;|Websocket| D
+
+    classDef gui stroke:#f00
+    classDef game_server stroke:#0f0
+    classDef robot stroke:#ff0
+</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-
-                            <a rel="next prefetch" href="game.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
+                            <a rel="prev" href="computed_grid.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
                             </a>
+
 
                         <div style="clear: both"></div>
                     </nav>
@@ -191,10 +230,10 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-
-                    <a rel="next prefetch" href="game.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
+                    <a rel="prev" href="computed_grid.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
                     </a>
+
             </nav>
 
         </div>
