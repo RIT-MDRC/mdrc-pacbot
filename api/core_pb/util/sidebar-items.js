@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["average_rate"],"struct":["StdInstant"],"trait":["CrossPlatformInstant"]};
