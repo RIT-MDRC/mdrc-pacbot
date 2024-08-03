@@ -19,11 +19,14 @@ use egui_dock::{DockArea, DockState, NodeIndex, Style};
 // todo use native_dialog::FileDialog;
 use crate::drawing::motors::MotorStatusGraphFrames;
 use crate::drawing::settings::UiSettings;
+use crate::drawing::widgets::draw_widgets;
 use core_pb::console_log;
 #[cfg(target_arch = "wasm32")]
 pub use core_pb::log;
 use core_pb::messages::{GuiToServerMessage, ServerToGuiMessage};
 use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
+use core_pb::util::utilization::UtilizationMonitor;
+use core_pb::util::StdInstant;
 use nalgebra::Vector2;
 use std::collections::HashMap;
 
@@ -96,6 +99,7 @@ pub struct App {
     ui_settings: UiSettings,
     target_vel: Option<(Vector2<f32>, f32)>,
     motor_status_frames: MotorStatusGraphFrames<3>,
+    gui_utilization: UtilizationMonitor<30, StdInstant>,
 
     rotated_grid: bool,
     settings_fields: Option<HashMap<String, (String, String)>>,
@@ -103,6 +107,8 @@ pub struct App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.gui_utilization.start();
+
         self.pointer_pos = ctx.pointer_latest_pos();
         self.background_color = ctx.style().visuals.panel_fill;
         if *self.grid.standard_grid() != Some(self.settings.standard_grid) {
@@ -114,6 +120,8 @@ impl eframe::App for App {
         self.draw_layout(ctx);
 
         ctx.request_repaint();
+
+        self.gui_utilization.stop();
     }
 }
 
@@ -124,7 +132,7 @@ impl App {
 
         cc.egui_ctx.set_fonts(fonts);
 
-        let mut dock_state = DockState::new(vec![Tab::Motors, Tab::Grid, Tab::Robot]);
+        let mut dock_state = DockState::new(vec![Tab::Grid, Tab::Motors, Tab::Robot]);
         let surface = dock_state.main_surface_mut();
         surface.split_right(NodeIndex::root(), 0.75, vec![Tab::Settings]);
         surface.split_left(
@@ -159,6 +167,7 @@ impl App {
             motor_status_frames: MotorStatusGraphFrames::new(ui_settings.selected_robot),
             ui_settings,
             target_vel: None,
+            gui_utilization: UtilizationMonitor::default(),
 
             rotated_grid: true,
             settings_fields: Some(HashMap::new()),
@@ -222,8 +231,8 @@ impl App {
                                 self.load_replay().expect("Failed to load replay!");
                             }
                         });
+                        draw_widgets(self, ui)
                     });
-                    // TODO widgets
                 });
                 ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
                     ui.label(

@@ -1,4 +1,3 @@
-use crate::colors::network_status_to_color;
 use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::settings::{ConnectionSettings, StrategyChoice};
@@ -199,7 +198,7 @@ pub fn generic_server(
     collapsable_section(
         ui,
         collapsed,
-        network_status_to_color(&status),
+        status.status().to_color32(),
         |ui| {
             ui.checkbox(&mut connection_settings.connect, name);
         },

@@ -3,6 +3,7 @@ use crate::messages::server_status::ServerStatus;
 #[cfg(feature = "std")]
 use crate::messages::settings::PacbotSettings;
 use crate::names::RobotName;
+use crate::util::ColoredStatus;
 use core::time::Duration;
 use nalgebra::Vector2;
 use pacbot_rs::game_state::GameState;
@@ -99,6 +100,21 @@ pub enum NetworkStatus {
     Connecting,
     /// After a message is received
     Connected,
+}
+
+impl NetworkStatus {
+    pub fn status(&self) -> ColoredStatus {
+        match self {
+            NetworkStatus::NotConnected => {
+                ColoredStatus::NotApplicable(Some("Not connected".to_string()))
+            }
+            NetworkStatus::ConnectionFailed => {
+                ColoredStatus::Error(Some("Connection failed".to_string()))
+            }
+            NetworkStatus::Connecting => ColoredStatus::Warn(Some("Connecting".to_string())),
+            NetworkStatus::Connected => ColoredStatus::Ok(Some("Connected".to_string())),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

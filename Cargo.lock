@@ -1689,6 +1689,8 @@ dependencies = [
  "async-tungstenite",
  "bincode",
  "defmt",
+ "ecolor",
+ "egui-phosphor",
  "embedded-graphics",
  "embedded-io-async",
  "futures",
