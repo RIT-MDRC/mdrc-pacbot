@@ -33,10 +33,6 @@ jobs:
       - name: Install packages
         run: sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0
 
-      - name: Build core_pb (default features/target)
-        working-directory: core_pb
-        run: cargo build
-
       - name: Build gui_pb
         working-directory: gui_pb
         run: cargo build
