@@ -17,7 +17,6 @@ std = [
     "futures/executor",
     "futures/async-await",
     "ecolor",
-    "egui-phosphor"
 ]
 wasm = ["pacbot-rs/wasm"]
 robot = ["heapless", "embedded-graphics", "nalgebra/libm-force"]

@@ -20,6 +20,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
+          workspaces: |
+            ". -> target"
+            "pico_pb -> target"
 
       - name: Install WASM target
         run: rustup target add wasm32-unknown-unknown
@@ -27,10 +30,8 @@ jobs:
       - name: Install pico target
         run: rustup target add thumbv6m-none-eabi
 
-      - name: Build default
-        run: |
-          sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0
-          cargo build --verbose
+      - name: Install packages
+        run: sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0
 
       - name: Build core_pb (default features/target)
         working-directory: core_pb

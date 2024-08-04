@@ -45,6 +45,7 @@ impl ColoredStatus {
         }
     }
 
+    #[cfg(feature = "egui-phosphor")]
     pub fn icon(&self) -> &str {
         match self {
             ColoredStatus::Ok(_) => egui_phosphor::regular::CHECK,
