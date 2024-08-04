@@ -78,7 +78,12 @@ impl<T: Number, const COUNT: usize> MovingAverage<T, COUNT> {
     }
 
     pub fn average(&self) -> T {
-        self.sum.div_usize(self.count())
+        let c = self.count();
+        if c == 0 {
+            T::ZERO
+        } else {
+            self.sum.div_usize(c)
+        }
     }
 
     pub fn oldest(&self) -> Option<T> {

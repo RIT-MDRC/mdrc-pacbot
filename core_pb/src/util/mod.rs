@@ -3,6 +3,7 @@ use ecolor::Color32;
 
 pub mod average_rate;
 pub mod moving_average;
+pub mod stopwatch;
 pub mod utilization;
 
 pub const TRANSLUCENT_GREEN_COLOR: Color32 = Color32::from_rgba_premultiplied(0, 50, 0, 50);
@@ -53,6 +54,15 @@ impl ColoredStatus {
             ColoredStatus::Warn(_) => 2,
             ColoredStatus::Error(_) => 3,
             ColoredStatus::NotApplicable(_) => 0,
+        }
+    }
+
+    pub fn message(&self) -> Option<String> {
+        match self {
+            ColoredStatus::Ok(s) => s.clone(),
+            ColoredStatus::Warn(s) => s.clone(),
+            ColoredStatus::Error(s) => s.clone(),
+            ColoredStatus::NotApplicable(s) => s.clone(),
         }
     }
 }

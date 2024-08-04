@@ -11,12 +11,12 @@ pub enum PacbotWidget {
 
 pub fn draw_widgets(app: &mut App, ui: &mut Ui) {
     for widget_name in [PacbotWidget::GridWidget, PacbotWidget::UtilizationWidget] {
-        let mut button = ui.add(
+        let button = ui.add(
             egui::Button::new(widget_name.button_text(app))
                 .fill(widget_name.overall_status(app).to_color32()),
         );
         if widget_name == PacbotWidget::UtilizationWidget {
-            button = button.on_hover_ui(|ui| widget_name.hover_ui(app, ui));
+            button.on_hover_ui(|ui| widget_name.hover_ui(app, ui));
         }
     }
 }
@@ -42,7 +42,7 @@ impl PacbotWidget {
     pub fn overall_status(&self, app: &mut App) -> ColoredStatus {
         match self {
             PacbotWidget::GridWidget => ColoredStatus::NotApplicable(None),
-            PacbotWidget::UtilizationWidget => vec![app.gui_utilization.status()]
+            PacbotWidget::UtilizationWidget => vec![app.gui_stopwatch.status()]
                 .into_iter()
                 .max_by_key(|x| x.severity())
                 .unwrap(),
@@ -52,16 +52,14 @@ impl PacbotWidget {
     pub fn hover_ui(&self, app: &mut App, ui: &mut Ui) {
         match self {
             PacbotWidget::UtilizationWidget => {
+                let status = app.gui_stopwatch.status();
                 ui.horizontal(|ui| {
-                    ui.label(
-                        RichText::new(app.gui_utilization.status().icon())
-                            .color(app.gui_utilization.status().to_color32_solid()),
-                    );
+                    ui.label(RichText::new(status.icon()).color(status.to_color32_solid()));
                     ui.label(format!(
-                        "Gui: {:.1}% | {:.0} fps | {:.2?}",
-                        app.gui_utilization.utilization() * 100.0,
-                        app.gui_utilization.hz(),
-                        app.gui_utilization.active_time()
+                        "Gui: {:.1}% | {:.0} fps | {}",
+                        app.gui_stopwatch.utilization().utilization() * 100.0,
+                        app.gui_stopwatch.utilization().hz(),
+                        status.message().unwrap()
                     ));
                 });
             }

@@ -38,8 +38,8 @@ impl StandardGrid {
 
     /// Get the [`ComputedGrid`] associated with this enum
     #[cfg(feature = "std")]
-    pub fn compute_grid(&self) -> ComputedGrid {
-        ComputedGrid::try_from(self.get_grid()).expect("Failed to compute a StandardGrid")
+    pub fn compute_grid(self) -> ComputedGrid {
+        self.into()
     }
 
     /// Get the default Pacbot [`Isometry2`] associated with this enum
