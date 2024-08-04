@@ -1,12 +1,15 @@
 use crate::messages::ota::{OverTheAirStep, OverTheAirStepCompletion};
 use crate::messages::{MotorControlStatus, NetworkStatus};
 use crate::names::{RobotName, NUM_ROBOT_NAMES};
+use crate::util::ColoredStatus;
 use pacbot_rs::game_state::GameState;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ServerStatus {
+    pub utilization: ColoredStatus,
+
     pub simulation_connection: NetworkStatus,
 
     pub game_state: GameState,
@@ -20,6 +23,8 @@ pub struct ServerStatus {
 impl Default for ServerStatus {
     fn default() -> Self {
         Self {
+            utilization: ColoredStatus::Ok(Some("?".to_string())),
+
             simulation_connection: NetworkStatus::default(),
 
             game_state: GameState::default(),

@@ -7,6 +7,8 @@ use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::{ConnectionSettings, PacbotSettings};
 use core_pb::messages::ServerToRobotMessage;
 use core_pb::names::RobotName;
+use core_pb::util::utilization::UtilizationMonitor;
+use core_pb::util::StdInstant;
 use std::process::{Child, Command};
 
 pub mod network;
@@ -18,6 +20,7 @@ mod sockets;
 pub struct App {
     status: ServerStatus,
     settings: PacbotSettings,
+    utilization_monitor: UtilizationMonitor<100, StdInstant>,
 
     settings_update_needed: bool,
 

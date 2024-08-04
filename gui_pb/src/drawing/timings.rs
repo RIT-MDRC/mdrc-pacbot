@@ -30,4 +30,12 @@ fn draw_stopwatch<const SEGMENTS: usize, const WINDOW: usize, I: CrossPlatformIn
 
 pub fn draw_timings(app: &mut App, ui: &mut Ui) {
     draw_stopwatch(&app.gui_stopwatch, ui, "gui_stopwatch".to_string());
+    ui.separator();
+    ui.label(format!(
+        "Server: {}",
+        app.server_status
+            .utilization
+            .message()
+            .unwrap_or("?".to_string())
+    ));
 }

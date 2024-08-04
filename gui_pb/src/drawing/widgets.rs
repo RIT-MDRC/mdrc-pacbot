@@ -59,7 +59,15 @@ impl PacbotWidget {
                         "Gui: {:.1}% | {:.0} fps | {}",
                         app.gui_stopwatch.utilization().utilization() * 100.0,
                         app.gui_stopwatch.utilization().hz(),
-                        status.message().unwrap()
+                        status.message().unwrap_or("?".to_string())
+                    ));
+                });
+                let status = &app.server_status.utilization;
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(status.icon()).color(status.to_color32_solid()));
+                    ui.label(format!(
+                        "Server: {}",
+                        status.message().unwrap_or("?".to_string())
                     ));
                 });
             }

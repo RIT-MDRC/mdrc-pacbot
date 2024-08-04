@@ -13,6 +13,7 @@ use core_pb::messages::{
 };
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
+use core_pb::util::utilization::UtilizationMonitor;
 use std::time::{Duration, Instant};
 
 pub async fn manage_network() {
@@ -21,6 +22,7 @@ pub async fn manage_network() {
     let mut app = App {
         status: Default::default(),
         settings: Default::default(),
+        utilization_monitor: UtilizationMonitor::default(),
 
         settings_update_needed: false,
 
@@ -33,6 +35,8 @@ pub async fn manage_network() {
 
         grid: Default::default(),
     };
+
+    app.utilization_monitor.start();
 
     println!("Listening on 0.0.0.0:{GUI_LISTENER_PORT}");
 
@@ -91,7 +95,13 @@ pub async fn manage_network() {
 
         app.over_the_air_programming.tick(&mut app.status).await;
 
+        // we want to measure the amount of time the server spends processing messages,
+        // which shouldn't include the amount of time spent waiting for messages
+        app.utilization_monitor.stop();
+        app.status.utilization = app.utilization_monitor.status();
         let msg = app.sockets.incoming.recv().await.unwrap();
+        app.utilization_monitor.start();
+
         if app.settings.safe_mode {
             if let FromRobot(msg) = &msg.1 {
                 let encoded = bin_encode(msg.clone()).unwrap();

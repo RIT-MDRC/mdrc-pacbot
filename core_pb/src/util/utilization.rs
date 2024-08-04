@@ -68,12 +68,20 @@ impl<const C: usize, I: CrossPlatformInstant + Default> UtilizationMonitor<C, I>
 
     pub fn status(&self) -> ColoredStatus {
         let util = self.utilization();
-        if util < self.warn_amount {
-            ColoredStatus::Ok(None)
-        } else if util < self.error_amount {
-            ColoredStatus::Warn(Some(format!("Higher than {:.1}%", self.warn_amount)))
+        if util >= self.error_amount {
+            ColoredStatus::Error(Some(format!(
+                "{:.1?}% >= {:.1}%",
+                util * 100.0,
+                self.error_amount
+            )))
+        } else if util >= self.warn_amount {
+            ColoredStatus::Warn(Some(format!(
+                "{:.1?}% >= {:.1}%",
+                util * 100.0,
+                self.warn_amount
+            )))
         } else {
-            ColoredStatus::Error(Some(format!("Higher than {:.1}%", self.error_amount)))
+            ColoredStatus::Ok(Some(format!("{:.1?}%", util * 100.0)))
         }
     }
 

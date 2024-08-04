@@ -1,5 +1,6 @@
 use core::time::Duration;
 use ecolor::Color32;
+use serde::{Deserialize, Serialize};
 
 pub mod average_rate;
 pub mod moving_average;
@@ -11,7 +12,7 @@ pub const TRANSLUCENT_YELLOW_COLOR: Color32 = Color32::from_rgba_premultiplied(5
 pub const TRANSLUCENT_RED_COLOR: Color32 = Color32::from_rgba_premultiplied(50, 0, 0, 50);
 
 #[cfg(feature = "std")]
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ColoredStatus {
     Ok(Option<String>),
     Warn(Option<String>),
