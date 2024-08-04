@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["GAME_SERVER_MAGIC_NUMBER"],"enum":["GameServerCommand","GuiToServerMessage","NetworkStatus","RobotToServerMessage","ServerToGuiMessage","ServerToRobotMessage","ServerToSimulationMessage","SimulationToServerMessage"],"mod":["ota","server_status","settings"],"struct":["MotorControlStatus","RobotStatus"]};

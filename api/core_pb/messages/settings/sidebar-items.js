@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["StrategyChoice"],"struct":["ConnectionSettings","DriveSettings","GameServerSettings","PacbotSettings","RobotSettings","SimulationSettings"]};
