@@ -159,9 +159,9 @@ mod constants {
 
     pub const VL53L1_ERROR_NONE: i16 = 0;
     /// Warning invalid calibration data may be in used
-    /// 	VL53L1_InitData()
-    /// 	VL53L1_GetOffsetCalibrationData
-    /// 	VL53L1_SetOffsetCalibrationData
+    ///     VL53L1_InitData()
+    ///     VL53L1_GetOffsetCalibrationData
+    ///     VL53L1_SetOffsetCalibrationData
     pub const VL53L1_ERROR_CALIBRATION_WARNING: i16 = -1;
     /// Warning parameter passed was clipped to min before to be applied
     pub const VL53L1_ERROR_MIN_CLIPPED: i16 = -2;
@@ -294,7 +294,7 @@ mod constants {
     /// compatible with the device
     pub const VL53L1_ERROR_NOT_IMPLEMENTED: i16 = -41;
     /// Tells the starting code for platform
-    /// 	 VL53L1_define_Error_group
+    ///      VL53L1_define_Error_group
     pub const VL53L1_ERROR_PLATFORM_SPECIFIC_START: i16 = -60;
 }
 
@@ -375,7 +375,7 @@ impl VL53L1X {
         };
         let temp = self.read_u8(i2c, GPIO__TIO_HV_STATUS).await?;
 
-        return Ok((temp & 1) == int_pol);
+        Ok((temp & 1) == int_pol)
     }
 
     /// This function programs the timing budget in ms.

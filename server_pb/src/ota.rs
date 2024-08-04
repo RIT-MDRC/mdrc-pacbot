@@ -123,7 +123,7 @@ async fn send(tx: &mut Sender<(Destination, Outgoing)>, to: RobotName, msg: Serv
 impl OverTheAirProgramming {
     pub fn new(tx: Sender<(Destination, Outgoing)>) -> Self {
         Self {
-            robots: RobotName::get_all().map(|name| OverTheAirRobot::new(name)),
+            robots: RobotName::get_all().map(OverTheAirRobot::new),
             binary: vec![],
 
             tx,

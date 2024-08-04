@@ -20,6 +20,7 @@ mod network;
 mod physics;
 
 #[derive(Resource)]
+#[allow(clippy::type_complexity)]
 pub struct MyApp {
     standard_grid: StandardGrid,
     grid: ComputedGrid,
@@ -140,8 +141,7 @@ fn keyboard_input(
     if keys.just_pressed(KeyCode::KeyR) {
         if let Some(name) = RobotName::get_all()
             .into_iter()
-            .filter(|name| name.is_simulated() && app.robots[*name as usize].is_none())
-            .next()
+            .find(|name| name.is_simulated() && app.robots[*name as usize].is_none())
         {
             app.spawn_robot(&mut commands, name);
         }
@@ -155,8 +155,7 @@ fn keyboard_input(
         app.selected_robot = RobotName::get_all()
             .into_iter()
             .map(|x| ((x as usize + app.selected_robot as usize + 1) % NUM_ROBOT_NAMES).into())
-            .filter(|x| app.robots[*x as usize].is_some())
-            .next()
+            .find(|x| app.robots[*x as usize].is_some())
             .unwrap_or(RobotName::Stella);
     }
     let key_directions = [

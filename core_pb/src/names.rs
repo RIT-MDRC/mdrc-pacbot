@@ -87,10 +87,7 @@ impl RobotName {
 
     /// Whether this robot is a raspberry pi pico
     pub fn is_pico(&self) -> bool {
-        match self {
-            Pierre | Prince => true,
-            _ => false,
-        }
+        matches!(self, Pierre | Prince)
     }
 
     /// The mac address of this robot, must be unique

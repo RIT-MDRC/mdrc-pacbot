@@ -1,5 +1,7 @@
 use core::time::Duration;
+#[cfg(feature = "std")]
 use ecolor::Color32;
+#[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
 pub mod average_rate;
@@ -7,8 +9,11 @@ pub mod moving_average;
 pub mod stopwatch;
 pub mod utilization;
 
+#[cfg(feature = "std")]
 pub const TRANSLUCENT_GREEN_COLOR: Color32 = Color32::from_rgba_premultiplied(0, 50, 0, 50);
+#[cfg(feature = "std")]
 pub const TRANSLUCENT_YELLOW_COLOR: Color32 = Color32::from_rgba_premultiplied(50, 50, 0, 50);
+#[cfg(feature = "std")]
 pub const TRANSLUCENT_RED_COLOR: Color32 = Color32::from_rgba_premultiplied(50, 0, 0, 50);
 
 #[cfg(feature = "std")]

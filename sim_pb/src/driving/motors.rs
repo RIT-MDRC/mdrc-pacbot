@@ -1,7 +1,6 @@
 use crate::driving::TaskChannels;
 use crate::RobotToSimulationMessage;
 use async_channel::Sender;
-use bevy::log::info;
 use core_pb::drive_system::DriveSystem;
 use core_pb::driving::motors::RobotMotorsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};

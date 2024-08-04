@@ -113,6 +113,7 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
                 if let Some((lin, ang)) = data.target_vel {
                     data.set_points = data.drive_system.get_motor_speed_omni(lin, ang);
                 }
+                #[allow(clippy::needless_range_loop)]
                 for m in 0..3 {
                     if let Some(motor_override) = data.motor_override[m] {
                         data.set_points[m] = motor_override;

@@ -8,6 +8,12 @@ pub struct AverageRate<const C: usize, I: CrossPlatformInstant + Default> {
     forward: bool,
 }
 
+impl<const C: usize, I: CrossPlatformInstant + Default> Default for AverageRate<C, I> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[allow(dead_code)]
 impl<const C: usize, I: CrossPlatformInstant + Default> AverageRate<C, I> {
     pub fn new() -> Self {

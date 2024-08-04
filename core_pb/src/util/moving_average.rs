@@ -38,6 +38,12 @@ pub struct MovingAverage<T, const COUNT: usize> {
     sum: T,
 }
 
+impl<T: Number, const COUNT: usize> Default for MovingAverage<T, COUNT> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: Number, const COUNT: usize> MovingAverage<T, COUNT> {
     pub fn new() -> Self {
         Self {

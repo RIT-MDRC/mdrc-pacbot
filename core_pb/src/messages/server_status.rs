@@ -32,7 +32,7 @@ impl Default for ServerStatus {
             advanced_game_server: false,
 
             gui_clients: 0,
-            robots: RobotName::get_all().map(|name| RobotStatus::new(name)),
+            robots: RobotName::get_all().map(RobotStatus::new),
         }
     }
 }

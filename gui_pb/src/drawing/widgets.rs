@@ -33,9 +33,7 @@ impl PacbotWidget {
                 egui_phosphor::regular::TIMER,
                 app.server_status.game_state.curr_ticks
             )),
-            PacbotWidget::UtilizationWidget => {
-                RichText::new(format!("{}", egui_phosphor::regular::TIMER))
-            }
+            PacbotWidget::UtilizationWidget => RichText::new(egui_phosphor::regular::TIMER),
         }
     }
 
@@ -50,6 +48,7 @@ impl PacbotWidget {
     }
 
     pub fn hover_ui(&self, app: &mut App, ui: &mut Ui) {
+        #[allow(clippy::single_match)]
         match self {
             PacbotWidget::UtilizationWidget => {
                 let status = app.gui_stopwatch.status();

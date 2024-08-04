@@ -96,20 +96,15 @@ impl SimRobot {
         receiver: Receiver<(RobotInterTaskMessage, Task)>,
         senders: [Sender<RobotInterTaskMessage>; 3],
     ) {
-        loop {
-            match receiver.recv().await {
-                Ok((msg, to)) => {
-                    match to {
-                        Task::Wifi => &senders[0],
-                        Task::Motors => &senders[1],
-                        Task::Peripherals => &senders[2],
-                    }
-                    .send(msg)
-                    .await
-                    .unwrap();
-                }
-                Err(_) => break,
+        while let Ok((msg, to)) = receiver.recv().await {
+            match to {
+                Task::Wifi => &senders[0],
+                Task::Motors => &senders[1],
+                Task::Peripherals => &senders[2],
             }
+            .send(msg)
+            .await
+            .unwrap();
         }
     }
 

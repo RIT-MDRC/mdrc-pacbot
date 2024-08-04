@@ -15,7 +15,9 @@ std = [
     "async-std",
     "async-tungstenite",
     "futures/executor",
-    "futures/async-await"
+    "futures/async-await",
+    "ecolor",
+    "egui-phosphor"
 ]
 wasm = ["pacbot-rs/wasm"]
 robot = ["heapless", "embedded-graphics", "nalgebra/libm-force"]
@@ -39,8 +41,8 @@ micromath = "2.1.0"
 libm = "0.2.8"
 static_cell = "2"
 pid = "4.0.0"
-ecolor = "0.27.2"
-egui-phosphor = "0.5.0"
+ecolor = { version = "0.27.2", optional = true }
+egui-phosphor = { version = "0.5.0", optional = true }
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

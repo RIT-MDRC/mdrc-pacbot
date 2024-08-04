@@ -1,6 +1,8 @@
 use crate::util::moving_average::MovingAverage;
 use crate::util::utilization::UtilizationMonitor;
-use crate::util::{ColoredStatus, CrossPlatformInstant};
+#[cfg(feature = "std")]
+use crate::util::ColoredStatus;
+use crate::util::CrossPlatformInstant;
 use core::time::Duration;
 
 pub struct Stopwatch<const SEGMENTS: usize, const WINDOW: usize, I> {
@@ -12,7 +14,9 @@ pub struct Stopwatch<const SEGMENTS: usize, const WINDOW: usize, I> {
 
     utilization_monitor: UtilizationMonitor<WINDOW, I>,
 
+    #[allow(dead_code)]
     warn_time: Duration,
+    #[allow(dead_code)]
     error_time: Duration,
 }
 

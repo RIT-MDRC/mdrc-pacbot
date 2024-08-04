@@ -93,12 +93,12 @@ pub fn draw_over_the_air(app: &mut App, ui: &mut Ui) {
 
     egui::Grid::new("ota_grid").show(ui, |ui| {
         for OverTheAirStepCompletion { step, success, .. } in steps {
-            let color = match (step.clone(), success.clone()) {
+            let color = match (step, success) {
                 (_, Some(true)) => Color32::GREEN,
                 (_, Some(false)) => Color32::RED,
                 (_, None) => Color32::YELLOW,
             };
-            if success == None
+            if success.is_none()
                 && step != OverTheAirStep::GuiRequest
                 && step != OverTheAirStep::GuiConfirmation
                 && step != OverTheAirStep::FinalGuiConfirmation
@@ -106,14 +106,11 @@ pub fn draw_over_the_air(app: &mut App, ui: &mut Ui) {
                 ui.spinner();
             } else {
                 ui.label(
-                    RichText::new(format!(
-                        "{}",
-                        match (step.clone(), success) {
-                            (_, Some(true)) => egui_phosphor::regular::CHECK,
-                            (_, Some(false)) => egui_phosphor::regular::X,
-                            (_, None) => egui_phosphor::regular::WARNING,
-                        }
-                    ))
+                    RichText::new(match (step, success) {
+                        (_, Some(true)) => egui_phosphor::regular::CHECK,
+                        (_, Some(false)) => egui_phosphor::regular::X,
+                        (_, None) => egui_phosphor::regular::WARNING,
+                    })
                     .color(color),
                 );
             }

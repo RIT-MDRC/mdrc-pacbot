@@ -17,7 +17,7 @@ use core_pb::util::utilization::UtilizationMonitor;
 use std::time::{Duration, Instant};
 
 pub async fn manage_network() {
-    let sockets = Sockets::spawn();
+    let sockets = Sockets::spawn().await;
 
     let mut app = App {
         status: Default::default(),

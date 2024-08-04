@@ -1,10 +1,14 @@
 use crate::util::moving_average::MovingAverage;
-use crate::util::{ColoredStatus, CrossPlatformInstant};
+#[cfg(feature = "std")]
+use crate::util::ColoredStatus;
+use crate::util::CrossPlatformInstant;
 use core::time::Duration;
 
 #[derive(Copy, Clone)]
 pub struct UtilizationMonitor<const C: usize, I> {
+    #[allow(dead_code)]
     warn_amount: f32,
+    #[allow(dead_code)]
     error_amount: f32,
 
     last_start: I,
@@ -66,6 +70,7 @@ impl<const C: usize, I: CrossPlatformInstant + Default> UtilizationMonitor<C, I>
             / (self.active_durations.sum() + self.inactive_durations.sum()).as_secs_f32()
     }
 
+    #[cfg(feature = "std")]
     pub fn status(&self) -> ColoredStatus {
         let util = self.utilization();
         if util >= self.error_amount {

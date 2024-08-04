@@ -25,6 +25,7 @@ const FLASH_SIZE: usize = 2 * 1024 * 1024;
 
 pub static NETWORK_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64> = Channel::new();
 
+#[allow(clippy::type_complexity)]
 pub struct Network {
     control: Control<'static>,
     stack: &'static Stack<NetDriver<'static>>,
@@ -37,9 +38,9 @@ pub struct Network {
 
 #[derive(Debug, Format)]
 pub enum NetworkError {
-    ConnectionError(u32),
-    AcceptError(AcceptError),
-    FirmwareUpdaterError,
+    Connection(u32),
+    Accept(AcceptError),
+    FirmwareUpdater,
 }
 
 impl RobotTask for Network {
@@ -105,7 +106,7 @@ impl RobotNetworkBehavior for Network {
         } else {
             self.control.join_open(network).await
         }
-        .map_err(|e| NetworkError::ConnectionError(e.status))?;
+        .map_err(|e| NetworkError::Connection(e.status))?;
 
         info!("Joined network {}", network);
 
@@ -141,10 +142,7 @@ impl RobotNetworkBehavior for Network {
 
         // self.control.gpio_set(0, false).await;
         info!("Listening for connections on port {}", port);
-        socket
-            .accept(port)
-            .await
-            .map_err(|e| NetworkError::AcceptError(e))?;
+        socket.accept(port).await.map_err(NetworkError::Accept)?;
         info!("Connection successful");
 
         blink(&mut self.control, 1, Duration::from_millis(100)).await;
@@ -163,7 +161,7 @@ impl RobotNetworkBehavior for Network {
     async fn write_firmware(&mut self, offset: usize, data: &[u8]) -> Result<(), Self::Error> {
         self.updater
             .write_firmware(offset, data)
-            .map_err(|_| NetworkError::FirmwareUpdaterError)
+            .map_err(|_| NetworkError::FirmwareUpdater)
     }
 
     async fn hash_firmware(&mut self, _update_len: u32, _output: &mut [u8; 32]) {
@@ -175,11 +173,7 @@ impl RobotNetworkBehavior for Network {
     }
 
     async fn firmware_swapped(&mut self) -> bool {
-        if let Ok(State::Swap) = self.updater.get_state() {
-            true
-        } else {
-            false
-        }
+        matches!(self.updater.get_state(), Ok(State::Swap))
     }
 
     async fn reboot(self) {
@@ -204,6 +198,7 @@ async fn wifi_task(
     runner.run().await
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn initialize_network(
     spawner: Spawner,
     pwr: PIN_23,
@@ -275,7 +270,7 @@ pub async fn initialize_network(
         StaticCell::new();
     let flash = &*FLASH_CELL.init_with(|| Mutex::new(RefCell::new(flash)));
 
-    let config = FirmwareUpdaterConfig::from_linkerfile_blocking(&flash, &flash);
+    let config = FirmwareUpdaterConfig::from_linkerfile_blocking(flash, flash);
     static ALIGNED: StaticCell<AlignedBuffer<1>> = StaticCell::new();
     let aligned = ALIGNED.init_with(|| AlignedBuffer([0; 1]));
     let updater = BlockingFirmwareUpdater::new(config, &mut aligned.0);

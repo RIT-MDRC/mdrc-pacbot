@@ -169,12 +169,12 @@ impl<
         let data = self.receiver.recv();
         let status = self.status_receiver.recv();
 
-        return match select(pin!(data), pin!(status)).await {
+        match select(pin!(data), pin!(status)).await {
             Either::Left(x) => Either::Left(x.0.expect("ThreadedSocket data receiver is closed")),
             Either::Right(x) => {
                 Either::Right(x.0.expect("ThreadedSocket status receiver is closed"))
             }
-        };
+        }
     }
 
     /// Create a new [`ThreadedSocket`]
