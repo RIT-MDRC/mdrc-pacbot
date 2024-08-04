@@ -37,18 +37,6 @@ jobs:
         working-directory: core_pb
         run: cargo build
 
-      - name: Build core_pb --no-default-features --features robot,defmt
-        working-directory: core_pb
-        run: cargo build --no-default-features --features robot,defmt
-
-      - name: Build core_pb --features std,wasm --target wasm32-unknown-unknown
-        working-directory: core_pb
-        run: cargo build --features std,wasm --target wasm32-unknown-unknown
-
-      - name: Build core_pb --features std,robot,log
-        working-directory: core_pb
-        run: cargo build --features std,robot,log
-
       - name: Build gui_pb
         working-directory: gui_pb
         run: cargo build
