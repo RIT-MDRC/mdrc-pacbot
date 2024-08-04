@@ -39,7 +39,7 @@ pub trait RobotNetworkBehavior: RobotTask {
     ) -> Result<(), Self::Error>;
 
     /// Disconnect from any active wifi network
-    async fn disconnect_wifi(&mut self) -> ();
+    async fn disconnect_wifi(&mut self);
 
     /// Accept a socket that meets the requirements. Close the previous one if one exists
     async fn tcp_accept<'a>(
@@ -104,7 +104,10 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
             Ok(mut socket) => {
                 info!("{} client connected", name);
 
-                if let Err(_) = write(name, &mut socket, RobotToServerMessage::Name(name)).await {
+                if write(name, &mut socket, RobotToServerMessage::Name(name))
+                    .await
+                    .is_err()
+                {
                     info!("{} failed to send name", name);
                     continue;
                 }
@@ -114,7 +117,7 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                 loop {
                     match next_event(name, &mut network, &mut socket).await {
                         Either::Right(RobotInterTaskMessage::ToServer(msg)) => {
-                            if let Err(_) = write(name, &mut socket, msg).await {
+                            if write(name, &mut socket, msg).await.is_err() {
                                 break;
                             }
                         }
@@ -156,22 +159,18 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                             let mut buf4 = [0; 4];
                             let mut buf = [0; 4096];
                             // the first number should be 4096
-                            if let Ok(_) = socket.read_exact(&mut buf4).await {
+                            if socket.read_exact(&mut buf4).await.is_ok() {
                                 let len = u32::from_be_bytes(buf4) as usize;
                                 info!("{} is receiving {} bytes", name, len);
-                                if let Ok(_) = socket.read_exact(&mut buf[..len]).await {
-                                    if let Ok(_) = network.write_firmware(offset, &buf[..len]).await
-                                    {
-                                        let _ = write(
-                                            name,
-                                            &mut socket,
-                                            RobotToServerMessage::ConfirmFirmwarePart {
-                                                offset,
-                                                len,
-                                            },
-                                        )
-                                        .await;
-                                    }
+                                if socket.read_exact(&mut buf[..len]).await.is_ok()
+                                    && network.write_firmware(offset, &buf[..len]).await.is_ok()
+                                {
+                                    let _ = write(
+                                        name,
+                                        &mut socket,
+                                        RobotToServerMessage::ConfirmFirmwarePart { offset, len },
+                                    )
+                                    .await;
                                 }
                             }
                         }
@@ -218,8 +217,9 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                                     .await;
                         }
                         Either::Left(Ok(ServerToRobotMessage::Reboot)) => {
-                            if let Ok(_) =
-                                write(name, &mut socket, RobotToServerMessage::Rebooting).await
+                            if write(name, &mut socket, RobotToServerMessage::Rebooting)
+                                .await
+                                .is_ok()
                             {
                                 network.reboot().await;
                                 unreachable!("o7")
@@ -307,13 +307,13 @@ async fn write<T: Write>(
 
     // first write the length of the message (u32)
     let len_buf = (len as u32).to_be_bytes();
-    if let Err(_) = network.write_all(&len_buf).await {
+    if network.write_all(&len_buf).await.is_err() {
         info!("{} error writing to socket", name);
         return Err(());
     }
 
     // then write the message
-    if let Err(_) = network.write_all(&buf[..len]).await {
+    if network.write_all(&buf[..len]).await.is_err() {
         info!("{} error writing to socket", name);
         return Err(());
     }

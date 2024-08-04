@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::replay::Replay;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::pacbot_rs::game_state::GameState;

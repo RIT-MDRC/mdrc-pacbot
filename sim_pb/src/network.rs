@@ -1,4 +1,3 @@
-use bevy::log::info;
 use bevy::prelude::{ResMut, Resource};
 use simple_websockets::{Event, EventHub, Message, Responder};
 use std::collections::HashMap;
@@ -39,8 +38,10 @@ impl PacbotNetworkSimulation {
         let event_hub = simple_websockets::launch(GAME_SERVER_PORT)?;
         println!("Listening on port {GAME_SERVER_PORT}");
         let simulation_event_hub = simple_websockets::launch(SIMULATION_LISTENER_PORT)?;
-        let mut game_state = GameState::default();
-        game_state.paused = true;
+        let game_state = GameState {
+            paused: true,
+            ..Default::default()
+        };
         Ok(Self {
             game_state,
             last_state_update: Instant::now(),

@@ -36,7 +36,7 @@ impl RobotDefinition<3> {
             drive_system: DriveSystem::new_omniwheel(
                 0.019 * GU_PER_M,
                 2.1 * GU_PER_INCH,
-                [0.0, 2.0 * PI / 3.0, 4.0 * PI / 3.0].map(|a| Rotation2::new(a)),
+                [0.0, 2.0 * PI / 3.0, 4.0 * PI / 3.0].map(Rotation2::new),
                 [true, true, true],
             )
             .expect("Default robot drive definition couldn't be constructed"),

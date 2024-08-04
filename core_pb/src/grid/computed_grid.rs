@@ -116,6 +116,14 @@ impl Default for ComputedGrid {
     }
 }
 
+impl From<StandardGrid> for ComputedGrid {
+    fn from(value: StandardGrid) -> Self {
+        let mut s = Self::try_from(value.get_grid()).expect("Failed to compute a StandardGrid");
+        s.standard_grid = Some(value);
+        s
+    }
+}
+
 impl TryFrom<Grid> for ComputedGrid {
     type Error = String;
 

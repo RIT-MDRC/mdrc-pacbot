@@ -1,4 +1,3 @@
-use crate::colors::network_status_to_color;
 use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::settings::{ConnectionSettings, StrategyChoice};
@@ -74,14 +73,14 @@ fn validated<T: PartialEq>(
             // if they're not in the text box, and a new value has come in, replace it
             if !field.has_focus() && t != *value {
                 let str = to_str(value);
-                *last_typed = str.clone();
+                last_valid.clone_from(&str);
                 *last_valid = str;
             } else {
                 *value = t;
             }
         } else if !field.has_focus() {
             // if they're not in the text box, and they typed something invalid, just go back
-            *last_typed = last_valid.clone();
+            last_typed.clone_from(last_valid);
         }
     });
     ui.end_row();
@@ -123,10 +122,8 @@ fn ipv4(
             let re = Regex::new(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$").unwrap();
             if re.is_match(x) {
                 let mut arr = [0; 4];
-                let mut i = 0;
-                for s in x.split('.') {
+                for (i, s) in x.split('.').enumerate() {
                     arr[i] = s.parse().unwrap();
-                    i += 1;
                 }
                 Some(arr)
             } else {
@@ -164,13 +161,10 @@ fn collapsable_section(
 ) {
     ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
         let button = ui.add(
-            egui::Button::new(format!(
-                "{}",
-                match *collapsed {
-                    true => egui_phosphor::regular::CARET_RIGHT,
-                    false => egui_phosphor::regular::CARET_DOWN,
-                }
-            ))
+            egui::Button::new(match *collapsed {
+                true => egui_phosphor::regular::CARET_RIGHT,
+                false => egui_phosphor::regular::CARET_DOWN,
+            })
             .fill(button_color),
         );
         if button.clicked() {
@@ -199,7 +193,7 @@ pub fn generic_server(
     collapsable_section(
         ui,
         collapsed,
-        network_status_to_color(&status),
+        status.status().to_color32(),
         |ui| {
             ui.checkbox(&mut connection_settings.connect, name);
         },

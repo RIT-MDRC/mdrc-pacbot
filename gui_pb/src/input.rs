@@ -49,6 +49,7 @@ impl App {
             });
 
             for event in &i.events {
+                #[allow(clippy::single_match)]
                 match event {
                     Event::Key {
                         key, pressed: true, ..

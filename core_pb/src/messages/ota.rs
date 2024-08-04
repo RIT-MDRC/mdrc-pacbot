@@ -70,10 +70,7 @@ impl From<usize> for OverTheAirStep {
 
 impl OverTheAirStep {
     pub fn terminated(&self) -> bool {
-        match self {
-            OverTheAirStep::Failed | OverTheAirStep::Finished => true,
-            _ => false,
-        }
+        matches!(self, OverTheAirStep::Failed | OverTheAirStep::Finished)
     }
 
     pub fn message(&self) -> String {

@@ -29,7 +29,7 @@ impl Default for PacbotSettings {
             safe_mode: false,
             simulation: Default::default(),
             standard_grid: Default::default(),
-            robots: RobotName::get_all().map(|name| RobotSettings::new(name)),
+            robots: RobotName::get_all().map(RobotSettings::new),
             game_server: Default::default(),
             driving: Default::default(),
         }

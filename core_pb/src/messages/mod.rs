@@ -3,6 +3,8 @@ use crate::messages::server_status::ServerStatus;
 #[cfg(feature = "std")]
 use crate::messages::settings::PacbotSettings;
 use crate::names::RobotName;
+#[cfg(feature = "std")]
+use crate::util::ColoredStatus;
 use core::time::Duration;
 use nalgebra::Vector2;
 use pacbot_rs::game_state::GameState;
@@ -19,6 +21,7 @@ pub const GAME_SERVER_MAGIC_NUMBER: [u8; 4] = [170, 115, 26, 153];
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
+#[allow(clippy::large_enum_variant)]
 pub enum GuiToServerMessage {
     Settings(PacbotSettings),
     GameServerCommand(GameServerCommand),
@@ -31,6 +34,7 @@ pub enum GuiToServerMessage {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
+#[allow(clippy::large_enum_variant)]
 pub enum ServerToGuiMessage {
     Status(ServerStatus),
     Settings(PacbotSettings),
@@ -99,6 +103,22 @@ pub enum NetworkStatus {
     Connecting,
     /// After a message is received
     Connected,
+}
+
+impl NetworkStatus {
+    #[cfg(feature = "std")]
+    pub fn status(&self) -> ColoredStatus {
+        match self {
+            NetworkStatus::NotConnected => {
+                ColoredStatus::NotApplicable(Some("Not connected".to_string()))
+            }
+            NetworkStatus::ConnectionFailed => {
+                ColoredStatus::Error(Some("Connection failed".to_string()))
+            }
+            NetworkStatus::Connecting => ColoredStatus::Warn(Some("Connecting".to_string())),
+            NetworkStatus::Connected => ColoredStatus::Ok(Some("Connected".to_string())),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

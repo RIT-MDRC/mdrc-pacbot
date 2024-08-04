@@ -2,10 +2,11 @@ use crate::drawing::game::{draw_game, draw_grid};
 use crate::drawing::motors::draw_motors;
 use crate::drawing::over_the_air::draw_over_the_air;
 use crate::drawing::settings::draw_settings;
+use crate::drawing::timings::draw_timings;
 use crate::transform::Transform;
 use crate::App;
 use core_pb::grid::standard_grid::StandardGrid;
-use eframe::egui::{Pos2, RichText, Ui, WidgetText};
+use eframe::egui::{Pos2, Ui, WidgetText};
 use egui_dock::TabViewer;
 
 pub enum Tab {
@@ -74,6 +75,7 @@ impl TabViewer for App {
                     draw_game(self, &painter);
                 }
             }
+            Tab::Stopwatch => draw_timings(self, ui),
             Tab::Settings => draw_settings(self, ui),
             Tab::OverTheAirProgramming => draw_over_the_air(self, ui),
             Tab::Motors => draw_motors(self, ui),
@@ -90,34 +92,5 @@ impl TabViewer for App {
                 });
             }
         };
-    }
-}
-
-/// A generic status indication
-#[derive(Clone, Debug)]
-pub enum PacbotWidgetStatus {
-    /// Green
-    Ok,
-    /// Yellow
-    Warn(String),
-    /// Red
-    Error(String),
-    /// Grey
-    NotApplicable,
-}
-
-trait PacbotWidget {
-    fn update(&mut self, _tab_viewer: &App) {}
-    fn display_name(&self) -> &'static str;
-    fn button_text(&self) -> RichText;
-    fn tab(&self) -> Tab {
-        Tab::Unknown
-    }
-    fn overall_status(&self) -> &PacbotWidgetStatus {
-        &PacbotWidgetStatus::NotApplicable
-    }
-
-    fn messages(&self) -> &[(String, PacbotWidgetStatus)] {
-        &[]
     }
 }

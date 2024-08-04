@@ -61,10 +61,7 @@ fn send_or_drop2(message: RobotInterTaskMessage, to: Task) -> bool {
         Task::Motors => MOTORS_CHANNEL.try_send(message),
         Task::Peripherals => PERIPHERALS_CHANNEL.try_send(message),
     };
-    match result {
-        Ok(_) => true,
-        Err(_) => false,
-    }
+    result.is_ok()
 }
 
 async fn send_blocking2(message: RobotInterTaskMessage, to: Task) {
@@ -103,14 +100,7 @@ async fn main(spawner: Spawner) {
     unwrap!(int_spawner.spawn(run_encoders((encoder_a, encoder_b, encoder_c))));
 
     let mut network = initialize_network(
-        spawner.clone(),
-        p.PIN_23,
-        p.PIN_25,
-        p.PIO0,
-        p.PIN_24,
-        p.PIN_29,
-        p.DMA_CH0,
-        p.FLASH,
+        spawner, p.PIN_23, p.PIN_25, p.PIO0, p.PIN_24, p.PIN_29, p.DMA_CH0, p.FLASH,
     )
     .await;
 
@@ -193,7 +183,7 @@ impl DerefMut for EmbassyInstant {
 
 impl CrossPlatformInstant for EmbassyInstant {
     fn elapsed(&self) -> core::time::Duration {
-        Instant::elapsed(&self).into()
+        Instant::elapsed(self).into()
     }
 
     fn checked_duration_since(&self, other: Self) -> Option<core::time::Duration> {

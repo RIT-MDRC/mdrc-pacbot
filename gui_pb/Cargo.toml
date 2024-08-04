@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-core_pb = { path = "../core_pb", features = ["wasm"] }
+core_pb = { path = "../core_pb", features = ["wasm", "egui-phosphor"] }
 eframe = "0.27.2"
 egui-phosphor = "0.5.0"
 egui_dock = "0.12.0"

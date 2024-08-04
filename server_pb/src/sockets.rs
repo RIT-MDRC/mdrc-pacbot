@@ -5,8 +5,8 @@ use std::time::Duration;
 use async_channel::{unbounded, Receiver, Sender};
 use async_tungstenite::async_std::ConnectStream;
 use async_tungstenite::WebSocketStream;
-use futures_util::future::Either;
 use futures_util::future::Either::{Left, Right};
+use futures_util::future::{join_all, Either};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use simple_websockets::{Event, Message, Responder};
@@ -34,6 +34,7 @@ pub enum Destination {
     NotApplicable,
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum Incoming {
     Status(NetworkStatus),
     Text(String),
@@ -47,6 +48,7 @@ pub enum Incoming {
     FromGameServer(Vec<u8>),
 }
 
+#[allow(clippy::large_enum_variant)]
 #[allow(dead_code)]
 pub enum Outgoing {
     Address(Option<Address>),
@@ -65,11 +67,11 @@ pub struct Sockets {
 }
 
 impl Sockets {
-    pub fn spawn() -> Self {
+    pub async fn spawn() -> Self {
         let (outgoing_tx, outgoing_rx) = unbounded();
         let (incoming_tx, incoming_rx) = unbounded();
 
-        let _ = tokio::spawn(receive_outgoing(incoming_tx, outgoing_rx));
+        let _ = tokio::spawn(receive_outgoing(incoming_tx, outgoing_rx)).await;
 
         Self {
             outgoing: outgoing_tx,
@@ -90,12 +92,13 @@ async fn receive_outgoing(
             "server[game_server]".to_string(),
             None,
             bin_encode,
-            |bytes| Ok::<_, ()>(bytes.iter().copied().collect()),
+            |bytes| Ok::<_, ()>(bytes.to_vec()),
         ),
         gs_rx,
         incoming_tx.clone(),
-        |msg| Incoming::FromGameServer(msg),
-    ));
+        Incoming::FromGameServer,
+    ))
+    .await;
 
     // simulation
     let (sim_tx, sim_rx) = unbounded();
@@ -104,32 +107,39 @@ async fn receive_outgoing(
         ThreadedSocket::with_name("server[simulation]".to_string()),
         sim_rx,
         incoming_tx.clone(),
-        |msg| Incoming::FromSimulation(msg),
-    ));
+        Incoming::FromSimulation,
+    ))
+    .await;
 
     // robots
-    let robots = RobotName::get_all().map(|name| {
-        let (robot_tx, robot_rx) = unbounded();
-        let _ = tokio::spawn(manage_threaded_socket(
-            Robot(name),
-            ThreadedSocket::new::<TcpStreamThreadableSocket, _, _, _, _>(
-                format!("server[{name}]"),
-                None,
-                bin_encode,
-                bin_decode,
-            ),
-            robot_rx,
-            incoming_tx.clone(),
-            |msg| Incoming::FromRobot(msg),
-        ));
-        robot_tx
-    });
+    let robots = join_all(RobotName::get_all().into_iter().map(|name| {
+        let incoming_tx = incoming_tx.clone();
+        async move {
+            let (robot_tx, robot_rx) = unbounded();
+            tokio::spawn(manage_threaded_socket(
+                Robot(name),
+                ThreadedSocket::new::<TcpStreamThreadableSocket, _, _, _, _>(
+                    format!("server[{name}]"),
+                    None,
+                    bin_encode,
+                    bin_decode,
+                ),
+                robot_rx,
+                incoming_tx,
+                Incoming::FromRobot,
+            ))
+            .await
+            .unwrap();
+            robot_tx
+        }
+    }))
+    .await;
 
     // gui clients
     let (gui_tx, gui_rx) = unbounded();
-    let _ = tokio::spawn(manage_gui_clients(incoming_tx.clone(), gui_rx));
+    let _ = tokio::spawn(manage_gui_clients(incoming_tx.clone(), gui_rx)).await;
 
-    let _ = tokio::spawn(repeat_sleep(incoming_tx.clone(), Duration::from_millis(40)));
+    let _ = tokio::spawn(repeat_sleep(incoming_tx.clone(), Duration::from_millis(40))).await;
 
     loop {
         let (dest, msg) = outgoing_rx.recv().await.unwrap();
@@ -231,7 +241,7 @@ async fn manage_gui_clients(tx: Sender<(Destination, Incoming)>, rx: Receiver<Se
         select! {
             outgoing = rx.recv() => {
                 let msg = Message::Binary(bin_encode(outgoing.unwrap()).unwrap());
-                for (_, r) in &mut responders {
+                for r in responders.values_mut() {
                     r.send(msg.clone());
                 }
             }

@@ -19,13 +19,17 @@ use egui_dock::{DockArea, DockState, NodeIndex, Style};
 // todo use native_dialog::FileDialog;
 use crate::drawing::motors::MotorStatusGraphFrames;
 use crate::drawing::settings::UiSettings;
+use crate::drawing::widgets::draw_widgets;
 use core_pb::console_log;
 #[cfg(target_arch = "wasm32")]
 pub use core_pb::log;
 use core_pb::messages::{GuiToServerMessage, ServerToGuiMessage};
 use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
+use core_pb::util::stopwatch::Stopwatch;
+use core_pb::util::StdInstant;
 use nalgebra::Vector2;
 use std::collections::HashMap;
+use std::time::Duration;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
@@ -96,24 +100,33 @@ pub struct App {
     ui_settings: UiSettings,
     target_vel: Option<(Vector2<f32>, f32)>,
     motor_status_frames: MotorStatusGraphFrames<3>,
-
+    gui_stopwatch: Stopwatch<5, 30, StdInstant>,
     rotated_grid: bool,
     settings_fields: Option<HashMap<String, (String, String)>>,
 }
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.gui_stopwatch.start();
+
         self.pointer_pos = ctx.pointer_latest_pos();
         self.background_color = ctx.style().visuals.panel_fill;
         if *self.grid.standard_grid() != Some(self.settings.standard_grid) {
             self.grid = self.settings.standard_grid.compute_grid();
         }
+        self.gui_stopwatch.mark_completed("Initialization").unwrap();
         self.read_input(ctx);
+        self.gui_stopwatch.mark_completed("Read input").unwrap();
         self.manage_network();
+        self.gui_stopwatch.mark_completed("Manage network").unwrap();
 
         self.draw_layout(ctx);
+        self.gui_stopwatch.mark_completed("Draw graphics").unwrap();
 
         ctx.request_repaint();
+        self.gui_stopwatch
+            .mark_completed("Request repaint")
+            .unwrap();
     }
 }
 
@@ -124,7 +137,8 @@ impl App {
 
         cc.egui_ctx.set_fonts(fonts);
 
-        let mut dock_state = DockState::new(vec![Tab::Motors, Tab::Grid, Tab::Robot]);
+        let mut dock_state =
+            DockState::new(vec![Tab::Stopwatch, Tab::Grid, Tab::Motors, Tab::Robot]);
         let surface = dock_state.main_surface_mut();
         surface.split_right(NodeIndex::root(), 0.75, vec![Tab::Settings]);
         surface.split_left(
@@ -159,6 +173,13 @@ impl App {
             motor_status_frames: MotorStatusGraphFrames::new(ui_settings.selected_robot),
             ui_settings,
             target_vel: None,
+            gui_stopwatch: Stopwatch::new(
+                "Gui",
+                Duration::from_millis(15),
+                Duration::from_millis(20),
+                0.8,
+                0.9,
+            ),
 
             rotated_grid: true,
             settings_fields: Some(HashMap::new()),
@@ -222,8 +243,8 @@ impl App {
                                 self.load_replay().expect("Failed to load replay!");
                             }
                         });
+                        draw_widgets(self, ui)
                     });
-                    // TODO widgets
                 });
                 ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
                     ui.label(
