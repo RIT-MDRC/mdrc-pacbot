@@ -2,6 +2,7 @@ use crate::messages::ota::{OverTheAirStep, OverTheAirStepCompletion};
 use crate::messages::{MotorControlStatus, NetworkStatus};
 use crate::names::{RobotName, NUM_ROBOT_NAMES};
 use crate::util::ColoredStatus;
+use nalgebra::Point2;
 use pacbot_rs::game_state::GameState;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -16,6 +17,8 @@ pub struct ServerStatus {
     pub game_server_connection: NetworkStatus,
     pub advanced_game_server: bool,
 
+    pub rl_target: Vec<Point2<i8>>,
+
     pub gui_clients: usize,
     pub robots: [RobotStatus; NUM_ROBOT_NAMES],
 }
@@ -23,13 +26,15 @@ pub struct ServerStatus {
 impl Default for ServerStatus {
     fn default() -> Self {
         Self {
-            utilization: ColoredStatus::Ok(Some("?".to_string())),
+            utilization: ColoredStatus::Ok(Some("Loading...".to_string())),
 
             simulation_connection: NetworkStatus::default(),
 
             game_state: GameState::default(),
             game_server_connection: NetworkStatus::default(),
             advanced_game_server: false,
+
+            rl_target: vec![],
 
             gui_clients: 0,
             robots: RobotName::get_all().map(RobotStatus::new),

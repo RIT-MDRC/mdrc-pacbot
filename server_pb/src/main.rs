@@ -1,3 +1,4 @@
+use crate::high_level::ReinforcementLearningManager;
 use crate::network::manage_network;
 use crate::ota::OverTheAirProgramming;
 use crate::sockets::{Destination, Outgoing, Sockets};
@@ -11,6 +12,7 @@ use core_pb::util::utilization::UtilizationMonitor;
 use core_pb::util::StdInstant;
 use std::process::{Child, Command};
 
+mod high_level;
 pub mod network;
 mod ota;
 mod sockets;
@@ -29,6 +31,7 @@ pub struct App {
 
     sockets: Sockets,
 
+    rl_manager: ReinforcementLearningManager,
     over_the_air_programming: OverTheAirProgramming,
 
     grid: ComputedGrid,

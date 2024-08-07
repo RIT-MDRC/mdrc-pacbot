@@ -1,5 +1,6 @@
 use crate::colors::*;
 use crate::App;
+use core_pb::pacbot_rs::ghost_state::GhostColor;
 use eframe::egui::{Color32, Painter, Pos2, Rect, Rounding, Stroke};
 
 pub fn draw_grid(app: &mut App, painter: &Painter) {
@@ -40,11 +41,10 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
             wts.map_point(Pos2::new(ghost.loc.row as f32, ghost.loc.col as f32)),
             wts.map_dist(0.45),
             match ghost.color {
-                core_pb::pacbot_rs::ghost_state::RED => GHOST_RED_COLOR,
-                core_pb::pacbot_rs::ghost_state::PINK => GHOST_PINK_COLOR,
-                core_pb::pacbot_rs::ghost_state::ORANGE => GHOST_ORANGE_COLOR,
-                core_pb::pacbot_rs::ghost_state::CYAN => GHOST_BLUE_COLOR,
-                _ => panic!("Invalid ghost color!"),
+                GhostColor::Red => GHOST_RED_COLOR,
+                GhostColor::Pink => GHOST_PINK_COLOR,
+                GhostColor::Cyan => GHOST_BLUE_COLOR,
+                GhostColor::Orange => GHOST_ORANGE_COLOR,
             },
         );
         if ghost.fright_steps > 0 {

@@ -1,3 +1,4 @@
+use crate::high_level::ReinforcementLearningManager;
 use crate::ota::OverTheAirProgramming;
 use crate::sockets::Destination::*;
 use crate::sockets::Incoming::*;
@@ -14,6 +15,7 @@ use core_pb::messages::{
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
 use core_pb::util::utilization::UtilizationMonitor;
+use nalgebra::Point2;
 use std::time::{Duration, Instant};
 
 pub async fn manage_network() {
@@ -29,6 +31,7 @@ pub async fn manage_network() {
         client_http_host_process: None,
         sim_game_engine_process: None,
 
+        rl_manager: ReinforcementLearningManager::default(),
         over_the_air_programming: OverTheAirProgramming::new(sockets.outgoing.clone()),
 
         sockets,
@@ -57,9 +60,22 @@ pub async fn manage_network() {
             .await;
         }
 
-        // frequently send motor commands to robots
+        // frequently (but not too frequently) do some stuff
         if previous_200ms_tick.elapsed() > Duration::from_millis(200) {
             previous_200ms_tick = Instant::now();
+            // check if new AI calculation is needed
+            if app.status.rl_target.is_empty() {
+                let rl_direction = app
+                    .rl_manager
+                    .hybrid_strategy(app.status.game_state.clone());
+                let rl_vec = rl_direction.vector();
+                // todo multiple steps
+                app.status.rl_target = vec![Point2::new(
+                    app.status.game_state.pacman_loc.row + rl_vec.0,
+                    app.status.game_state.pacman_loc.col + rl_vec.1,
+                )];
+            }
+            // send motor commands to robots
             for name in RobotName::get_all() {
                 let id = name as usize;
                 // pwm overrides
@@ -142,9 +158,9 @@ pub async fn manage_network() {
                 if bytes == GAME_SERVER_MAGIC_NUMBER.to_vec() {
                     app.status.advanced_game_server = true;
                 } else {
-                    let mut g = GameState::new();
-                    match g.update(&bytes) {
-                        Ok(()) => app.status.game_state = g,
+                    app.status.rl_target = vec![];
+                    match GameState::from_bytes(&bytes, app.status.game_state.seed) {
+                        Ok(g) => app.status.game_state = g,
                         Err(e) => eprintln!("Error updating game state: {e:?}"),
                     }
                 }

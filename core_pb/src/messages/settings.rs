@@ -164,6 +164,21 @@ impl Default for DriveSettings {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Hash, Serialize, Deserialize, Ord, Eq)]
+pub enum KnownRLModel {
+    QNet,
+    Endgame,
+}
+
+impl KnownRLModel {
+    pub fn path(&self) -> &'static str {
+        match self {
+            KnownRLModel::QNet => "checkpoints/q_net.safetensors",
+            KnownRLModel::Endgame => "checkpoints/endgame.safetensors",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub enum StrategyChoice {
     /// No movement
@@ -171,8 +186,8 @@ pub enum StrategyChoice {
     /// WASD, or right click to set target
     #[default]
     Manual,
-    /// AI, with a path to the .safetensors file
-    ReinforcementLearning(String),
+    /// AI
+    ReinforcementLearning(KnownRLModel),
     /// Test (random, uniform over all cells)
     TestUniform,
     /// Test (never goes back on itself)

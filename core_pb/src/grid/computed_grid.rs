@@ -2,7 +2,8 @@ use crate::grid::standard_grid::StandardGrid;
 use crate::grid::{Grid, GRID_SIZE};
 use nalgebra::Point2;
 use ordered_float::OrderedFloat;
-use pacbot_rs::location::{DOWN, LEFT, RIGHT, UP};
+use pacbot_rs::location::Direction;
+use pacbot_rs::location::Direction::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 
@@ -696,17 +697,17 @@ mod tests {
 }
 
 /// Find the direction from the start point to the end point
-pub fn facing_direction(start: &Point2<i8>, end: &Point2<i8>) -> u8 {
+pub fn facing_direction(start: &Point2<i8>, end: &Point2<i8>) -> Direction {
     if start.y > end.y {
-        RIGHT
+        Right
     } else if start.y < end.y {
-        LEFT
+        Left
     } else if start.x < end.x {
-        UP
+        Up
     } else if start.x > end.x {
-        DOWN
+        Down
     } else {
         // start == end
-        RIGHT
+        Stay
     }
 }

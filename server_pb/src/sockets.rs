@@ -5,8 +5,8 @@ use std::time::Duration;
 use async_channel::{unbounded, Receiver, Sender};
 use async_tungstenite::async_std::ConnectStream;
 use async_tungstenite::WebSocketStream;
+use futures_util::future::Either;
 use futures_util::future::Either::{Left, Right};
-use futures_util::future::{join_all, Either};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use simple_websockets::{Event, Message, Responder};
@@ -71,7 +71,7 @@ impl Sockets {
         let (outgoing_tx, outgoing_rx) = unbounded();
         let (incoming_tx, incoming_rx) = unbounded();
 
-        let _ = tokio::spawn(receive_outgoing(incoming_tx, outgoing_rx)).await;
+        let _ = tokio::spawn(receive_outgoing(incoming_tx, outgoing_rx));
 
         Self {
             outgoing: outgoing_tx,
@@ -97,8 +97,7 @@ async fn receive_outgoing(
         gs_rx,
         incoming_tx.clone(),
         Incoming::FromGameServer,
-    ))
-    .await;
+    ));
 
     // simulation
     let (sim_tx, sim_rx) = unbounded();
@@ -108,38 +107,32 @@ async fn receive_outgoing(
         sim_rx,
         incoming_tx.clone(),
         Incoming::FromSimulation,
-    ))
-    .await;
+    ));
 
     // robots
-    let robots = join_all(RobotName::get_all().into_iter().map(|name| {
+    let robots = RobotName::get_all().map(|name| {
         let incoming_tx = incoming_tx.clone();
-        async move {
-            let (robot_tx, robot_rx) = unbounded();
-            tokio::spawn(manage_threaded_socket(
-                Robot(name),
-                ThreadedSocket::new::<TcpStreamThreadableSocket, _, _, _, _>(
-                    format!("server[{name}]"),
-                    None,
-                    bin_encode,
-                    bin_decode,
-                ),
-                robot_rx,
-                incoming_tx,
-                Incoming::FromRobot,
-            ))
-            .await
-            .unwrap();
-            robot_tx
-        }
-    }))
-    .await;
+        let (robot_tx, robot_rx) = unbounded();
+        let _ = tokio::spawn(manage_threaded_socket(
+            Robot(name),
+            ThreadedSocket::new::<TcpStreamThreadableSocket, _, _, _, _>(
+                format!("server[{name}]"),
+                None,
+                bin_encode,
+                bin_decode,
+            ),
+            robot_rx,
+            incoming_tx,
+            Incoming::FromRobot,
+        ));
+        robot_tx
+    });
 
     // gui clients
     let (gui_tx, gui_rx) = unbounded();
-    let _ = tokio::spawn(manage_gui_clients(incoming_tx.clone(), gui_rx)).await;
+    let _ = tokio::spawn(manage_gui_clients(incoming_tx.clone(), gui_rx));
 
-    let _ = tokio::spawn(repeat_sleep(incoming_tx.clone(), Duration::from_millis(40))).await;
+    let _ = tokio::spawn(repeat_sleep(incoming_tx.clone(), Duration::from_millis(40)));
 
     loop {
         let (dest, msg) = outgoing_rx.recv().await.unwrap();
