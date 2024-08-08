@@ -110,6 +110,11 @@ impl App {
                     "Gui client #{id} connected; {} gui client(s) are connected",
                     self.status.gui_clients
                 );
+                self.send(
+                    GuiClients,
+                    ToGui(ServerToGuiMessage::Settings(self.settings.clone())),
+                )
+                .await;
             }
             (_, GuiDisconnected(id)) => {
                 self.status.gui_clients -= 1;

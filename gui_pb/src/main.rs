@@ -186,6 +186,10 @@ impl App {
         }
     }
 
+    pub fn send(&mut self, message: GuiToServerMessage) {
+        self.network.0.send(TextOrT::T(message))
+    }
+
     pub fn manage_network(&mut self) {
         let new_addr = if self.ui_settings.mdrc_server.connect {
             Some((
@@ -201,9 +205,7 @@ impl App {
         }
         // we must check for changed settings before updating them from the server
         if self.old_settings != self.settings {
-            self.network.0.send(TextOrT::T(GuiToServerMessage::Settings(
-                self.settings.clone(),
-            )));
+            self.send(GuiToServerMessage::Settings(self.settings.clone()));
         }
         while let Some(TextOrT::T(msg)) = self.network.0.read() {
             match msg {

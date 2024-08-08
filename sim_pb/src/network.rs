@@ -86,6 +86,9 @@ impl PacbotNetworkSimulation {
                                 GameServerCommand::Pause => self.game_state.paused = true,
                                 GameServerCommand::Unpause => self.game_state.paused = false,
                                 GameServerCommand::Reset => self.game_state = GameState::default(),
+                                GameServerCommand::Direction(dir) => {
+                                    self.game_state.move_pacman_dir(dir)
+                                }
                                 GameServerCommand::SetState(s) => self.game_state = s,
                             },
                             Err(e) => eprintln!(
