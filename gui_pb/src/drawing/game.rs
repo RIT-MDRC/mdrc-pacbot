@@ -87,4 +87,18 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
         wts.map_dist(0.3),
         PACMAN_DISTANCE_SENSOR_RAY_COLOR,
     );
+
+    // target path
+    if let Some(target) = app.server_status.rl_target.get(0) {
+        painter.line_segment(
+            [
+                wts.map_point(Pos2::new(
+                    pacman_state.pacman_loc.row as f32,
+                    pacman_state.pacman_loc.col as f32,
+                )),
+                wts.map_point(Pos2::new(target.x as f32, target.y as f32)),
+            ],
+            Stroke::new(1.0, PACMAN_AI_TARGET_LOCATION_COLOR),
+        );
+    }
 }
