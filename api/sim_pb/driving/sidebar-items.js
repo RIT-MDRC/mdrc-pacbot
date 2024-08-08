@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CHANNEL_BUFFER_SIZE"],"fn":["handle_task"],"mod":["motors","network","peripherals"],"struct":["SimRobot","TaskChannels"]};
