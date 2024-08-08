@@ -158,9 +158,13 @@ pub async fn manage_network() {
                 if bytes == GAME_SERVER_MAGIC_NUMBER.to_vec() {
                     app.status.advanced_game_server = true;
                 } else {
-                    app.status.rl_target = vec![];
                     match GameState::from_bytes(&bytes, app.status.game_state.seed) {
-                        Ok(g) => app.status.game_state = g,
+                        Ok(g) => {
+                            if g != app.status.game_state {
+                                app.status.game_state = g;
+                                app.status.rl_target = vec![];
+                            }
+                        }
                         Err(e) => eprintln!("Error updating game state: {e:?}"),
                     }
                 }

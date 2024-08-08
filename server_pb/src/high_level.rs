@@ -43,6 +43,6 @@ impl ReinforcementLearningManager {
 
     pub fn hybrid_strategy(&mut self, game_state: GameState) -> Direction {
         // todo make this switch between models
-        self.do_inference(KnownRLModel::Endgame, game_state, true, 6)
+        self.do_inference(KnownRLModel::QNet, game_state, true, 6)
     }
 }
