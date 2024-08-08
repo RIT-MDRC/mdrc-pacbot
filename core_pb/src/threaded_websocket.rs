@@ -213,15 +213,19 @@ impl<
 
         let name2 = name.clone();
         #[cfg(target_arch = "wasm32")]
-        spawn_local(run_socket_forever::<_, _, SocketType, _, _, _, _>(
-            name2,
-            addr_rx,
-            sender_rx,
-            status_tx,
-            receiver_tx,
-            serializer,
-            deserializer,
-        ));
+        spawn_local(async {
+            run_socket_forever::<_, _, SocketType, _, _, _, _>(
+                name2,
+                addr_rx,
+                sender_rx,
+                status_tx,
+                receiver_tx,
+                serializer,
+                deserializer,
+            )
+            .await
+            .ok();
+        });
         #[cfg(not(target_arch = "wasm32"))]
         std::thread::spawn(|| {
             block_on(run_socket_forever::<_, _, SocketType, _, _, _, _>(

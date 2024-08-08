@@ -26,7 +26,10 @@ pub use core_pb::log;
 use core_pb::messages::{GuiToServerMessage, ServerToGuiMessage};
 use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
 use core_pb::util::stopwatch::Stopwatch;
+#[cfg(not(target_arch = "wasm32"))]
 use core_pb::util::StdInstant;
+#[cfg(target_arch = "wasm32")]
+use core_pb::util::WebTimeInstant as StdInstant;
 use nalgebra::Vector2;
 use std::collections::HashMap;
 use std::time::Duration;

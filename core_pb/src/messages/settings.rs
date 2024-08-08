@@ -25,7 +25,7 @@ pub struct PacbotSettings {
 impl Default for PacbotSettings {
     fn default() -> Self {
         Self {
-            host_http: false,
+            host_http: true,
             safe_mode: false,
             simulation: Default::default(),
             standard_grid: Default::default(),

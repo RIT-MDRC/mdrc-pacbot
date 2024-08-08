@@ -268,7 +268,7 @@ impl App {
             if self.client_http_host_process.is_none() {
                 self.client_http_host_process = Some(
                     Command::new("trunk")
-                        .args(["serve", "--config", "gui_pb/Trunk.toml"])
+                        .args(["serve", "--release", "--config", "gui_pb/Trunk.toml"])
                         .current_dir(env!("CARGO_MANIFEST_DIR").to_string() + "/../")
                         .spawn()
                         .unwrap(),
