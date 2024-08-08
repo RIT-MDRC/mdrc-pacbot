@@ -319,7 +319,7 @@ async fn run_socket_forever<
     data_incoming: Sender<TextOrT<IncomingType>>,
     serializer: Serializer,
     deserializer: Deserializer,
-) {
+) -> Result<(), ()> {
     let mut addr: Option<Address> = None;
     let mut socket: Option<SocketType> = None;
 
@@ -327,18 +327,21 @@ async fn run_socket_forever<
         if socket.is_none() {
             if let Some(address) = addr {
                 console_log!("[threaded_websocket : {name}] Connecting to {addr:?}...");
-                statuses.send(NetworkStatus::Connecting).await.unwrap();
+                statuses
+                    .send(NetworkStatus::Connecting)
+                    .await
+                    .map_err(|_| ())?;
                 select! {
                     new_addr = addresses.recv().fuse() => {
                         console_log!("[threaded_websocket : {name}] Address changed from {addr:?} to {new_addr:?}");
-                        statuses.send(NetworkStatus::NotConnected).await.unwrap();
+                        statuses.send(NetworkStatus::NotConnected).await.map_err(|_| ())?;
                         addr = new_addr.unwrap();
                     }
                     conn = SocketType::my_connect(address).fuse() => {
                         match conn {
                             Ok(s) => {
                                 console_log!("[threaded_websocket : {name}] Connected to {addr:?}");
-                                statuses.send(NetworkStatus::Connected).await.unwrap();
+                                statuses.send(NetworkStatus::Connected).await.map_err(|_| ())?;
                                 socket = Some(s);
                             }
                             Err(()) => {
@@ -348,7 +351,7 @@ async fn run_socket_forever<
                                 statuses
                                     .send(NetworkStatus::ConnectionFailed)
                                     .await
-                                    .unwrap();
+                                    .map_err(|_| ())?;
                             }
                         }
                     }
@@ -360,7 +363,7 @@ async fn run_socket_forever<
             new_addr = addresses.recv().fuse() => {
                 if addr != new_addr.unwrap() {
                     console_log!("[threaded_websocket : {name}] Address changed from {addr:?} to {new_addr:?}");
-                    statuses.send(NetworkStatus::NotConnected).await.unwrap();
+                    statuses.send(NetworkStatus::NotConnected).await.map_err(|_| ())?;
                     if let Some(socket) = socket.take() {
                         console_log!("[threaded_websocket : {name}] Closing socket to {addr:?}");
                         socket.my_close().await
@@ -383,11 +386,11 @@ async fn run_socket_forever<
                         TextOrT::Bytes(data) => Some(TextOrT::Bytes(data))
                     };
                     if let Some(data) = incoming_data {
-                        data_incoming.send(data).await.unwrap();
+                        data_incoming.send(data).await.map_err(|_| ())?;
                     }
                 } else {
                     console_log!("[threaded_websocket : {name}] Connection closed to {addr:?} due to error reading");
-                    statuses.send(NetworkStatus::ConnectionFailed).await.unwrap();
+                    statuses.send(NetworkStatus::ConnectionFailed).await.map_err(|_| ())?;
                     if let Some(socket) = socket.take() {
                         console_log!("[threaded_websocket : {name}] Closing socket to {addr:?}");
                         socket.my_close().await
@@ -397,7 +400,7 @@ async fn run_socket_forever<
             outgoing_data = data_outgoing.recv().fuse() => {
                 if let Some(socket) = &mut socket {
                     // console_log!("[threaded_websocket : {name}] Sending data to {addr:?}");
-                    let outgoing_data = match outgoing_data.unwrap() {
+                    let outgoing_data = match outgoing_data.map_err(|_| ())? {
                         TextOrT::T(data) => TextOrT::T(serializer(data).expect("failed to serialize data")),
                         TextOrT::Text(text) => TextOrT::Text(text),
                         TextOrT::Bytes(data) => TextOrT::Bytes(data)

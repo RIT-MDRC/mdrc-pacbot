@@ -67,7 +67,7 @@ pub struct Sockets {
 }
 
 impl Sockets {
-    pub async fn spawn() -> Self {
+    pub fn spawn() -> Self {
         let (outgoing_tx, outgoing_rx) = unbounded();
         let (incoming_tx, incoming_rx) = unbounded();
 
