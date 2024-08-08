@@ -62,7 +62,6 @@ pub async fn manage_network() {
 
         // frequently (but not too frequently) do some stuff
         if previous_200ms_tick.elapsed() > Duration::from_millis(200) {
-            panic!();
             previous_200ms_tick = Instant::now();
             // check if new AI calculation is needed
             if app.status.rl_target.is_empty() {
