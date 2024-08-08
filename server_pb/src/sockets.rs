@@ -5,8 +5,8 @@ use std::time::Duration;
 use async_channel::{unbounded, Receiver, Sender};
 use async_tungstenite::async_std::ConnectStream;
 use async_tungstenite::WebSocketStream;
+use futures_util::future::Either;
 use futures_util::future::Either::{Left, Right};
-use futures_util::future::{join_all, Either};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use simple_websockets::{Event, Message, Responder};
@@ -67,11 +67,11 @@ pub struct Sockets {
 }
 
 impl Sockets {
-    pub async fn spawn() -> Self {
+    pub fn spawn() -> Self {
         let (outgoing_tx, outgoing_rx) = unbounded();
         let (incoming_tx, incoming_rx) = unbounded();
 
-        let _ = tokio::spawn(receive_outgoing(incoming_tx, outgoing_rx)).await;
+        let _ = tokio::spawn(receive_outgoing(incoming_tx, outgoing_rx));
 
         Self {
             outgoing: outgoing_tx,
@@ -83,7 +83,7 @@ impl Sockets {
 async fn receive_outgoing(
     incoming_tx: Sender<(Destination, Incoming)>,
     outgoing_rx: Receiver<(Destination, Outgoing)>,
-) {
+) -> Result<(), ()> {
     // game server
     let (gs_tx, gs_rx) = unbounded();
     let _ = tokio::spawn(manage_threaded_socket(
@@ -97,8 +97,7 @@ async fn receive_outgoing(
         gs_rx,
         incoming_tx.clone(),
         Incoming::FromGameServer,
-    ))
-    .await;
+    ));
 
     // simulation
     let (sim_tx, sim_rx) = unbounded();
@@ -108,72 +107,75 @@ async fn receive_outgoing(
         sim_rx,
         incoming_tx.clone(),
         Incoming::FromSimulation,
-    ))
-    .await;
+    ));
 
     // robots
-    let robots = join_all(RobotName::get_all().into_iter().map(|name| {
+    let robots = RobotName::get_all().map(|name| {
         let incoming_tx = incoming_tx.clone();
-        async move {
-            let (robot_tx, robot_rx) = unbounded();
-            tokio::spawn(manage_threaded_socket(
-                Robot(name),
-                ThreadedSocket::new::<TcpStreamThreadableSocket, _, _, _, _>(
-                    format!("server[{name}]"),
-                    None,
-                    bin_encode,
-                    bin_decode,
-                ),
-                robot_rx,
-                incoming_tx,
-                Incoming::FromRobot,
-            ))
-            .await
-            .unwrap();
-            robot_tx
-        }
-    }))
-    .await;
+        let (robot_tx, robot_rx) = unbounded();
+        let _ = tokio::spawn(manage_threaded_socket(
+            Robot(name),
+            ThreadedSocket::new::<TcpStreamThreadableSocket, _, _, _, _>(
+                format!("server[{name}]"),
+                None,
+                bin_encode,
+                bin_decode,
+            ),
+            robot_rx,
+            incoming_tx,
+            Incoming::FromRobot,
+        ));
+        robot_tx
+    });
 
     // gui clients
     let (gui_tx, gui_rx) = unbounded();
-    let _ = tokio::spawn(manage_gui_clients(incoming_tx.clone(), gui_rx)).await;
+    let _ = tokio::spawn(manage_gui_clients(incoming_tx.clone(), gui_rx));
 
-    let _ = tokio::spawn(repeat_sleep(incoming_tx.clone(), Duration::from_millis(40))).await;
+    let _ = tokio::spawn(repeat_sleep(incoming_tx.clone(), Duration::from_millis(40)));
 
     loop {
-        let (dest, msg) = outgoing_rx.recv().await.unwrap();
+        let (dest, msg) = outgoing_rx.recv().await.map_err(|_| ())?;
 
         if let Outgoing::Address(addr) = msg {
             match dest {
-                GameServer => gs_tx.send(Left(addr)).await.unwrap(),
-                Simulation => sim_tx.send(Left(addr)).await.unwrap(),
-                Robot(name) => robots[name as usize].send(Left(addr)).await.unwrap(),
+                GameServer => gs_tx.send(Left(addr)).await.map_err(|_| ())?,
+                Simulation => sim_tx.send(Left(addr)).await.map_err(|_| ())?,
+                Robot(name) => robots[name as usize]
+                    .send(Left(addr))
+                    .await
+                    .map_err(|_| ())?,
                 _ => eprintln!("Invalid destination {dest:?} for address {addr:?}"),
             }
         } else if let Outgoing::Text(text) = msg {
             match dest {
-                GameServer => gs_tx.send(Right(TextOrT::Text(text))).await.unwrap(),
-                Simulation => sim_tx.send(Right(TextOrT::Text(text))).await.unwrap(),
+                GameServer => gs_tx
+                    .send(Right(TextOrT::Text(text)))
+                    .await
+                    .map_err(|_| ())?,
+                Simulation => sim_tx
+                    .send(Right(TextOrT::Text(text)))
+                    .await
+                    .map_err(|_| ())?,
                 _ => eprintln!("Invalid destination {dest:?} for text {text}"),
             }
         } else {
             match (dest, msg) {
                 (GameServer, Outgoing::ToGameServer(cmd)) => {
-                    gs_tx.send(Right(TextOrT::T(cmd))).await.unwrap()
+                    gs_tx.send(Right(TextOrT::T(cmd))).await.map_err(|_| ())?
                 }
                 (Simulation, Outgoing::ToSimulation(cmd)) => {
-                    sim_tx.send(Right(TextOrT::T(cmd))).await.unwrap()
+                    sim_tx.send(Right(TextOrT::T(cmd))).await.map_err(|_| ())?
                 }
                 (Robot(name), Outgoing::ToRobot(cmd)) => robots[name as usize]
                     .send(Right(TextOrT::T(cmd)))
                     .await
-                    .unwrap(),
+                    .map_err(|_| ())?,
                 (Robot(name), Outgoing::RawBytes(data)) => robots[name as usize]
                     .send(Right(TextOrT::Bytes(data)))
                     .await
-                    .unwrap(),
-                (GuiClients, Outgoing::ToGui(cmd)) => gui_tx.send(cmd).await.unwrap(),
+                    .map_err(|_| ())?,
+                (GuiClients, Outgoing::ToGui(cmd)) => gui_tx.send(cmd).await.map_err(|_| ())?,
                 (NotApplicable, _)
                 | (GameServer, _)
                 | (Simulation, _)
@@ -186,13 +188,16 @@ async fn receive_outgoing(
     }
 }
 
-async fn repeat_sleep(incoming_tx: Sender<(Destination, Incoming)>, delay: Duration) {
+async fn repeat_sleep(
+    incoming_tx: Sender<(Destination, Incoming)>,
+    delay: Duration,
+) -> Result<(), ()> {
     loop {
         sleep(delay).await;
         incoming_tx
             .send((NotApplicable, Incoming::SleepFinished))
             .await
-            .unwrap();
+            .map_err(|_| ())?;
     }
 }
 
@@ -206,11 +211,11 @@ async fn manage_threaded_socket<
     rx: Receiver<Either<Option<Address>, TextOrT<S>>>,
     tx: Sender<(Destination, Incoming)>,
     r_to_inc: F,
-) {
+) -> Result<(), ()> {
     loop {
         select! {
             msg = rx.recv() => {
-                match msg.unwrap() {
+                match msg.map_err(|_| ())? {
                     Left(addr) => threaded_socket.connect(addr),
                     Right(s) => threaded_socket.send(s),
                 }
@@ -219,13 +224,13 @@ async fn manage_threaded_socket<
                 match msg {
                     Left(r) => {
                         match r {
-                            TextOrT::T(r) => tx.send((destination, r_to_inc(r))).await.unwrap(),
-                            TextOrT::Text(text) => tx.send((destination, Incoming::Text(text))).await.unwrap(),
-                            TextOrT::Bytes(data) => tx.send((destination, Incoming::Bytes(data))).await.unwrap(),
+                            TextOrT::T(r) => tx.send((destination, r_to_inc(r))).await.map_err(|_| ())?,
+                            TextOrT::Text(text) => tx.send((destination, Incoming::Text(text))).await.map_err(|_| ())?,
+                            TextOrT::Bytes(data) => tx.send((destination, Incoming::Bytes(data))).await.map_err(|_| ())?,
                         }
                     },
                     Right(status) => {
-                        tx.send((destination, Incoming::Status(status))).await.unwrap();
+                        tx.send((destination, Incoming::Status(status))).await.map_err(|_| ())?;
                     },
                 }
             }
@@ -233,14 +238,17 @@ async fn manage_threaded_socket<
     }
 }
 
-async fn manage_gui_clients(tx: Sender<(Destination, Incoming)>, rx: Receiver<ServerToGuiMessage>) {
-    let event_hub = simple_websockets::launch(GUI_LISTENER_PORT).unwrap();
+async fn manage_gui_clients(
+    tx: Sender<(Destination, Incoming)>,
+    rx: Receiver<ServerToGuiMessage>,
+) -> Result<(), ()> {
+    let event_hub = simple_websockets::launch(GUI_LISTENER_PORT).map_err(|_| ())?;
     let mut responders: HashMap<u64, Responder> = HashMap::new();
 
     loop {
         select! {
             outgoing = rx.recv() => {
-                let msg = Message::Binary(bin_encode(outgoing.unwrap()).unwrap());
+                let msg = Message::Binary(bin_encode(outgoing.map_err(|_| ())?).unwrap());
                 for r in responders.values_mut() {
                     r.send(msg.clone());
                 }
@@ -249,15 +257,15 @@ async fn manage_gui_clients(tx: Sender<(Destination, Incoming)>, rx: Receiver<Se
                 match event {
                     Event::Connect(id, responder) => {
                         responders.insert(id, responder);
-                        tx.send((GuiClients, GuiConnected(id))).await.unwrap();
+                        tx.send((GuiClients, GuiConnected(id))).await.map_err(|_| ())?;
                     }
                     Event::Disconnect(id) => {
                         responders.remove(&id);
-                        tx.send((GuiClients, GuiDisconnected(id))).await.unwrap();
+                        tx.send((GuiClients, GuiDisconnected(id))).await.map_err(|_| ())?;
                     }
                     Event::Message(id, msg) => match msg {
                         Message::Binary(bytes) => match bin_decode(&bytes) {
-                            Ok(msg) => tx.send((GuiClients, Incoming::FromGui(msg))).await.unwrap(),
+                            Ok(msg) => tx.send((GuiClients, Incoming::FromGui(msg))).await.map_err(|_| ())?,
                             Err(e) => eprintln!(
                                 "Failed to decode bytes from gui client {id} ({} bytes): {e:?}",
                                 bytes.len()

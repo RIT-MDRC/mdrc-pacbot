@@ -24,7 +24,7 @@ robot = ["heapless", "embedded-graphics", "nalgebra/libm-force"]
 [dependencies]
 nalgebra = { version = "0.32.5", default-features = false, features = ["serde-serialize-no-std"] }
 ordered-float = { version = "4.2.0", default-features = false }
-pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "2f1aed251a2b82e68f83075b0358eb3acdde0738", default-features = false }
+pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "0ab300700cbf716cde41eb9113cbe7f55c8e6aee", default-features = false }
 serde = { version = "1.0.201", default-features = false, features = ["derive"] }
 bincode = { version = "2.0.0-rc.3", default-features = false, features = ["serde"] }
 defmt = { version = "0.3.8", optional = true }
@@ -48,6 +48,7 @@ egui-phosphor = { version = "0.5.0", optional = true }
 web-sys = { version = "0.3.69", features = ["WebSocket", "ErrorEvent", "MessageEvent", "FileReader", "ProgressEvent", "Blob"] }
 wasm-bindgen = "0.2.92"
 wasm-bindgen-futures = "0.4.42"
+web-time = "1.1.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 async-tungstenite = { version = "0.26.2", optional = true, features = ["async-std-runtime"] }

@@ -8,6 +8,7 @@ use crate::util::ColoredStatus;
 use core::time::Duration;
 use nalgebra::Vector2;
 use pacbot_rs::game_state::GameState;
+use pacbot_rs::location::Direction;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
@@ -127,6 +128,7 @@ pub enum GameServerCommand {
     Pause,
     Unpause,
     Reset,
+    Direction(Direction),
     SetState(GameState),
 }
 
@@ -136,6 +138,10 @@ impl GameServerCommand {
             GameServerCommand::Pause => Some("p"),
             GameServerCommand::Unpause => Some("P"),
             GameServerCommand::Reset => Some("r"),
+            GameServerCommand::Direction(Direction::Up) => Some("w"),
+            GameServerCommand::Direction(Direction::Left) => Some("a"),
+            GameServerCommand::Direction(Direction::Down) => Some("s"),
+            GameServerCommand::Direction(Direction::Right) => Some("d"),
             _ => None,
         }
     }

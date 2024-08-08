@@ -27,7 +27,4 @@ features = [
     "multi-threaded", # Run with multithreading
     "bevy_winit", # Window management (cross-platform Winit backend)
     "x11", # Window management for linux
-
-    # Development/Debug features:
-    "dynamic_linking", # Dynamic linking for faster compile-times
 ]

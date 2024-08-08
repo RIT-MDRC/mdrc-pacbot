@@ -1,7 +1,8 @@
 use crate::App;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::settings::StrategyChoice;
-use core_pb::messages::{GameServerCommand, GuiToServerMessage};
+use core_pb::messages::{GameServerCommand, GuiToServerMessage, NetworkStatus};
+use core_pb::pacbot_rs::location::Direction;
 use core_pb::threaded_websocket::TextOrT;
 use eframe::egui;
 use eframe::egui::{Event, Key};
@@ -48,6 +49,31 @@ impl App {
                 Some(target_vel)
             });
 
+            // if the currently selected robot isn't connected, but the game server is, then
+            // interpret WASD presses as an attempt to manually play Pacman
+            if self.server_status.robots[self.ui_settings.selected_robot as usize].connection
+                == NetworkStatus::NotConnected
+                && self.server_status.game_server_connection == NetworkStatus::Connected
+            {
+                for (key, dir1, dir2) in [
+                    (Key::W, Direction::Right, Direction::Up),
+                    (Key::A, Direction::Up, Direction::Left),
+                    (Key::S, Direction::Left, Direction::Down),
+                    (Key::D, Direction::Down, Direction::Right),
+                ] {
+                    if i.key_pressed(key) {
+                        self.send(GuiToServerMessage::GameServerCommand(
+                            GameServerCommand::Direction(if self.rotated_grid {
+                                dir1
+                            } else {
+                                dir2
+                            }),
+                        ));
+                    }
+                }
+                if i.key_pressed(Key::W) {}
+            }
+
             for event in &i.events {
                 #[allow(clippy::single_match)]
                 match event {
@@ -57,21 +83,17 @@ impl App {
                         match key {
                             Key::Y => self.rotated_grid = !self.rotated_grid,
                             // Game state
-                            Key::R => self.network.0.send(TextOrT::T(
-                                GuiToServerMessage::GameServerCommand(GameServerCommand::Reset),
+                            Key::R => self.send(GuiToServerMessage::GameServerCommand(
+                                GameServerCommand::Reset,
                             )),
                             Key::Space => {
                                 if self.server_status.game_state.paused {
-                                    self.network.0.send(TextOrT::T(
-                                        GuiToServerMessage::GameServerCommand(
-                                            GameServerCommand::Unpause,
-                                        ),
+                                    self.send(GuiToServerMessage::GameServerCommand(
+                                        GameServerCommand::Unpause,
                                     ))
                                 } else {
-                                    self.network.0.send(TextOrT::T(
-                                        GuiToServerMessage::GameServerCommand(
-                                            GameServerCommand::Pause,
-                                        ),
+                                    self.send(GuiToServerMessage::GameServerCommand(
+                                        GameServerCommand::Pause,
                                     ))
                                 }
                             }

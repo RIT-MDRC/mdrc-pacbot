@@ -80,19 +80,41 @@ pub trait CrossPlatformInstant: Copy {
     fn checked_duration_since(&self, other: Self) -> Option<Duration>;
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 #[derive(Copy, Clone)]
 pub struct StdInstant(std::time::Instant);
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 impl Default for StdInstant {
     fn default() -> Self {
         Self(std::time::Instant::now())
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
 impl CrossPlatformInstant for StdInstant {
+    fn elapsed(&self) -> Duration {
+        self.0.elapsed()
+    }
+
+    fn checked_duration_since(&self, other: Self) -> Option<Duration> {
+        self.0.checked_duration_since(other.0)
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[derive(Copy, Clone)]
+pub struct WebTimeInstant(web_time::Instant);
+
+#[cfg(target_arch = "wasm32")]
+impl Default for WebTimeInstant {
+    fn default() -> Self {
+        Self(web_time::Instant::now())
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl CrossPlatformInstant for WebTimeInstant {
     fn elapsed(&self) -> Duration {
         self.0.elapsed()
     }

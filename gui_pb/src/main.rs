@@ -26,7 +26,10 @@ pub use core_pb::log;
 use core_pb::messages::{GuiToServerMessage, ServerToGuiMessage};
 use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
 use core_pb::util::stopwatch::Stopwatch;
+#[cfg(not(target_arch = "wasm32"))]
 use core_pb::util::StdInstant;
+#[cfg(target_arch = "wasm32")]
+use core_pb::util::WebTimeInstant as StdInstant;
 use nalgebra::Vector2;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -138,7 +141,7 @@ impl App {
         cc.egui_ctx.set_fonts(fonts);
 
         let mut dock_state =
-            DockState::new(vec![Tab::Stopwatch, Tab::Grid, Tab::Motors, Tab::Robot]);
+            DockState::new(vec![Tab::Grid, Tab::Motors, Tab::Robot, Tab::Stopwatch]);
         let surface = dock_state.main_surface_mut();
         surface.split_right(NodeIndex::root(), 0.75, vec![Tab::Settings]);
         surface.split_left(
@@ -186,6 +189,10 @@ impl App {
         }
     }
 
+    pub fn send(&mut self, message: GuiToServerMessage) {
+        self.network.0.send(TextOrT::T(message))
+    }
+
     pub fn manage_network(&mut self) {
         let new_addr = if self.ui_settings.mdrc_server.connect {
             Some((
@@ -201,9 +208,7 @@ impl App {
         }
         // we must check for changed settings before updating them from the server
         if self.old_settings != self.settings {
-            self.network.0.send(TextOrT::T(GuiToServerMessage::Settings(
-                self.settings.clone(),
-            )));
+            self.send(GuiToServerMessage::Settings(self.settings.clone()));
         }
         while let Some(TextOrT::T(msg)) = self.network.0.read() {
             match msg {

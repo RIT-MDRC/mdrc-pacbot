@@ -116,10 +116,10 @@ fn robot_position_to_game_state(
             let new_loc = LocationState {
                 row: pos.x,
                 col: pos.y,
-                dir: 0,
+                dir: network.game_state.pacman_loc.dir,
             };
             if network.game_state.pacman_loc != new_loc {
-                network.game_state.set_pacman_location(new_loc)
+                network.game_state.set_pacman_location((pos.x, pos.y))
             }
         }
     }

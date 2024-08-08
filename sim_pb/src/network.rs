@@ -9,7 +9,7 @@ use core_pb::messages::{
     GAME_SERVER_MAGIC_NUMBER,
 };
 use core_pb::pacbot_rs::game_state::GameState;
-use core_pb::pacbot_rs::location::{LocationState, DOWN, LEFT, RIGHT, UP};
+use core_pb::pacbot_rs::location::Direction::*;
 use core_pb::{bin_decode, bin_encode};
 
 use crate::driving::SimRobot;
@@ -86,6 +86,9 @@ impl PacbotNetworkSimulation {
                                 GameServerCommand::Pause => self.game_state.paused = true,
                                 GameServerCommand::Unpause => self.game_state.paused = false,
                                 GameServerCommand::Reset => self.game_state = GameState::default(),
+                                GameServerCommand::Direction(dir) => {
+                                    self.game_state.move_pacman_dir(dir)
+                                }
                                 GameServerCommand::SetState(s) => self.game_state = s,
                             },
                             Err(e) => eprintln!(
@@ -102,10 +105,10 @@ impl PacbotNetworkSimulation {
                             'p' => self.game_state.paused = true,
                             'P' => self.game_state.paused = false,
                             'r' | 'R' => self.game_state = GameState::default(),
-                            'w' => self.game_state.move_pacman_dir(UP),
-                            'a' => self.game_state.move_pacman_dir(LEFT),
-                            's' => self.game_state.move_pacman_dir(DOWN),
-                            'd' => self.game_state.move_pacman_dir(RIGHT),
+                            'w' => self.game_state.move_pacman_dir(Up),
+                            'a' => self.game_state.move_pacman_dir(Left),
+                            's' => self.game_state.move_pacman_dir(Down),
+                            'd' => self.game_state.move_pacman_dir(Right),
                             'x' => {
                                 if s.len() != 3 {
                                     eprintln!(
@@ -113,12 +116,8 @@ impl PacbotNetworkSimulation {
                                         id, s
                                     )
                                 } else {
-                                    let new_loc = LocationState {
-                                        row: chars[1] as i8,
-                                        col: chars[2] as i8,
-                                        dir: UP, // TODO this is not really correct
-                                    };
-                                    self.game_state.set_pacman_location(new_loc);
+                                    self.game_state
+                                        .set_pacman_location((chars[1] as i8, chars[2] as i8));
                                 }
                             }
                             _ => eprintln!("Received unexpected message from {:?}: {:?}", id, s),
@@ -187,7 +186,7 @@ impl PacbotNetworkSimulation {
                 self.game_state.step();
             }
             // send game state to clients
-            let serialized_state = self.game_state.get_bytes();
+            let serialized_state = self.game_state.to_bytes();
             for (id, responder) in &mut self.game_server_clients {
                 if !responder.send(Message::Binary(serialized_state.clone())) {
                     eprintln!("Failed to send game state to {id}: already closed");
