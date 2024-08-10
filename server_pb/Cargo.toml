@@ -8,7 +8,7 @@ default-run = "server_pb"
 
 [dependencies]
 core_pb = { path = "../core_pb", features = ["log"] }
-rl_pb = { git = "https://github.com/qxzcode/pacbot-rl.git", package = "pacbot_rs", rev = "894f705325bd01853bdb4204d7eccc6fefec4b4a", features = ["candle"] }
+rl_pb = { git = "https://github.com/qxzcode/pacbot-rl.git", package = "pacbot_rs", rev = "b9ccea85c66a361ca11fc67ca991645c9bd69f47", features = ["candle"] }
 nalgebra = { version = "0.32.5", features = ["serde", "serde-serialize"] }
 num_enum = "0.7.2"
 ordered-float = "4.2.0"

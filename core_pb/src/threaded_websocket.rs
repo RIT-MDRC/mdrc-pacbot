@@ -422,17 +422,20 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
 {
     async fn my_connect(addr: Address) -> Result<Self, ()> {
         let ([a, b, c, d], port) = addr;
-        Ok(
-            async_tungstenite::async_std::connect_async(format!("ws://{a}.{b}.{c}.{d}:{port}"))
-                .await
-                .map_err(|e| {
-                    eprintln!(
-                        "[threaded_websocket/WebSocketStream] Error connecting: {:?}",
-                        e
-                    )
-                })?
-                .0,
-        )
+        let addr = if addr.0 == [127, 0, 0, 1] {
+            format!("ws://localhost:{port}")
+        } else {
+            format!("ws://{a}.{b}.{c}.{d}:{port}")
+        };
+        Ok(async_tungstenite::async_std::connect_async(addr)
+            .await
+            .map_err(|e| {
+                eprintln!(
+                    "[threaded_websocket/WebSocketStream] Error connecting: {:?}",
+                    e
+                )
+            })?
+            .0)
     }
 
     async fn my_send(&mut self, data: TextOrT<Vec<u8>>) {

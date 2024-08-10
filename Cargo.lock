@@ -3957,7 +3957,7 @@ dependencies = [
 [[package]]
 name = "pacbot-rs"
 version = "0.1.0"
-source = "git+https://github.com/RIT-MDRC/pacbot-rs.git?rev=0ab300700cbf716cde41eb9113cbe7f55c8e6aee#0ab300700cbf716cde41eb9113cbe7f55c8e6aee"
+source = "git+https://github.com/RIT-MDRC/pacbot-rs.git?rev=423622afedc0b0c33c42497cb4e1f2b73641e747#423622afedc0b0c33c42497cb4e1f2b73641e747"
 dependencies = [
  "array-init",
  "core2",
@@ -3969,7 +3969,7 @@ dependencies = [
 [[package]]
 name = "pacbot_rs"
 version = "0.1.0"
-source = "git+https://github.com/qxzcode/pacbot-rl.git?rev=894f705325bd01853bdb4204d7eccc6fefec4b4a#894f705325bd01853bdb4204d7eccc6fefec4b4a"
+source = "git+https://github.com/qxzcode/pacbot-rl.git?rev=b9ccea85c66a361ca11fc67ca991645c9bd69f47#b9ccea85c66a361ca11fc67ca991645c9bd69f47"
 dependencies = [
  "array-init",
  "arrayvec",
