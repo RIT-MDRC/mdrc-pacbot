@@ -24,7 +24,7 @@ robot = ["heapless", "embedded-graphics", "nalgebra/libm-force"]
 [dependencies]
 nalgebra = { version = "0.32.5", default-features = false, features = ["serde-serialize-no-std"] }
 ordered-float = { version = "4.2.0", default-features = false }
-pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "0ab300700cbf716cde41eb9113cbe7f55c8e6aee", default-features = false }
+pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "423622afedc0b0c33c42497cb4e1f2b73641e747", default-features = false }
 serde = { version = "1.0.201", default-features = false, features = ["derive"] }
 bincode = { version = "2.0.0-rc.3", default-features = false, features = ["serde"] }
 defmt = { version = "0.3.8", optional = true }
