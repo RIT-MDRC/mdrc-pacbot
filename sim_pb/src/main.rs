@@ -99,7 +99,6 @@ fn setup_physics(
     rapier_configuration.gravity = Vect::ZERO;
 
     spawn_walls(&mut commands, app.standard_grid);
-    app.spawn_robot(&mut commands, RobotName::Stella);
 }
 
 fn robot_position_to_game_state(

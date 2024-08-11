@@ -8,6 +8,7 @@ use core_pb::messages::{
     ServerToRobotMessage, GAME_SERVER_MAGIC_NUMBER,
 };
 use core_pb::pacbot_rs::game_state::GameState;
+use nalgebra::Point2;
 
 impl App {
     pub async fn handle_message(&mut self, from: Destination, message: Incoming) {
@@ -43,8 +44,31 @@ impl App {
                     match GameState::from_bytes(&bytes, self.status.game_state.seed) {
                         Ok(g) => {
                             if g != self.status.game_state {
-                                self.status.game_state = g;
-                                self.status.rl_target = vec![];
+                                let mut truncate_from = None;
+                                for (i, loc) in self.status.target_path.iter().enumerate().rev() {
+                                    if (loc.x, loc.y) == (g.pacman_loc.row, g.pacman_loc.col) {
+                                        truncate_from = Some(i + 1);
+                                        break;
+                                    }
+                                }
+                                if let Some(truncate_from) = truncate_from {
+                                    self.status.target_path = self
+                                        .status
+                                        .target_path
+                                        .clone()
+                                        .into_iter()
+                                        .skip(truncate_from)
+                                        .collect();
+                                }
+                                self.status.game_state = g.clone();
+                                if let Some(first) = self.status.target_path.first().clone() {
+                                    if (first.x - self.status.game_state.pacman_loc.row).abs()
+                                        + (first.y - self.status.game_state.pacman_loc.col).abs()
+                                        > 1
+                                    {
+                                        self.status.target_path.clear();
+                                    }
+                                }
                             }
                         }
                         Err(e) => eprintln!("Error updating game state: {e:?}"),
@@ -101,6 +125,19 @@ impl App {
                     //     ToRobot(ServerToRobotMessage::TargetVelocity(lin, ang)),
                     // )
                     // .await
+                }
+                GuiToServerMessage::TargetLocation(loc) => {
+                    if !self.grid.wall_at(&loc) {
+                        if let Some(path) = self.grid.bfs_path(
+                            Point2::new(
+                                self.status.game_state.pacman_loc.row,
+                                self.status.game_state.pacman_loc.col,
+                            ),
+                            loc,
+                        ) {
+                            self.status.target_path = path.into_iter().skip(1).collect();
+                        }
+                    }
                 }
                 _ => {}
             },

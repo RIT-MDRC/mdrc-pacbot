@@ -2,7 +2,7 @@ use crate::high_level::ReinforcementLearningManager;
 use crate::ota::OverTheAirProgramming;
 use crate::sockets::Destination::GuiClients;
 use crate::sockets::Incoming::FromRobot;
-use crate::sockets::Outgoing::ToGui;
+use crate::sockets::Outgoing::{ToGameServer, ToGui};
 use crate::sockets::{Destination, Outgoing, Sockets};
 use crate::Destination::Robot;
 use crate::Outgoing::ToRobot;
@@ -10,9 +10,12 @@ use core_pb::bin_encode;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::messages::server_status::ServerStatus;
-use core_pb::messages::settings::{ConnectionSettings, PacbotSettings};
-use core_pb::messages::{ServerToGuiMessage, ServerToRobotMessage};
+use core_pb::messages::settings::{ConnectionSettings, PacbotSettings, StrategyChoice};
+use core_pb::messages::{
+    GameServerCommand, NetworkStatus, ServerToGuiMessage, ServerToRobotMessage,
+};
 use core_pb::names::RobotName;
+use core_pb::pacbot_rs::location::Direction;
 use core_pb::util::utilization::UtilizationMonitor;
 use core_pb::util::StdInstant;
 use nalgebra::Point2;
@@ -81,13 +84,13 @@ async fn main() {
 
 impl App {
     async fn run_forever(&mut self) {
-        let mut previous_200ms_tick = Instant::now();
+        let mut previous_periodic_tick = Instant::now();
         let mut previous_settings = self.settings.clone();
 
         loop {
             // frequently (but not too frequently) do some stuff
-            if previous_200ms_tick.elapsed() > Duration::from_millis(200) {
-                previous_200ms_tick = Instant::now();
+            if previous_periodic_tick.elapsed() > Duration::from_millis(100) {
+                previous_periodic_tick = Instant::now();
                 self.periodic_actions(&mut previous_settings).await;
             }
 
@@ -116,6 +119,32 @@ impl App {
     }
 
     async fn periodic_actions(&mut self, previous_settings: &mut PacbotSettings) {
+        // if the current pacman robot isn't connected, update game state with target path
+        if let Some(target) = self.status.target_path.first() {
+            if self.settings.do_target_path
+                && self.status.advanced_game_server
+                && self.status.robots[self.settings.pacman as usize].connection
+                    == NetworkStatus::NotConnected
+            {
+                let dir = match (
+                    target.x - self.status.game_state.pacman_loc.row,
+                    target.y - self.status.game_state.pacman_loc.col,
+                ) {
+                    (-1, 0) => Direction::Up,
+                    (1, 0) => Direction::Down,
+                    (0, -1) => Direction::Left,
+                    (0, 1) => Direction::Right,
+                    _ => Direction::Stay,
+                };
+                if dir != Direction::Stay {
+                    self.send(
+                        Destination::GameServer,
+                        ToGameServer(GameServerCommand::Direction(dir)),
+                    )
+                    .await;
+                }
+            }
+        }
         if self.settings != *previous_settings {
             *previous_settings = self.settings.clone();
             self.send(
@@ -124,13 +153,15 @@ impl App {
             )
             .await; // check if new AI calculation is needed
         }
-        if self.status.rl_target.is_empty() {
+        if self.status.target_path.is_empty()
+            && self.settings.driving.strategy == StrategyChoice::ReinforcementLearning
+        {
             let rl_direction = self
                 .rl_manager
                 .hybrid_strategy(self.status.game_state.clone());
             let rl_vec = rl_direction.vector();
             // todo multiple steps
-            self.status.rl_target = vec![Point2::new(
+            self.status.target_path = vec![Point2::new(
                 self.status.game_state.pacman_loc.row + rl_vec.0,
                 self.status.game_state.pacman_loc.col + rl_vec.1,
             )];

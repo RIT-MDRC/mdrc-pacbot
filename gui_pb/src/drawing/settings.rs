@@ -223,6 +223,8 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
     ui.end_row();
     ui.checkbox(&mut app.settings.safe_mode, "Safe mode");
     ui.end_row();
+    ui.checkbox(&mut app.settings.do_target_path, "Do target path");
+    ui.end_row();
 
     ui.separator();
     ui.end_row();
@@ -236,19 +238,17 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
     );
     ui.end_row();
 
-    if app.settings.simulation.connection.connect {
-        dropdown(
-            ui,
-            "gs_robot".to_string(),
-            "Pacman",
-            &mut app.settings.simulation.pacman,
-            &RobotName::get_all()
-                .into_iter()
-                .filter(|name| name.is_simulated())
-                .collect::<Vec<_>>(),
-        );
-        ui.end_row();
-    }
+    dropdown(
+        ui,
+        "gs_robot".to_string(),
+        "Pacman",
+        &mut app.settings.pacman,
+        &RobotName::get_all()
+            .into_iter()
+            .filter(|name| name.is_simulated())
+            .collect::<Vec<_>>(),
+    );
+    ui.end_row();
 
     ui.separator();
     ui.end_row();
@@ -337,6 +337,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         &mut app.settings.driving.strategy,
         &[
             StrategyChoice::Manual,
+            StrategyChoice::ReinforcementLearning,
             StrategyChoice::TestUniform,
             StrategyChoice::TestForward,
         ],

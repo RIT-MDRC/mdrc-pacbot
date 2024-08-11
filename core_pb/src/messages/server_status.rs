@@ -17,7 +17,7 @@ pub struct ServerStatus {
     pub game_server_connection: NetworkStatus,
     pub advanced_game_server: bool,
 
-    pub rl_target: Vec<Point2<i8>>,
+    pub target_path: Vec<Point2<i8>>,
 
     pub gui_clients: usize,
     pub robots: [RobotStatus; NUM_ROBOT_NAMES],
@@ -34,7 +34,7 @@ impl Default for ServerStatus {
             game_server_connection: NetworkStatus::default(),
             advanced_game_server: false,
 
-            rl_target: vec![],
+            target_path: vec![],
 
             gui_clients: 0,
             robots: RobotName::get_all().map(RobotStatus::new),
