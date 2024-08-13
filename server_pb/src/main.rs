@@ -2,7 +2,7 @@ use crate::high_level::ReinforcementLearningManager;
 use crate::ota::OverTheAirProgramming;
 use crate::sockets::Destination::GuiClients;
 use crate::sockets::Incoming::FromRobot;
-use crate::sockets::Outgoing::ToGui;
+use crate::sockets::Outgoing::{ToGameServer, ToGui};
 use crate::sockets::{Destination, Outgoing, Sockets};
 use crate::Destination::Robot;
 use crate::Outgoing::ToRobot;
@@ -10,14 +10,19 @@ use core_pb::bin_encode;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::messages::server_status::ServerStatus;
-use core_pb::messages::settings::{ConnectionSettings, PacbotSettings};
-use core_pb::messages::{ServerToGuiMessage, ServerToRobotMessage};
+use core_pb::messages::settings::{ConnectionSettings, PacbotSettings, StrategyChoice};
+use core_pb::messages::{
+    GameServerCommand, NetworkStatus, ServerToGuiMessage, ServerToRobotMessage,
+};
 use core_pb::names::RobotName;
+use core_pb::pacbot_rs::location::Direction;
 use core_pb::util::utilization::UtilizationMonitor;
 use core_pb::util::StdInstant;
 use nalgebra::Point2;
 use std::process::{Child, Command};
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use tokio::select;
+use tokio::time::{interval, Interval};
 
 mod high_level;
 pub mod network;
@@ -81,56 +86,102 @@ async fn main() {
 
 impl App {
     async fn run_forever(&mut self) {
-        let mut previous_200ms_tick = Instant::now();
+        let mut periodic_interval = interval(Duration::from_millis(100));
+        let mut move_interval = interval(Duration::from_secs_f32(1.0 / self.settings.target_speed));
         let mut previous_settings = self.settings.clone();
 
         loop {
-            // frequently (but not too frequently) do some stuff
-            if previous_200ms_tick.elapsed() > Duration::from_millis(200) {
-                previous_200ms_tick = Instant::now();
-                self.periodic_actions(&mut previous_settings).await;
-            }
-
-            self.over_the_air_programming.tick(&mut self.status).await;
-
-            // we want to measure the amount of time the server spends processing messages,
-            // which shouldn't include the amount of time spent waiting for messages
-            self.utilization_monitor.stop();
-            self.status.utilization = self.utilization_monitor.status();
-            let msg = self.sockets.incoming.recv().await.unwrap();
-            self.utilization_monitor.start();
-
-            if self.settings.safe_mode {
-                if let FromRobot(msg) = &msg.1 {
-                    let encoded = bin_encode(msg.clone()).unwrap();
-                    if encoded[0] > 7 {
-                        continue;
-                    }
+            select! {
+                _ = periodic_interval.tick() => {
+                    self.utilization_monitor.start();
+                    self.periodic_actions(&mut previous_settings, &mut move_interval).await;
+                    self.utilization_monitor.stop();
                 }
-            }
-            self.over_the_air_programming
-                .update(&msg, &mut self.status)
-                .await;
-            self.handle_message(msg.0, msg.1).await;
+                _ = move_interval.tick() => {
+                    self.utilization_monitor.start();
+                    self.move_pacman().await;
+                    self.utilization_monitor.stop();
+                }
+                msg = self.sockets.incoming.recv() => {
+                    let msg = msg.unwrap();
+                    // we want to measure the amount of time the server spends processing messages,
+                    // which shouldn't include the amount of time spent waiting for messages
+                    self.utilization_monitor.start();
+
+                    if self.settings.safe_mode {
+                        if let FromRobot(msg) = &msg.1 {
+                            let encoded = bin_encode(msg.clone()).unwrap();
+                            if encoded[0] > 7 {
+                                continue;
+                            }
+                        }
+                    }
+                    self.over_the_air_programming
+                        .update(&msg, &mut self.status)
+                        .await;
+                    self.handle_message(msg.0, msg.1).await;
+
+                    self.utilization_monitor.stop();
+                    self.status.utilization = self.utilization_monitor.status();
+                }
+            };
         }
     }
 
-    async fn periodic_actions(&mut self, previous_settings: &mut PacbotSettings) {
+    async fn move_pacman(&mut self) {
+        // if the current pacman robot isn't connected, update game state with target path
+        if let Some(target) = self.status.target_path.first() {
+            if self.settings.do_target_path
+                && self.status.advanced_game_server
+                && self.status.robots[self.settings.pacman as usize].connection
+                    == NetworkStatus::NotConnected
+            {
+                let dir = match (
+                    target.x - self.status.game_state.pacman_loc.row,
+                    target.y - self.status.game_state.pacman_loc.col,
+                ) {
+                    (-1, 0) => Direction::Up,
+                    (1, 0) => Direction::Down,
+                    (0, -1) => Direction::Left,
+                    (0, 1) => Direction::Right,
+                    _ => Direction::Stay,
+                };
+                if dir != Direction::Stay {
+                    self.send(
+                        Destination::GameServer,
+                        ToGameServer(GameServerCommand::Direction(dir)),
+                    )
+                    .await;
+                }
+            }
+        }
+    }
+
+    async fn periodic_actions(
+        &mut self,
+        previous_settings: &mut PacbotSettings,
+        move_pacman_interval: &mut Interval,
+    ) {
+        self.over_the_air_programming.tick(&mut self.status).await;
         if self.settings != *previous_settings {
             *previous_settings = self.settings.clone();
+            *move_pacman_interval =
+                interval(Duration::from_secs_f32(1.0 / self.settings.target_speed));
             self.send(
                 GuiClients,
                 ToGui(ServerToGuiMessage::Settings(self.settings.clone())),
             )
             .await; // check if new AI calculation is needed
         }
-        if self.status.rl_target.is_empty() {
+        if self.status.target_path.is_empty()
+            && self.settings.driving.strategy == StrategyChoice::ReinforcementLearning
+        {
             let rl_direction = self
                 .rl_manager
                 .hybrid_strategy(self.status.game_state.clone());
             let rl_vec = rl_direction.vector();
             // todo multiple steps
-            self.status.rl_target = vec![Point2::new(
+            self.status.target_path = vec![Point2::new(
                 self.status.game_state.pacman_loc.row + rl_vec.0,
                 self.status.game_state.pacman_loc.col + rl_vec.1,
             )];

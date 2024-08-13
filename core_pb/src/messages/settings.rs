@@ -12,6 +12,12 @@ pub struct PacbotSettings {
     pub safe_mode: bool,
     /// Which grid is current in use
     pub standard_grid: StandardGrid,
+    /// Which robot's position should be used as the pacman location
+    pub pacman: RobotName,
+    /// Whether the robot should try to drive the target path
+    pub do_target_path: bool,
+    /// The target speed of the robot in gu/s
+    pub target_speed: f32,
     /// Options for the simulation
     pub simulation: SimulationSettings,
     /// Options for the go server
@@ -25,8 +31,11 @@ pub struct PacbotSettings {
 impl Default for PacbotSettings {
     fn default() -> Self {
         Self {
-            host_http: true,
+            host_http: false,
             safe_mode: false,
+            pacman: RobotName::Stella,
+            do_target_path: false,
+            target_speed: 3.0,
             simulation: Default::default(),
             standard_grid: Default::default(),
             robots: RobotName::get_all().map(RobotSettings::new),
@@ -56,8 +65,6 @@ pub struct SimulationSettings {
     pub connection: ConnectionSettings,
     /// Which robots should be spawned in
     pub robots: [bool; NUM_ROBOT_NAMES],
-    /// Which robot's position should be used as the pacman location
-    pub pacman: RobotName,
 }
 
 impl Default for SimulationSettings {
@@ -70,7 +77,6 @@ impl Default for SimulationSettings {
                 port: SIMULATION_LISTENER_PORT,
             },
             robots: RobotName::get_all().map(|name| name == RobotName::Stella),
-            pacman: RobotName::Stella,
         }
     }
 }
@@ -187,7 +193,7 @@ pub enum StrategyChoice {
     #[default]
     Manual,
     /// AI
-    ReinforcementLearning(KnownRLModel),
+    ReinforcementLearning,
     /// Test (random, uniform over all cells)
     TestUniform,
     /// Test (never goes back on itself)

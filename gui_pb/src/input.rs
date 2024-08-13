@@ -5,7 +5,7 @@ use core_pb::messages::{GameServerCommand, GuiToServerMessage, NetworkStatus};
 use core_pb::pacbot_rs::location::Direction;
 use core_pb::threaded_websocket::TextOrT;
 use eframe::egui;
-use eframe::egui::{Event, Key};
+use eframe::egui::{Event, Key, PointerButton};
 use nalgebra::Vector2;
 
 impl App {
@@ -75,7 +75,6 @@ impl App {
             }
 
             for event in &i.events {
-                #[allow(clippy::single_match)]
                 match event {
                     Event::Key {
                         key, pressed: true, ..
@@ -137,11 +136,17 @@ impl App {
                     //     pressed: true,
                     //     ..
                     // } => todo!("Set simulated pacman location"),
-                    // Event::PointerButton {
-                    //     button: PointerButton::Secondary,
-                    //     pressed: true,
-                    //     ..
-                    // } => todo!("Set target path"),
+                    Event::PointerButton {
+                        button: PointerButton::Secondary,
+                        pressed: true,
+                        pos,
+                        ..
+                    } => {
+                        let pos = self.world_to_screen.inverse().map_point(*pos);
+                        if let Some(loc) = self.grid.node_nearest(pos.x, pos.y) {
+                            self.send(GuiToServerMessage::TargetLocation(loc))
+                        }
+                    }
                     _ => {}
                 }
             }

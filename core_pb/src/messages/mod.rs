@@ -6,7 +6,7 @@ use crate::names::RobotName;
 #[cfg(feature = "std")]
 use crate::util::ColoredStatus;
 use core::time::Duration;
-use nalgebra::Vector2;
+use nalgebra::{Point2, Vector2};
 use pacbot_rs::game_state::GameState;
 use pacbot_rs::location::Direction;
 use serde::{Deserialize, Serialize};
@@ -31,6 +31,7 @@ pub enum GuiToServerMessage {
     CancelOtaFirmwareUpdate(RobotName),
     ConfirmFirmwareUpdate(RobotName),
     ClearFirmwareUpdateHistory(RobotName),
+    TargetLocation(Point2<i8>),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

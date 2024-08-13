@@ -89,7 +89,7 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
     );
 
     // target path
-    if let Some(target) = app.server_status.rl_target.get(0) {
+    if let Some(target) = app.server_status.target_path.get(0) {
         painter.line_segment(
             [
                 wts.map_point(Pos2::new(
