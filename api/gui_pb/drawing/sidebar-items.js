@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["game","motors","over_the_air","replay_manager","settings","tab","timings","widgets"]};
