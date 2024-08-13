@@ -24,6 +24,8 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 #[macro_export]
 /// for WASM, prints the message to the javascript developer console, otherwise uses `println`
+///
+/// Requires `use crate::log`
 macro_rules! console_log {
     ($($t:tt)*) => (crate::log(&format_args!($($t)*).to_string()))
 }
