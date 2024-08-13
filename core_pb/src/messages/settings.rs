@@ -16,6 +16,8 @@ pub struct PacbotSettings {
     pub pacman: RobotName,
     /// Whether the robot should try to drive the target path
     pub do_target_path: bool,
+    /// The target speed of the robot in gu/s
+    pub target_speed: f32,
     /// Options for the simulation
     pub simulation: SimulationSettings,
     /// Options for the go server
@@ -33,6 +35,7 @@ impl Default for PacbotSettings {
             safe_mode: false,
             pacman: RobotName::Stella,
             do_target_path: false,
+            target_speed: 3.0,
             simulation: Default::default(),
             standard_grid: Default::default(),
             robots: RobotName::get_all().map(RobotSettings::new),

@@ -20,7 +20,9 @@ use core_pb::util::utilization::UtilizationMonitor;
 use core_pb::util::StdInstant;
 use nalgebra::Point2;
 use std::process::{Child, Command};
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use tokio::select;
+use tokio::time::{interval, Interval};
 
 mod high_level;
 pub mod network;
@@ -84,41 +86,49 @@ async fn main() {
 
 impl App {
     async fn run_forever(&mut self) {
-        let mut previous_periodic_tick = Instant::now();
+        let mut periodic_interval = interval(Duration::from_millis(100));
+        let mut move_interval = interval(Duration::from_secs_f32(1.0 / self.settings.target_speed));
         let mut previous_settings = self.settings.clone();
 
         loop {
-            // frequently (but not too frequently) do some stuff
-            if previous_periodic_tick.elapsed() > Duration::from_millis(100) {
-                previous_periodic_tick = Instant::now();
-                self.periodic_actions(&mut previous_settings).await;
-            }
-
-            self.over_the_air_programming.tick(&mut self.status).await;
-
-            // we want to measure the amount of time the server spends processing messages,
-            // which shouldn't include the amount of time spent waiting for messages
-            self.utilization_monitor.stop();
-            self.status.utilization = self.utilization_monitor.status();
-            let msg = self.sockets.incoming.recv().await.unwrap();
-            self.utilization_monitor.start();
-
-            if self.settings.safe_mode {
-                if let FromRobot(msg) = &msg.1 {
-                    let encoded = bin_encode(msg.clone()).unwrap();
-                    if encoded[0] > 7 {
-                        continue;
-                    }
+            select! {
+                _ = periodic_interval.tick() => {
+                    self.utilization_monitor.start();
+                    self.periodic_actions(&mut previous_settings, &mut move_interval).await;
+                    self.utilization_monitor.stop();
                 }
-            }
-            self.over_the_air_programming
-                .update(&msg, &mut self.status)
-                .await;
-            self.handle_message(msg.0, msg.1).await;
+                _ = move_interval.tick() => {
+                    self.utilization_monitor.start();
+                    self.move_pacman().await;
+                    self.utilization_monitor.stop();
+                }
+                msg = self.sockets.incoming.recv() => {
+                    let msg = msg.unwrap();
+                    // we want to measure the amount of time the server spends processing messages,
+                    // which shouldn't include the amount of time spent waiting for messages
+                    self.utilization_monitor.start();
+
+                    if self.settings.safe_mode {
+                        if let FromRobot(msg) = &msg.1 {
+                            let encoded = bin_encode(msg.clone()).unwrap();
+                            if encoded[0] > 7 {
+                                continue;
+                            }
+                        }
+                    }
+                    self.over_the_air_programming
+                        .update(&msg, &mut self.status)
+                        .await;
+                    self.handle_message(msg.0, msg.1).await;
+
+                    self.utilization_monitor.stop();
+                    self.status.utilization = self.utilization_monitor.status();
+                }
+            };
         }
     }
 
-    async fn periodic_actions(&mut self, previous_settings: &mut PacbotSettings) {
+    async fn move_pacman(&mut self) {
         // if the current pacman robot isn't connected, update game state with target path
         if let Some(target) = self.status.target_path.first() {
             if self.settings.do_target_path
@@ -145,8 +155,18 @@ impl App {
                 }
             }
         }
+    }
+
+    async fn periodic_actions(
+        &mut self,
+        previous_settings: &mut PacbotSettings,
+        move_pacman_interval: &mut Interval,
+    ) {
+        self.over_the_air_programming.tick(&mut self.status).await;
         if self.settings != *previous_settings {
             *previous_settings = self.settings.clone();
+            *move_pacman_interval =
+                interval(Duration::from_secs_f32(1.0 / self.settings.target_speed));
             self.send(
                 GuiClients,
                 ToGui(ServerToGuiMessage::Settings(self.settings.clone())),

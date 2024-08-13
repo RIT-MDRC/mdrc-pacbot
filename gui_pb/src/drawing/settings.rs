@@ -225,6 +225,14 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
     ui.end_row();
     ui.checkbox(&mut app.settings.do_target_path, "Do target path");
     ui.end_row();
+    num(
+        "target_speed".to_string(),
+        ui,
+        fields,
+        &mut app.settings.target_speed,
+        "Target speed",
+    );
+    ui.end_row();
 
     ui.separator();
     ui.end_row();
