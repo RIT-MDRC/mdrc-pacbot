@@ -295,7 +295,7 @@ pub trait ThreadableSocket<SendType, ReceiveType>: Sized {
     async fn my_close(self);
 }
 
-/// A future that yields the next message from the socket, or never if the socket is None
+/// A future that yields the next message from the socket or never if the socket is None
 async fn socket_read_fut<T: ThreadableSocket<S, R>, S, R>(
     socket: &mut Option<T>,
 ) -> Result<TextOrT<Vec<u8>>, ()> {
