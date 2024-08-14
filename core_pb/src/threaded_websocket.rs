@@ -132,7 +132,7 @@ impl<
     /// If the connection is not available, the data will be discarded
     ///
     /// See [`ThreadedSocket`] for full usage example
-    pub fn send(&mut self, data: TextOrT<SendType>) {
+    pub fn send(&self, data: TextOrT<SendType>) {
         block_on(self.sender.send(data)).expect("ThreadedSocket data sender is closed");
     }
 

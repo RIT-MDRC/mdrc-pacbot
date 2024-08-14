@@ -1,8 +1,9 @@
 use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::settings::{ConnectionSettings, StrategyChoice};
-use core_pb::messages::NetworkStatus;
+use core_pb::messages::{GuiToServerMessage, NetworkStatus, ServerToSimulationMessage};
 use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
+use core_pb::threaded_websocket::TextOrT;
 use eframe::egui;
 use eframe::egui::{Align, Color32, Layout, TextEdit, Ui, WidgetText};
 use regex::Regex;
@@ -187,6 +188,7 @@ pub fn generic_server(
     connection_settings: &mut ConnectionSettings,
     collapsed: &mut bool,
     status: &NetworkStatus,
+    right_ui: impl FnOnce(&mut Ui),
 ) {
     let ip_name = name.to_string() + "server_ip";
     let port_name = name.to_string() + "server_port";
@@ -196,6 +198,7 @@ pub fn generic_server(
         status.status().to_color32(),
         |ui| {
             ui.checkbox(&mut connection_settings.connect, name);
+            ui.with_layout(Layout::right_to_left(Align::Center), right_ui);
         },
         |ui| {
             ipv4(ip_name, ui, fields, &mut connection_settings.ipv4, "IP");
@@ -268,6 +271,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         &mut app.ui_settings.mdrc_server,
         &mut app.ui_settings.mdrc_server_collapsed,
         &app.network.0.status(),
+        |_| {},
     );
 
     generic_server(
@@ -277,6 +281,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         &mut app.settings.simulation.connection,
         &mut app.ui_settings.simulation_collapsed,
         &app.server_status.simulation_connection,
+        |_| {},
     );
 
     generic_server(
@@ -290,6 +295,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         &mut app.settings.game_server.connection,
         &mut app.ui_settings.game_server_collapsed,
         &app.server_status.game_server_connection,
+        |_| {},
     );
 
     ui.separator();
@@ -304,6 +310,33 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
             &mut app.settings.robots[name as usize].connection,
             &mut app.ui_settings.robots_collapsed[name as usize],
             &app.server_status.robots[name as usize].connection,
+            |ui| {
+                if name.is_simulated() {
+                    ui.add_enabled_ui(
+                        app.server_status.simulation_connection == NetworkStatus::Connected,
+                        |ui| {
+                            if app.server_status.robots[name as usize]
+                                .sim_position
+                                .is_some()
+                            {
+                                if ui.button(egui_phosphor::regular::MINUS).clicked() {
+                                    app.network.0.send(TextOrT::T(
+                                        GuiToServerMessage::SimulationCommand(
+                                            ServerToSimulationMessage::Delete(name),
+                                        ),
+                                    ));
+                                }
+                            } else if ui.button(egui_phosphor::regular::PLUS).clicked() {
+                                app.network.0.send(TextOrT::T(
+                                    GuiToServerMessage::SimulationCommand(
+                                        ServerToSimulationMessage::Spawn(name),
+                                    ),
+                                ));
+                            }
+                        },
+                    );
+                }
+            },
         );
         if app.settings.robots[name as usize].connection.connect {
             any_robot_enabled = Some(name);
@@ -318,25 +351,6 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
 
     ui.separator();
     ui.end_row();
-
-    // collapsable_section(
-    //     ui,
-    //     &mut app.ui_settings.robot_collapsed,
-    //     TRANSLUCENT_YELLOW_COLOR,
-    //     |ui| {
-    //         ui.checkbox(&mut app.settings.game_server.connect, "Robot");
-    //     },
-    //     |ui| {
-    //         ipv4("robot_ip", ui, fields, &mut app.settings.robots.ipv4, "IP");
-    //         num(
-    //             "robot_tcp_port",
-    //             ui,
-    //             fields,
-    //             &mut app.settings.robots.tcp_port,
-    //             "TCP Port",
-    //         );
-    //     },
-    // );
 
     dropdown(
         ui,

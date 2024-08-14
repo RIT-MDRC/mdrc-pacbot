@@ -1,6 +1,8 @@
 use crate::colors::*;
 use crate::App;
+use core_pb::names::RobotName;
 use core_pb::pacbot_rs::ghost_state::GhostColor;
+use core_pb::util::TRANSLUCENT_YELLOW_COLOR;
 use eframe::egui::{Color32, Painter, Pos2, Rect, Rounding, Stroke};
 
 pub fn draw_grid(app: &mut App, painter: &Painter) {
@@ -34,6 +36,22 @@ pub fn draw_grid(app: &mut App, painter: &Painter) {
 pub fn draw_game(app: &mut App, painter: &Painter) {
     let wts = app.world_to_screen;
     let pacman_state = &app.server_status.game_state;
+
+    // sim robot positions
+    for name in RobotName::get_all() {
+        if let Some(pos) = app.server_status.robots[name as usize].sim_position {
+            let center = wts.map_point(Pos2::new(pos.x, pos.y));
+            painter.circle_filled(
+                center,
+                wts.map_dist(name.robot().radius),
+                if name == app.ui_settings.selected_robot {
+                    Color32::YELLOW
+                } else {
+                    TRANSLUCENT_YELLOW_COLOR
+                },
+            );
+        }
+    }
 
     // ghosts
     for ghost in &pacman_state.ghosts {
@@ -89,7 +107,7 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
     );
 
     // target path
-    if let Some(target) = app.server_status.target_path.get(0) {
+    if let Some(target) = app.server_status.target_path.first() {
         painter.line_segment(
             [
                 wts.map_point(Pos2::new(

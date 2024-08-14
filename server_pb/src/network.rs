@@ -5,8 +5,9 @@ use crate::sockets::{Destination, Incoming, Outgoing};
 use crate::App;
 use core_pb::messages::{
     GuiToServerMessage, NetworkStatus, RobotToServerMessage, ServerToGuiMessage,
-    ServerToRobotMessage, GAME_SERVER_MAGIC_NUMBER,
+    ServerToRobotMessage, ServerToSimulationMessage, GAME_SERVER_MAGIC_NUMBER,
 };
+use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
 use nalgebra::Point2;
 
@@ -26,7 +27,18 @@ impl App {
                 .await
             }
             (dest, Status(status)) => match dest {
-                Simulation => self.status.simulation_connection = status,
+                Simulation => {
+                    self.status.simulation_connection = status;
+                    if status == NetworkStatus::Connected {
+                        self.send(
+                            Simulation,
+                            ToSimulation(ServerToSimulationMessage::SetPacman(
+                                self.settings.pacman,
+                            )),
+                        )
+                        .await;
+                    }
+                }
                 Robot(name) => self.status.robots[name as usize].connection = status,
                 GameServer => {
                     if status != NetworkStatus::Connected {
@@ -61,7 +73,7 @@ impl App {
                                         .collect();
                                 }
                                 self.status.game_state = g.clone();
-                                if let Some(first) = self.status.target_path.first().clone() {
+                                if let Some(first) = self.status.target_path.first() {
                                     if (first.x - self.status.game_state.pacman_loc.row).abs()
                                         + (first.y - self.status.game_state.pacman_loc.col).abs()
                                         > 1
@@ -75,7 +87,12 @@ impl App {
                     }
                 }
             }
-            (_, FromSimulation(msg)) => println!("Message from simulation: {msg:?}"),
+            (_, FromSimulation(msg)) => {
+                for name in RobotName::get_all() {
+                    self.status.robots[name as usize].sim_position =
+                        msg.robot_positions[name as usize];
+                }
+            }
             (Robot(name), FromRobot(RobotToServerMessage::Name(_))) => {
                 println!("Received name from {name}");
                 self.send(
@@ -138,6 +155,9 @@ impl App {
                             self.status.target_path = path.into_iter().skip(1).collect();
                         }
                     }
+                }
+                GuiToServerMessage::SimulationCommand(msg) => {
+                    self.send(Simulation, ToSimulation(msg)).await;
                 }
                 _ => {}
             },

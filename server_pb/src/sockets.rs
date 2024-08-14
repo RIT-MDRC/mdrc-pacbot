@@ -1,3 +1,5 @@
+#![allow(clippy::let_underscore_future)]
+
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::time::Duration;

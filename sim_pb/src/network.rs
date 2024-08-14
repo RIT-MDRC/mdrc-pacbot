@@ -1,19 +1,19 @@
-use bevy::prelude::{ResMut, Resource};
-use simple_websockets::{Event, EventHub, Message, Responder};
-use std::collections::HashMap;
-use std::time::{Duration, Instant};
-
+use crate::driving::SimRobot;
+use crate::{MyApp, RobotToSimulationMessage};
+use bevy::prelude::{Commands, Query, ResMut, Resource, Transform};
+use bevy_rapier2d::na::Point2;
 use core_pb::constants::{GAME_SERVER_PORT, SIMULATION_LISTENER_PORT};
 use core_pb::messages::{
     GameServerCommand, ServerToSimulationMessage, SimulationToServerMessage,
     GAME_SERVER_MAGIC_NUMBER,
 };
+use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
 use core_pb::pacbot_rs::location::Direction::*;
 use core_pb::{bin_decode, bin_encode};
-
-use crate::driving::SimRobot;
-use crate::{MyApp, RobotToSimulationMessage};
+use simple_websockets::{Event, EventHub, Message, Responder};
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 pub const GAME_FPS: f32 = 24.0;
 
@@ -29,8 +29,13 @@ pub struct PacbotNetworkSimulation {
     pub simulation_clients: HashMap<u64, Responder>,
 }
 
-pub fn update_network(app: ResMut<MyApp>, mut network: ResMut<PacbotNetworkSimulation>) {
-    network.update(app)
+pub fn update_network(
+    app: ResMut<MyApp>,
+    mut network: ResMut<PacbotNetworkSimulation>,
+    mut commands: Commands,
+    pos_query: Query<&Transform>,
+) {
+    network.update(app, &mut commands, pos_query);
 }
 
 impl PacbotNetworkSimulation {
@@ -56,7 +61,12 @@ impl PacbotNetworkSimulation {
 
     /// All updates for network, game state, and simulation - will complete quickly, expects
     /// to be called in a loop
-    pub fn update(&mut self, mut app: ResMut<MyApp>) {
+    pub fn update(
+        &mut self,
+        mut app: ResMut<MyApp>,
+        commands: &mut Commands,
+        pos_query: Query<&Transform>,
+    ) {
         while let Some(event) = self.event_hub.next_event() {
             match event {
                 Event::Connect(id, responder) => {
@@ -131,15 +141,22 @@ impl PacbotNetworkSimulation {
         while let Some(event) = self.simulation_event_hub.next_event() {
             match event {
                 Event::Connect(id, responder) => {
-                    responder.send(Message::Binary(
-                        bin_encode(SimulationToServerMessage::None).unwrap(),
-                    ));
                     self.simulation_clients.insert(id, responder);
                 }
                 Event::Message(_, message) => match message {
                     Message::Binary(bytes) => match bin_decode::<ServerToSimulationMessage>(&bytes)
                     {
-                        Ok(msg) => println!("got message: {msg:?}"),
+                        Ok(msg) => match msg {
+                            ServerToSimulationMessage::Spawn(name) => {
+                                app.spawn_robot(commands, name);
+                            }
+                            ServerToSimulationMessage::Delete(name) => {
+                                app.despawn_robot(name, commands);
+                            }
+                            ServerToSimulationMessage::SetPacman(name) => {
+                                app.selected_robot = name;
+                            }
+                        },
                         Err(e) => eprintln!("Error decoding simulation message: {e:?}"),
                     },
                     Message::Text(text) => eprintln!("Unexpected simulation message: {text}"),
@@ -148,6 +165,25 @@ impl PacbotNetworkSimulation {
                     self.simulation_clients.remove(&id);
                 }
             }
+        }
+        // send status to simulation clients
+        for client in self.simulation_clients.values_mut() {
+            client.send(Message::Binary(
+                bin_encode(SimulationToServerMessage {
+                    robot_positions: RobotName::get_all().map(|name| {
+                        if !name.is_simulated() {
+                            None
+                        } else {
+                            app.robots[name as usize]
+                                .iter()
+                                .next()
+                                .and_then(|(e, _)| pos_query.get(*e).ok())
+                                .map(|t| Point2::new(t.translation.x, t.translation.y))
+                        }
+                    }),
+                })
+                .unwrap(),
+            ));
         }
 
         // robot messages

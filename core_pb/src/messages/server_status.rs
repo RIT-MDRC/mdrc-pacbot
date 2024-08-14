@@ -51,6 +51,8 @@ pub struct RobotStatus {
     pub ota_completed: Vec<OverTheAirStepCompletion>,
 
     pub last_motor_status: (Duration, MotorControlStatus),
+
+    pub sim_position: Option<Point2<f32>>,
 }
 
 impl RobotStatus {
@@ -63,6 +65,8 @@ impl RobotStatus {
             ota_completed: vec![],
 
             last_motor_status: Default::default(),
+
+            sim_position: None,
         }
     }
 }

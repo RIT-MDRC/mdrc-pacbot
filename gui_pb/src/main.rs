@@ -189,7 +189,7 @@ impl App {
         }
     }
 
-    pub fn send(&mut self, message: GuiToServerMessage) {
+    pub fn send(&self, message: GuiToServerMessage) {
         self.network.0.send(TextOrT::T(message))
     }
 
