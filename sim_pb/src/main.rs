@@ -92,7 +92,7 @@ fn setup_graphics(mut commands: Commands) {
 }
 
 fn setup_physics(
-    mut app: ResMut<MyApp>,
+    app: ResMut<MyApp>,
     mut commands: Commands,
     mut rapier_configuration: ResMut<RapierConfiguration>,
 ) {

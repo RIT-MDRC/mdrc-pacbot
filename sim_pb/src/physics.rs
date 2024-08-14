@@ -50,7 +50,6 @@ impl MyApp {
         let sim_robot = SimRobot::start(name, false, self.from_robots.0.clone());
 
         self.robots[name as usize] = Some((new_robot, sim_robot));
-        self.selected_robot = name;
     }
 
     pub fn despawn_robot(&mut self, name: RobotName, commands: &mut Commands) {

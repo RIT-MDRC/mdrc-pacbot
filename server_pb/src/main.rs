@@ -1,8 +1,8 @@
 use crate::high_level::ReinforcementLearningManager;
 use crate::ota::OverTheAirProgramming;
-use crate::sockets::Destination::GuiClients;
+use crate::sockets::Destination::{GuiClients, Simulation};
 use crate::sockets::Incoming::FromRobot;
-use crate::sockets::Outgoing::{ToGameServer, ToGui};
+use crate::sockets::Outgoing::{ToGameServer, ToGui, ToSimulation};
 use crate::sockets::{Destination, Outgoing, Sockets};
 use crate::Destination::Robot;
 use crate::Outgoing::ToRobot;
@@ -13,6 +13,7 @@ use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::{ConnectionSettings, PacbotSettings, StrategyChoice};
 use core_pb::messages::{
     GameServerCommand, NetworkStatus, ServerToGuiMessage, ServerToRobotMessage,
+    ServerToSimulationMessage,
 };
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::location::Direction;
@@ -327,6 +328,14 @@ impl App {
             }
         } else if let Some(mut child) = self.client_http_host_process.take() {
             child.kill().unwrap();
+        }
+
+        if old.pacman != new.pacman {
+            self.send(
+                Simulation,
+                ToSimulation(ServerToSimulationMessage::SetPacman(new.pacman)),
+            )
+            .await;
         }
 
         self.settings = new;
