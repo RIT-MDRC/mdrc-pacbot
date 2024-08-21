@@ -1,7 +1,9 @@
 use crate::App;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::settings::StrategyChoice;
-use core_pb::messages::{GameServerCommand, GuiToServerMessage, NetworkStatus};
+use core_pb::messages::{
+    GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToSimulationMessage,
+};
 use core_pb::pacbot_rs::location::Direction;
 use core_pb::threaded_websocket::TextOrT;
 use eframe::egui;
@@ -99,11 +101,21 @@ impl App {
                             }
                             // Strategy
                             Key::Z => self.settings.driving.strategy = StrategyChoice::Manual,
-                            Key::X => todo!("Reinforcement learning strategy"),
+                            Key::X => {
+                                self.settings.driving.strategy =
+                                    StrategyChoice::ReinforcementLearning
+                            }
                             Key::C => self.settings.driving.strategy = StrategyChoice::TestUniform,
                             Key::V => self.settings.driving.strategy = StrategyChoice::TestForward,
                             // Driving
-                            Key::P => todo!("Enable/disable pico"),
+                            Key::P => {
+                                self.settings.robots[self.ui_settings.selected_robot as usize]
+                                    .connection
+                                    .connect = !self.settings.robots
+                                    [self.ui_settings.selected_robot as usize]
+                                    .connection
+                                    .connect
+                            }
                             Key::M => {
                                 self.settings.driving.commands_use_pf_angle =
                                     !self.settings.driving.commands_use_pf_angle
@@ -132,11 +144,22 @@ impl App {
                         }
                     }
                     // Mouse buttons
-                    // Event::PointerButton {
-                    //     button: PointerButton::Primary,
-                    //     pressed: true,
-                    //     ..
-                    // } => todo!("Set simulated pacman location"),
+                    Event::PointerButton {
+                        button: PointerButton::Primary,
+                        pressed: true,
+                        pos,
+                        ..
+                    } => {
+                        let pos = self.world_to_screen.inverse().map_point(*pos);
+                        if let Some(loc) = self.grid.node_nearest(pos.x, pos.y) {
+                            self.send(GuiToServerMessage::SimulationCommand(
+                                ServerToSimulationMessage::Teleport(
+                                    self.ui_settings.selected_robot,
+                                    loc,
+                                ),
+                            ))
+                        }
+                    }
                     Event::PointerButton {
                         button: PointerButton::Secondary,
                         pressed: true,

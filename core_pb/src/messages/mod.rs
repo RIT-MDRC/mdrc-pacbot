@@ -54,6 +54,7 @@ pub struct SimulationToServerMessage {
 #[cfg(feature = "std")]
 pub enum ServerToSimulationMessage {
     Spawn(RobotName),
+    Teleport(RobotName, Point2<i8>),
     Delete(RobotName),
     SetPacman(RobotName),
 }

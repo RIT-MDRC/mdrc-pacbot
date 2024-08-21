@@ -33,7 +33,7 @@ pub fn update_network(
     app: ResMut<MyApp>,
     mut network: ResMut<PacbotNetworkSimulation>,
     mut commands: Commands,
-    pos_query: Query<&Transform>,
+    pos_query: Query<&mut Transform>,
 ) {
     network.update(app, &mut commands, pos_query);
 }
@@ -65,7 +65,7 @@ impl PacbotNetworkSimulation {
         &mut self,
         mut app: ResMut<MyApp>,
         commands: &mut Commands,
-        pos_query: Query<&Transform>,
+        mut pos_query: Query<&mut Transform>,
     ) {
         while let Some(event) = self.event_hub.next_event() {
             match event {
@@ -155,6 +155,11 @@ impl PacbotNetworkSimulation {
                             }
                             ServerToSimulationMessage::SetPacman(name) => {
                                 app.selected_robot = name;
+                            }
+                            ServerToSimulationMessage::Teleport(name, loc) => {
+                                if !app.grid.wall_at(&loc) {
+                                    app.teleport_robot(name, loc, &mut pos_query);
+                                }
                             }
                         },
                         Err(e) => eprintln!("Error decoding simulation message: {e:?}"),
