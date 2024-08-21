@@ -1,7 +1,9 @@
 use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::settings::{ConnectionSettings, StrategyChoice};
-use core_pb::messages::{GuiToServerMessage, NetworkStatus, ServerToSimulationMessage};
+use core_pb::messages::{
+    GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToSimulationMessage,
+};
 use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
 use core_pb::threaded_websocket::TextOrT;
 use eframe::egui;
@@ -295,7 +297,37 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         &mut app.settings.game_server.connection,
         &mut app.ui_settings.game_server_collapsed,
         &app.server_status.game_server_connection,
-        |_| {},
+        |ui| {
+            let connected = app.server_status.game_server_connection == NetworkStatus::Connected;
+            let reset_button = ui.add_enabled(
+                connected,
+                egui::Button::new(egui_phosphor::regular::ARROW_CLOCKWISE),
+            );
+            if reset_button.clicked() {
+                app.network
+                    .0
+                    .send(TextOrT::T(GuiToServerMessage::GameServerCommand(
+                        GameServerCommand::Reset,
+                    )));
+            }
+            let icon = if app.server_status.game_state.paused {
+                egui_phosphor::regular::PLAY
+            } else {
+                egui_phosphor::regular::PAUSE
+            };
+            let pause_button = ui.add_enabled(connected, egui::Button::new(icon));
+            if pause_button.clicked() {
+                app.network
+                    .0
+                    .send(TextOrT::T(GuiToServerMessage::GameServerCommand(
+                        if app.server_status.game_state.paused {
+                            GameServerCommand::Unpause
+                        } else {
+                            GameServerCommand::Pause
+                        },
+                    )));
+            }
+        },
     );
 
     ui.separator();
