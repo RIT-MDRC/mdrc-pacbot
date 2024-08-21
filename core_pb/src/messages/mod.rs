@@ -2,12 +2,16 @@
 use crate::messages::server_status::ServerStatus;
 #[cfg(feature = "std")]
 use crate::messages::settings::PacbotSettings;
-use crate::names::{RobotName, NUM_ROBOT_NAMES};
+use crate::names::RobotName;
+#[cfg(feature = "std")]
+use crate::names::NUM_ROBOT_NAMES;
 use crate::robot_definition::RobotDefinition;
 #[cfg(feature = "std")]
 use crate::util::ColoredStatus;
 use core::time::Duration;
-use nalgebra::{Point2, Rotation2, Vector2};
+use nalgebra::Vector2;
+#[cfg(feature = "std")]
+use nalgebra::{Point2, Rotation2};
 use pacbot_rs::game_state::GameState;
 use pacbot_rs::location::Direction;
 use serde::{Deserialize, Serialize};
