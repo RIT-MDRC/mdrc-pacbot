@@ -146,12 +146,11 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
             Some(t) => t,
         };
 
-        match data.motors.receive_message_timeout(time_to_wait).await {
-            Some(RobotInterTaskMessage::FrequentServerToRobot(msg)) => {
-                last_command = T::Instant::default();
-                data.config = msg;
-            }
-            _ => {}
+        if let Some(RobotInterTaskMessage::FrequentServerToRobot(msg)) =
+            data.motors.receive_message_timeout(time_to_wait).await
+        {
+            last_command = T::Instant::default();
+            data.config = msg;
         }
     }
 }
