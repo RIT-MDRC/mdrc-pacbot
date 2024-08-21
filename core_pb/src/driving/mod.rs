@@ -2,13 +2,12 @@ pub mod motors;
 pub mod network;
 pub mod peripherals;
 
-use crate::messages::RobotToServerMessage;
+use crate::messages::{FrequentServerToRobot, RobotToServerMessage};
 use core::time::Duration;
 #[cfg(feature = "defmt")]
 pub use defmt::*;
 #[cfg(feature = "log")]
 pub use log::*;
-use nalgebra::Vector2;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Task {
@@ -20,12 +19,8 @@ pub enum Task {
 /// Messages passed between the various tasks
 #[derive(Clone)]
 pub enum RobotInterTaskMessage {
-    MotorConfig([[usize; 2]; 3]),
+    FrequentServerToRobot(FrequentServerToRobot),
     ToServer(RobotToServerMessage),
-    PwmOverride([[Option<u16>; 2]; 3]),
-    MotorsOverride([Option<f32>; 3]),
-    TargetVelocity(Option<(Vector2<f32>, f32)>),
-    Pid([f32; 3]),
 }
 
 pub trait RobotTask {

@@ -2,7 +2,7 @@ use crate::drive_system::DriveSystem;
 use crate::driving::RobotInterTaskMessage;
 use crate::driving::RobotTask;
 use crate::driving::Task;
-use crate::messages::{MotorControlStatus, RobotToServerMessage};
+use crate::messages::{FrequentServerToRobot, MotorControlStatus, RobotToServerMessage};
 use crate::names::RobotName;
 use crate::robot_definition::RobotDefinition;
 use crate::util::CrossPlatformInstant;
@@ -10,7 +10,6 @@ use core::fmt::Debug;
 use core::time::Duration;
 #[cfg(not(feature = "std"))]
 use nalgebra::ComplexField;
-use nalgebra::Vector2;
 use pid::Pid;
 
 pub trait RobotMotorsBehavior: RobotTask {
@@ -34,12 +33,10 @@ struct MotorsData<const WHEELS: usize, T: RobotMotorsBehavior> {
     drive_system: DriveSystem<WHEELS>,
 
     motors: T,
-    config: [[usize; 2]; WHEELS],
-    pid: [f32; 3],
+
+    config: FrequentServerToRobot,
+
     pid_controllers: [Pid<f32>; WHEELS],
-    pwm_override: [[Option<u16>; 2]; WHEELS],
-    motor_override: [Option<f32>; WHEELS],
-    target_vel: Option<(Vector2<f32>, f32)>,
 
     set_points: [f32; WHEELS],
     pwm: [[u16; 2]; WHEELS],
@@ -50,8 +47,8 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
     motors: T,
 ) -> Result<(), T::Error> {
     let robot = name.robot();
-    let config = robot.default_motor_config;
-    let pid = robot.default_pid;
+    let config = FrequentServerToRobot::new(name);
+    let pid = config.pid;
 
     let pid_controllers = [0; 3].map(|_| {
         let mut pid_controller = Pid::new(0.0, robot.pwm_top as f32);
@@ -68,14 +65,10 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
         name,
         robot,
         drive_system,
+        config,
 
         motors,
-        config,
-        pid,
         pid_controllers,
-        pwm_override: Default::default(),
-        motor_override: Default::default(),
-        target_vel: Default::default(),
 
         set_points: Default::default(),
         pwm: Default::default(),
@@ -91,9 +84,7 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
     loop {
         if last_command.elapsed() > Duration::from_millis(300) {
             // we might have disconnected, set all motors to stop
-            data.pwm_override = Default::default();
-            data.motor_override = Default::default();
-            data.target_vel = None;
+            data.config = FrequentServerToRobot::new(data.name);
             for p in 0..6 {
                 data.motors.set_pwm(p, 0).await;
             }
@@ -110,12 +101,12 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
                 ];
                 data.set_points = [0.0; 3];
                 data.pwm = [[0; 2]; 3];
-                if let Some((lin, ang)) = data.target_vel {
+                if let Some((lin, ang)) = data.config.target_velocity {
                     data.set_points = data.drive_system.get_motor_speed_omni(lin, ang);
                 }
                 #[allow(clippy::needless_range_loop)]
                 for m in 0..3 {
-                    if let Some(motor_override) = data.motor_override[m] {
+                    if let Some(motor_override) = data.config.motors_override[m] {
                         data.set_points[m] = motor_override;
                     }
                     // calculate pid
@@ -128,10 +119,12 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
                         data.pwm[m] = [0, output.abs().round() as u16];
                     }
                     for p in 0..2 {
-                        if let Some(pwm_override) = data.pwm_override[m][p] {
+                        if let Some(pwm_override) = data.config.pwm_override[m][p] {
                             data.pwm[m][p] = pwm_override;
                         }
-                        data.motors.set_pwm(data.config[m][p], data.pwm[m][p]).await;
+                        data.motors
+                            .set_pwm(data.config.motor_config[m][p], data.pwm[m][p])
+                            .await;
                     }
                 }
                 data.motors.send_or_drop(
@@ -154,29 +147,9 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
         };
 
         match data.motors.receive_message_timeout(time_to_wait).await {
-            Some(RobotInterTaskMessage::TargetVelocity(vel)) => {
+            Some(RobotInterTaskMessage::FrequentServerToRobot(msg)) => {
                 last_command = T::Instant::default();
-                data.target_vel = vel;
-            }
-            Some(RobotInterTaskMessage::MotorsOverride(overrides)) => {
-                last_command = T::Instant::default();
-                data.motor_override = overrides;
-            }
-            Some(RobotInterTaskMessage::PwmOverride(overrides)) => {
-                last_command = T::Instant::default();
-                data.pwm_override = overrides;
-            }
-            Some(RobotInterTaskMessage::MotorConfig(config)) => {
-                data.config = config;
-            }
-            Some(RobotInterTaskMessage::Pid(pid)) => {
-                data.pid = pid;
-                for pid_controller in &mut data.pid_controllers {
-                    pid_controller
-                        .p(pid[0], robot.pwm_top as f32)
-                        .i(pid[1], robot.pwm_top as f32)
-                        .d(pid[2], robot.pwm_top as f32);
-                }
+                data.config = msg;
             }
             _ => {}
         }

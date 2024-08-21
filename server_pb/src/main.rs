@@ -12,8 +12,8 @@ use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::{ConnectionSettings, PacbotSettings, StrategyChoice};
 use core_pb::messages::{
-    GameServerCommand, NetworkStatus, ServerToGuiMessage, ServerToRobotMessage,
-    ServerToSimulationMessage,
+    FrequentServerToRobot, GameServerCommand, NetworkStatus, ServerToGuiMessage,
+    ServerToRobotMessage, ServerToSimulationMessage,
 };
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::location::Direction;
@@ -190,34 +190,19 @@ impl App {
         // send motor commands to robots
         for name in RobotName::get_all() {
             let id = name as usize;
-            // pwm overrides
-            if self.settings.robots[id]
-                .pwm_override
-                .iter()
-                .any(|x| x[0].is_some() || x[1].is_some())
-            {
-                self.send(
-                    Robot(name),
-                    ToRobot(ServerToRobotMessage::PwmOverride(
-                        self.settings.robots[id].pwm_override,
-                    )),
-                )
-                .await;
-            }
-            // motor overrides
-            if self.settings.robots[id]
-                .set_point_override
-                .iter()
-                .any(|x| x.is_some())
-            {
-                self.send(
-                    Robot(name),
-                    ToRobot(ServerToRobotMessage::MotorsOverride(
-                        self.settings.robots[id].set_point_override,
-                    )),
-                )
-                .await;
-            }
+            self.send(
+                Robot(name),
+                ToRobot(ServerToRobotMessage::FrequentRobotItems(
+                    FrequentServerToRobot {
+                        target_velocity: None, // todo
+                        motors_override: self.settings.robots[id].set_point_override,
+                        pwm_override: self.settings.robots[id].pwm_override,
+                        motor_config: self.settings.robots[id].motor_config,
+                        pid: self.settings.robots[id].pid,
+                    },
+                )),
+            )
+            .await;
         }
     }
 
@@ -281,25 +266,9 @@ impl App {
             self.update_connection(
                 &old.robots[id].connection,
                 &new.robots[id].connection,
-                Destination::Robot(name),
+                Robot(name),
             )
             .await;
-            if old.robots[id].motor_config != new.robots[id].motor_config {
-                self.send(
-                    Destination::Robot(name),
-                    Outgoing::ToRobot(ServerToRobotMessage::MotorConfig(
-                        new.robots[id].motor_config,
-                    )),
-                )
-                .await;
-            }
-            if old.robots[id].pid != new.robots[id].pid {
-                self.send(
-                    Destination::Robot(name),
-                    Outgoing::ToRobot(ServerToRobotMessage::Pid(new.robots[id].pid)),
-                )
-                .await;
-            }
         }
 
         if new.simulation.simulate {
