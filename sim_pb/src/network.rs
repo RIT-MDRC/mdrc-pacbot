@@ -1,7 +1,7 @@
 use crate::driving::SimRobot;
 use crate::{MyApp, RobotToSimulationMessage};
 use bevy::prelude::{Commands, Query, ResMut, Resource, Transform};
-use bevy_rapier2d::na::Point2;
+use bevy_rapier2d::na::{Point2, Rotation2};
 use core_pb::constants::{GAME_SERVER_PORT, SIMULATION_LISTENER_PORT};
 use core_pb::messages::{
     GameServerCommand, ServerToSimulationMessage, SimulationToServerMessage,
@@ -183,7 +183,12 @@ impl PacbotNetworkSimulation {
                                 .iter()
                                 .next()
                                 .and_then(|(e, _)| pos_query.get(*e).ok())
-                                .map(|t| Point2::new(t.translation.x, t.translation.y))
+                                .map(|t| {
+                                    (
+                                        Point2::new(t.translation.x, t.translation.y),
+                                        Rotation2::new(t.rotation.to_axis_angle().1),
+                                    )
+                                })
                         }
                     }),
                 })

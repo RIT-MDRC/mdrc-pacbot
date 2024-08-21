@@ -7,7 +7,7 @@ use crate::robot_definition::RobotDefinition;
 #[cfg(feature = "std")]
 use crate::util::ColoredStatus;
 use core::time::Duration;
-use nalgebra::{Point2, Vector2};
+use nalgebra::{Point2, Rotation2, Vector2};
 use pacbot_rs::game_state::GameState;
 use pacbot_rs::location::Direction;
 use serde::{Deserialize, Serialize};
@@ -47,7 +47,7 @@ pub enum ServerToGuiMessage {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
 pub struct SimulationToServerMessage {
-    pub robot_positions: [Option<Point2<f32>>; NUM_ROBOT_NAMES],
+    pub robot_positions: [Option<(Point2<f32>, Rotation2<f32>)>; NUM_ROBOT_NAMES],
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
