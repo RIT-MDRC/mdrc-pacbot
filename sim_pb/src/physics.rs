@@ -3,7 +3,7 @@ use crate::{MyApp, Robot, Wall};
 use bevy::math::Vec3;
 use bevy::prelude::*;
 use bevy_rapier2d::geometry::{Collider, CollisionGroups, Group};
-use bevy_rapier2d::na::Vector2;
+use bevy_rapier2d::na::{Point2, Vector2};
 use bevy_rapier2d::prelude::*;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::RobotName;
@@ -50,6 +50,20 @@ impl MyApp {
         let sim_robot = SimRobot::start(name, false, self.from_robots.0.clone());
 
         self.robots[name as usize] = Some((new_robot, sim_robot));
+    }
+
+    pub fn teleport_robot(
+        &mut self,
+        name: RobotName,
+        loc: Point2<i8>,
+        pos_query: &mut Query<&mut Transform>,
+    ) {
+        if let Some((entity, _)) = &self.robots[name as usize] {
+            if let Ok(mut t) = pos_query.get_mut(*entity) {
+                t.translation.x = loc.x as f32;
+                t.translation.y = loc.y as f32;
+            }
+        }
     }
 
     pub fn despawn_robot(&mut self, name: RobotName, commands: &mut Commands) {

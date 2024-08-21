@@ -189,35 +189,13 @@ impl App {
         }
         // send motor commands to robots
         for name in RobotName::get_all() {
-            let id = name as usize;
-            // pwm overrides
-            if self.settings.robots[id]
-                .pwm_override
-                .iter()
-                .any(|x| x[0].is_some() || x[1].is_some())
-            {
-                self.send(
-                    Robot(name),
-                    ToRobot(ServerToRobotMessage::PwmOverride(
-                        self.settings.robots[id].pwm_override,
-                    )),
-                )
-                .await;
-            }
-            // motor overrides
-            if self.settings.robots[id]
-                .set_point_override
-                .iter()
-                .any(|x| x.is_some())
-            {
-                self.send(
-                    Robot(name),
-                    ToRobot(ServerToRobotMessage::MotorsOverride(
-                        self.settings.robots[id].set_point_override,
-                    )),
-                )
-                .await;
-            }
+            self.send(
+                Robot(name),
+                ToRobot(ServerToRobotMessage::FrequentRobotItems(
+                    self.settings.robots[name as usize].config.clone(),
+                )),
+            )
+            .await;
         }
     }
 
@@ -281,25 +259,9 @@ impl App {
             self.update_connection(
                 &old.robots[id].connection,
                 &new.robots[id].connection,
-                Destination::Robot(name),
+                Robot(name),
             )
             .await;
-            if old.robots[id].motor_config != new.robots[id].motor_config {
-                self.send(
-                    Destination::Robot(name),
-                    Outgoing::ToRobot(ServerToRobotMessage::MotorConfig(
-                        new.robots[id].motor_config,
-                    )),
-                )
-                .await;
-            }
-            if old.robots[id].pid != new.robots[id].pid {
-                self.send(
-                    Destination::Robot(name),
-                    Outgoing::ToRobot(ServerToRobotMessage::Pid(new.robots[id].pid)),
-                )
-                .await;
-            }
         }
 
         if new.simulation.simulate {

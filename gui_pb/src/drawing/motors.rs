@@ -43,21 +43,27 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
             "motor_p".to_string(),
             ui,
             app.settings_fields.as_mut().unwrap(),
-            &mut app.settings.robots[app.ui_settings.selected_robot as usize].pid[0],
+            &mut app.settings.robots[app.ui_settings.selected_robot as usize]
+                .config
+                .pid[0],
             "P",
         );
         num(
             "motor_i".to_string(),
             ui,
             app.settings_fields.as_mut().unwrap(),
-            &mut app.settings.robots[app.ui_settings.selected_robot as usize].pid[1],
+            &mut app.settings.robots[app.ui_settings.selected_robot as usize]
+                .config
+                .pid[1],
             "I",
         );
         num(
             "motor_d".to_string(),
             ui,
             app.settings_fields.as_mut().unwrap(),
-            &mut app.settings.robots[app.ui_settings.selected_robot as usize].pid[2],
+            &mut app.settings.robots[app.ui_settings.selected_robot as usize]
+                .config
+                .pid[2],
             "D",
         );
     });
@@ -71,7 +77,8 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                     ui.separator();
                     let current_override = &mut app.settings.robots
                         [app.ui_settings.selected_robot as usize]
-                        .set_point_override[i];
+                        .config
+                        .motors_override[i];
                     let mut override_is_some = current_override.is_some();
                     ui.checkbox(&mut override_is_some, "Override");
                     if override_is_some && current_override.is_none() {
@@ -99,11 +106,13 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                         format!("motor{i}_forwards"),
                         "",
                         &mut app.settings.robots[app.ui_settings.selected_robot as usize]
+                            .config
                             .motor_config[i][0],
                         &[0, 1, 2, 3, 4, 5],
                     );
                     let current_override = &mut app.settings.robots
                         [app.ui_settings.selected_robot as usize]
+                        .config
                         .pwm_override[i][0];
                     let mut override_is_some = current_override.is_some();
                     ui.checkbox(&mut override_is_some, "Override");
@@ -132,11 +141,13 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                         format!("motor{i}_backwards"),
                         "",
                         &mut app.settings.robots[app.ui_settings.selected_robot as usize]
+                            .config
                             .motor_config[i][1],
                         &[0, 1, 2, 3, 4, 5],
                     );
                     let current_override = &mut app.settings.robots
                         [app.ui_settings.selected_robot as usize]
+                        .config
                         .pwm_override[i][1];
                     let mut override_is_some = current_override.is_some();
                     ui.checkbox(&mut override_is_some, "Override");

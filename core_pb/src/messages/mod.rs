@@ -2,11 +2,16 @@
 use crate::messages::server_status::ServerStatus;
 #[cfg(feature = "std")]
 use crate::messages::settings::PacbotSettings;
-use crate::names::{RobotName, NUM_ROBOT_NAMES};
+use crate::names::RobotName;
+#[cfg(feature = "std")]
+use crate::names::NUM_ROBOT_NAMES;
+use crate::robot_definition::RobotDefinition;
 #[cfg(feature = "std")]
 use crate::util::ColoredStatus;
 use core::time::Duration;
-use nalgebra::{Point2, Vector2};
+use nalgebra::Vector2;
+#[cfg(feature = "std")]
+use nalgebra::{Point2, Rotation2};
 use pacbot_rs::game_state::GameState;
 use pacbot_rs::location::Direction;
 use serde::{Deserialize, Serialize};
@@ -46,33 +51,74 @@ pub enum ServerToGuiMessage {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
 pub struct SimulationToServerMessage {
-    pub robot_positions: [Option<Point2<f32>>; NUM_ROBOT_NAMES],
+    pub robot_positions: [Option<(Point2<f32>, Rotation2<f32>)>; NUM_ROBOT_NAMES],
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
 pub enum ServerToSimulationMessage {
     Spawn(RobotName),
+    Teleport(RobotName, Point2<i8>),
     Delete(RobotName),
     SetPacman(RobotName),
+}
+
+/// This is sent regularly and frequently to robots via [`ServerToRobotMessage::FrequentRobotItems`]
+///
+/// Holds information that may change often, or where low latency is critical. Its contents should be passed
+/// along as quickly as possible.
+#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub struct FrequentServerToRobot {
+    /// Overall requested velocity of the robot, ex. using WASD or controller manual input
+    pub target_velocity: Option<(Vector2<f32>, f32)>,
+    /// Requested velocity for each individual motor, forwards (+) or backwards (-), for testing
+    pub motors_override: [Option<f32>; 3],
+    /// Requested output for each PWM pin, for testing
+    pub pwm_override: [[Option<u16>; 2]; 3],
+    /// Which pwm pin corresponds to which motor
+    ///
+    /// Example: for the config `[[0, 1], [5, 4], [2, 3]]`:
+    /// - Raising the first physical pin (denoted `0`) causes motor 0 to turn clockwise
+    /// - Raising pin `1` causes motor 0 to turn counter-clockwise
+    /// - Raising pin `5` causes motor 1 to turn clockwise
+    /// - `4` -> motor 1 counter-clockwise
+    /// - `2` -> motor 2 clockwise
+    /// - `3` -> motor 2 counter-clockwise
+    pub motor_config: [[usize; 2]; 3],
+    /// Basic parameters for the PID controller
+    pub pid: [f32; 3],
+}
+
+impl FrequentServerToRobot {
+    /// Create one with default parameters of the given robot
+    pub fn new(robot: RobotName) -> Self {
+        let definition = RobotDefinition::new(robot);
+        Self {
+            target_velocity: None,
+            motors_override: [None; 3],
+            pwm_override: [[None; 2]; 3],
+            motor_config: definition.default_motor_config,
+            pid: definition.default_pid,
+        }
+    }
 }
 
 /// Firmware related items MUST remain first, or OTA programming will break
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ServerToRobotMessage {
     ReadyToStartUpdate,
-    FirmwareWritePart { offset: usize, len: usize },
+    FirmwareWritePart {
+        offset: usize,
+        len: usize,
+    },
     CalculateFirmwareHash(u32),
     MarkFirmwareUpdated,
     IsFirmwareSwapped,
     Reboot,
     MarkFirmwareBooted,
     CancelFirmwareUpdate,
-    TargetVelocity(Option<(Vector2<f32>, f32)>),
-    MotorsOverride([Option<f32>; 3]),
-    Pid([f32; 3]),
-    PwmOverride([[Option<u16>; 2]; 3]),
-    MotorConfig([[usize; 2]; 3]),
+    /// See [`FrequentServerToRobot`]
+    FrequentRobotItems(FrequentServerToRobot),
 }
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]

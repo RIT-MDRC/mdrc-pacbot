@@ -123,32 +123,9 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                         }
                         Either::Right(_) => {}
                         Either::Left(Err(())) => break,
-                        Either::Left(Ok(ServerToRobotMessage::Pid(pid))) => {
-                            network.send_or_drop(RobotInterTaskMessage::Pid(pid), Task::Motors);
-                        }
-                        Either::Left(Ok(ServerToRobotMessage::PwmOverride(overrides))) => {
+                        Either::Left(Ok(ServerToRobotMessage::FrequentRobotItems(msg))) => {
                             network.send_or_drop(
-                                RobotInterTaskMessage::PwmOverride(overrides),
-                                Task::Motors,
-                            );
-                        }
-                        Either::Left(Ok(ServerToRobotMessage::MotorConfig(config))) => {
-                            network
-                                .send_blocking(
-                                    RobotInterTaskMessage::MotorConfig(config),
-                                    Task::Motors,
-                                )
-                                .await
-                        }
-                        Either::Left(Ok(ServerToRobotMessage::MotorsOverride(ov))) => {
-                            network.send_or_drop(
-                                RobotInterTaskMessage::MotorsOverride(ov),
-                                Task::Motors,
-                            );
-                        }
-                        Either::Left(Ok(ServerToRobotMessage::TargetVelocity(vel))) => {
-                            network.send_or_drop(
-                                RobotInterTaskMessage::TargetVelocity(vel),
+                                RobotInterTaskMessage::FrequentServerToRobot(msg),
                                 Task::Motors,
                             );
                         }

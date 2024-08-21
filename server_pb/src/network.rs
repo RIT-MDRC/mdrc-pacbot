@@ -5,7 +5,7 @@ use crate::sockets::{Destination, Incoming, Outgoing};
 use crate::App;
 use core_pb::messages::{
     GuiToServerMessage, NetworkStatus, RobotToServerMessage, ServerToGuiMessage,
-    ServerToRobotMessage, ServerToSimulationMessage, GAME_SERVER_MAGIC_NUMBER,
+    ServerToSimulationMessage, GAME_SERVER_MAGIC_NUMBER,
 };
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
@@ -93,22 +93,12 @@ impl App {
                         msg.robot_positions[name as usize];
                 }
             }
-            (Robot(name), FromRobot(RobotToServerMessage::Name(_))) => {
-                println!("Received name from {name}");
-                self.send(
-                    Robot(name),
-                    ToRobot(ServerToRobotMessage::MotorConfig(
-                        self.settings.robots[name as usize].motor_config,
-                    )),
-                )
-                .await;
-                self.send(
-                    Robot(name),
-                    ToRobot(ServerToRobotMessage::Pid(
-                        self.settings.robots[name as usize].pid,
-                    )),
-                )
-                .await;
+            (Robot(name), FromRobot(RobotToServerMessage::Name(said_name))) => {
+                println!("Received name ({said_name}) from {name}");
+                if said_name != name {
+                    eprintln!("WARNING: Robot is having an identity crisis");
+                }
+                // the robot will receive motor and pid configuration via periodic actions
             }
             (Robot(name), FromRobot(RobotToServerMessage::MotorControlStatus(status))) => {
                 self.status.robots[name as usize].last_motor_status = status;
@@ -129,19 +119,8 @@ impl App {
                         }
                     }
                 },
-                GuiToServerMessage::RobotVelocity(_robot, _vel) => {
-                    // let (lin, ang) = vel.unwrap_or((Vector2::zeros(), 0.0));
-                    // println!(
-                    //     "sending vel {lin:?} {ang:?} = {:?} to robot..",
-                    //     RobotDefinition::default()
-                    //         .drive_system
-                    //         .get_motor_speed_omni(lin, ang)
-                    // );
-                    // app.send(
-                    //     Robot(robot),
-                    //     ToRobot(ServerToRobotMessage::TargetVelocity(lin, ang)),
-                    // )
-                    // .await
+                GuiToServerMessage::RobotVelocity(robot, vel) => {
+                    self.settings.robots[robot as usize].config.target_velocity = vel;
                 }
                 GuiToServerMessage::TargetLocation(loc) => {
                     if !self.grid.wall_at(&loc) {

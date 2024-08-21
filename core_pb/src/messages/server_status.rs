@@ -2,7 +2,7 @@ use crate::messages::ota::{OverTheAirStep, OverTheAirStepCompletion};
 use crate::messages::{MotorControlStatus, NetworkStatus};
 use crate::names::{RobotName, NUM_ROBOT_NAMES};
 use crate::util::ColoredStatus;
-use nalgebra::Point2;
+use nalgebra::{Point2, Rotation2};
 use pacbot_rs::game_state::GameState;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -52,7 +52,7 @@ pub struct RobotStatus {
 
     pub last_motor_status: (Duration, MotorControlStatus),
 
-    pub sim_position: Option<Point2<f32>>,
+    pub sim_position: Option<(Point2<f32>, Rotation2<f32>)>,
 }
 
 impl RobotStatus {

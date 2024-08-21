@@ -40,7 +40,7 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
     // sim robot positions
     for name in RobotName::get_all() {
         if let Some(pos) = app.server_status.robots[name as usize].sim_position {
-            let center = wts.map_point(Pos2::new(pos.x, pos.y));
+            let center = wts.map_point(Pos2::new(pos.0.x, pos.0.y));
             painter.circle_filled(
                 center,
                 wts.map_dist(name.robot().radius),
@@ -49,6 +49,18 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
                 } else {
                     TRANSLUCENT_YELLOW_COLOR
                 },
+            );
+            // draw a line to show the direction the robot is facing
+            let rotation = pos.1.angle();
+            painter.line_segment(
+                [
+                    center,
+                    wts.map_point(Pos2::new(
+                        pos.0.x + rotation.cos() * name.robot().radius,
+                        pos.0.y + rotation.sin() * name.robot().radius,
+                    )),
+                ],
+                Stroke::new(1.0, Color32::BLACK),
             );
         }
     }
