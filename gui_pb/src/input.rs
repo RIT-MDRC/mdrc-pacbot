@@ -30,13 +30,14 @@ impl App {
 
         ctx.input(|i| {
             let mut target_vel = (Vector2::new(0.0, 0.0), 0.0);
+            let scale = self.settings.target_speed;
             for (key, (lin, ang)) in [
-                (Key::W, (Vector2::new(0.0, 1.0), 0.0)),
-                (Key::A, (Vector2::new(-1.0, 0.0), 0.0)),
-                (Key::D, (Vector2::new(1.0, 0.0), 0.0)),
-                (Key::S, (Vector2::new(0.0, -1.0), 0.0)),
-                (Key::Q, (Vector2::new(0.0, 0.0), 0.3)),
-                (Key::E, (Vector2::new(0.0, 0.0), -0.3)),
+                (Key::W, (Vector2::new(0.0, scale), 0.0)),
+                (Key::A, (Vector2::new(-scale, 0.0), 0.0)),
+                (Key::D, (Vector2::new(scale, 0.0), 0.0)),
+                (Key::S, (Vector2::new(0.0, -scale), 0.0)),
+                (Key::Q, (Vector2::new(0.0, 0.0), scale / 3.0)),
+                (Key::E, (Vector2::new(0.0, 0.0), -scale / 3.0)),
             ] {
                 if i.key_down(key) {
                     target_vel.0 += lin;

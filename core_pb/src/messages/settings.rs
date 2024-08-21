@@ -1,5 +1,6 @@
 use crate::constants::{GAME_SERVER_PORT, SIMULATION_LISTENER_PORT};
 use crate::grid::standard_grid::StandardGrid;
+use crate::messages::FrequentServerToRobot;
 use crate::names::{RobotName, NUM_ROBOT_NAMES};
 use serde::{Deserialize, Serialize};
 
@@ -106,15 +107,8 @@ pub struct RobotSettings {
     pub name: RobotName,
     /// Connection settings
     pub connection: ConnectionSettings,
-
-    /// P, I, and D parameters for the PID loop
-    pub pid: [f32; 3],
-    /// Which pwm pin corresponds to forwards and backwards for each motor
-    pub motor_config: [[usize; 2]; 3],
-    /// Overrides the outputs from wheel speed
-    pub pwm_override: [[Option<u16>; 2]; 3],
-    /// Overrides the set points of the motors
-    pub set_point_override: [Option<f32>; 3],
+    /// Configuration; see [`FrequentServerToRobot`]
+    pub config: FrequentServerToRobot,
 }
 
 impl RobotSettings {
@@ -126,10 +120,7 @@ impl RobotSettings {
                 ipv4: name.default_ip(),
                 port: name.port(),
             },
-            pid: name.robot().default_pid,
-            motor_config: name.robot().default_motor_config,
-            pwm_override: [[None; 2]; 3],
-            set_point_override: [None; 3],
+            config: FrequentServerToRobot::new(name),
         }
     }
 }

@@ -119,19 +119,8 @@ impl App {
                         }
                     }
                 },
-                GuiToServerMessage::RobotVelocity(_robot, _vel) => {
-                    // let (lin, ang) = vel.unwrap_or((Vector2::zeros(), 0.0));
-                    // println!(
-                    //     "sending vel {lin:?} {ang:?} = {:?} to robot..",
-                    //     RobotDefinition::default()
-                    //         .drive_system
-                    //         .get_motor_speed_omni(lin, ang)
-                    // );
-                    // app.send(
-                    //     Robot(robot),
-                    //     ToRobot(ServerToRobotMessage::TargetVelocity(lin, ang)),
-                    // )
-                    // .await
+                GuiToServerMessage::RobotVelocity(robot, vel) => {
+                    self.settings.robots[robot as usize].config.target_velocity = vel;
                 }
                 GuiToServerMessage::TargetLocation(loc) => {
                     if !self.grid.wall_at(&loc) {

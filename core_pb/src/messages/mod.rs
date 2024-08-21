@@ -62,7 +62,7 @@ pub enum ServerToSimulationMessage {
 ///
 /// Holds information that may change often, or where low latency is critical. Its contents should be passed
 /// along as quickly as possible.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct FrequentServerToRobot {
     /// Overall requested velocity of the robot, ex. using WASD or controller manual input
     pub target_velocity: Option<(Vector2<f32>, f32)>,

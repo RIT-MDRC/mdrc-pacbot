@@ -12,8 +12,8 @@ use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::{ConnectionSettings, PacbotSettings, StrategyChoice};
 use core_pb::messages::{
-    FrequentServerToRobot, GameServerCommand, NetworkStatus, ServerToGuiMessage,
-    ServerToRobotMessage, ServerToSimulationMessage,
+    GameServerCommand, NetworkStatus, ServerToGuiMessage, ServerToRobotMessage,
+    ServerToSimulationMessage,
 };
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::location::Direction;
@@ -189,17 +189,10 @@ impl App {
         }
         // send motor commands to robots
         for name in RobotName::get_all() {
-            let id = name as usize;
             self.send(
                 Robot(name),
                 ToRobot(ServerToRobotMessage::FrequentRobotItems(
-                    FrequentServerToRobot {
-                        target_velocity: None, // todo
-                        motors_override: self.settings.robots[id].set_point_override,
-                        pwm_override: self.settings.robots[id].pwm_override,
-                        motor_config: self.settings.robots[id].motor_config,
-                        pid: self.settings.robots[id].pid,
-                    },
+                    self.settings.robots[name as usize].config.clone(),
                 )),
             )
             .await;
