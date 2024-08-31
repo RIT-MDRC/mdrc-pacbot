@@ -3,9 +3,10 @@ use crate::sockets::Incoming::*;
 use crate::sockets::Outgoing::*;
 use crate::sockets::{Destination, Incoming, Outgoing};
 use crate::App;
+use core_pb::constants::GAME_SERVER_MAGIC_NUMBER;
 use core_pb::messages::{
     GuiToServerMessage, NetworkStatus, RobotToServerMessage, ServerToGuiMessage,
-    ServerToSimulationMessage, GAME_SERVER_MAGIC_NUMBER,
+    ServerToSimulationMessage,
 };
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;

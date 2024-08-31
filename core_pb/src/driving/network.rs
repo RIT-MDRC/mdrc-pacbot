@@ -13,6 +13,7 @@ pub struct NetworkScanInfo {
     pub is_5g: bool,
 }
 
+/// Functionality that robots with networking must support
 pub trait RobotNetworkBehavior: RobotTask {
     type Error: Debug;
     type Socket<'a>: Read + Write
@@ -75,6 +76,7 @@ pub trait RobotNetworkBehavior: RobotTask {
     async fn mark_firmware_booted(&mut self);
 }
 
+/// The "main" method for the network task
 pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(), T::Error> {
     info!("mac address: {:?}", network.mac_address().await);
     let name = RobotName::from_mac_address(&network.mac_address().await)

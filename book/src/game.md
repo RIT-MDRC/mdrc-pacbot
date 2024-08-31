@@ -1,1 +1,1 @@
-Game documentation coming soon!
+The rules of the competition can be found here: [https://docs.google.com/document/d/1S_LQgnrct9sxjBMF8caiuIUB6S4VU-Ep4F8Lx8vzH5Y/edit?usp=sharing](https://docs.google.com/document/d/1S_LQgnrct9sxjBMF8caiuIUB6S4VU-Ep4F8Lx8vzH5Y/edit?usp=sharing)

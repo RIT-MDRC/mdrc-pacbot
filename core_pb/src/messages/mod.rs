@@ -23,34 +23,47 @@ pub mod server_status;
 #[cfg(feature = "std")]
 pub mod settings;
 
-pub const GAME_SERVER_MAGIC_NUMBER: [u8; 4] = [170, 115, 26, 153];
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
 #[allow(clippy::large_enum_variant)]
+/// Messages sent from `gui_pb` to `server_pb`
 pub enum GuiToServerMessage {
+    /// Update server settings
     Settings(PacbotSettings),
+    /// Send a message to the game server
     GameServerCommand(GameServerCommand),
+    /// Send a message to the simulation
     SimulationCommand(ServerToSimulationMessage),
+    /// Set a robot's target velocity (for WASD movement)
     RobotVelocity(RobotName, Option<(Vector2<f32>, f32)>),
+    /// Initiate an Over the Air Programming update for a robot
     StartOtaFirmwareUpdate(RobotName),
+    /// Cancel an Over the Air Programming update for a robot
     CancelOtaFirmwareUpdate(RobotName),
+    /// Continue an Over the Air Programming update for a robot
     ConfirmFirmwareUpdate(RobotName),
+    /// Clear Over the Air Programming update history for a robot
     ClearFirmwareUpdateHistory(RobotName),
+    /// Set a robot's target location
     TargetLocation(Point2<i8>),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
 #[allow(clippy::large_enum_variant)]
+/// Messages sent from `server_pb` to `gui_pb`
 pub enum ServerToGuiMessage {
+    /// Very frequent; includes all information about the status of the server and robots
     Status(ServerStatus),
+    /// Less frequent; includes updated server settings
     Settings(PacbotSettings),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
+/// Messages sent from `sim_pb` to `server_pb`
 pub struct SimulationToServerMessage {
+    /// The positions of the simulated robots, to be shown in the gui
     pub robot_positions: [Option<(Point2<f32>, Rotation2<f32>)>; NUM_ROBOT_NAMES],
 }
 

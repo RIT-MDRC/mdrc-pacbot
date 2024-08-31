@@ -25,10 +25,12 @@ pub struct RobotDefinition<const WHEELS: usize> {
     pub has_screen: bool,
 }
 
+/// Describes physical characteristics of the motors
 #[derive(Copy, Clone, Debug)]
 pub struct WheelDefinition {}
 
 impl RobotDefinition<3> {
+    /// Create the default `RobotDefinition` for the given robot
     pub fn new(name: RobotName) -> Self {
         Self {
             radius: 0.715,

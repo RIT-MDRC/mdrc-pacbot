@@ -12,6 +12,7 @@ use core::time::Duration;
 use nalgebra::ComplexField;
 use pid::Pid;
 
+/// Functionality that robots with motors must support
 pub trait RobotMotorsBehavior: RobotTask {
     type Error: Debug;
 
@@ -42,6 +43,7 @@ struct MotorsData<const WHEELS: usize, T: RobotMotorsBehavior> {
     pwm: [[u16; 2]; WHEELS],
 }
 
+/// The "main" method for the motors task
 pub async fn motors_task<T: RobotMotorsBehavior>(
     name: RobotName,
     motors: T,
