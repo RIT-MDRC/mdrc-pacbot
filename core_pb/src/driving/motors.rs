@@ -158,7 +158,6 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
         {
             last_command = T::Instant::default();
             data.config = msg;
-            // for mut controller in data.pid_controllers {
             for m in 0..3 {
                 data.pid_controllers[m]
                     .p(data.config.pid[0], robot.pwm_top as f32)
