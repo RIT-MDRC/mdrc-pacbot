@@ -41,6 +41,7 @@ struct MotorsData<const WHEELS: usize, T: RobotMotorsBehavior> {
 
     set_points: [f32; WHEELS],
     pwm: [[u16; 2]; WHEELS],
+    prev_out: [f32; WHEELS],
 }
 
 /// The "main" method for the motors task
@@ -74,6 +75,7 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
 
         set_points: Default::default(),
         pwm: Default::default(),
+        prev_out: [0.0; 3],
     };
 
     let task_start = T::Instant::default();
@@ -114,11 +116,14 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
                     // calculate pid
                     data.pid_controllers[m].setpoint(data.set_points[m]);
                     let output = data.pid_controllers[m].next_control_output(measured_speeds[m]);
-                    let output = output.output;
-                    if output > 0.0 {
-                        data.pwm[m] = [output.abs().round() as u16, 0];
+                    let output_built = output.output + data.prev_out[m];
+                    data.prev_out[m] = output_built;
+
+                    // set value to PWM on motors
+                    if output_built > 0.0 {
+                        data.pwm[m] = [output_built.abs().round() as u16, 0];
                     } else {
-                        data.pwm[m] = [0, output.abs().round() as u16];
+                        data.pwm[m] = [0, output_built.abs().round() as u16];
                     }
                     for p in 0..2 {
                         if let Some(pwm_override) = data.config.pwm_override[m][p] {
@@ -153,6 +158,12 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
         {
             last_command = T::Instant::default();
             data.config = msg;
+            for m in 0..3 {
+                data.pid_controllers[m]
+                    .p(data.config.pid[0], robot.pwm_top as f32)
+                    .i(data.config.pid[1], robot.pwm_top as f32)
+                    .d(data.config.pid[2], robot.pwm_top as f32);
+            }
         }
     }
 }
