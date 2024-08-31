@@ -88,7 +88,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rust_api.html"><strong aria-hidden="true">1.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="game.html"><strong aria-hidden="true">2.</strong> Game</a></li><li class="chapter-item expanded "><a href="the_grid.html"><strong aria-hidden="true">3.</strong> Grid</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="grid_and_coordinates.html"><strong aria-hidden="true">3.1.</strong> Grid & Coordinate System</a></li><li class="chapter-item expanded "><a href="computed_grid.html" class="active"><strong aria-hidden="true">3.2.</strong> Computed Grid</a></li></ol></li><li class="chapter-item expanded "><a href="network.html"><strong aria-hidden="true">4.</strong> Network</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="welcome.html"><strong aria-hidden="true">1.</strong> Welcome</a></li><li class="chapter-item expanded "><a href="rust_api.html"><strong aria-hidden="true">2.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="game.html"><strong aria-hidden="true">3.</strong> Game</a></li><li class="chapter-item expanded "><a href="the_grid.html"><strong aria-hidden="true">4.</strong> Grid</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="grid_and_coordinates.html"><strong aria-hidden="true">4.1.</strong> Grid & Coordinate System</a></li><li class="chapter-item expanded "><a href="computed_grid.html" class="active"><strong aria-hidden="true">4.2.</strong> Computed Grid</a></li></ol></li><li class="chapter-item expanded "><a href="network.html"><strong aria-hidden="true">5.</strong> Network</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -181,7 +181,7 @@ the <code>ComputedGrid</code> is first created, meaning it is very cheap to retr
 <p>In order for a <code>Grid</code> to be successfully upgraded to a <code>ComputedGrid</code> via <code>ComputedGrid::try_from(grid)</code>,
 all of the following must be true:</p>
 <ul>
-<li>All the cells around the outside of the grid (with <code>row</code> or <code>col</code> equal to 0 or 31) are walls</li>
+<li>All the cells around the outside of the grid (with <code>x</code> or <code>y</code> equal to 0 or 31) are walls</li>
 <li>There is at least one walkable cell (where Pacman can spawn)</li>
 <li>There are no 2x2 empty squares</li>
 <li>There is no wall with a walkable space both above and below it</li>
@@ -191,7 +191,6 @@ all of the following must be true:</p>
 <p>Note:</p>
 <ul>
 <li>It is not necessary that a <code>ComputedGrid</code> is connected, or that every walkable space is accessible from every other one</li>
-<li>It is not necessary that there is are ghost chambers, pellets, or super pellets</li>
 </ul>
 <h2 id="pre-computed-information"><a class="header" href="#pre-computed-information">Pre-computed Information</a></h2>
 <p>When a <code>ComputedGrid</code> is constructed, it spends extra time calculating a number of variables related to

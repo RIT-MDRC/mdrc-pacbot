@@ -88,7 +88,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rust_api.html"><strong aria-hidden="true">1.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="game.html"><strong aria-hidden="true">2.</strong> Game</a></li><li class="chapter-item expanded "><a href="the_grid.html"><strong aria-hidden="true">3.</strong> Grid</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="grid_and_coordinates.html" class="active"><strong aria-hidden="true">3.1.</strong> Grid & Coordinate System</a></li><li class="chapter-item expanded "><a href="computed_grid.html"><strong aria-hidden="true">3.2.</strong> Computed Grid</a></li></ol></li><li class="chapter-item expanded "><a href="network.html"><strong aria-hidden="true">4.</strong> Network</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="welcome.html"><strong aria-hidden="true">1.</strong> Welcome</a></li><li class="chapter-item expanded "><a href="rust_api.html"><strong aria-hidden="true">2.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="game.html"><strong aria-hidden="true">3.</strong> Game</a></li><li class="chapter-item expanded "><a href="the_grid.html"><strong aria-hidden="true">4.</strong> Grid</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="grid_and_coordinates.html" class="active"><strong aria-hidden="true">4.1.</strong> Grid & Coordinate System</a></li><li class="chapter-item expanded "><a href="computed_grid.html"><strong aria-hidden="true">4.2.</strong> Computed Grid</a></li></ol></li><li class="chapter-item expanded "><a href="network.html"><strong aria-hidden="true">5.</strong> Network</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -177,14 +177,13 @@
 <h2 id="grid"><a class="header" href="#grid"><code>Grid</code></a></h2>
 <p>Pacman is played on a 2D integer grid, meaning the location of all objects
 (including walls, ghosts, pellets, and Pacman) can be fully described with
-two integers <code>row</code> and <code>col</code>.</p>
+two integers.</p>
 <p>The <code>Grid</code> data type, an alias for <code>[[bool; GRID_COLS]; GRID_ROWS]</code> provides information about which cells are walls.</p>
-<p>A coordinate is "walkable" for some entity if the entity is able to travel there.</p>
 <p><code>Grid</code> is <code>GRID_ROWS</code> x <code>GRID_COLS</code> size. The official Pacbot grid
-is 28 cells wide by 31 cells tall, but this code currently supports up to 32 x 32 grids.
+is 28 cells 31 cells, but this code currently supports up to 32 x 32 grids.
 Any coordinate less than (0, 0) or greater than (31, 31) is treated as a wall, and is not stored in <code>Grid</code>.</p>
 <h2 id="standard-grids"><a class="header" href="#standard-grids">Standard Grids</a></h2>
-<p>A number of standard grids are provided in <code>mdrc_pacbot_util::grid::standard_grids</code>. These include several
+<p>A number of standard grids are provided in <code>core_pb::grid::standard_grid</code>. These include several
 common configurations:</p>
 <ul>
 <li><code>GRID_PACMAN</code> - The official Pacbot <code>Grid</code></li>
@@ -192,8 +191,8 @@ common configurations:</p>
 <li><code>GRID_OUTER</code> - A <code>Grid</code> with an empty pathway around the inside of the outer edge</li>
 <li><code>GRID_PLAYGROUND</code> - A <code>Grid</code> with many small areas for testing motor control algorithms</li>
 </ul>
-<p>These can be used as-is or edited to create custom <code>Grid</code>s.
-Additionally, you can use any <code>[[bool; GRID_COLS]; GRID_ROWS]</code> of the appropriate size.</p>
+<p>These can be used as-is or edited to create custom <code>Grid</code>s. However, most parts of the application do not support <code>Grid</code>s
+outside the <code>StandardGrid</code>s.</p>
 <h3 id="upgrading-to-computedgrid"><a class="header" href="#upgrading-to-computedgrid">Upgrading to <code>ComputedGrid</code></a></h3>
 <p>The <a href="./computed_grid.html">ComputedGrid</a> struct provides additional pre-calculated information about <code>Grid</code>s.
 The section <a href="./computed_grid.html#grid-rules">Grid Rules</a> contains more information about special rules, like that a <code>Grid</code> must have
@@ -201,20 +200,28 @@ Walls around the entire outer edge, among others.</p>
 <p>Once a <code>Grid</code> is upgraded to a <code>ComputedGrid</code> via <code>ComputedGrid::try_from(grid)</code>, which is necessary for many other parts of this library, it becomes
 immutable.</p>
 <h2 id="coordinates"><a class="header" href="#coordinates">Coordinates</a></h2>
-<p>We have chosen the following coordinate system to fit best with the official Pacbot codebase.</p>
-<p>In place of <code>x</code> and <code>y</code>, we use <code>row</code> and <code>col</code>.</p>
-<p><code>row</code> is increasing in the "down" direction and <code>col</code> is increasing in the "up" direction,
-where (0, 0) is the origin and (31, 31) is the farthest point from the origin:</p>
+<p>Throughout <code>mdrc_pacbot</code>, we use <code>nalgebra::Point2</code> as much as possible to describe location. This has two properties,
+<code>x</code> and <code>y</code>. <em>Most of the time</em>, we use the same coordinate system you've used in math class for many years:</p>
+<pre><code class="language-ignore">+y; 90°     (31, 31)
+ 🡑     
+ |     (...)
+ |
+(0, 0)-----🡒 +x; 0°
+</code></pre>
+<p>where <code>+x</code> and 0° is to the right, <code>+y</code> is up, and angle is more positive in the counter-clockwise direction. Using
+this system, angle functions like sin and cos behave as expected.</p>
+<p>The only downside to this system is that it differs from the official Pacbot Pac-Man implementation. There, they
+use <code>row</code> and <code>col</code>, with coordinates in the form <code>(row, col)</code>, with the intended orientation like so:</p>
 <pre><code class="language-ignore">(0, 0)    --&gt; +col
        
  |    (...)
  v
 +row       (31, 31)
 </code></pre>
-<p>When they appear as a pair, the order is always (<code>row</code>, <code>col</code>).</p>
-<p>If they must be translated to <code>x</code> and <code>y</code> (for example, for angle calculations) then <code>row</code> is <code>x</code> and <code>col</code> is <code>y</code>.
-This means that angle 0 is downwards.</p>
-<p>On the official Pacbot grid:</p>
+<p>We choose not to do this because it places (0, 0) at the top left which makes physics calculations confusing. So we
+rotate the official game by 90° and translate <code>(row, col)</code> to <code>(x, y)</code>. If you want to view the grid without the rotation,
+click the "Rotated Grid" checkbox in the gui.</p>
+<p>On the official Pacbot grid (in either rotation):</p>
 <ul>
 <li>(1, 1)   is the top    left  walkable corner</li>
 <li>(1, 26)  is the top    right walkable corner</li>
@@ -232,9 +239,6 @@ the center of the corresponding <code>Grid</code> cell (in this case, (1, 1)).</
 wide - both sides would get eroded by half a cell and there would be an infinitely thin wall.</p>
 <p>Curiously, this results in the edges of walls falling on integer coordinates that lie at the center
 of the <code>Grid</code> cells that are declared as walls.</p>
-<h2 id="angles"><a class="header" href="#angles">Angles</a></h2>
-<p>An angle of 0 degrees corresponds to the <code>+row</code> direction, or "down". As the angle increases in the positive direction,
-it rotates counter-clockwise, with 90 degrees pointing towards the <code>+col</code> direction.</p>
 
                     </main>
 
