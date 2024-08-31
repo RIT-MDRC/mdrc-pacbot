@@ -2,11 +2,8 @@ use crate::driving::SimRobot;
 use crate::{MyApp, RobotToSimulationMessage};
 use bevy::prelude::{Commands, Query, ResMut, Resource, Transform};
 use bevy_rapier2d::na::{Point2, Rotation2};
-use core_pb::constants::{GAME_SERVER_PORT, SIMULATION_LISTENER_PORT};
-use core_pb::messages::{
-    GameServerCommand, ServerToSimulationMessage, SimulationToServerMessage,
-    GAME_SERVER_MAGIC_NUMBER,
-};
+use core_pb::constants::{GAME_SERVER_MAGIC_NUMBER, GAME_SERVER_PORT, SIMULATION_LISTENER_PORT};
+use core_pb::messages::{GameServerCommand, ServerToSimulationMessage, SimulationToServerMessage};
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
 use core_pb::pacbot_rs::location::Direction::*;

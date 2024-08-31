@@ -4,27 +4,25 @@
 
 Pacman is played on a 2D integer grid, meaning the location of all objects 
 (including walls, ghosts, pellets, and Pacman) can be fully described with 
-two integers `row` and `col`. 
+two integers. 
 
 The `Grid` data type, an alias for `[[bool; GRID_COLS]; GRID_ROWS]` provides information about which cells are walls.
 
-A coordinate is "walkable" for some entity if the entity is able to travel there.
-
 `Grid` is `GRID_ROWS` x `GRID_COLS` size. The official Pacbot grid
-is 28 cells wide by 31 cells tall, but this code currently supports up to 32 x 32 grids.
+is 28 cells 31 cells, but this code currently supports up to 32 x 32 grids.
 Any coordinate less than (0, 0) or greater than (31, 31) is treated as a wall, and is not stored in `Grid`.
 
 ## Standard Grids
 
-A number of standard grids are provided in `mdrc_pacbot_util::grid::standard_grids`. These include several
+A number of standard grids are provided in `core_pb::grid::standard_grid`. These include several
 common configurations:
 - `GRID_PACMAN` - The official Pacbot `Grid`
 - `GRID_BLANK` - A `Grid` entirely composed of walls (except for the space at (1, 1)), copy-paste-able to create new `Grid`s
 - `GRID_OUTER` - A `Grid` with an empty pathway around the inside of the outer edge
 - `GRID_PLAYGROUND` - A `Grid` with many small areas for testing motor control algorithms
 
-These can be used as-is or edited to create custom `Grid`s. 
-Additionally, you can use any `[[bool; GRID_COLS]; GRID_ROWS]` of the appropriate size.
+These can be used as-is or edited to create custom `Grid`s. However, most parts of the application do not support `Grid`s
+outside the `StandardGrid`s.
 
 ### Upgrading to `ComputedGrid`
 
@@ -37,12 +35,22 @@ immutable.
 
 ## Coordinates
 
-We have chosen the following coordinate system to fit best with the official Pacbot codebase.
+Throughout `mdrc_pacbot`, we use `nalgebra::Point2` as much as possible to describe location. This has two properties,
+`x` and `y`. *Most of the time*, we use the same coordinate system you've used in math class for many years:
 
-In place of `x` and `y`, we use `row` and `col`.
+```ignore
++y; 90°     (31, 31)
+ 🡑     
+ |     (...)
+ |
+(0, 0)-----🡒 +x; 0°
+```
 
-`row` is increasing in the "down" direction and `col` is increasing in the "up" direction, 
-where (0, 0) is the origin and (31, 31) is the farthest point from the origin:
+where `+x` and 0° is to the right, `+y` is up, and angle is more positive in the counter-clockwise direction. Using
+this system, angle functions like sin and cos behave as expected.
+
+The only downside to this system is that it differs from the official Pacbot Pac-Man implementation. There, they
+use `row` and `col`, with coordinates in the form `(row, col)`, with the intended orientation like so:
 
 ```ignore
 (0, 0)    --> +col
@@ -52,12 +60,11 @@ where (0, 0) is the origin and (31, 31) is the farthest point from the origin:
 +row       (31, 31)
 ```
 
-When they appear as a pair, the order is always (`row`, `col`).
+We choose not to do this because it places (0, 0) at the top left which makes physics calculations confusing. So we
+rotate the official game by 90° and translate `(row, col)` to `(x, y)`. If you want to view the grid without the rotation,
+click the "Rotated Grid" checkbox in the gui.
 
-If they must be translated to `x` and `y` (for example, for angle calculations) then `row` is `x` and `col` is `y`.
-This means that angle 0 is downwards.
-
-On the official Pacbot grid:
+On the official Pacbot grid (in either rotation):
 
 - (1, 1)   is the top    left  walkable corner
 - (1, 26)  is the top    right walkable corner
@@ -80,11 +87,6 @@ wide - both sides would get eroded by half a cell and there would be an infinite
 
 Curiously, this results in the edges of walls falling on integer coordinates that lie at the center
 of the `Grid` cells that are declared as walls.
-
-## Angles
-
-An angle of 0 degrees corresponds to the `+row` direction, or "down". As the angle increases in the positive direction, 
-it rotates counter-clockwise, with 90 degrees pointing towards the `+col` direction.
 
 
 

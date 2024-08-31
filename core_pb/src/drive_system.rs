@@ -8,6 +8,7 @@ use core::f32::consts::{FRAC_PI_2, FRAC_PI_6, PI};
 use micromath::F32Ext;
 use nalgebra::{Rotation2, Vector2};
 
+/// Systems for motor speed calculations
 #[derive(Copy, Clone, Debug)]
 pub enum DriveSystem<const WHEELS: usize> {
     /// A drive system with any number of omniwheels that can freely move perpendicularly to their

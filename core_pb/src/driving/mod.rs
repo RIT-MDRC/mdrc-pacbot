@@ -9,6 +9,7 @@ pub use defmt::*;
 #[cfg(feature = "log")]
 pub use log::*;
 
+/// The different async tasks that run on the robot
 #[derive(Copy, Clone, Debug)]
 pub enum Task {
     Wifi,
@@ -23,6 +24,7 @@ pub enum RobotInterTaskMessage {
     ToServer(RobotToServerMessage),
 }
 
+/// Functionality that all tasks must support
 pub trait RobotTask {
     /// Send a message to the given task
     ///

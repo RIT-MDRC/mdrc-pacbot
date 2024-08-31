@@ -1,5 +1,6 @@
 # Summary
 
+- [Welcome](./welcome.md)
 - [Rust API](./rust_api.md)
 - [Game](./game.md)
 - [Grid](./the_grid.md)
