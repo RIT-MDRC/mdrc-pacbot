@@ -118,7 +118,6 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
                     let output = data.pid_controllers[m].next_control_output(measured_speeds[m]);
                     let output_built = output.output + data.prev_out[m];
                     data.prev_out[m] = output_built;
-                    println!("motor {:?} output_built={:?}, input={:?}, speed={:?}", m, output_built, data.set_points[m], measured_speeds[m]);
 
                     // set value to PWM on motors
                     if output_built > 0.0 {
