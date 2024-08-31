@@ -44,7 +44,7 @@ impl RobotDefinition<3> {
             .expect("Default robot drive definition couldn't be constructed"),
             motors: [WheelDefinition {}; 3],
             default_pid: if name.is_simulated() {
-                [250.0, 15.0, 0.0]
+                [150.0, 0.0, 0.0]
             } else {
                 [0.0, 0.0, 0.0]
             },
