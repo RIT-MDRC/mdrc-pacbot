@@ -246,12 +246,13 @@ impl App {
                         if ui.button("Save").clicked() {
                             self.saved_game_state = Some(self.server_status.game_state.clone());
                         }
-
                         if ui.button("Load").clicked() {
                             if let Some(x) = &self.saved_game_state {
                                 let mut x = x.clone();
                                 x.paused = self.server_status.game_state.paused;
-                                self.send(GuiToServerMessage::GameServerCommand(GameServerCommand::SetState(x)))
+                                self.send(GuiToServerMessage::GameServerCommand(
+                                    GameServerCommand::SetState(x),
+                                ))
                             }
                         }
 
