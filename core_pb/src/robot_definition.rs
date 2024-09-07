@@ -46,13 +46,13 @@ impl RobotDefinition<3> {
             default_pid: if name.is_simulated() {
                 [150.0, 0.0, 0.0]
             } else {
-                [0.0, 0.0, 0.0]
+                [10.0, 0.0, 0.0]
             },
             pwm_top: 0x8000,
             default_motor_config: if name.is_simulated() {
                 [[0, 1], [2, 3], [4, 5]]
             } else {
-                [[5, 4], [3, 2], [1, 0]]
+                [[5, 4], [2, 3], [0, 1]]
             },
 
             has_screen: false,
