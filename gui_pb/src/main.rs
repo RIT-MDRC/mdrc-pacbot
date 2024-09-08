@@ -13,6 +13,7 @@ use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::PacbotSettings;
+use core_pb::pacbot_rs::game_state::GameState;
 use eframe::egui;
 use eframe::egui::{Align, Color32, Pos2};
 use egui_dock::{DockArea, DockState, NodeIndex, Style};
@@ -23,7 +24,7 @@ use crate::drawing::widgets::draw_widgets;
 use core_pb::console_log;
 #[cfg(target_arch = "wasm32")]
 pub use core_pb::log;
-use core_pb::messages::{GuiToServerMessage, ServerToGuiMessage};
+use core_pb::messages::{GameServerCommand, GuiToServerMessage, ServerToGuiMessage};
 use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
 use core_pb::util::stopwatch::Stopwatch;
 #[cfg(not(target_arch = "wasm32"))]
@@ -94,6 +95,7 @@ pub struct App {
     world_to_screen: Transform,
     // replay_manager: ReplayManager,
     server_status: ServerStatus,
+    saved_game_state: Option<GameState>,
     network: (
         ThreadedSocket<GuiToServerMessage, ServerToGuiMessage>,
         Option<Address>,
@@ -167,6 +169,7 @@ impl App {
             ),
             // todo replay_manager: Default::default(),
             server_status: Default::default(),
+            saved_game_state: Option::None,
             network: (
                 ThreadedSocket::with_name("gui[server]".to_string()),
                 Default::default(),
@@ -240,6 +243,19 @@ impl App {
                         });
                     // top left buttons
                     egui::menu::bar(ui, |ui| {
+                        if ui.button("Save").clicked() {
+                            self.saved_game_state = Some(self.server_status.game_state.clone());
+                        }
+                        if ui.button("Load").clicked() {
+                            if let Some(x) = &self.saved_game_state {
+                                let mut x = x.clone();
+                                x.paused = self.server_status.game_state.paused;
+                                self.send(GuiToServerMessage::GameServerCommand(
+                                    GameServerCommand::SetState(x),
+                                ))
+                            }
+                        }
+
                         ui.menu_button("Replay", |ui| {
                             if ui.button("Save").clicked() {
                                 self.save_replay().expect("Failed to save replay!");
