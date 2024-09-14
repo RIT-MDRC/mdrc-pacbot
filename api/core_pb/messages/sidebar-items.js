@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["GameServerCommand","GuiToServerMessage","NetworkStatus","RobotToServerMessage","ServerToGuiMessage","ServerToRobotMessage","ServerToSimulationMessage"],"mod":["ota","server_status","settings"],"struct":["FrequentServerToRobot","MotorControlStatus","RobotStatus","SimulationToServerMessage"]};
