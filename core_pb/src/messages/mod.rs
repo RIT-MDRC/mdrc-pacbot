@@ -1,4 +1,5 @@
 #[cfg(feature = "std")]
+use crate::grid::standard_grid::StandardGrid;
 use crate::messages::server_status::ServerStatus;
 #[cfg(feature = "std")]
 use crate::messages::settings::PacbotSettings;
@@ -75,6 +76,7 @@ pub enum ServerToSimulationMessage {
     Teleport(RobotName, Point2<i8>),
     Delete(RobotName),
     SetPacman(RobotName),
+    SetStandardGrid(StandardGrid),
 }
 
 /// This is sent regularly and frequently to robots via [`ServerToRobotMessage::FrequentRobotItems`]

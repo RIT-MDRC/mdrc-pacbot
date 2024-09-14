@@ -264,6 +264,10 @@ impl App {
             .await;
         }
 
+        if new.standard_grid != old.standard_grid {
+            self.send(Simulation, ToSimulation(ServerToSimulationMessage::SetStandardGrid(new.standard_grid))).await;
+        }
+
         if new.simulation.simulate {
             if self.sim_game_engine_process.is_none() {
                 self.sim_game_engine_process = Some(
