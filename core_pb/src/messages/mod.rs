@@ -1,5 +1,4 @@
 #[cfg(feature = "std")]
-use crate::grid::standard_grid::StandardGrid;
 use crate::messages::server_status::ServerStatus;
 #[cfg(feature = "std")]
 use crate::messages::settings::PacbotSettings;
@@ -17,6 +16,7 @@ use nalgebra::Vector2;
 use pacbot_rs::game_state::GameState;
 use pacbot_rs::location::Direction;
 use serde::{Deserialize, Serialize};
+use crate::grid::standard_grid::StandardGrid;
 
 #[cfg(feature = "std")]
 pub mod ota;
