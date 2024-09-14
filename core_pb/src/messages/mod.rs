@@ -9,9 +9,10 @@ use crate::robot_definition::RobotDefinition;
 #[cfg(feature = "std")]
 use crate::util::ColoredStatus;
 use core::time::Duration;
-use nalgebra::Vector2;
+use nalgebra::Point2;
 #[cfg(feature = "std")]
-use nalgebra::{Point2, Rotation2};
+use nalgebra::Rotation2;
+use nalgebra::Vector2;
 use pacbot_rs::game_state::GameState;
 use pacbot_rs::location::Direction;
 use serde::{Deserialize, Serialize};
@@ -153,6 +154,22 @@ pub enum RobotToServerMessage {
     MarkedFirmwareBooted,
     Name(RobotName),
     MotorControlStatus((Duration, MotorControlStatus)),
+    Sensors(SensorData),
+}
+
+/// Sent from the robot peripherals task to the wifi task and back to the server
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SensorData {
+    /// The absolute orientation of the robot, given by the IMU
+    pub angle: Result<f32, ()>,
+    /// Readings from the distance sensors, in order of angle 0, 90, 180, 270
+    ///
+    /// - Err(_) indicates that something is wrong with the sensor and the reading can't be trusted
+    /// - Ok(None) indicates that the sensor is working, but didn't detect any object in its range
+    /// - Ok(x) indicates an object x grid units in front of the sensor
+    pub distances: [Result<Option<f32>, ()>; 4],
+    /// The best guess location of the robot
+    pub location: Option<Point2<f32>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

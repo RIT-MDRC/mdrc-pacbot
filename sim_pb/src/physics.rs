@@ -83,7 +83,13 @@ impl MyApp {
             &mut Robot,
         )>,
     ) {
-        for (_, _, v, mut imp, robot) in robots {
+        for (_, t, v, mut imp, robot) in robots {
+            // update simulated imu
+            if let Some((_, robot)) = &mut self.robots[robot.name as usize] {
+                let rotation = t.rotation.to_axis_angle().1;
+                robot.write().unwrap().imu_angle = Ok(rotation);
+            }
+
             let mut target_vel = robot
                 .wasd_target_vel
                 .unwrap_or((Vector2::new(0.0, 0.0), 0.0));

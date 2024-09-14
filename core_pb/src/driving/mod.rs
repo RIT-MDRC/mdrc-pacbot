@@ -2,7 +2,8 @@ pub mod motors;
 pub mod network;
 pub mod peripherals;
 
-use crate::messages::{FrequentServerToRobot, RobotToServerMessage};
+use crate::grid::standard_grid::StandardGrid;
+use crate::messages::{FrequentServerToRobot, RobotToServerMessage, SensorData};
 use core::time::Duration;
 #[cfg(feature = "defmt")]
 pub use defmt::*;
@@ -22,6 +23,8 @@ pub enum Task {
 pub enum RobotInterTaskMessage {
     FrequentServerToRobot(FrequentServerToRobot),
     ToServer(RobotToServerMessage),
+    Sensors(SensorData),
+    Grid(StandardGrid),
 }
 
 /// Functionality that all tasks must support

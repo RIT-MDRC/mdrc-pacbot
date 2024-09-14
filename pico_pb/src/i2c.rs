@@ -86,6 +86,14 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
     async fn flip_screen(&mut self) {
         let _ = self.display.flush();
     }
+
+    async fn absolute_rotation(&mut self) -> Result<f32, Self::Error> {
+        Err(())
+    }
+
+    async fn distance_sensor(&mut self, _index: usize) -> Result<Option<f32>, Self::Error> {
+        Err(())
+    }
 }
 
 pub async fn write_u8<T: I2c>(

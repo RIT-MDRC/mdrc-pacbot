@@ -6,6 +6,7 @@ pub mod drive_system;
 #[allow(async_fn_in_trait)]
 pub mod driving;
 pub mod grid;
+pub mod localization;
 pub mod messages;
 pub mod names;
 pub mod robot_definition;

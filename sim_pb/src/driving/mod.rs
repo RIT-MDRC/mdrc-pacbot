@@ -38,6 +38,9 @@ pub struct SimRobot {
 
     pub thread_stopper: Sender<()>,
     pub firmware_updated: bool,
+
+    pub imu_angle: Result<f32, ()>,
+    pub distance_sensors: [Result<Option<f32>, ()>; 4],
 }
 
 async fn handle_task<F, E: Debug>(task: F)
@@ -63,6 +66,9 @@ impl SimRobot {
 
             thread_stopper: thread_stopper_tx,
             firmware_updated: false,
+
+            imu_angle: Err(()),
+            distance_sensors: [Err(()); 4],
         }));
 
         let (motors, motors_rx, motors_tx) = TaskChannels::new();
