@@ -123,6 +123,14 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                                 break;
                             }
                         }
+                        Either::Right(RobotInterTaskMessage::Sensors(sensors)) => {
+                            if write(name, &mut socket, RobotToServerMessage::Sensors(sensors))
+                                .await
+                                .is_err()
+                            {
+                                break;
+                            }
+                        }
                         Either::Right(_) => {}
                         Either::Left(Err(())) => break,
                         Either::Left(Ok(ServerToRobotMessage::FrequentRobotItems(msg))) => {

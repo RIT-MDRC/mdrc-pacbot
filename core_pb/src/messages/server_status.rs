@@ -53,6 +53,10 @@ pub struct RobotStatus {
     pub last_motor_status: (Duration, MotorControlStatus),
 
     pub sim_position: Option<(Point2<f32>, Rotation2<f32>)>,
+
+    pub imu_angle: Result<f32, ()>,
+    pub distance_sensors: [Result<Option<f32>, ()>; 4],
+    pub estimated_location: Option<Point2<f32>>,
 }
 
 impl RobotStatus {
@@ -67,6 +71,10 @@ impl RobotStatus {
             last_motor_status: Default::default(),
 
             sim_position: None,
+
+            imu_angle: Err(()),
+            distance_sensors: [Err(()); 4],
+            estimated_location: None,
         }
     }
 }

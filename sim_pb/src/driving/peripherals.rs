@@ -18,7 +18,9 @@ impl SimPeripherals {
 }
 
 #[derive(Debug)]
-pub enum SimPeripheralsError {}
+pub enum SimPeripheralsError {
+    Unknown,
+}
 
 impl RobotTask for SimPeripherals {
     fn send_or_drop(&mut self, message: RobotInterTaskMessage, to: Task) -> bool {
@@ -55,5 +57,17 @@ impl RobotPeripheralsBehavior for SimPeripherals {
 
     async fn flip_screen(&mut self) {
         self.robot.write().unwrap().display_ready = true;
+    }
+
+    async fn absolute_rotation(&mut self) -> Result<f32, Self::Error> {
+        self.robot
+            .read()
+            .unwrap()
+            .imu_angle
+            .map_err(|_| SimPeripheralsError::Unknown)
+    }
+
+    async fn distance_sensor(&mut self, index: usize) -> Result<Option<f32>, Self::Error> {
+        self.robot.read().unwrap().distance_sensors[index].map_err(|_| SimPeripheralsError::Unknown)
     }
 }

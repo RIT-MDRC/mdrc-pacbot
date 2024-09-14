@@ -104,6 +104,11 @@ impl App {
             (Robot(name), FromRobot(RobotToServerMessage::MotorControlStatus(status))) => {
                 self.status.robots[name as usize].last_motor_status = status;
             }
+            (Robot(name), FromRobot(RobotToServerMessage::Sensors(sensors))) => {
+                self.status.robots[name as usize].imu_angle = sensors.angle;
+                self.status.robots[name as usize].distance_sensors = sensors.distances;
+                self.status.robots[name as usize].estimated_location = sensors.location;
+            }
             (Robot(name), FromRobot(msg)) => println!("Message received from {name}: {msg:?}"),
             (Robot(_), _) => {}
             (_, FromRobot(_)) => {}
