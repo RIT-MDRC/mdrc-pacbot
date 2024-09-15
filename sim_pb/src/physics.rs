@@ -1,3 +1,5 @@
+use core::f32;
+
 use crate::driving::SimRobot;
 use crate::{MyApp, Robot, Wall};
 use bevy::math::Vec3;
@@ -82,15 +84,49 @@ impl MyApp {
             &mut ExternalImpulse,
             &mut Robot,
         )>,
+        rapier_context: Res<RapierContext>,
     ) {
-        for (_, t, v, mut imp, robot) in robots {
+        for (_, t, v, mut imp, robot_0) in robots {
             // update simulated imu
-            if let Some((_, robot)) = &mut self.robots[robot.name as usize] {
+            if let Some((_, robot_1)) = &mut self.robots[robot_0.name as usize] {
                 let rotation = t.rotation.to_axis_angle().1;
-                robot.write().unwrap().imu_angle = Ok(rotation);
+                robot_1.write().unwrap().imu_angle = Ok(rotation);
+
+                let mut distance_sensors: [Result<Option<f32>, ()>; 4] = [Err(()); 4];
+
+                for (i, _) in distance_sensors.into_iter().enumerate() {
+                    let ray_pos = Vec2::new(
+                        t.translation.x
+                            + f32::cos(rotation + (i as f32) * f32::consts::FRAC_PI_2)
+                                * robot_0.name.robot().radius,
+                        t.translation.y
+                            + f32::sin(rotation + (i as f32) * f32::consts::FRAC_PI_2)
+                                * robot_0.name.robot().radius,
+                    );
+                    let ray_dir: Vec2 = Vec2::new(
+                        f32::cos(rotation + (i as f32) * f32::consts::FRAC_PI_2),
+                        f32::sin(rotation + (i as f32) * f32::consts::FRAC_PI_2),
+                    );
+                    let max_toi: f32 = 30.0; // TODO: find actual sensor range (unit: space between pellets)
+                    let solid: bool = false;
+                    let filter: QueryFilter = QueryFilter::default()
+                        .groups(CollisionGroups::new(Group::GROUP_2, Group::GROUP_1));
+                    if let Some((_, intersection)) = rapier_context
+                        .cast_ray_and_get_normal(ray_pos, ray_dir, max_toi, solid, filter)
+                    {
+                        let hit_point = intersection.point;
+                        let distance = ray_pos.distance(hit_point);
+
+                        distance_sensors[i] = Ok(Some(distance));
+                    } else {
+                        distance_sensors[i] = Ok(None);
+                    }
+                }
+
+                robot_1.write().unwrap().distance_sensors = distance_sensors;
             }
 
-            let mut target_vel = robot
+            let mut target_vel = robot_0
                 .wasd_target_vel
                 .unwrap_or((Vector2::new(0.0, 0.0), 0.0));
             let move_scale = target_vel.0.magnitude();

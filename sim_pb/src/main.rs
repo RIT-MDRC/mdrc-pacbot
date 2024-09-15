@@ -136,6 +136,7 @@ fn keyboard_input(
         &mut ExternalImpulse,
         &mut Robot,
     )>,
+    rapier_context: Res<RapierContext>,
 ) {
     if keys.just_pressed(KeyCode::KeyR) {
         if let Some(name) = RobotName::get_all()
@@ -179,7 +180,8 @@ fn keyboard_input(
             robot.wasd_target_vel = Some(target_vel)
         }
     }
-    app.apply_robots_target_vel(&mut robots);
+
+    app.apply_robots_target_vel(&mut robots, rapier_context);
     if keys.just_pressed(KeyCode::KeyG) {
         app.standard_grid = match app.standard_grid {
             StandardGrid::Pacman => StandardGrid::Playground,
