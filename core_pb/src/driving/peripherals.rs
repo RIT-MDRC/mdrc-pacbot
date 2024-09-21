@@ -5,6 +5,7 @@ use crate::messages::SensorData;
 use core::fmt::Debug;
 use core::time::Duration;
 use embedded_graphics::prelude::DrawTarget;
+use nalgebra::Point2;
 
 /// Functionality that robots with peripherals must support
 pub trait RobotPeripheralsBehavior: RobotTask {
@@ -27,6 +28,10 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior>(
     mut peripherals: T,
 ) -> Result<(), T::Error> {
     let mut grid = StandardGrid::default();
+    let mut cv_location = Some(Point2::new(
+        pacbot_rs::variables::PACMAN_SPAWN_LOC.get_coords().0,
+        pacbot_rs::variables::PACMAN_SPAWN_LOC.get_coords().1,
+    ));
 
     loop {
         let angle = peripherals.absolute_rotation().await.map_err(|_| ());
@@ -34,18 +39,22 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior>(
         for (i, sensor) in distances.iter_mut().enumerate() {
             *sensor = peripherals.distance_sensor(i).await.map_err(|_| ());
         }
-        let location = estimate_location(grid, &distances);
+        let location = estimate_location(grid, cv_location, &distances);
         let sensors = SensorData {
             angle,
             distances,
             location,
         };
         peripherals.send_or_drop(RobotInterTaskMessage::Sensors(sensors), Task::Wifi);
-        if let Some(RobotInterTaskMessage::Grid(new_grid)) = peripherals
+        match peripherals
             .receive_message_timeout(Duration::from_millis(10))
             .await
         {
-            grid = new_grid;
+            Some(RobotInterTaskMessage::Grid(new_grid)) => grid = new_grid,
+            Some(RobotInterTaskMessage::FrequentServerToRobot(data)) => {
+                cv_location = data.cv_location
+            }
+            _ => {}
         }
     }
 }
