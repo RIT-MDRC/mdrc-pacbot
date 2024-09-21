@@ -1,3 +1,5 @@
+use core::f32;
+
 use crate::colors::*;
 use crate::App;
 use core_pb::grid::standard_grid::StandardGrid;
@@ -63,6 +65,44 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
                 ],
                 Stroke::new(1.0, Color32::BLACK),
             );
+
+            for (i, sensor) in app.server_status.robots[name as usize]
+                .distance_sensors
+                .into_iter()
+                .enumerate()
+            {
+                if let Ok(Some(distance)) = sensor {
+                    painter.line_segment(
+                        [
+                            wts.map_point(Pos2::new(
+                                pos.0.x
+                                    + name.robot().radius
+                                        * f32::cos(
+                                            pos.1.angle() + (i as f32) * f32::consts::FRAC_PI_2,
+                                        ),
+                                pos.0.y
+                                    + name.robot().radius
+                                        * f32::sin(
+                                            pos.1.angle() + (i as f32) * f32::consts::FRAC_PI_2,
+                                        ),
+                            )),
+                            wts.map_point(Pos2::new(
+                                pos.0.x
+                                    + (distance + name.robot().radius)
+                                        * f32::cos(
+                                            pos.1.angle() + (i as f32) * f32::consts::FRAC_PI_2,
+                                        ),
+                                pos.0.y
+                                    + (distance + name.robot().radius)
+                                        * f32::sin(
+                                            pos.1.angle() + (i as f32) * f32::consts::FRAC_PI_2,
+                                        ),
+                            )),
+                        ],
+                        Stroke::new(1.0, Color32::GREEN),
+                    );
+                }
+            }
         }
     }
 
