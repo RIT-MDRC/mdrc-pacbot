@@ -1,5 +1,6 @@
 use crate::colors::*;
 use crate::App;
+use core_pb::console_log;
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::ghost_state::GhostColor;
 use core_pb::util::TRANSLUCENT_YELLOW_COLOR;
@@ -40,6 +41,7 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
     // sim robot positions
     for name in RobotName::get_all() {
         if let Some(pos) = app.server_status.robots[name as usize].sim_position {
+            console_log!("{}: {:?}", name, pos);
             let center = wts.map_point(Pos2::new(pos.0.x, pos.0.y));
             painter.circle_filled(
                 center,
@@ -51,13 +53,15 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
                 },
             );
             // draw a line to show the direction the robot is facing
-            let rotation = pos.1.angle();
+            // shortcut since these values are already pre-computed in the rotation matrix
+            let rot_cos = pos.1.matrix()[(0, 0)];
+            let rot_sin = pos.1.matrix()[(1, 0)];
             painter.line_segment(
                 [
                     center,
                     wts.map_point(Pos2::new(
-                        pos.0.x + rotation.cos() * name.robot().radius,
-                        pos.0.y + rotation.sin() * name.robot().radius,
+                        pos.0.x + rot_cos * name.robot().radius,
+                        pos.0.y + rot_sin * name.robot().radius,
                     )),
                 ],
                 Stroke::new(1.0, Color32::BLACK),
