@@ -38,6 +38,13 @@ impl App {
                             )),
                         )
                         .await;
+                        self.send(
+                            Simulation,
+                            ToSimulation(ServerToSimulationMessage::SetStandardGrid(
+                                self.settings.standard_grid,
+                            )),
+                        )
+                        .await;
                     }
                 }
                 Robot(name) => self.status.robots[name as usize].connection = status,

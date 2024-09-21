@@ -141,7 +141,7 @@ impl MyApp {
 
     pub fn reset_grid(
         &mut self,
-        walls: Query<(Entity, &Wall)>,
+        walls: &Query<(Entity, &Wall)>,
         robots: &mut Query<(
             Entity,
             &mut Transform,
@@ -151,7 +151,7 @@ impl MyApp {
         )>,
         commands: &mut Commands,
     ) {
-        for wall in &walls {
+        for wall in walls {
             commands.entity(wall.0).despawn()
         }
         spawn_walls(commands, self.standard_grid);

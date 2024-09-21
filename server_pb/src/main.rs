@@ -125,7 +125,7 @@ impl App {
                     self.utilization_monitor.stop();
                     self.status.utilization = self.utilization_monitor.status();
                 }
-            };
+            }
         }
     }
 
@@ -260,6 +260,16 @@ impl App {
                 &old.robots[id].connection,
                 &new.robots[id].connection,
                 Robot(name),
+            )
+            .await;
+        }
+
+        if new.standard_grid != old.standard_grid {
+            self.send(
+                Simulation,
+                ToSimulation(ServerToSimulationMessage::SetStandardGrid(
+                    new.standard_grid,
+                )),
             )
             .await;
         }
