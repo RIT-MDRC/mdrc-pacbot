@@ -1,3 +1,5 @@
+use core::f32;
+
 use crate::driving::SimRobot;
 use crate::{MyApp, Robot, Wall};
 use bevy::math::Vec3;
@@ -82,12 +84,46 @@ impl MyApp {
             &mut ExternalImpulse,
             &mut Robot,
         )>,
+        rapier_context: Res<RapierContext>,
     ) {
         for (_, t, v, mut imp, robot) in robots {
             // update simulated imu
-            if let Some((_, robot)) = &mut self.robots[robot.name as usize] {
+            if let Some((_, sim_robot)) = &mut self.robots[robot.name as usize] {
                 let rotation = t.rotation.to_axis_angle().1;
-                robot.write().unwrap().imu_angle = Ok(rotation);
+                sim_robot.write().unwrap().imu_angle = Ok(rotation);
+
+                let mut distance_sensors: [Result<Option<f32>, ()>; 4] = [Err(()); 4];
+
+                for (i, _) in distance_sensors.into_iter().enumerate() {
+                    let ray_pos = Vec2::new(
+                        t.translation.x
+                            + f32::cos(rotation + (i as f32) * f32::consts::FRAC_PI_2)
+                                * robot.name.robot().radius,
+                        t.translation.y
+                            + f32::sin(rotation + (i as f32) * f32::consts::FRAC_PI_2)
+                                * robot.name.robot().radius,
+                    );
+                    let ray_dir: Vec2 = Vec2::new(
+                        f32::cos(rotation + (i as f32) * f32::consts::FRAC_PI_2),
+                        f32::sin(rotation + (i as f32) * f32::consts::FRAC_PI_2),
+                    );
+                    let max_toi: f32 = 30.0; // TODO: find actual sensor range (unit: space between pellets)
+                    let solid: bool = false;
+                    let filter: QueryFilter = QueryFilter::default()
+                        .groups(CollisionGroups::new(Group::GROUP_2, Group::GROUP_1));
+                    if let Some((_, intersection)) = rapier_context
+                        .cast_ray_and_get_normal(ray_pos, ray_dir, max_toi, solid, filter)
+                    {
+                        let hit_point = intersection.point;
+                        let distance = ray_pos.distance(hit_point);
+
+                        distance_sensors[i] = Ok(Some(distance));
+                    } else {
+                        distance_sensors[i] = Ok(None);
+                    }
+                }
+
+                sim_robot.write().unwrap().distance_sensors = distance_sensors;
             }
 
             let mut target_vel = robot
@@ -105,7 +141,7 @@ impl MyApp {
 
     pub fn reset_grid(
         &mut self,
-        walls: Query<(Entity, &Wall)>,
+        walls: &Query<(Entity, &Wall)>,
         robots: &mut Query<(
             Entity,
             &mut Transform,
@@ -115,7 +151,7 @@ impl MyApp {
         )>,
         commands: &mut Commands,
     ) {
-        for wall in &walls {
+        for wall in walls {
             commands.entity(wall.0).despawn()
         }
         spawn_walls(commands, self.standard_grid);

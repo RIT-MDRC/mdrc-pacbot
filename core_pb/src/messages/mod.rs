@@ -1,3 +1,4 @@
+use crate::grid::standard_grid::StandardGrid;
 #[cfg(feature = "std")]
 use crate::messages::server_status::ServerStatus;
 #[cfg(feature = "std")]
@@ -75,6 +76,7 @@ pub enum ServerToSimulationMessage {
     Teleport(RobotName, Point2<i8>),
     Delete(RobotName),
     SetPacman(RobotName),
+    SetStandardGrid(StandardGrid),
 }
 
 /// This is sent regularly and frequently to robots via [`ServerToRobotMessage::FrequentRobotItems`]
@@ -101,6 +103,10 @@ pub struct FrequentServerToRobot {
     pub motor_config: [[usize; 2]; 3],
     /// Basic parameters for the PID controller
     pub pid: [f32; 3],
+    /// The grid cell the CV system thinks the robot is in
+    ///
+    /// Not used when this struct functions as a configuration in server settings
+    pub cv_location: Option<Point2<i8>>,
 }
 
 impl FrequentServerToRobot {
@@ -113,6 +119,7 @@ impl FrequentServerToRobot {
             pwm_override: [[None; 2]; 3],
             motor_config: definition.default_motor_config,
             pid: definition.default_pid,
+            cv_location: None,
         }
     }
 }
