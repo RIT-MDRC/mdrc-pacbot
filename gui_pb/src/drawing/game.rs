@@ -1,6 +1,5 @@
 use crate::colors::*;
 use crate::App;
-use core_pb::console_log;
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::ghost_state::GhostColor;
 use core_pb::util::TRANSLUCENT_YELLOW_COLOR;
@@ -41,7 +40,6 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
     // sim robot positions
     for name in RobotName::get_all() {
         if let Some(pos) = app.server_status.robots[name as usize].sim_position {
-            console_log!("{}: {:?}", name, pos);
             let center = wts.map_point(Pos2::new(pos.0.x, pos.0.y));
             painter.circle_filled(
                 center,
