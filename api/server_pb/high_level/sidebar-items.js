@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["model_configuration"],"struct":["ReinforcementLearningManager"]};
