@@ -216,7 +216,11 @@ impl PacbotNetworkSimulation {
                                 .map(|t| {
                                     (
                                         Point2::new(t.translation.x, t.translation.y),
-                                        Rotation2::new(t.rotation.to_axis_angle().1),
+                                        // feels weird, but this does work
+                                        Rotation2::new(
+                                            2.0 * t.rotation.normalize().w.acos()
+                                                * t.rotation.z.signum(),
+                                        ),
                                     )
                                 })
                         }
