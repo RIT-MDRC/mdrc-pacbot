@@ -9,6 +9,7 @@ use crate::Outgoing::ToRobot;
 use core_pb::bin_encode;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::grid::computed_grid::ComputedGrid;
+use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::{ConnectionSettings, PacbotSettings, StrategyChoice};
 use core_pb::messages::{
@@ -189,11 +190,16 @@ impl App {
         }
         // send motor commands to robots
         for name in RobotName::get_all() {
+            let mut data = self.settings.robots[name as usize].config.clone();
+            if name == self.settings.pacman && self.settings.standard_grid == StandardGrid::Pacman {
+                data.cv_location = Some(Point2::new(
+                    self.status.game_state.pacman_loc.get_coords().0,
+                    self.status.game_state.pacman_loc.get_coords().1,
+                ));
+            }
             self.send(
                 Robot(name),
-                ToRobot(ServerToRobotMessage::FrequentRobotItems(
-                    self.settings.robots[name as usize].config.clone(),
-                )),
+                ToRobot(ServerToRobotMessage::FrequentRobotItems(data)),
             )
             .await;
         }
