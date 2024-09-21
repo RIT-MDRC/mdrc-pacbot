@@ -1,5 +1,6 @@
 use crate::colors::*;
 use crate::App;
+use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::ghost_state::GhostColor;
 use core_pb::util::TRANSLUCENT_YELLOW_COLOR;
@@ -63,6 +64,10 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
                 Stroke::new(1.0, Color32::BLACK),
             );
         }
+    }
+
+    if app.settings.standard_grid != StandardGrid::Pacman {
+        return;
     }
 
     // ghosts

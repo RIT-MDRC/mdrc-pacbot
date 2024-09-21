@@ -125,7 +125,7 @@ impl App {
                     self.utilization_monitor.stop();
                     self.status.utilization = self.utilization_monitor.status();
                 }
-            };
+            }
         }
     }
 
@@ -265,7 +265,13 @@ impl App {
         }
 
         if new.standard_grid != old.standard_grid {
-            self.send(Simulation, ToSimulation(ServerToSimulationMessage::SetStandardGrid(new.standard_grid))).await;
+            self.send(
+                Simulation,
+                ToSimulation(ServerToSimulationMessage::SetStandardGrid(
+                    new.standard_grid,
+                )),
+            )
+            .await;
         }
 
         if new.simulation.simulate {
