@@ -86,11 +86,11 @@ impl MyApp {
         )>,
         rapier_context: Res<RapierContext>,
     ) {
-        for (_, t, v, mut imp, robot_0) in robots {
+        for (_, t, v, mut imp, robot) in robots {
             // update simulated imu
-            if let Some((_, robot_1)) = &mut self.robots[robot_0.name as usize] {
+            if let Some((_, sim_robot)) = &mut self.robots[robot.name as usize] {
                 let rotation = t.rotation.to_axis_angle().1;
-                robot_1.write().unwrap().imu_angle = Ok(rotation);
+                sim_robot.write().unwrap().imu_angle = Ok(rotation);
 
                 let mut distance_sensors: [Result<Option<f32>, ()>; 4] = [Err(()); 4];
 
@@ -98,10 +98,10 @@ impl MyApp {
                     let ray_pos = Vec2::new(
                         t.translation.x
                             + f32::cos(rotation + (i as f32) * f32::consts::FRAC_PI_2)
-                                * robot_0.name.robot().radius,
+                                * robot.name.robot().radius,
                         t.translation.y
                             + f32::sin(rotation + (i as f32) * f32::consts::FRAC_PI_2)
-                                * robot_0.name.robot().radius,
+                                * robot.name.robot().radius,
                     );
                     let ray_dir: Vec2 = Vec2::new(
                         f32::cos(rotation + (i as f32) * f32::consts::FRAC_PI_2),
@@ -123,10 +123,10 @@ impl MyApp {
                     }
                 }
 
-                robot_1.write().unwrap().distance_sensors = distance_sensors;
+                sim_robot.write().unwrap().distance_sensors = distance_sensors;
             }
 
-            let mut target_vel = robot_0
+            let mut target_vel = robot
                 .wasd_target_vel
                 .unwrap_or((Vector2::new(0.0, 0.0), 0.0));
             let move_scale = target_vel.0.magnitude();
