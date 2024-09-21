@@ -1,6 +1,7 @@
 use crate::driving::SimRobot;
-use crate::{MyApp, RobotToSimulationMessage};
-use bevy::prelude::{Commands, Query, ResMut, Resource, Transform};
+use crate::{MyApp, Robot, RobotToSimulationMessage, Wall};
+use bevy::prelude::{Commands, Entity, Query, ResMut, Resource, Transform};
+use bevy_rapier2d::dynamics::{ExternalImpulse, Velocity};
 use bevy_rapier2d::na::{Point2, Rotation2};
 use core_pb::constants::{GAME_SERVER_MAGIC_NUMBER, GAME_SERVER_PORT, SIMULATION_LISTENER_PORT};
 use core_pb::messages::{GameServerCommand, ServerToSimulationMessage, SimulationToServerMessage};
@@ -29,10 +30,17 @@ pub struct PacbotNetworkSimulation {
 pub fn update_network(
     app: ResMut<MyApp>,
     mut network: ResMut<PacbotNetworkSimulation>,
-    mut commands: Commands,
-    pos_query: Query<&mut Transform>,
+    commands: Commands,
+    walls: Query<(Entity, &Wall)>,
+    robots: Query<(
+        Entity,
+        &mut Transform,
+        &mut Velocity,
+        &mut ExternalImpulse,
+        &mut Robot,
+    )>,
 ) {
-    network.update(app, &mut commands, pos_query);
+    network.update(app, commands, walls, robots);
 }
 
 impl PacbotNetworkSimulation {
@@ -61,8 +69,16 @@ impl PacbotNetworkSimulation {
     pub fn update(
         &mut self,
         mut app: ResMut<MyApp>,
-        commands: &mut Commands,
-        mut pos_query: Query<&mut Transform>,
+        mut commands: Commands,
+        // mut pos_query: Query<&mut Transform>,
+        walls: Query<(Entity, &Wall)>,
+        mut robots: Query<(
+            Entity,
+            &mut Transform,
+            &mut Velocity,
+            &mut ExternalImpulse,
+            &mut Robot,
+        )>,
     ) {
         while let Some(event) = self.event_hub.next_event() {
             match event {
@@ -145,17 +161,28 @@ impl PacbotNetworkSimulation {
                     {
                         Ok(msg) => match msg {
                             ServerToSimulationMessage::Spawn(name) => {
-                                app.spawn_robot(commands, name);
+                                app.spawn_robot(&mut commands, name);
                             }
                             ServerToSimulationMessage::Delete(name) => {
-                                app.despawn_robot(name, commands);
+                                app.despawn_robot(name, &mut commands);
                             }
                             ServerToSimulationMessage::SetPacman(name) => {
                                 app.selected_robot = name;
                             }
+                            ServerToSimulationMessage::SetStandardGrid(grid) => {
+                                app.standard_grid = grid;
+                                app.grid = app.standard_grid.compute_grid();
+                                app.reset_grid(&walls, &mut robots, &mut commands)
+                            }
                             ServerToSimulationMessage::Teleport(name, loc) => {
                                 if !app.grid.wall_at(&loc) {
-                                    app.teleport_robot(name, loc, &mut pos_query);
+                                    if let Some((_, mut transforms, ..)) = robots
+                                        .iter_mut()
+                                        .find(|(_, _, _, _, robot)| robot.name == name)
+                                    {
+                                        transforms.translation.x = loc.x as f32;
+                                        transforms.translation.y = loc.y as f32;
+                                    }
                                 }
                             }
                         },
@@ -168,6 +195,7 @@ impl PacbotNetworkSimulation {
                 }
             }
         }
+
         // send status to simulation clients
         for client in self.simulation_clients.values_mut() {
             client.send(Message::Binary(
@@ -179,7 +207,12 @@ impl PacbotNetworkSimulation {
                             app.robots[name as usize]
                                 .iter()
                                 .next()
-                                .and_then(|(e, _)| pos_query.get(*e).ok())
+                                .and_then(|(_, _)| {
+                                    robots
+                                        .iter_mut()
+                                        .find(|(_, _, _, _, robot)| robot.name == name)
+                                })
+                                .map(|(_, t, ..)| t)
                                 .map(|t| {
                                     (
                                         Point2::new(t.translation.x, t.translation.y),
@@ -198,7 +231,6 @@ impl PacbotNetworkSimulation {
             match msg {
                 RobotToSimulationMessage::SimulatedVelocity(lin, ang) => {
                     if Some((lin, ang)) != app.server_target_vel[name as usize] {
-                        // info!("Received target velocity: {lin:?} {ang:?}");
                         app.server_target_vel[name as usize] = Some((lin, ang))
                     }
                 }

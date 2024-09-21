@@ -186,6 +186,6 @@ fn keyboard_input(
             _ => StandardGrid::Pacman,
         };
         app.grid = app.standard_grid.compute_grid();
-        app.reset_grid(walls, &mut robots, &mut commands)
+        app.reset_grid(&walls, &mut robots, &mut commands)
     }
 }
