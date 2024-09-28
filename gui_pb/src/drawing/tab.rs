@@ -5,7 +5,6 @@ use crate::drawing::settings::draw_settings;
 use crate::drawing::timings::draw_timings;
 use crate::transform::Transform;
 use crate::App;
-use core_pb::grid::standard_grid::StandardGrid;
 use eframe::egui::{Pos2, Ui, WidgetText};
 use egui_dock::TabViewer;
 
@@ -71,9 +70,7 @@ impl TabViewer for App {
 
                 let painter = ui.painter_at(rect);
                 draw_grid(self, &painter);
-                if self.settings.standard_grid == StandardGrid::Pacman {
-                    draw_game(self, &painter);
-                }
+                draw_game(self, &painter);
             }
             Tab::Stopwatch => draw_timings(self, ui),
             Tab::Settings => draw_settings(self, ui),

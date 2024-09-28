@@ -135,8 +135,12 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                         Either::Left(Err(())) => break,
                         Either::Left(Ok(ServerToRobotMessage::FrequentRobotItems(msg))) => {
                             network.send_or_drop(
-                                RobotInterTaskMessage::FrequentServerToRobot(msg),
+                                RobotInterTaskMessage::FrequentServerToRobot(msg.clone()),
                                 Task::Motors,
+                            );
+                            network.send_or_drop(
+                                RobotInterTaskMessage::FrequentServerToRobot(msg),
+                                Task::Peripherals,
                             );
                         }
                         Either::Left(Ok(ServerToRobotMessage::FirmwareWritePart {
