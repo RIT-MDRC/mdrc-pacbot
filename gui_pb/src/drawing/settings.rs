@@ -18,6 +18,7 @@ pub struct UiSettings {
     pub any_robot_has_been_selected: bool,
 
     pub mdrc_server: ConnectionSettings,
+    pub last_connection_status: NetworkStatus,
 
     pub mdrc_server_collapsed: bool,
     pub simulation_collapsed: bool,
@@ -38,6 +39,7 @@ impl Default for UiSettings {
                 ipv4: [127, 0, 0, 1],
                 port: GUI_LISTENER_PORT,
             },
+            last_connection_status: NetworkStatus::NotConnected,
 
             mdrc_server_collapsed: true,
             simulation_collapsed: true,
@@ -188,6 +190,7 @@ pub fn generic_server(
     name: &str,
     fields: &mut HashMap<String, (String, String)>,
     connection_settings: &mut ConnectionSettings,
+    last_status: &mut NetworkStatus,
     collapsed: &mut bool,
     status: &NetworkStatus,
     right_ui: impl FnOnce(&mut Ui),
@@ -271,9 +274,21 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         "MDRC Server",
         fields,
         &mut app.ui_settings.mdrc_server,
+        &mut app.ui_settings.last_connection_status,
         &mut app.ui_settings.mdrc_server_collapsed,
         &app.network.0.status(),
-        |_| {},
+        |_| {
+            if(status != last_status){
+                if(status == NetworkStatus::Connected){
+                app.network
+                    .0
+                    .send(TextOrT::T(GuiToServerMessage::Settings(
+                        app.network.0.settings.clone()),
+                    ));
+                }
+                last_status = &mut status;
+            }
+        },
     );
 
     generic_server(
@@ -281,6 +296,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         "Simulation",
         fields,
         &mut app.settings.simulation.connection,
+        &mut app.ui_settings.last_connection_status,
         &mut app.ui_settings.simulation_collapsed,
         &app.server_status.simulation_connection,
         |_| {},
@@ -295,6 +311,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         },
         fields,
         &mut app.settings.game_server.connection,
+        &mut app.ui_settings.last_connection_status,
         &mut app.ui_settings.game_server_collapsed,
         &app.server_status.game_server_connection,
         |ui| {
@@ -340,6 +357,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
             &format!("{name}"),
             fields,
             &mut app.settings.robots[name as usize].connection,
+            &mut app.ui_settings.last_connection_status,
             &mut app.ui_settings.robots_collapsed[name as usize],
             &app.server_status.robots[name as usize].connection,
             |ui| {
