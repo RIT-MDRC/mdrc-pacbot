@@ -4905,6 +4905,7 @@ dependencies = [
  "embedded-io-async",
  "futures",
  "heapless",
+ "rand",
  "serde",
  "simple-websockets",
  "tungstenite 0.21.0",

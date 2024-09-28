@@ -7,6 +7,7 @@ use bevy_rapier2d::na::{Point2, Vector2};
 use bevy_rapier2d::prelude::*;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::RobotName;
+use rand::prelude::*;
 
 pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
     let grid = grid.compute_grid();
@@ -89,7 +90,10 @@ impl MyApp {
                 let rotation = t.rotation.to_axis_angle().1;
                 robot.write().unwrap().imu_angle = Ok(rotation);
             }
-
+            let mut rng = rand::thread_rng();
+            let x_noise:f32=rng.gen_range(-10.0..10.0);
+            let y_noise:f32=rng.gen_range(-10.0..10.0);
+            let torque_noise:f32=rng.gen_range(-5.0..5.0);
             let mut target_vel = robot
                 .wasd_target_vel
                 .unwrap_or((Vector2::new(0.0, 0.0), 0.0));
@@ -97,9 +101,12 @@ impl MyApp {
             if target_vel.0 != Vector2::new(0.0, 0.0) {
                 target_vel.0 = target_vel.0.normalize() * move_scale;
             }
-            imp.impulse.x = target_vel.0.x - v.linvel.x * 0.6;
-            imp.impulse.y = target_vel.0.y - v.linvel.y * 0.6;
-            imp.torque_impulse = target_vel.1 - v.angvel * 0.1;
+           
+            imp.impulse.x = target_vel.0.x - v.linvel.x * 0.6+x_noise;
+
+            imp.impulse.y = target_vel.0.y - v.linvel.y * 0.6+y_noise;
+            imp.torque_impulse = target_vel.1 - v.angvel * 0.1+torque_noise;
+            //println!("check");
         }
     }
 
