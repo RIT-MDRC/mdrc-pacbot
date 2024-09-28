@@ -277,21 +277,19 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         &mut app.ui_settings.last_connection_status,
         &mut app.ui_settings.mdrc_server_collapsed,
         &app.network.0.status(),
-        |_| {
-            let status:NetworkStatus = app.network.0.status();
-            let last_status:NetworkStatus = app.ui_settings.last_connection_status;
-            if status != last_status {
-                if status == NetworkStatus::Connected {
-                app.network
-                    .0
-                    .send(TextOrT::T(GuiToServerMessage::Settings(
-                        app.network.0.settings.clone()),
-                    ));
-                }
-                last_status = status;
-            }
-        },
+        |_| {},
     );
+
+    let status: NetworkStatus = app.network.0.status();
+    let last_status: NetworkStatus = app.ui_settings.last_connection_status;
+    if status != last_status {
+        if status == NetworkStatus::Connected {
+            app.network.0.send(TextOrT::T(GuiToServerMessage::Settings(
+                app.settings.clone(),
+            )));
+        }
+        app.ui_settings.last_connection_status = status;
+    }
 
     generic_server(
         ui,
