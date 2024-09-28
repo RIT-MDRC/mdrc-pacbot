@@ -278,15 +278,17 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         &mut app.ui_settings.mdrc_server_collapsed,
         &app.network.0.status(),
         |_| {
-            if(status != last_status){
-                if(status == NetworkStatus::Connected){
+            let status:NetworkStatus = app.network.0.status();
+            let last_status:NetworkStatus = app.ui_settings.last_connection_status;
+            if status != last_status {
+                if status == NetworkStatus::Connected {
                 app.network
                     .0
                     .send(TextOrT::T(GuiToServerMessage::Settings(
                         app.network.0.settings.clone()),
                     ));
                 }
-                last_status = &mut status;
+                last_status = status;
             }
         },
     );
