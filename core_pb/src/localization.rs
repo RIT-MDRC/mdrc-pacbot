@@ -204,7 +204,7 @@ fn get_estimated_poses(
     distance_sensors: &[Result<Option<f32>, ()>; 4],
     radius: f32,
 ) -> [Option<Point2<f32>>; 4] {
-    let cv_distances = get_ray_cast(cv_location, grid, radius);
+    let cv_distances = get_sim_ray_cast(cv_location, grid, radius);
     let cv_location = Point2::new(cv_location.x as f32, cv_location.y as f32);
     let mut points = [Some(cv_location); 4];
 
@@ -246,7 +246,7 @@ fn get_estimated_poses(
     points
 }
 
-fn get_ray_cast(loc: Point2<i8>, grid: &ComputedGrid, radius: f32) -> [f32; 4] {
+fn get_sim_ray_cast(loc: Point2<i8>, grid: &ComputedGrid, radius: f32) -> [f32; 4] {
     let mut distances = [0; 4];
 
     for (i, _) in distances.into_iter().enumerate() {
