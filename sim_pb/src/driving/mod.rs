@@ -134,7 +134,7 @@ impl SimRobot {
             _ = handle_task(network_task(network)).fuse() => {
                 info!("{name} network task ended early");
             }
-            _ = handle_task(peripherals_task(peripherals)).fuse() => {
+            _ = handle_task(peripherals_task(peripherals, name)).fuse() => {
                 info!("{name} peripherals task ended early");
             }
             _ = Self::handle_one_task_messages(r0, senders.clone()).fuse() => {

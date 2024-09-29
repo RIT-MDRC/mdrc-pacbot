@@ -7,8 +7,10 @@ use bevy::prelude::*;
 use bevy_rapier2d::geometry::{Collider, CollisionGroups, Group};
 use bevy_rapier2d::na::{Point2, Vector2};
 use bevy_rapier2d::prelude::*;
+use core_pb::constants::GU_PER_M;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::RobotName;
+use core_pb::robot_definition::RobotDefinition;
 
 pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
     let grid = grid.compute_grid();
@@ -107,8 +109,8 @@ impl MyApp {
                         f32::cos(rotation + (i as f32) * f32::consts::FRAC_PI_2),
                         f32::sin(rotation + (i as f32) * f32::consts::FRAC_PI_2),
                     );
-                    let max_toi: f32 = 30.0; // TODO: find actual sensor range (unit: space between pellets)
-                    let solid: bool = false;
+                    let max_toi: f32 = RobotDefinition::new(robot.name).sensor_distance * GU_PER_M; // TODO: find actual sensor range (unit: space between pellets)
+                    let solid: bool = true;
                     let filter: QueryFilter = QueryFilter::default()
                         .groups(CollisionGroups::new(Group::GROUP_2, Group::GROUP_1));
                     if let Some((_, intersection)) = rapier_context

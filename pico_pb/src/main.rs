@@ -151,7 +151,10 @@ async fn do_motors(name: RobotName, motors: Motors<3>) {
 
 #[embassy_executor::task]
 async fn do_i2c(i2c: RobotPeripherals) {
-    unwrap!(peripherals_task(i2c).await)
+    let mac_address = network.mac_address().await;
+
+    let name = RobotName::from_mac_address(&mac_address).expect("Unrecognized mac address");
+    unwrap!(peripherals_task(i2c, name).await)
 }
 
 async fn receive_timeout(
