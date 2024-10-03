@@ -55,7 +55,7 @@ pub struct Robot {
 }
 
 fn main() {
-    println!("Simulation starting up");
+    info!("Simulation starting up");
 
     App::new()
         .add_plugins(DefaultPlugins)

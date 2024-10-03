@@ -20,6 +20,8 @@ use core_pb::names::RobotName;
 use core_pb::pacbot_rs::location::Direction;
 use core_pb::util::utilization::UtilizationMonitor;
 use core_pb::util::StdInstant;
+use env_logger::Builder;
+use log::{info, LevelFilter};
 use nalgebra::Point2;
 use std::process::{Child, Command};
 use std::time::Duration;
@@ -73,10 +75,15 @@ impl Default for App {
 
 #[tokio::main]
 async fn main() {
-    println!("RIT Pacbot server starting up");
+    Builder::from_default_env()
+        .filter_level(LevelFilter::Info)
+        .filter(Some("core_pb::threaded_websocket"), LevelFilter::Off) // silence threaded_websocket
+        .init();
+
+    info!("RIT Pacbot server starting up");
 
     let mut app = App::default();
-    println!("Listening on 0.0.0.0:{GUI_LISTENER_PORT}");
+    info!("Listening on 0.0.0.0:{GUI_LISTENER_PORT}");
     app.utilization_monitor.start();
 
     // apply default settings

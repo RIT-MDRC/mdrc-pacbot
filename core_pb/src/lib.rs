@@ -31,10 +31,22 @@ macro_rules! console_log {
     ($($t:tt)*) => (crate::log(&format_args!($($t)*).to_string()))
 }
 
+#[cfg(target_arch = "wasm32")]
+#[macro_export]
+macro_rules! console_error {
+    ($($t:tt)*) => (crate::log(&format_args!($($t)*).to_string()))
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 #[macro_export]
 macro_rules! console_log {
-    ($($t:tt)*) => (println!($($t)*))
+    ($($t:tt)*) => (log::info!($($t)*))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[macro_export]
+macro_rules! console_error {
+    ($($t:tt)*) => (log::error!($($t)*))
 }
 
 #[cfg(target_arch = "wasm32")]

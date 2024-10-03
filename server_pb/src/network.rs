@@ -10,12 +10,13 @@ use core_pb::messages::{
 };
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
+use log::{error, info};
 use nalgebra::Point2;
 
 impl App {
     pub async fn handle_message(&mut self, from: Destination, message: Incoming) {
         match (from, message) {
-            (dest, Bytes(data)) => eprintln!(
+            (dest, Bytes(data)) => error!(
                 "Unexpectedly received {} raw bytes from {dest:?}",
                 data.len()
             ),
@@ -91,7 +92,7 @@ impl App {
                                 }
                             }
                         }
-                        Err(e) => eprintln!("Error updating game state: {e:?}"),
+                        Err(e) => error!("Error updating game state: {e:?}"),
                     }
                 }
             }
@@ -102,9 +103,9 @@ impl App {
                 }
             }
             (Robot(name), FromRobot(RobotToServerMessage::Name(said_name))) => {
-                println!("Received name ({said_name}) from {name}");
+                info!("Received name ({said_name}) from {name}");
                 if said_name != name {
-                    eprintln!("WARNING: Robot is having an identity crisis");
+                    error!("WARNING: Robot is having an identity crisis");
                 }
                 // the robot will receive motor and pid configuration via periodic actions
             }
@@ -116,7 +117,7 @@ impl App {
                 self.status.robots[name as usize].distance_sensors = sensors.distances;
                 self.status.robots[name as usize].estimated_location = sensors.location;
             }
-            (Robot(name), FromRobot(msg)) => println!("Message received from {name}: {msg:?}"),
+            (Robot(name), FromRobot(msg)) => info!("Message received from {name}: {msg:?}"),
             (Robot(_), _) => {}
             (_, FromRobot(_)) => {}
             (_, FromGui(msg)) => match msg {
@@ -155,7 +156,7 @@ impl App {
             },
             (_, GuiConnected(id)) => {
                 self.status.gui_clients += 1;
-                println!(
+                info!(
                     "Gui client #{id} connected; {} gui client(s) are connected",
                     self.status.gui_clients
                 );
@@ -167,12 +168,12 @@ impl App {
             }
             (_, GuiDisconnected(id)) => {
                 self.status.gui_clients -= 1;
-                println!(
+                info!(
                     "Gui client #{id} disconnected; {} gui client(s) remaining",
                     self.status.gui_clients
                 );
             }
-            (dest, Incoming::Text(text)) => eprintln!("Unexpected text from {dest:?}: {text}"),
+            (dest, Incoming::Text(text)) => error!("Unexpected text from {dest:?}: {text}"),
         }
     }
 }
