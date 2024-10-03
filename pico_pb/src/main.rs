@@ -23,11 +23,11 @@ use core_pb::driving::motors::motors_task;
 #[allow(unused_imports)]
 use core_pb::driving::network::{network_task, RobotNetworkBehavior};
 use core_pb::driving::peripherals::peripherals_task;
-use core_pb::driving::{info, RobotInterTaskMessage, Task};
+use core_pb::driving::{RobotInterTaskMessage, Task};
 use core_pb::names::RobotName;
 use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::CrossPlatformInstant;
-use defmt::unwrap;
+use defmt::{info, unwrap};
 use defmt_rtt as _;
 use embassy_executor::{InterruptExecutor, Spawner};
 use embassy_futures::select::select;
