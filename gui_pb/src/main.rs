@@ -15,7 +15,7 @@ use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::PacbotSettings;
 use core_pb::pacbot_rs::game_state::GameState;
 use eframe::egui;
-use eframe::egui::{Align, Color32, Pos2};
+use eframe::egui::{Align, Color32, Pos2, Visuals};
 use egui_dock::{DockArea, DockState, NodeIndex, Style};
 // todo use native_dialog::FileDialog;
 use crate::drawing::motors::MotorStatusGraphFrames;
@@ -43,7 +43,14 @@ fn main() {
     eframe::run_native(
         "RIT Pacbot",
         native_options,
-        Box::new(|cc| Box::new(App::new(cc))),
+        Box::new(|cc| {
+            let style = egui::Style {
+                visuals: Visuals::dark(),
+                ..egui::Style::default()
+            };
+            cc.egui_ctx.set_style(style);
+            Box::new(App::new(cc))
+        }),
     )
     .expect("Failed to start egui app!");
 }
@@ -63,7 +70,14 @@ fn main() {
             .start(
                 "the_canvas_id", // hardcode it
                 web_options,
-                Box::new(|cc| Box::new(App::new(cc))),
+                Box::new(|cc| {
+                    let style = egui::Style {
+                        visuals: Visuals::dark(),
+                        ..egui::Style::default()
+                    };
+                    cc.egui_ctx.set_style(style);
+                    Box::new(App::new(cc))
+                }),
             )
             .await;
         let loading_text = web_sys::window()
