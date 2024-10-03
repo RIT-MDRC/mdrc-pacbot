@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["main"],"mod":["colors","drawing","input","replay","transform"],"struct":["App"]};
