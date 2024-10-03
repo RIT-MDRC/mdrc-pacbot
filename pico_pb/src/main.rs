@@ -119,7 +119,10 @@ async fn main(spawner: Spawner) {
             (p.PWM_SLICE3, p.PWM_SLICE4, p.PWM_SLICE7),
         )
     )));
-    unwrap!(spawner.spawn(do_i2c(RobotPeripherals::new(p.I2C0, p.PIN_17, p.PIN_16))));
+    unwrap!(spawner.spawn(do_i2c(
+        name,
+        RobotPeripherals::new(p.I2C0, p.PIN_17, p.PIN_16)
+    )));
 
     info!("Finished spawning tasks");
 
@@ -150,8 +153,8 @@ async fn do_motors(name: RobotName, motors: Motors<3>) {
 }
 
 #[embassy_executor::task]
-async fn do_i2c(i2c: RobotPeripherals) {
-    unwrap!(peripherals_task(i2c).await)
+async fn do_i2c(name: RobotName, i2c: RobotPeripherals) {
+    unwrap!(peripherals_task(i2c, name).await)
 }
 
 async fn receive_timeout(

@@ -23,6 +23,9 @@ pub struct RobotDefinition<const WHEELS: usize> {
 
     /// Whether the robot should expect to have access to a screen
     pub has_screen: bool,
+
+    /// Maximum range of the sensors in meters
+    pub sensor_distance: f32,
 }
 
 /// Describes physical characteristics of the motors
@@ -56,6 +59,7 @@ impl RobotDefinition<3> {
             },
 
             has_screen: false,
+            sensor_distance: 1.5,
         }
     }
 }

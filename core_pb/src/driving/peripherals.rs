@@ -2,6 +2,8 @@ use crate::driving::{RobotInterTaskMessage, RobotTask, Task};
 use crate::grid::standard_grid::StandardGrid;
 use crate::localization::estimate_location;
 use crate::messages::SensorData;
+use crate::names::RobotName;
+use crate::robot_definition::RobotDefinition;
 use core::fmt::Debug;
 use core::time::Duration;
 use embedded_graphics::prelude::DrawTarget;
@@ -26,6 +28,7 @@ pub trait RobotPeripheralsBehavior: RobotTask {
 /// The "main" method for the peripherals task
 pub async fn peripherals_task<T: RobotPeripheralsBehavior>(
     mut peripherals: T,
+    name: RobotName,
 ) -> Result<(), T::Error> {
     let mut grid = StandardGrid::default();
     let mut cv_location = Some(Point2::new(
@@ -33,13 +36,15 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior>(
         pacbot_rs::variables::PACMAN_SPAWN_LOC.get_coords().1,
     ));
 
+    let robot = RobotDefinition::new(name);
+
     loop {
         let angle = peripherals.absolute_rotation().await.map_err(|_| ());
         let mut distances = [Err(()); 4];
         for (i, sensor) in distances.iter_mut().enumerate() {
             *sensor = peripherals.distance_sensor(i).await.map_err(|_| ());
         }
-        let location = estimate_location(grid, cv_location, &distances);
+        let location = estimate_location(grid, cv_location, &distances, &robot);
         let sensors = SensorData {
             angle,
             distances,
