@@ -15,7 +15,7 @@ The `cv_location` passed into the localizer function is a rough estimate of wher
 get an initial estimate of where pacbot is based on sensor data, a raycast is performed in each of the
 cardinal directions from the `cv_location`.
 
-```
+```ignore
 fn get_sim_ray_cast(loc: Point2<i8>, grid: &Grid, radius: f32) -> [f32; 4] {
     VECTORS.map(|dir| {
         let mut dist: i8 = 0;
@@ -37,7 +37,7 @@ walls hit by the corresponding raycasts from `cv_location`. This assumption is n
 sensors can give an estimate of pacbot's location on the corresponding axis by simply adding the raycast
 vector and subtracting the sensor vector.
 
-```
+```ignore
 fn get_estimated_poses(
     grid: &Grid,
     cv_location: Point2<i8>,
@@ -79,7 +79,7 @@ again from one unit above the original `cv_location` on the corresponding axis. 
 pass with `new_location` in place of `cv_location`. Since the assumption that was made is now true
 (the rays hit the same walls as the sensors), the operation should give the correct position.
 
-```
+```ignore
 if [poses[0], poses[2]].iter().all(|x| {
         x.map(|pos| get_dist(pos, cv_location_f32) > CV_ERROR)
             .unwrap_or(true)
@@ -118,7 +118,7 @@ It prioritizes the values closest to `cv_location` and values that are not `None
 If both sensors are not functional or do not detect a wall, that axis will remain whatever is given by
 `cv_location`.
 
-```
+```ignore
 let x = [poses[0], poses[2]]
         .into_iter()
         .flatten()
