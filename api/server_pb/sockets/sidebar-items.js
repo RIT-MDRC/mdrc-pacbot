@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Destination","Incoming","Outgoing"],"fn":["manage_gui_clients","manage_threaded_socket","receive_outgoing","repeat_sleep"],"struct":["Sockets"]};
