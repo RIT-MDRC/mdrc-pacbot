@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["GRID_SIZE"],"mod":["computed_grid","standard_grid"],"type":["Grid"]};

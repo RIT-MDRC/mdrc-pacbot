@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Computed Grid - MDRC Pacbot</title>
+        <title>Localization - MDRC Pacbot</title>
 
 
         <!-- Custom HTML head -->
@@ -88,7 +88,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="welcome.html"><strong aria-hidden="true">1.</strong> Welcome</a></li><li class="chapter-item expanded "><a href="rust_api.html"><strong aria-hidden="true">2.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="game.html"><strong aria-hidden="true">3.</strong> Game</a></li><li class="chapter-item expanded "><a href="the_grid.html"><strong aria-hidden="true">4.</strong> Grid</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="grid_and_coordinates.html"><strong aria-hidden="true">4.1.</strong> Grid & Coordinate System</a></li><li class="chapter-item expanded "><a href="computed_grid.html" class="active"><strong aria-hidden="true">4.2.</strong> Computed Grid</a></li></ol></li><li class="chapter-item expanded "><a href="network.html"><strong aria-hidden="true">5.</strong> Network</a></li><li class="chapter-item expanded "><a href="localization.html"><strong aria-hidden="true">6.</strong> Localization</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="welcome.html"><strong aria-hidden="true">1.</strong> Welcome</a></li><li class="chapter-item expanded "><a href="rust_api.html"><strong aria-hidden="true">2.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="game.html"><strong aria-hidden="true">3.</strong> Game</a></li><li class="chapter-item expanded "><a href="the_grid.html"><strong aria-hidden="true">4.</strong> Grid</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="grid_and_coordinates.html"><strong aria-hidden="true">4.1.</strong> Grid & Coordinate System</a></li><li class="chapter-item expanded "><a href="computed_grid.html"><strong aria-hidden="true">4.2.</strong> Computed Grid</a></li></ol></li><li class="chapter-item expanded "><a href="network.html"><strong aria-hidden="true">5.</strong> Network</a></li><li class="chapter-item expanded "><a href="localization.html" class="active"><strong aria-hidden="true">6.</strong> Localization</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -173,40 +173,135 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="computed-grid"><a class="header" href="#computed-grid">Computed Grid</a></h1>
-<p><code>ComputedGrid</code> provides additional information about a <code>Grid</code> that is calculated when
-the <code>ComputedGrid</code> is first created, meaning it is very cheap to retrieve.</p>
-<p>For this documentation, a "walkable space" is one where Pacman can travel.</p>
-<h2 id="grid-rules"><a class="header" href="#grid-rules">Grid Rules</a></h2>
-<p>In order for a <code>Grid</code> to be successfully upgraded to a <code>ComputedGrid</code> via <code>ComputedGrid::try_from(grid)</code>,
-all of the following must be true:</p>
-<ul>
-<li>All the cells around the outside of the grid (with <code>x</code> or <code>y</code> equal to 0 or 31) are walls</li>
-<li>There is at least one walkable cell (where Pacman can spawn)</li>
-<li>There are no 2x2 empty squares</li>
-<li>There is no wall with a walkable space both above and below it</li>
-<li>There is no wall with a walkable space both to the left and right</li>
-</ul>
-<p>The last two points can be simplified to say that all walls are 2 cells thick.</p>
-<p>Note:</p>
-<ul>
-<li>It is not necessary that a <code>ComputedGrid</code> is connected, or that every walkable space is accessible from every other one</li>
-</ul>
-<h2 id="pre-computed-information"><a class="header" href="#pre-computed-information">Pre-computed Information</a></h2>
-<p>When a <code>ComputedGrid</code> is constructed, it spends extra time calculating a number of variables related to
-the game grid. This information is documented in the <a href="https://rit-mdrc.github.io/mdrc-pacbot-util/api/mdrc_pacbot_util/grid/struct.ComputedGrid.html">ComputedGrid documentation</a>.</p>
+                        <h1 id="localization"><a class="header" href="#localization">Localization</a></h1>
+<p>The RIT pacbot team's localization requires 4 sensors, each facing in a cardinal direction (right, up, left
+down). The sensors have a range that extends half the distance of the longest corridor of the grid.</p>
+<h2 id="general-steps"><a class="header" href="#general-steps">General Steps</a></h2>
+<ol>
+<li>First Pass Prediction</li>
+<li>Second Pass Prediction</li>
+<li>Combine Directional Information</li>
+</ol>
+<h2 id="first-pass-prediction"><a class="header" href="#first-pass-prediction">First Pass Prediction</a></h2>
+<p>The <code>cv_location</code> passed into the localizer function is a rough estimate of where pacbot is on the grid. To
+get an initial estimate of where pacbot is based on sensor data, a raycast is performed in each of the
+cardinal directions from the <code>cv_location</code>.</p>
+<pre><code class="language-ignore">fn get_sim_ray_cast(loc: Point2&lt;i8&gt;, grid: &amp;Grid, radius: f32) -&gt; [f32; 4] {
+    VECTORS.map(|dir| {
+        let mut dist: i8 = 0;
+        let mut p = loc;
+        let dir = dir.map(|x| x as i8);
+
+        while !wall_at(grid, p) {
+            p += dir;
+            dist += 1;
+        }
+
+        dist as f32 - radius
+    })
+}
+</code></pre>
+<p>For the first prediction, an assumption is made: the walls that are hit by the actual sensors are the same
+walls hit by the corresponding raycasts from <code>cv_location</code>. This assumption is not always true given the inaccuracy of <code>cv_location</code>, but can be fixed in the second pass prediction. Knowing this, each of the
+sensors can give an estimate of pacbot's location on the corresponding axis by simply adding the raycast
+vector and subtracting the sensor vector.</p>
+<pre><code class="language-ignore">fn get_estimated_poses(
+    grid: &amp;Grid,
+    cv_location: Point2&lt;i8&gt;,
+    distance_sensors: &amp;[Result&lt;Option&lt;f32&gt;, ()&gt;; 4],
+    radius: f32,
+) -&gt; [Option&lt;Point2&lt;f32&gt;&gt;; 4] {
+    let cv_distances = get_sim_ray_cast(cv_location, grid, radius);
+    let cv_location = cv_location.map(|x| x as f32);
+
+    [0, 1, 2, 3].map(|i| {
+        distance_sensors[i]
+            .ok()
+            .flatten()
+            .map(|dist| cv_location + (VECTORS[i] * (cv_distances[i] - dist)))
+    })
+}
+</code></pre>
+<p>Although the first prediction may be incorrect, the information from the estimated poses allows for
+error correction.</p>
+<h2 id="second-pass-prediction"><a class="header" href="#second-pass-prediction">Second Pass Prediction</a></h2>
+<p>Once an estimated position is created from each of the sensors, each axis is checked to determine if it
+actually hit the wall that was hit by the <code>cv_location</code> raycast. The check is done by observing if the
+predicted position is different from <code>cv_location</code> by more than <code>CV_ERROR</code>. If the estimation is off
+by more than <code>CV_ERROR</code> for both directions along an axis (right and left or up and down), then we must perform the second pass operation.</p>
+<p>Before describing how the second pass works, it is important to understand that if one of the axis
+has incorrect values for both sensors, then the other axis must have a correct value. This property
+is a product of the grid, which requires pacbot to travel in a cardinal direction and also prevents it from
+travelling diagonally through any corridors. Requiring at least one sensor to hit the same wall as
+the <code>cv_location</code> raycast is essential for the second pass localization to correct the errors from
+the first pass.</p>
+<p>For the second pass, the program must find a position to raycast from in which the rays hit the same walls
+that the sensors do. To do so, we check the position given by the axis that gives a position within <code>CV_ERROR</code>. If this position has a greater value along the axis as the <code>cv_location</code>, then we must raycast
+again from one unit above the original <code>cv_location</code> on the corresponding axis. If the position has a lower value along the axis as the <code>cv_location</code>, then we must raycast again from one unit below the original <code>cv_location</code> on the corresponding axis. Once <code>new_location</code> is found, repeat the operations of the first
+pass with <code>new_location</code> in place of <code>cv_location</code>. Since the assumption that was made is now true
+(the rays hit the same walls as the sensors), the operation should give the correct position.</p>
+<pre><code class="language-ignore">if [poses[0], poses[2]].iter().all(|x| {
+        x.map(|pos| get_dist(pos, cv_location_f32) &gt; CV_ERROR)
+            .unwrap_or(true)
+    }) {
+        let mut new_location = cv_location_int;
+        if let Some(pos) = [poses[1], poses[3]].into_iter().flatten().next() {
+            if pos.y &gt; cv_location_f32.y {
+                new_location.y += 1;
+            } else {
+                new_location.y -= 1;
+            }
+            poses = get_estimated_poses(&amp;grid, new_location, distance_sensors, robot.radius);
+        }
+    }
+
+if [poses[1], poses[3]].iter().all(|x| {
+    x.map(|pos| get_dist(pos, cv_location_f32) &gt; CV_ERROR)
+        .unwrap_or(true)
+}) {
+    let mut new_location = cv_location_int;
+    if let Some(pos) = [poses[0], poses[2]].into_iter().flatten().next() {
+        if pos.x &gt; cv_location_f32.x {
+            new_location.x += 1;
+        } else {
+            new_location.x -= 1;
+        }
+        poses = get_estimated_poses(&amp;grid, new_location, distance_sensors, robot.radius);
+    }
+}
+</code></pre>
+<h2 id="combine-directional-information"><a class="header" href="#combine-directional-information">Combine Directional Information</a></h2>
+<p>The program integrates all of the sensor data by simply using one of the two sensors for each of the axis.
+It prioritizes the values closest to <code>cv_location</code> and values that are not <code>None</code> or <code>Err()</code> for each axis.
+If both sensors are not functional or do not detect a wall, that axis will remain whatever is given by
+<code>cv_location</code>.</p>
+<pre><code class="language-ignore">let x = [poses[0], poses[2]]
+        .into_iter()
+        .flatten()
+        .min_by_key(|pos| {
+            NotNan::new(get_dist(*pos, cv_location_f32)).unwrap_or(NotNan::new(0.0).unwrap())
+        })
+        .unwrap_or(cv_location_f32)
+        .x;
+
+let y = [poses[1], poses[3]]
+    .into_iter()
+    .flatten()
+    .min_by_key(|pos| {
+        NotNan::new(get_dist(*pos, cv_location_f32)).unwrap_or(NotNan::new(0.0).unwrap())
+    })
+    .unwrap_or(cv_location_f32)
+    .y;
+</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="grid_and_coordinates.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="network.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="network.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -214,13 +309,10 @@ the game grid. This information is documented in the <a href="https://rit-mdrc.g
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="grid_and_coordinates.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="network.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="network.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
             </nav>
 
         </div>
