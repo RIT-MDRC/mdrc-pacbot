@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PacbotWidget"],"fn":["draw_widgets"]};
