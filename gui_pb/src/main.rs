@@ -31,7 +31,6 @@ use core_pb::util::stopwatch::Stopwatch;
 use core_pb::util::StdInstant;
 #[cfg(target_arch = "wasm32")]
 use core_pb::util::WebTimeInstant as StdInstant;
-use log::LevelFilter;
 use nalgebra::Vector2;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -40,7 +39,7 @@ use std::time::Duration;
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
     env_logger::Builder::from_default_env()
-        .filter_level(LevelFilter::Info)
+        .filter_level(log::LevelFilter::Info)
         .init();
     console_log!("RIT Pacbot gui starting up");
     let native_options = eframe::NativeOptions::default();

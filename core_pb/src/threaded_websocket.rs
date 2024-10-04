@@ -4,6 +4,7 @@
 //! that runs in a separate thread
 
 use crate::messages::NetworkStatus;
+#[allow(unused)]
 use crate::{bin_decode, bin_encode, console_error, console_log};
 use async_channel::{unbounded, Receiver, Sender};
 use async_std::task::sleep;
