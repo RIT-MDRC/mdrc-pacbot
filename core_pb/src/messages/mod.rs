@@ -1,3 +1,4 @@
+#[cfg(feature = "std")]
 use crate::grid::standard_grid::StandardGrid;
 #[cfg(feature = "std")]
 use crate::messages::server_status::ServerStatus;
@@ -48,6 +49,8 @@ pub enum GuiToServerMessage {
     ClearFirmwareUpdateHistory(RobotName),
     /// Set a robot's target location
     TargetLocation(Point2<i8>),
+    /// Restart simulation (including rebuild)
+    RestartSimulation,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
