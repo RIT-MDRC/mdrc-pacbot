@@ -23,6 +23,8 @@ pub trait RobotPeripheralsBehavior: RobotTask {
     async fn absolute_rotation(&mut self) -> Result<f32, Self::Error>;
 
     async fn distance_sensor(&mut self, index: usize) -> Result<Option<f32>, Self::Error>;
+
+    async fn battery_level(&mut self) -> Result<f32, Self::Error>;
 }
 
 /// The "main" method for the peripherals task
@@ -49,6 +51,7 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior>(
             angle,
             distances,
             location,
+            battery: peripherals.battery_level().await.map_err(|_| ()),
         };
         peripherals.send_or_drop(RobotInterTaskMessage::Sensors(sensors), Task::Wifi);
         match peripherals

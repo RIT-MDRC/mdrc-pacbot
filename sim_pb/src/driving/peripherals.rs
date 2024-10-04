@@ -70,4 +70,8 @@ impl RobotPeripheralsBehavior for SimPeripherals {
     async fn distance_sensor(&mut self, index: usize) -> Result<Option<f32>, Self::Error> {
         self.robot.read().unwrap().distance_sensors[index].map_err(|_| SimPeripheralsError::Unknown)
     }
+
+    async fn battery_level(&mut self) -> Result<f32, Self::Error> {
+        Ok(1.0)
+    }
 }

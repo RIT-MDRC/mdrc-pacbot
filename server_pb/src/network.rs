@@ -116,6 +116,7 @@ impl App {
                 self.status.robots[name as usize].imu_angle = sensors.angle;
                 self.status.robots[name as usize].distance_sensors = sensors.distances;
                 self.status.robots[name as usize].estimated_location = sensors.location;
+                self.status.robots[name as usize].battery = sensors.battery;
             }
             (Robot(name), FromRobot(msg)) => info!("Message received from {name}: {msg:?}"),
             (Robot(_), _) => {}
