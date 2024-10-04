@@ -10,6 +10,7 @@ use std::time::Duration;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ServerStatus {
     pub utilization: ColoredStatus,
+    pub inference_time: ColoredStatus,
 
     pub simulation_connection: NetworkStatus,
 
@@ -27,6 +28,7 @@ impl Default for ServerStatus {
     fn default() -> Self {
         Self {
             utilization: ColoredStatus::Ok(Some("Loading...".to_string())),
+            inference_time: ColoredStatus::NotApplicable(Some("N/A".to_string())),
 
             simulation_connection: NetworkStatus::default(),
 

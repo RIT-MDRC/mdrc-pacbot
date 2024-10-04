@@ -40,10 +40,14 @@ impl PacbotWidget {
     pub fn overall_status(&self, app: &mut App) -> ColoredStatus {
         match self {
             PacbotWidget::GridWidget => ColoredStatus::NotApplicable(None),
-            PacbotWidget::UtilizationWidget => vec![app.gui_stopwatch.status()]
-                .into_iter()
-                .max_by_key(|x| x.severity())
-                .unwrap(),
+            PacbotWidget::UtilizationWidget => vec![
+                app.gui_stopwatch.status(),
+                app.server_status.utilization.clone(),
+                app.server_status.inference_time.clone(),
+            ]
+            .into_iter()
+            .max_by_key(|x| x.severity())
+            .unwrap(),
         }
     }
 
@@ -61,14 +65,18 @@ impl PacbotWidget {
                         status.message().unwrap_or("?".to_string())
                     ));
                 });
-                let status = &app.server_status.utilization;
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new(status.icon()).color(status.to_color32_solid()));
-                    ui.label(format!(
-                        "Server: {}",
-                        status.message().unwrap_or("?".to_string())
-                    ));
-                });
+                for (status, label) in [
+                    (&app.server_status.utilization, "Server"),
+                    (&app.server_status.inference_time, "Inference"),
+                ] {
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new(status.icon()).color(status.to_color32_solid()));
+                        ui.label(format!(
+                            "{label}: {}",
+                            status.message().unwrap_or("?".to_string())
+                        ));
+                    });
+                }
             }
             _ => {}
         }
