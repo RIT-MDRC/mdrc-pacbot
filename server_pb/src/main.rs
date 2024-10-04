@@ -7,7 +7,7 @@ use crate::sockets::{Destination, Outgoing, Sockets};
 use crate::Destination::Robot;
 use crate::Outgoing::ToRobot;
 use core_pb::bin_encode;
-use core_pb::constants::GUI_LISTENER_PORT;
+use core_pb::constants::{GUI_LISTENER_PORT, MAX_ROBOT_PATH_LENGTH};
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::server_status::ServerStatus;
@@ -215,6 +215,14 @@ impl App {
                     self.status.game_state.pacman_loc.get_coords().0,
                     self.status.game_state.pacman_loc.get_coords().1,
                 ));
+                data.target_path = self
+                    .status
+                    .target_path
+                    .clone()
+                    .into_iter()
+                    .take(MAX_ROBOT_PATH_LENGTH)
+                    .collect();
+                data.follow_target_path = self.settings.do_target_path;
             }
             self.send(
                 Robot(name),
