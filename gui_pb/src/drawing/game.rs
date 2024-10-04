@@ -211,15 +211,24 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
     );
 
     // target path
-    if let Some(target) = app.server_status.target_path.first() {
+    for i in 0..app.server_status.target_path.len() {
+        let first = wts.map_point(if i == 0 {
+            Pos2::new(
+                pacman_state.pacman_loc.row as f32,
+                pacman_state.pacman_loc.col as f32,
+            )
+        } else {
+            Pos2::new(
+                app.server_status.target_path[i - 1].x as f32,
+                app.server_status.target_path[i - 1].y as f32,
+            )
+        });
+        let second = wts.map_point(Pos2::new(
+            app.server_status.target_path[i].x as f32,
+            app.server_status.target_path[i].y as f32,
+        ));
         painter.line_segment(
-            [
-                wts.map_point(Pos2::new(
-                    pacman_state.pacman_loc.row as f32,
-                    pacman_state.pacman_loc.col as f32,
-                )),
-                wts.map_point(Pos2::new(target.x as f32, target.y as f32)),
-            ],
+            [first, second],
             Stroke::new(1.0, PACMAN_AI_TARGET_LOCATION_COLOR),
         );
     }
