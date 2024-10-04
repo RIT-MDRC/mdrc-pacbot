@@ -59,6 +59,7 @@ pub struct RobotStatus {
     pub imu_angle: Result<f32, ()>,
     pub distance_sensors: [Result<Option<f32>, ()>; 4],
     pub estimated_location: Option<Point2<f32>>,
+    pub battery: f32,
 }
 
 impl RobotStatus {
@@ -77,6 +78,32 @@ impl RobotStatus {
             imu_angle: Err(()),
             distance_sensors: [Err(()); 4],
             estimated_location: None,
+            battery: 1.0,
+        }
+    }
+}
+
+impl RobotStatus {
+    #[cfg(feature = "egui-phosphor")]
+    pub fn battery_status(&self) -> ColoredStatus {
+        if self.connection != NetworkStatus::Connected {
+            ColoredStatus::NotApplicable(Some(format!(
+                "{:.1}% (Not connected)",
+                self.battery * 100.0
+            )))
+        } else {
+            let msg = Some(format!("{:.1}%", self.battery * 100.0));
+            if self.battery > 0.75 {
+                ColoredStatus::Ok(msg)
+            } else if self.battery > 0.5 {
+                ColoredStatus::Ok(msg)
+            } else if self.battery > 0.25 {
+                ColoredStatus::Warn(msg)
+            } else if self.battery > 0.1 {
+                ColoredStatus::Error(msg)
+            } else {
+                ColoredStatus::Error(msg)
+            }
         }
     }
 }
