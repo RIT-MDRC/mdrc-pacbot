@@ -53,7 +53,8 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior>(
             location,
             battery: peripherals.battery_level().await.map_err(|_| ()),
         };
-        peripherals.send_or_drop(RobotInterTaskMessage::Sensors(sensors), Task::Wifi);
+        peripherals.send_or_drop(RobotInterTaskMessage::Sensors(sensors.clone()), Task::Wifi);
+        peripherals.send_or_drop(RobotInterTaskMessage::Sensors(sensors), Task::Motors);
         match peripherals
             .receive_message_timeout(Duration::from_millis(10))
             .await

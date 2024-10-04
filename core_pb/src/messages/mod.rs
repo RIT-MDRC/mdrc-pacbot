@@ -1,3 +1,4 @@
+use crate::constants::MAX_ROBOT_PATH_LENGTH;
 #[cfg(feature = "std")]
 use crate::grid::standard_grid::StandardGrid;
 #[cfg(feature = "std")]
@@ -110,6 +111,10 @@ pub struct FrequentServerToRobot {
     ///
     /// Not used when this struct functions as a configuration in server settings
     pub cv_location: Option<Point2<i8>>,
+    /// The points the robot should try to go to
+    pub target_path: heapless::Vec<Point2<i8>, MAX_ROBOT_PATH_LENGTH>,
+    /// Whether the robot should try to follow the target path (including maintaining heading 0)
+    pub follow_target_path: bool,
 }
 
 impl FrequentServerToRobot {
@@ -123,6 +128,8 @@ impl FrequentServerToRobot {
             motor_config: definition.default_motor_config,
             pid: definition.default_pid,
             cv_location: None,
+            target_path: heapless::Vec::new(),
+            follow_target_path: false,
         }
     }
 }

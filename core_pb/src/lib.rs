@@ -9,6 +9,7 @@ pub mod grid;
 pub mod localization;
 pub mod messages;
 pub mod names;
+pub mod pure_pursuit;
 pub mod robot_definition;
 #[cfg(feature = "std")]
 pub mod threaded_websocket;
