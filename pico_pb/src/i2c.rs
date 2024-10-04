@@ -94,6 +94,10 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
     async fn distance_sensor(&mut self, _index: usize) -> Result<Option<f32>, Self::Error> {
         Err(())
     }
+
+    async fn battery_level(&mut self) -> Result<f32, Self::Error> {
+        Err(())
+    }
 }
 
 pub async fn write_u8<T: I2c>(

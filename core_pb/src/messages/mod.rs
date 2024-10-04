@@ -180,6 +180,8 @@ pub struct SensorData {
     pub distances: [Result<Option<f32>, ()>; 4],
     /// The best guess location of the robot
     pub location: Option<Point2<f32>>,
+    /// The battery level of the robot
+    pub battery: Result<f32, ()>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
