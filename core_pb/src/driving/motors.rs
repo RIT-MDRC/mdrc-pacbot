@@ -100,7 +100,6 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
                     // ensure angle stays in range -pi <= angle < pi
                     let angle = Rotation2::new(angle).angle();
                     if angle.abs() > 1.5_f32.to_radians() {
-                        log::info!("{}", angle);
                         const HEADING_CORRECTION_STRENGTH: f32 = 1.0 / 3.0;
                         target_velocity.1 = -angle * HEADING_CORRECTION_STRENGTH;
                     }
