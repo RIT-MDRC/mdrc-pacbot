@@ -165,15 +165,15 @@ impl<
     ///
     /// See [`ThreadedSocket`] for full usage example
     pub async fn async_read(&mut self) -> Either<TextOrT<ReceiveType>, NetworkStatus> {
-        self.status();
-
         let data = self.receiver.recv();
         let status = self.status_receiver.recv();
 
         match select(pin!(data), pin!(status)).await {
             Either::Left(x) => Either::Left(x.0.expect("ThreadedSocket data receiver is closed")),
             Either::Right(x) => {
-                Either::Right(x.0.expect("ThreadedSocket status receiver is closed"))
+                let status = x.0.expect("ThreadedSocket status receiver is closed");
+                self.status = status;
+                Either::Right(status)
             }
         }
     }

@@ -249,12 +249,6 @@ impl App {
 
     async fn update_settings(&mut self, old: &PacbotSettings, new: PacbotSettings) {
         self.update_connection(
-            &old.game_server.connection,
-            &new.game_server.connection,
-            Destination::GameServer,
-        )
-        .await;
-        self.update_connection(
             &old.simulation.connection,
             &new.simulation.connection,
             Destination::Simulation,
