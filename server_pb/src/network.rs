@@ -152,6 +152,16 @@ impl App {
                 GuiToServerMessage::SimulationCommand(msg) => {
                     self.send(Simulation, ToSimulation(msg)).await;
                 }
+                GuiToServerMessage::RestartSimulation => {
+                    if self.settings.simulation.simulate {
+                        let old_settings = self.settings.clone();
+                        let mut new_settings = old_settings.clone();
+                        new_settings.simulation.simulate = false;
+                        self.update_settings(&old_settings, new_settings).await;
+                        let new_settings = old_settings.clone();
+                        self.update_settings(&old_settings, new_settings).await;
+                    }
+                }
                 _ => {}
             },
             (_, GuiConnected(id)) => {

@@ -224,7 +224,20 @@ pub fn draw_settings(app: &mut App, ui: &mut Ui) {
 fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, (String, String)>) {
     ui.checkbox(&mut app.rotated_grid, "Rotated grid");
     ui.end_row();
-    ui.checkbox(&mut app.settings.simulation.simulate, "Run simulation");
+    ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+        ui.checkbox(&mut app.settings.simulation.simulate, "Run simulation");
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if ui
+                .add_enabled(
+                    app.settings.simulation.simulate,
+                    egui::Button::new(egui_phosphor::regular::ARROW_CLOCKWISE),
+                )
+                .clicked()
+            {
+                app.send(GuiToServerMessage::RestartSimulation);
+            }
+        });
+    });
     ui.end_row();
     ui.checkbox(&mut app.settings.safe_mode, "Safe mode");
     ui.end_row();

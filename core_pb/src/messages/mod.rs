@@ -48,6 +48,8 @@ pub enum GuiToServerMessage {
     ClearFirmwareUpdateHistory(RobotName),
     /// Set a robot's target location
     TargetLocation(Point2<i8>),
+    /// Restart simulation (including rebuild)
+    RestartSimulation,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
