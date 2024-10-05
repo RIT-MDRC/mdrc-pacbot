@@ -24,7 +24,7 @@ use crate::drawing::widgets::draw_widgets;
 use core_pb::console_log;
 #[cfg(target_arch = "wasm32")]
 pub use core_pb::log;
-use core_pb::messages::{GameServerCommand, GuiToServerMessage, ServerToGuiMessage};
+use core_pb::messages::{GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToGuiMessage};
 use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
 use core_pb::util::stopwatch::Stopwatch;
 #[cfg(not(target_arch = "wasm32"))]
@@ -219,7 +219,13 @@ impl App {
                     self.settings = settings.clone();
                     self.old_settings = settings
                 }
-                ServerToGuiMessage::Status(status) => self.server_status = status,
+                ServerToGuiMessage::Status(status) => {
+                    if status.game_server_connection == NetworkStatus::Connected
+                    {
+                        self.send(GuiToServerMessage::Settings(self.settings.clone()));
+                    }
+                    self.server_status = status
+                }
             }
         }
     }

@@ -18,7 +18,6 @@ pub struct UiSettings {
     pub any_robot_has_been_selected: bool,
 
     pub mdrc_server: ConnectionSettings,
-    pub last_connection_status: NetworkStatus,
 
     pub mdrc_server_collapsed: bool,
     pub simulation_collapsed: bool,
@@ -39,7 +38,6 @@ impl Default for UiSettings {
                 ipv4: [127, 0, 0, 1],
                 port: GUI_LISTENER_PORT,
             },
-            last_connection_status: NetworkStatus::NotConnected,
 
             mdrc_server_collapsed: true,
             simulation_collapsed: true,
@@ -277,17 +275,6 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         &app.network.0.status(),
         |_| {},
     );
-
-    let status: NetworkStatus = app.network.0.status();
-    let last_status: NetworkStatus = app.ui_settings.last_connection_status;
-    if status != last_status {
-        if status == NetworkStatus::Connected {
-            app.network.0.send(TextOrT::T(GuiToServerMessage::Settings(
-                app.settings.clone(),
-            )));
-        }
-        app.ui_settings.last_connection_status = status;
-    }
 
     generic_server(
         ui,
