@@ -24,7 +24,7 @@ use crate::drawing::widgets::draw_widgets;
 use core_pb::console_log;
 #[cfg(target_arch = "wasm32")]
 pub use core_pb::log;
-use core_pb::messages::{GameServerCommand, GuiToServerMessage, ServerToGuiMessage};
+use core_pb::messages::{GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToGuiMessage};
 use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
 use core_pb::util::stopwatch::Stopwatch;
 #[cfg(not(target_arch = "wasm32"))]
@@ -125,6 +125,7 @@ pub struct App {
     gui_stopwatch: Stopwatch<5, 30, StdInstant>,
     rotated_grid: bool,
     settings_fields: Option<HashMap<String, (String, String)>>,
+    pacbot_server_connection_status: NetworkStatus,
 }
 
 impl eframe::App for App {
@@ -207,6 +208,7 @@ impl App {
 
             rotated_grid: true,
             settings_fields: Some(HashMap::new()),
+            pacbot_server_connection_status: NetworkStatus::NotConnected,
         }
     }
 
@@ -234,12 +236,19 @@ impl App {
         while let Some(TextOrT::T(msg)) = self.network.0.read() {
             match msg {
                 ServerToGuiMessage::Settings(settings) => {
+                    if self.pacbot_server_connection_status != NetworkStatus::Connected
+                        && self.network.0.status() == NetworkStatus::Connected
+                    {
+                        // send our settings to hopefully replace the server's
+                        self.send(GuiToServerMessage::Settings(self.settings.clone()));
+                    }
                     self.settings = settings.clone();
                     self.old_settings = settings
                 }
                 ServerToGuiMessage::Status(status) => self.server_status = status,
             }
         }
+        self.pacbot_server_connection_status = self.network.0.status();
     }
 
     /// Draw the main outer layout
