@@ -191,7 +191,7 @@ impl App {
             )
             .await; // check if new AI calculation is needed
         }
-        if self.status.target_path.is_empty()
+        if self.status.target_path.len() < 4
             && self.settings.driving.strategy == StrategyChoice::ReinforcementLearning
         {
             self.inference_timer.start();
@@ -207,7 +207,6 @@ impl App {
 
             let mut future = self.status.game_state.clone();
             let mut i = 0;
-            let mut future_locations = vec![];
             while i < 4 {
                 future.set_pacman_location((
                     future.pacman_loc.row + rl_vec.0,
@@ -216,7 +215,7 @@ impl App {
                 rl_direction = self.rl_manager.hybrid_strategy(future.clone());
                 rl_vec = rl_direction.vector();
                 i += 1;
-                future_locations.push(Point2::new(
+                self.status.target_path.push(Point2::new(
                     future.pacman_loc.row + rl_vec.0,
                     future.pacman_loc.col + rl_vec.1,
                 ));
