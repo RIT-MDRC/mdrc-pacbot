@@ -1,4 +1,4 @@
-use crate::{receive_timeout, send_blocking2, send_or_drop2, Irqs};
+use crate::{receive_timeout, send_blocking2, send_or_drop2, EmbassyInstant, Irqs};
 use core::time::Duration;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
@@ -74,13 +74,14 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
         DisplaySize128x64,
         BufferedGraphicsMode<DisplaySize128x64>,
     >;
+    type Instant = EmbassyInstant;
     type Error = ();
 
-    fn draw_display<F>(&mut self, draw: F)
+    fn draw_display<F>(&mut self, draw: F) -> Result<(), Self::Error>
     where
-        F: FnOnce(&mut Self::Display),
+        F: FnOnce(&mut Self::Display) -> Result<(), display_interface::DisplayError>,
     {
-        draw(&mut self.display)
+        draw(&mut self.display).map_err(|_| ())
     }
 
     async fn flip_screen(&mut self) {

@@ -1144,6 +1144,7 @@ dependencies = [
  "cyw43-pio",
  "defmt",
  "defmt-rtt",
+ "display-interface",
  "embassy-boot-rp",
  "embassy-embedded-hal",
  "embassy-executor",
