@@ -195,15 +195,32 @@ impl App {
             && self.settings.driving.strategy == StrategyChoice::ReinforcementLearning
         {
             self.inference_timer.start();
-            let rl_direction = self
+            let mut rl_direction = self
                 .rl_manager
                 .hybrid_strategy(self.status.game_state.clone());
-            let rl_vec = rl_direction.vector();
+            let mut rl_vec = rl_direction.vector();
             // todo multiple steps
             self.status.target_path = vec![Point2::new(
                 self.status.game_state.pacman_loc.row + rl_vec.0,
                 self.status.game_state.pacman_loc.col + rl_vec.1,
             )];
+
+            let mut future = self.status.game_state.clone();
+            let mut i = 0;
+            let mut future_locations = vec![];
+            while i < 4 {
+                future.set_pacman_location((
+                    future.pacman_loc.row + rl_vec.0,
+                    future.pacman_loc.col + rl_vec.1,
+                ));
+                rl_direction = self.rl_manager.hybrid_strategy(future.clone());
+                rl_vec = rl_direction.vector();
+                i += 1;
+                future_locations.push(Point2::new(
+                    future.pacman_loc.row + rl_vec.0,
+                    future.pacman_loc.col + rl_vec.1,
+                ));
+            }
             self.inference_timer.mark_completed("inference").unwrap();
             self.status.inference_time = self.inference_timer.status();
         }

@@ -238,8 +238,7 @@ impl App {
                     self.old_settings = settings
                 }
                 ServerToGuiMessage::Status(status) => {
-                    if status.game_server_connection == NetworkStatus::Connected
-                    {
+                    if status.game_server_connection == NetworkStatus::Connected {
                         self.send(GuiToServerMessage::Settings(self.settings.clone()));
                     }
                     self.server_status = status
