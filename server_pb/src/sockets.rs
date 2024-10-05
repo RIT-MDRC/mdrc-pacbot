@@ -9,6 +9,7 @@ use async_tungstenite::async_std::ConnectStream;
 use async_tungstenite::WebSocketStream;
 use futures_util::future::Either;
 use futures_util::future::Either::{Left, Right};
+use log::error;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use simple_websockets::{Event, Message, Responder};
@@ -147,7 +148,7 @@ async fn receive_outgoing(
                     .send(Left(addr))
                     .await
                     .map_err(|_| ())?,
-                _ => eprintln!("Invalid destination {dest:?} for address {addr:?}"),
+                _ => error!("Invalid destination {dest:?} for address {addr:?}"),
             }
         } else if let Outgoing::Text(text) = msg {
             match dest {
@@ -159,7 +160,7 @@ async fn receive_outgoing(
                     .send(Right(TextOrT::Text(text)))
                     .await
                     .map_err(|_| ())?,
-                _ => eprintln!("Invalid destination {dest:?} for text {text}"),
+                _ => error!("Invalid destination {dest:?} for text {text}"),
             }
         } else {
             match (dest, msg) {
@@ -183,7 +184,7 @@ async fn receive_outgoing(
                 | (Simulation, _)
                 | (Robot(_), _)
                 | (GuiClients, _) => {
-                    eprintln!("Invalid destination: {dest:?}")
+                    error!("Invalid destination: {dest:?}")
                 }
             }
         }
@@ -268,12 +269,12 @@ async fn manage_gui_clients(
                     Event::Message(id, msg) => match msg {
                         Message::Binary(bytes) => match bin_decode(&bytes) {
                             Ok(msg) => tx.send((GuiClients, Incoming::FromGui(msg))).await.map_err(|_| ())?,
-                            Err(e) => eprintln!(
+                            Err(e) => error!(
                                 "Failed to decode bytes from gui client {id} ({} bytes): {e:?}",
                                 bytes.len()
                             ),
                         },
-                        Message::Text(text) => eprintln!("Unexpected text from gui client {id}: {text}"),
+                        Message::Text(text) => error!("Unexpected text from gui client {id}: {text}"),
                     },
                 }
             }

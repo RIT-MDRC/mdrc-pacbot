@@ -7,8 +7,6 @@ use core_pb::driving::network::network_task;
 use core_pb::driving::peripherals::peripherals_task;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use core_pb::names::RobotName;
-use embedded_graphics::mock_display::MockDisplay;
-use embedded_graphics::pixelcolor::BinaryColor;
 use futures::future::{select, Either};
 use futures::{select, FutureExt};
 use std::fmt::Debug;
@@ -20,7 +18,7 @@ use std::time::Duration;
 
 use crate::driving::motors::SimMotors;
 use crate::driving::network::SimNetwork;
-use crate::driving::peripherals::SimPeripherals;
+use crate::driving::peripherals::{SimDisplay, SimPeripherals};
 use crate::RobotToSimulationMessage;
 
 mod motors;
@@ -33,8 +31,8 @@ pub struct SimRobot {
     #[allow(unused)]
     pub name: RobotName,
 
-    pub display: MockDisplay<BinaryColor>,
-    pub display_ready: bool,
+    pub display: SimDisplay,
+    pub display_updated: bool,
 
     pub thread_stopper: Sender<()>,
     pub firmware_updated: bool,
@@ -61,8 +59,8 @@ impl SimRobot {
         let robot = Arc::new(RwLock::new(Self {
             name,
 
-            display: MockDisplay::new(),
-            display_ready: true,
+            display: SimDisplay::default(),
+            display_updated: true,
 
             thread_stopper: thread_stopper_tx,
             firmware_updated: false,
@@ -134,7 +132,7 @@ impl SimRobot {
             _ = handle_task(network_task(network)).fuse() => {
                 info!("{name} network task ended early");
             }
-            _ = handle_task(peripherals_task(peripherals)).fuse() => {
+            _ = handle_task(peripherals_task(peripherals, name)).fuse() => {
                 info!("{name} peripherals task ended early");
             }
             _ = Self::handle_one_task_messages(r0, senders.clone()).fuse() => {

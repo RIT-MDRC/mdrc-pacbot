@@ -51,7 +51,7 @@ impl ColoredStatus {
             ColoredStatus::Ok(_) => egui_phosphor::regular::CHECK,
             ColoredStatus::Warn(_) => egui_phosphor::regular::WARNING,
             ColoredStatus::Error(_) => egui_phosphor::regular::X,
-            ColoredStatus::NotApplicable(_) => "",
+            ColoredStatus::NotApplicable(_) => egui_phosphor::regular::MINUS,
         }
     }
 

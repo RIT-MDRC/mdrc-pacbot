@@ -7,8 +7,9 @@ use crate::sockets::{Destination, Outgoing, Sockets};
 use crate::Destination::Robot;
 use crate::Outgoing::ToRobot;
 use core_pb::bin_encode;
-use core_pb::constants::GUI_LISTENER_PORT;
+use core_pb::constants::{GUI_LISTENER_PORT, MAX_ROBOT_PATH_LENGTH};
 use core_pb::grid::computed_grid::ComputedGrid;
+use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::{ConnectionSettings, PacbotSettings, StrategyChoice};
 use core_pb::messages::{
@@ -17,8 +18,11 @@ use core_pb::messages::{
 };
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::location::Direction;
+use core_pb::util::stopwatch::Stopwatch;
 use core_pb::util::utilization::UtilizationMonitor;
 use core_pb::util::StdInstant;
+use env_logger::Builder;
+use log::{info, LevelFilter};
 use nalgebra::Point2;
 use std::process::{Child, Command};
 use std::time::Duration;
@@ -36,6 +40,7 @@ pub struct App {
     status: ServerStatus,
     settings: PacbotSettings,
     utilization_monitor: UtilizationMonitor<100, StdInstant>,
+    inference_timer: Stopwatch<1, 10, StdInstant>,
 
     client_http_host_process: Option<Child>,
     sim_game_engine_process: Option<Child>,
@@ -56,6 +61,13 @@ impl Default for App {
             status: Default::default(),
             settings: Default::default(),
             utilization_monitor: UtilizationMonitor::default(),
+            inference_timer: Stopwatch::new(
+                "Inference",
+                Duration::from_secs_f32(0.5),
+                Duration::from_secs_f32(1.0),
+                100.0,
+                100.0,
+            ),
 
             client_http_host_process: None,
             sim_game_engine_process: None,
@@ -72,10 +84,15 @@ impl Default for App {
 
 #[tokio::main]
 async fn main() {
-    println!("RIT Pacbot server starting up");
+    Builder::from_default_env()
+        .filter_level(LevelFilter::Info)
+        .filter(Some("core_pb::threaded_websocket"), LevelFilter::Off) // silence threaded_websocket
+        .init();
+
+    info!("RIT Pacbot server starting up");
 
     let mut app = App::default();
-    println!("Listening on 0.0.0.0:{GUI_LISTENER_PORT}");
+    info!("Listening on 0.0.0.0:{GUI_LISTENER_PORT}");
     app.utilization_monitor.start();
 
     // apply default settings
@@ -125,7 +142,7 @@ impl App {
                     self.utilization_monitor.stop();
                     self.status.utilization = self.utilization_monitor.status();
                 }
-            };
+            }
         }
     }
 
@@ -177,6 +194,7 @@ impl App {
         if self.status.target_path.is_empty()
             && self.settings.driving.strategy == StrategyChoice::ReinforcementLearning
         {
+            self.inference_timer.start();
             let rl_direction = self
                 .rl_manager
                 .hybrid_strategy(self.status.game_state.clone());
@@ -186,14 +204,29 @@ impl App {
                 self.status.game_state.pacman_loc.row + rl_vec.0,
                 self.status.game_state.pacman_loc.col + rl_vec.1,
             )];
+            self.inference_timer.mark_completed("inference").unwrap();
+            self.status.inference_time = self.inference_timer.status();
         }
         // send motor commands to robots
         for name in RobotName::get_all() {
+            let mut data = self.settings.robots[name as usize].config.clone();
+            if name == self.settings.pacman && self.settings.standard_grid == StandardGrid::Pacman {
+                data.cv_location = Some(Point2::new(
+                    self.status.game_state.pacman_loc.get_coords().0,
+                    self.status.game_state.pacman_loc.get_coords().1,
+                ));
+                data.target_path = self
+                    .status
+                    .target_path
+                    .clone()
+                    .into_iter()
+                    .take(MAX_ROBOT_PATH_LENGTH)
+                    .collect();
+                data.follow_target_path = self.settings.do_target_path;
+            }
             self.send(
                 Robot(name),
-                ToRobot(ServerToRobotMessage::FrequentRobotItems(
-                    self.settings.robots[name as usize].config.clone(),
-                )),
+                ToRobot(ServerToRobotMessage::FrequentRobotItems(data)),
             )
             .await;
         }
@@ -236,12 +269,6 @@ impl App {
 
     async fn update_settings(&mut self, old: &PacbotSettings, new: PacbotSettings) {
         self.update_connection(
-            &old.game_server.connection,
-            &new.game_server.connection,
-            Destination::GameServer,
-        )
-        .await;
-        self.update_connection(
             &old.simulation.connection,
             &new.simulation.connection,
             Destination::Simulation,
@@ -260,6 +287,16 @@ impl App {
                 &old.robots[id].connection,
                 &new.robots[id].connection,
                 Robot(name),
+            )
+            .await;
+        }
+
+        if new.standard_grid != old.standard_grid {
+            self.send(
+                Simulation,
+                ToSimulation(ServerToSimulationMessage::SetStandardGrid(
+                    new.standard_grid,
+                )),
             )
             .await;
         }

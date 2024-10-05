@@ -6,9 +6,9 @@ use crate::grid::standard_grid::StandardGrid;
 use crate::messages::{FrequentServerToRobot, RobotToServerMessage, SensorData};
 use core::time::Duration;
 #[cfg(feature = "defmt")]
-pub use defmt::*;
+pub(crate) use defmt::*;
 #[cfg(feature = "log")]
-pub use log::*;
+pub(crate) use log::*;
 
 /// The different async tasks that run on the robot
 #[derive(Copy, Clone, Debug)]

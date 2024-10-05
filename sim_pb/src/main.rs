@@ -55,7 +55,7 @@ pub struct Robot {
 }
 
 fn main() {
-    println!("Simulation starting up");
+    info!("Simulation starting up");
 
     App::new()
         .add_plugins(DefaultPlugins)
@@ -136,6 +136,7 @@ fn keyboard_input(
         &mut ExternalImpulse,
         &mut Robot,
     )>,
+    rapier_context: Res<RapierContext>,
 ) {
     if keys.just_pressed(KeyCode::KeyR) {
         if let Some(name) = RobotName::get_all()
@@ -179,13 +180,14 @@ fn keyboard_input(
             robot.wasd_target_vel = Some(target_vel)
         }
     }
-    app.apply_robots_target_vel(&mut robots);
+
+    app.apply_robots_target_vel(&mut robots, rapier_context);
     if keys.just_pressed(KeyCode::KeyG) {
         app.standard_grid = match app.standard_grid {
             StandardGrid::Pacman => StandardGrid::Playground,
             _ => StandardGrid::Pacman,
         };
         app.grid = app.standard_grid.compute_grid();
-        app.reset_grid(walls, &mut robots, &mut commands)
+        app.reset_grid(&walls, &mut robots, &mut commands)
     }
 }

@@ -2,14 +2,18 @@ use crate::drive_system::DriveSystem;
 use crate::driving::RobotInterTaskMessage;
 use crate::driving::RobotTask;
 use crate::driving::Task;
-use crate::messages::{FrequentServerToRobot, MotorControlStatus, RobotToServerMessage};
+use crate::messages::{
+    FrequentServerToRobot, MotorControlStatus, RobotToServerMessage, SensorData,
+};
 use crate::names::RobotName;
+use crate::pure_pursuit::pure_pursuit;
 use crate::robot_definition::RobotDefinition;
 use crate::util::CrossPlatformInstant;
 use core::fmt::Debug;
 use core::time::Duration;
 #[cfg(not(feature = "std"))]
 use nalgebra::ComplexField;
+use nalgebra::{Rotation2, Vector2};
 use pid::Pid;
 
 /// Functionality that robots with motors must support
@@ -78,6 +82,8 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
         prev_out: [0.0; 3],
     };
 
+    let mut sensors: Option<SensorData> = None;
+
     let task_start = T::Instant::default();
 
     let mut last_motor_control_status = T::Instant::default();
@@ -86,6 +92,29 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
     let mut last_command = T::Instant::default();
 
     loop {
+        if data.config.follow_target_path {
+            if let Some(sensors) = &sensors {
+                let mut target_velocity = (Vector2::new(0.0, 0.0), 0.0);
+                // maintain heading 0
+                if let Ok(angle) = sensors.angle {
+                    // ensure angle stays in range -pi <= angle < pi
+                    let angle = Rotation2::new(angle).angle();
+                    if angle.abs() > 1.5_f32.to_radians() {
+                        const HEADING_CORRECTION_STRENGTH: f32 = 1.0 / 3.0;
+                        target_velocity.1 = -angle * HEADING_CORRECTION_STRENGTH;
+                    }
+                    if angle.abs() < 5.0_f32.to_radians() {
+                        // now that we've made sure we're facing the right way, try to follow the path
+                        if let Some(vel) = pure_pursuit(sensors, &data.config.target_path, 0.5) {
+                            target_velocity.0 = vel;
+                        }
+                    }
+                }
+                // calculate wheel velocities
+                data.config.target_velocity = Some(target_velocity);
+            }
+        }
+
         if last_command.elapsed() > Duration::from_millis(300) {
             // we might have disconnected, set all motors to stop
             data.config = FrequentServerToRobot::new(data.name);
@@ -153,17 +182,21 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
             Some(t) => t,
         };
 
-        if let Some(RobotInterTaskMessage::FrequentServerToRobot(msg)) =
-            data.motors.receive_message_timeout(time_to_wait).await
-        {
-            last_command = T::Instant::default();
-            data.config = msg;
-            for m in 0..3 {
-                data.pid_controllers[m]
-                    .p(data.config.pid[0], robot.pwm_top as f32)
-                    .i(data.config.pid[1], robot.pwm_top as f32)
-                    .d(data.config.pid[2], robot.pwm_top as f32);
+        match data.motors.receive_message_timeout(time_to_wait).await {
+            Some(RobotInterTaskMessage::FrequentServerToRobot(msg)) => {
+                last_command = T::Instant::default();
+                data.config = msg;
+                for m in 0..3 {
+                    data.pid_controllers[m]
+                        .p(data.config.pid[0], robot.pwm_top as f32)
+                        .i(data.config.pid[1], robot.pwm_top as f32)
+                        .d(data.config.pid[2], robot.pwm_top as f32);
+                }
             }
+            Some(RobotInterTaskMessage::Sensors(new_sensors)) => {
+                sensors = Some(new_sensors);
+            }
+            _ => {}
         }
     }
 }
