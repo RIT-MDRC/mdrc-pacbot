@@ -198,8 +198,8 @@ impl PacbotNetworkSimulation {
         // send status to simulation clients
         for client in self.simulation_clients.values_mut() {
             client.send(Message::Binary(
-                bin_encode(SimulationToServerMessage {
-                    robot_positions: RobotName::get_all().map(|name| {
+                bin_encode(SimulationToServerMessage::RobotPositions(
+                    RobotName::get_all().map(|name| {
                         if !name.is_simulated() {
                             None
                         } else {
@@ -224,9 +224,45 @@ impl PacbotNetworkSimulation {
                                 })
                         }
                     }),
-                })
+                ))
                 .unwrap(),
             ));
+        }
+
+        // send updated displays to clients
+        for name in RobotName::get_all() {
+            if !name.is_simulated() {
+                continue;
+            }
+            if let Some((_, robot)) = &app.robots[name as usize] {
+                let mut updated_display = None;
+                {
+                    let mut sim_robot = robot.write().unwrap();
+                    if sim_robot.display_updated {
+                        updated_display = Some(sim_robot.display.pixels);
+                        sim_robot.display_updated = false;
+                    }
+                }
+                if let Some(updated_display) = updated_display {
+                    let updated_display: Vec<u128> = updated_display
+                        .into_iter()
+                        .map(|row| {
+                            row.into_iter()
+                                .enumerate()
+                                .fold(0u128, |acc, (i, x)| acc | (u128::from(x) << i))
+                        })
+                        .collect();
+                    for client in self.simulation_clients.values_mut() {
+                        client.send(Message::Binary(
+                            bin_encode(SimulationToServerMessage::RobotDisplay(
+                                name,
+                                updated_display.clone(),
+                            ))
+                            .unwrap(),
+                        ));
+                    }
+                }
+            }
         }
 
         // robot messages

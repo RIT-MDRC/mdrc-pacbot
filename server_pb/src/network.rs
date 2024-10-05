@@ -6,7 +6,7 @@ use crate::App;
 use core_pb::constants::GAME_SERVER_MAGIC_NUMBER;
 use core_pb::messages::{
     GuiToServerMessage, NetworkStatus, RobotToServerMessage, ServerToGuiMessage,
-    ServerToSimulationMessage,
+    ServerToSimulationMessage, SimulationToServerMessage,
 };
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
@@ -96,12 +96,17 @@ impl App {
                     }
                 }
             }
-            (_, FromSimulation(msg)) => {
-                for name in RobotName::get_all() {
-                    self.status.robots[name as usize].sim_position =
-                        msg.robot_positions[name as usize];
+            (_, FromSimulation(msg)) => match msg {
+                SimulationToServerMessage::RobotPositions(robot_positions) => {
+                    for name in RobotName::get_all() {
+                        self.status.robots[name as usize].sim_position =
+                            robot_positions[name as usize];
+                    }
                 }
-            }
+                SimulationToServerMessage::RobotDisplay(name, display) => {
+                    self.status.robots[name as usize].display = Some(display);
+                }
+            },
             (Robot(name), FromRobot(RobotToServerMessage::Name(said_name))) => {
                 info!("Received name ({said_name}) from {name}");
                 if said_name != name {

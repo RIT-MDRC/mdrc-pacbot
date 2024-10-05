@@ -163,11 +163,12 @@ impl App {
             DockState::new(vec![Tab::Grid, Tab::Motors, Tab::Robot, Tab::Stopwatch]);
         let surface = dock_state.main_surface_mut();
         surface.split_right(NodeIndex::root(), 0.75, vec![Tab::Settings]);
-        surface.split_left(
+        let [_, left] = surface.split_left(
             NodeIndex::root(),
             0.15,
             vec![Tab::OverTheAirProgramming, Tab::Keybindings],
         );
+        surface.split_below(left, 0.7, vec![Tab::RobotDisplay]);
 
         let ui_settings: UiSettings = Default::default();
 
