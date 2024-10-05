@@ -2,11 +2,11 @@ use std::fs;
 use std::time::{Duration, Instant};
 
 use async_channel::Sender;
-
 use core_pb::messages::ota::{OverTheAirStep, OverTheAirStepCompletion};
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::{GuiToServerMessage, RobotToServerMessage, ServerToRobotMessage};
 use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
+use log::{error, info};
 
 use crate::sockets::{Destination, Incoming, Outgoing};
 
@@ -222,7 +222,7 @@ impl OverTheAirProgramming {
             // gui requests firmware update
             (_, Incoming::FromGui(GuiToServerMessage::StartOtaFirmwareUpdate(name))) => {
                 if status.robots[*name as usize].ota_current != OverTheAirStep::GuiRequest {
-                    eprintln!(
+                    error!(
                         "Firmware update was requested for {name} when one was already in progress"
                     );
                     self.cancel_update(*name, status).await;
@@ -243,7 +243,7 @@ impl OverTheAirProgramming {
             (Destination::Robot(name), Incoming::FromRobot(msg)) => match msg {
                 // robot indicates that it is ready for the update
                 RobotToServerMessage::ReadyToStartUpdate => {
-                    println!("[server] {name} ready to start update");
+                    info!("[server] {name} ready to start update");
                     if status.robots[*name as usize].ota_current
                         == OverTheAirStep::RobotReadyConfirmation
                     {
@@ -265,7 +265,7 @@ impl OverTheAirProgramming {
                                 self.robots[*name as usize].update_new_in_progress(status);
                             }
                             Err(e) => {
-                                eprintln!("Error reading binary for robot: {e:?}");
+                                error!("Error reading binary for robot: {e:?}");
                                 self.robots[*name as usize].update_failed(status);
                             }
                         }
@@ -278,7 +278,7 @@ impl OverTheAirProgramming {
                     {
                         if *offset != received {
                             self.robots[*name as usize].update_failed(status);
-                            eprintln!("Robot received bytes at the wrong offset");
+                            error!("Robot received bytes at the wrong offset");
                             self.cancel_update(*name, status).await;
                         } else {
                             // is there another firmware part?
@@ -335,7 +335,7 @@ impl OverTheAirProgramming {
                             self.robots[*name as usize].update_completed(status);
                             self.tick(status).await;
                         } else {
-                            eprintln!("Robot {name} seems to have rebooted, but its firmware wasn't swapped. Did it crash?");
+                            error!("Robot {name} seems to have rebooted, but its firmware wasn't swapped. Did it crash?");
                             self.robots[*name as usize].update_failed(status);
                         }
                     }

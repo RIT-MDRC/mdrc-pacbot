@@ -80,6 +80,16 @@ impl RobotName {
         [Pierre, Prince, Stella, Stevie, Speers]
     }
 
+    pub fn get_str(&self) -> &'static str {
+        match self {
+            Stella => "Stella",
+            Stevie => "Stevie",
+            Speers => "Speers",
+            Pierre => "Pierre",
+            Prince => "Prince",
+        }
+    }
+
     /// Whether this robot is managed by the simulator
     pub fn is_simulated(&self) -> bool {
         self.mac_address()[0] == 0x02

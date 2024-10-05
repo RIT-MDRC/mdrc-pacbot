@@ -23,11 +23,11 @@ use core_pb::driving::motors::motors_task;
 #[allow(unused_imports)]
 use core_pb::driving::network::{network_task, RobotNetworkBehavior};
 use core_pb::driving::peripherals::peripherals_task;
-use core_pb::driving::{info, RobotInterTaskMessage, Task};
+use core_pb::driving::{RobotInterTaskMessage, Task};
 use core_pb::names::RobotName;
 use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::CrossPlatformInstant;
-use defmt::unwrap;
+use defmt::{info, unwrap};
 use defmt_rtt as _;
 use embassy_executor::{InterruptExecutor, Spawner};
 use embassy_futures::select::select;
@@ -119,7 +119,10 @@ async fn main(spawner: Spawner) {
             (p.PWM_SLICE3, p.PWM_SLICE4, p.PWM_SLICE7),
         )
     )));
-    unwrap!(spawner.spawn(do_i2c(RobotPeripherals::new(p.I2C0, p.PIN_17, p.PIN_16))));
+    unwrap!(spawner.spawn(do_i2c(
+        name,
+        RobotPeripherals::new(p.I2C0, p.PIN_17, p.PIN_16)
+    )));
 
     info!("Finished spawning tasks");
 
@@ -150,8 +153,8 @@ async fn do_motors(name: RobotName, motors: Motors<3>) {
 }
 
 #[embassy_executor::task]
-async fn do_i2c(i2c: RobotPeripherals) {
-    unwrap!(peripherals_task(i2c).await)
+async fn do_i2c(name: RobotName, i2c: RobotPeripherals) {
+    unwrap!(peripherals_task(i2c, name).await)
 }
 
 async fn receive_timeout(

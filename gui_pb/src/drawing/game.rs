@@ -2,9 +2,11 @@ use core::f32;
 
 use crate::colors::*;
 use crate::App;
+use core_pb::constants::GU_PER_M;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::ghost_state::GhostColor;
+use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::TRANSLUCENT_YELLOW_COLOR;
 use eframe::egui::{Color32, Painter, Pos2, Rect, Rounding, Stroke};
 
@@ -68,6 +70,18 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
                 Stroke::new(1.0, Color32::BLACK),
             );
 
+            let estimated_location = app.server_status.robots[name as usize].estimated_location;
+            if let Some(estimated_location) = estimated_location {
+                let estimated_location: Pos2 =
+                    wts.map_point(Pos2::new(estimated_location.x, estimated_location.y));
+                painter.circle(
+                    estimated_location,
+                    wts.map_dist(name.robot().radius),
+                    Color32::TRANSPARENT,
+                    Stroke::new(1.0, Color32::GREEN),
+                );
+            }
+
             for (i, sensor) in app.server_status.robots[name as usize]
                 .distance_sensors
                 .into_iter()
@@ -102,6 +116,37 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
                             )),
                         ],
                         Stroke::new(1.0, Color32::GREEN),
+                    );
+                } else {
+                    let distance = RobotDefinition::new(name).sensor_distance * GU_PER_M;
+                    painter.line_segment(
+                        [
+                            wts.map_point(Pos2::new(
+                                pos.0.x
+                                    + name.robot().radius
+                                        * f32::cos(
+                                            pos.1.angle() + (i as f32) * f32::consts::FRAC_PI_2,
+                                        ),
+                                pos.0.y
+                                    + name.robot().radius
+                                        * f32::sin(
+                                            pos.1.angle() + (i as f32) * f32::consts::FRAC_PI_2,
+                                        ),
+                            )),
+                            wts.map_point(Pos2::new(
+                                pos.0.x
+                                    + (distance + name.robot().radius)
+                                        * f32::cos(
+                                            pos.1.angle() + (i as f32) * f32::consts::FRAC_PI_2,
+                                        ),
+                                pos.0.y
+                                    + (distance + name.robot().radius)
+                                        * f32::sin(
+                                            pos.1.angle() + (i as f32) * f32::consts::FRAC_PI_2,
+                                        ),
+                            )),
+                        ],
+                        Stroke::new(1.0, Color32::RED),
                     );
                 }
             }
@@ -166,15 +211,24 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
     );
 
     // target path
-    if let Some(target) = app.server_status.target_path.first() {
+    for i in 0..app.server_status.target_path.len() {
+        let first = wts.map_point(if i == 0 {
+            Pos2::new(
+                pacman_state.pacman_loc.row as f32,
+                pacman_state.pacman_loc.col as f32,
+            )
+        } else {
+            Pos2::new(
+                app.server_status.target_path[i - 1].x as f32,
+                app.server_status.target_path[i - 1].y as f32,
+            )
+        });
+        let second = wts.map_point(Pos2::new(
+            app.server_status.target_path[i].x as f32,
+            app.server_status.target_path[i].y as f32,
+        ));
         painter.line_segment(
-            [
-                wts.map_point(Pos2::new(
-                    pacman_state.pacman_loc.row as f32,
-                    pacman_state.pacman_loc.col as f32,
-                )),
-                wts.map_point(Pos2::new(target.x as f32, target.y as f32)),
-            ],
+            [first, second],
             Stroke::new(1.0, PACMAN_AI_TARGET_LOCATION_COLOR),
         );
     }

@@ -9,6 +9,13 @@ pub const SIMULATION_LISTENER_PORT: u16 = 20014;
 /// extra messages like pause, reset, custom game state
 pub const GAME_SERVER_MAGIC_NUMBER: [u8; 4] = [170, 115, 26, 153];
 
+/// The maximum number of nodes in the target path sent from the server to the robot
+pub const MAX_ROBOT_PATH_LENGTH: usize = 10;
+/// The size of the OLED display on the robot
+pub const ROBOT_DISPLAY_WIDTH: usize = 128;
+/// The size of the OLED display on the robot
+pub const ROBOT_DISPLAY_HEIGHT: usize = 64;
+
 /// Millimeters per inch
 pub const MM_PER_INCH: f32 = 25.4;
 /// Inches per grid unit

@@ -7,3 +7,4 @@
     - [Grid & Coordinate System](./grid_and_coordinates.md)
     - [Computed Grid](./computed_grid.md)
 - [Network](./network.md)
+- [Localization](./localization.md)
