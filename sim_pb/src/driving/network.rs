@@ -4,6 +4,7 @@ use async_channel::Sender;
 use async_std::io::{ReadExt, WriteExt};
 use async_std::net::{TcpListener, TcpStream};
 use async_std::task::sleep;
+use bevy::prelude::{error, info};
 use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use core_pb::names::RobotName;
@@ -131,19 +132,19 @@ impl RobotNetworkBehavior for SimNetwork {
     where
         Self: 'a,
     {
-        println!("{} listening on {port}!", self.name);
+        info!("{} listening on {port}!", self.name);
         match TcpListener::bind(format!("0.0.0.0:{port}")).await {
             Ok(listener) => match listener.accept().await {
                 Err(e) => {
-                    eprintln!("Error accepting socket: {e:?}")
+                    error!("Error accepting socket: {e:?}")
                 }
                 Ok((stream, addr)) => {
-                    println!("Client connected to a robot from {addr}");
+                    info!("Client connected to a {} from {addr}", self.name);
                     return Ok(TcpStreamReadWrite(stream));
                 }
             },
             Err(e) => {
-                eprintln!("Error binding listener: {e:?}");
+                error!("Error binding listener: {e:?}");
             }
         }
         Err(SimNetworkError::TcpAcceptFailed)

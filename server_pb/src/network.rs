@@ -6,16 +6,17 @@ use crate::App;
 use core_pb::constants::GAME_SERVER_MAGIC_NUMBER;
 use core_pb::messages::{
     GuiToServerMessage, NetworkStatus, RobotToServerMessage, ServerToGuiMessage,
-    ServerToSimulationMessage,
+    ServerToSimulationMessage, SimulationToServerMessage,
 };
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
+use log::{error, info};
 use nalgebra::Point2;
 
 impl App {
     pub async fn handle_message(&mut self, from: Destination, message: Incoming) {
         match (from, message) {
-            (dest, Bytes(data)) => eprintln!(
+            (dest, Bytes(data)) => error!(
                 "Unexpectedly received {} raw bytes from {dest:?}",
                 data.len()
             ),
@@ -35,6 +36,13 @@ impl App {
                             Simulation,
                             ToSimulation(ServerToSimulationMessage::SetPacman(
                                 self.settings.pacman,
+                            )),
+                        )
+                        .await;
+                        self.send(
+                            Simulation,
+                            ToSimulation(ServerToSimulationMessage::SetStandardGrid(
+                                self.settings.standard_grid,
                             )),
                         )
                         .await;
@@ -84,20 +92,25 @@ impl App {
                                 }
                             }
                         }
-                        Err(e) => eprintln!("Error updating game state: {e:?}"),
+                        Err(e) => error!("Error updating game state: {e:?}"),
                     }
                 }
             }
-            (_, FromSimulation(msg)) => {
-                for name in RobotName::get_all() {
-                    self.status.robots[name as usize].sim_position =
-                        msg.robot_positions[name as usize];
+            (_, FromSimulation(msg)) => match msg {
+                SimulationToServerMessage::RobotPositions(robot_positions) => {
+                    for name in RobotName::get_all() {
+                        self.status.robots[name as usize].sim_position =
+                            robot_positions[name as usize];
+                    }
                 }
-            }
+                SimulationToServerMessage::RobotDisplay(name, display) => {
+                    self.status.robots[name as usize].display = Some(display);
+                }
+            },
             (Robot(name), FromRobot(RobotToServerMessage::Name(said_name))) => {
-                println!("Received name ({said_name}) from {name}");
+                info!("Received name ({said_name}) from {name}");
                 if said_name != name {
-                    eprintln!("WARNING: Robot is having an identity crisis");
+                    error!("WARNING: Robot is having an identity crisis");
                 }
                 // the robot will receive motor and pid configuration via periodic actions
             }
@@ -108,8 +121,9 @@ impl App {
                 self.status.robots[name as usize].imu_angle = sensors.angle;
                 self.status.robots[name as usize].distance_sensors = sensors.distances;
                 self.status.robots[name as usize].estimated_location = sensors.location;
+                self.status.robots[name as usize].battery = sensors.battery;
             }
-            (Robot(name), FromRobot(msg)) => println!("Message received from {name}: {msg:?}"),
+            (Robot(name), FromRobot(msg)) => info!("Message received from {name}: {msg:?}"),
             (Robot(_), _) => {}
             (_, FromRobot(_)) => {}
             (_, FromGui(msg)) => match msg {
@@ -144,11 +158,21 @@ impl App {
                 GuiToServerMessage::SimulationCommand(msg) => {
                     self.send(Simulation, ToSimulation(msg)).await;
                 }
+                GuiToServerMessage::RestartSimulation => {
+                    if self.settings.simulation.simulate {
+                        let old_settings = self.settings.clone();
+                        let mut new_settings = old_settings.clone();
+                        new_settings.simulation.simulate = false;
+                        self.update_settings(&old_settings, new_settings).await;
+                        let new_settings = old_settings.clone();
+                        self.update_settings(&old_settings, new_settings).await;
+                    }
+                }
                 _ => {}
             },
             (_, GuiConnected(id)) => {
                 self.status.gui_clients += 1;
-                println!(
+                info!(
                     "Gui client #{id} connected; {} gui client(s) are connected",
                     self.status.gui_clients
                 );
@@ -160,12 +184,12 @@ impl App {
             }
             (_, GuiDisconnected(id)) => {
                 self.status.gui_clients -= 1;
-                println!(
+                info!(
                     "Gui client #{id} disconnected; {} gui client(s) remaining",
                     self.status.gui_clients
                 );
             }
-            (dest, Incoming::Text(text)) => eprintln!("Unexpected text from {dest:?}: {text}"),
+            (dest, Incoming::Text(text)) => error!("Unexpected text from {dest:?}: {text}"),
         }
     }
 }

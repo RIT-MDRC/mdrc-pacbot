@@ -1,6 +1,7 @@
 use crate::driving::SimRobot;
-use crate::{MyApp, RobotToSimulationMessage};
-use bevy::prelude::{Commands, Query, ResMut, Resource, Transform};
+use crate::{MyApp, Robot, RobotToSimulationMessage, Wall};
+use bevy::prelude::{error, info, Commands, Entity, Query, ResMut, Resource, Transform};
+use bevy_rapier2d::dynamics::{ExternalImpulse, Velocity};
 use bevy_rapier2d::na::{Point2, Rotation2};
 use core_pb::constants::{GAME_SERVER_MAGIC_NUMBER, GAME_SERVER_PORT, SIMULATION_LISTENER_PORT};
 use core_pb::messages::{GameServerCommand, ServerToSimulationMessage, SimulationToServerMessage};
@@ -29,16 +30,23 @@ pub struct PacbotNetworkSimulation {
 pub fn update_network(
     app: ResMut<MyApp>,
     mut network: ResMut<PacbotNetworkSimulation>,
-    mut commands: Commands,
-    pos_query: Query<&mut Transform>,
+    commands: Commands,
+    walls: Query<(Entity, &Wall)>,
+    robots: Query<(
+        Entity,
+        &mut Transform,
+        &mut Velocity,
+        &mut ExternalImpulse,
+        &mut Robot,
+    )>,
 ) {
-    network.update(app, &mut commands, pos_query);
+    network.update(app, commands, walls, robots);
 }
 
 impl PacbotNetworkSimulation {
     pub fn new() -> Result<Self, simple_websockets::Error> {
         let event_hub = simple_websockets::launch(GAME_SERVER_PORT)?;
-        println!("Listening on port {GAME_SERVER_PORT}");
+        info!("Listening on port {GAME_SERVER_PORT}");
         let simulation_event_hub = simple_websockets::launch(SIMULATION_LISTENER_PORT)?;
         let game_state = GameState {
             paused: true,
@@ -61,29 +69,37 @@ impl PacbotNetworkSimulation {
     pub fn update(
         &mut self,
         mut app: ResMut<MyApp>,
-        commands: &mut Commands,
-        mut pos_query: Query<&mut Transform>,
+        mut commands: Commands,
+        // mut pos_query: Query<&mut Transform>,
+        walls: Query<(Entity, &Wall)>,
+        mut robots: Query<(
+            Entity,
+            &mut Transform,
+            &mut Velocity,
+            &mut ExternalImpulse,
+            &mut Robot,
+        )>,
     ) {
         while let Some(event) = self.event_hub.next_event() {
             match event {
                 Event::Connect(id, responder) => {
-                    println!("Client #{id} connected");
+                    info!("Client #{id} connected");
                     // this message lets clients know that this game server supports
                     // extra messages like pause, reset, custom game state
                     if !responder.send(Message::Binary(GAME_SERVER_MAGIC_NUMBER.to_vec())) {
-                        eprintln!("Error sending magic numbers, client already closed");
+                        error!("Error sending magic numbers, client already closed");
                     };
                     self.game_server_clients.insert(id, responder);
-                    println!("{} client(s) connected", self.game_server_clients.len());
+                    info!("{} client(s) connected", self.game_server_clients.len());
                 }
                 Event::Disconnect(id) => {
-                    println!("Client #{id} disconnected");
+                    info!("Client #{id} disconnected");
                     self.game_server_clients.remove(&id);
-                    println!("{} client(s) connected", self.game_server_clients.len());
+                    info!("{} client(s) connected", self.game_server_clients.len());
                 }
                 Event::Message(id, msg) => match msg {
                     Message::Binary(bytes) => {
-                        println!("Message received from rust client #{id}");
+                        info!("Message received from rust client #{id}");
                         // binary messages originate from rust clients only
                         match bincode::serde::decode_from_slice::<GameServerCommand, _>(
                             &bytes,
@@ -98,16 +114,15 @@ impl PacbotNetworkSimulation {
                                 }
                                 GameServerCommand::SetState(s) => self.game_state = s,
                             },
-                            Err(e) => eprintln!(
-                                "Couldn't deserialize client command from {:?}: {:?}",
-                                id, e
-                            ),
+                            Err(e) => {
+                                error!("Couldn't deserialize client command from {:?}: {:?}", id, e)
+                            }
                         }
                     }
                     Message::Text(ref s) => {
                         // text messages may originate from web clients
                         let chars = s.chars().collect::<Vec<_>>();
-                        println!("Received message from {:?}: {:?}", id, msg.clone());
+                        info!("Received message from {:?}: {:?}", id, msg.clone());
                         match chars[0] {
                             'p' => self.game_state.paused = true,
                             'P' => self.game_state.paused = false,
@@ -118,7 +133,7 @@ impl PacbotNetworkSimulation {
                             'd' => self.game_state.move_pacman_dir(Right),
                             'x' => {
                                 if s.len() != 3 {
-                                    eprintln!(
+                                    error!(
                                         "Received invalid position message from {:?}: '{:?}'",
                                         id, s
                                     )
@@ -127,7 +142,7 @@ impl PacbotNetworkSimulation {
                                         .set_pacman_location((chars[1] as i8, chars[2] as i8));
                                 }
                             }
-                            _ => eprintln!("Received unexpected message from {:?}: {:?}", id, s),
+                            _ => error!("Received unexpected message from {:?}: {:?}", id, s),
                         }
                     }
                 },
@@ -145,52 +160,109 @@ impl PacbotNetworkSimulation {
                     {
                         Ok(msg) => match msg {
                             ServerToSimulationMessage::Spawn(name) => {
-                                app.spawn_robot(commands, name);
+                                app.spawn_robot(&mut commands, name);
                             }
                             ServerToSimulationMessage::Delete(name) => {
-                                app.despawn_robot(name, commands);
+                                app.despawn_robot(name, &mut commands);
                             }
                             ServerToSimulationMessage::SetPacman(name) => {
                                 app.selected_robot = name;
                             }
+                            ServerToSimulationMessage::SetStandardGrid(grid) => {
+                                app.standard_grid = grid;
+                                app.grid = app.standard_grid.compute_grid();
+                                app.reset_grid(&walls, &mut robots, &mut commands)
+                            }
                             ServerToSimulationMessage::Teleport(name, loc) => {
                                 if !app.grid.wall_at(&loc) {
-                                    app.teleport_robot(name, loc, &mut pos_query);
+                                    if let Some((_, mut transforms, ..)) = robots
+                                        .iter_mut()
+                                        .find(|(_, _, _, _, robot)| robot.name == name)
+                                    {
+                                        transforms.translation.x = loc.x as f32;
+                                        transforms.translation.y = loc.y as f32;
+                                    }
                                 }
                             }
                         },
-                        Err(e) => eprintln!("Error decoding simulation message: {e:?}"),
+                        Err(e) => error!("Error decoding simulation message: {e:?}"),
                     },
-                    Message::Text(text) => eprintln!("Unexpected simulation message: {text}"),
+                    Message::Text(text) => error!("Unexpected simulation message: {text}"),
                 },
                 Event::Disconnect(id) => {
                     self.simulation_clients.remove(&id);
                 }
             }
         }
+
         // send status to simulation clients
         for client in self.simulation_clients.values_mut() {
             client.send(Message::Binary(
-                bin_encode(SimulationToServerMessage {
-                    robot_positions: RobotName::get_all().map(|name| {
+                bin_encode(SimulationToServerMessage::RobotPositions(
+                    RobotName::get_all().map(|name| {
                         if !name.is_simulated() {
                             None
                         } else {
                             app.robots[name as usize]
                                 .iter()
                                 .next()
-                                .and_then(|(e, _)| pos_query.get(*e).ok())
+                                .and_then(|(_, _)| {
+                                    robots
+                                        .iter_mut()
+                                        .find(|(_, _, _, _, robot)| robot.name == name)
+                                })
+                                .map(|(_, t, ..)| t)
                                 .map(|t| {
                                     (
                                         Point2::new(t.translation.x, t.translation.y),
-                                        Rotation2::new(t.rotation.to_axis_angle().1),
+                                        // feels weird, but this does work
+                                        Rotation2::new(
+                                            2.0 * t.rotation.normalize().w.acos()
+                                                * t.rotation.z.signum(),
+                                        ),
                                     )
                                 })
                         }
                     }),
-                })
+                ))
                 .unwrap(),
             ));
+        }
+
+        // send updated displays to clients
+        for name in RobotName::get_all() {
+            if !name.is_simulated() {
+                continue;
+            }
+            if let Some((_, robot)) = &app.robots[name as usize] {
+                let mut updated_display = None;
+                {
+                    let mut sim_robot = robot.write().unwrap();
+                    if sim_robot.display_updated {
+                        updated_display = Some(sim_robot.display.pixels);
+                        sim_robot.display_updated = false;
+                    }
+                }
+                if let Some(updated_display) = updated_display {
+                    let updated_display: Vec<u128> = updated_display
+                        .into_iter()
+                        .map(|row| {
+                            row.into_iter()
+                                .enumerate()
+                                .fold(0u128, |acc, (i, x)| acc | (u128::from(x) << i))
+                        })
+                        .collect();
+                    for client in self.simulation_clients.values_mut() {
+                        client.send(Message::Binary(
+                            bin_encode(SimulationToServerMessage::RobotDisplay(
+                                name,
+                                updated_display.clone(),
+                            ))
+                            .unwrap(),
+                        ));
+                    }
+                }
+            }
         }
 
         // robot messages
@@ -198,13 +270,12 @@ impl PacbotNetworkSimulation {
             match msg {
                 RobotToSimulationMessage::SimulatedVelocity(lin, ang) => {
                     if Some((lin, ang)) != app.server_target_vel[name as usize] {
-                        // info!("Received target velocity: {lin:?} {ang:?}");
                         app.server_target_vel[name as usize] = Some((lin, ang))
                     }
                 }
                 RobotToSimulationMessage::MarkFirmwareUpdated => {
                     if let Some((_, sim_robot)) = &mut app.robots[name as usize] {
-                        println!("{name} declared updated firmware");
+                        info!("{name} declared updated firmware");
                         sim_robot.write().unwrap().firmware_updated = true;
                     }
                 }
@@ -232,7 +303,7 @@ impl PacbotNetworkSimulation {
             let serialized_state = self.game_state.to_bytes();
             for (id, responder) in &mut self.game_server_clients {
                 if !responder.send(Message::Binary(serialized_state.clone())) {
-                    eprintln!("Failed to send game state to {id}: already closed");
+                    error!("Failed to send game state to {id}: already closed");
                 }
             }
             self.last_state_update = Instant::now();

@@ -10,6 +10,7 @@ use std::time::Duration;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ServerStatus {
     pub utilization: ColoredStatus,
+    pub inference_time: ColoredStatus,
 
     pub simulation_connection: NetworkStatus,
 
@@ -27,6 +28,7 @@ impl Default for ServerStatus {
     fn default() -> Self {
         Self {
             utilization: ColoredStatus::Ok(Some("Loading...".to_string())),
+            inference_time: ColoredStatus::NotApplicable(Some("N/A".to_string())),
 
             simulation_connection: NetworkStatus::default(),
 
@@ -57,6 +59,9 @@ pub struct RobotStatus {
     pub imu_angle: Result<f32, ()>,
     pub distance_sensors: [Result<Option<f32>, ()>; 4],
     pub estimated_location: Option<Point2<f32>>,
+    pub battery: Result<f32, ()>,
+
+    pub display: Option<Vec<u128>>,
 }
 
 impl RobotStatus {
@@ -75,6 +80,35 @@ impl RobotStatus {
             imu_angle: Err(()),
             distance_sensors: [Err(()); 4],
             estimated_location: None,
+            battery: Err(()),
+
+            display: None,
+        }
+    }
+}
+
+impl RobotStatus {
+    #[cfg(feature = "egui-phosphor")]
+    pub fn battery_status(&self) -> ColoredStatus {
+        if self.connection != NetworkStatus::Connected {
+            ColoredStatus::NotApplicable(Some("Not connected".to_string()))
+        } else {
+            if let Ok(battery) = self.battery {
+                let msg = Some(format!("{:.1}%", battery * 100.0));
+                if battery > 0.75 {
+                    ColoredStatus::Ok(msg)
+                } else if battery > 0.5 {
+                    ColoredStatus::Ok(msg)
+                } else if battery > 0.25 {
+                    ColoredStatus::Warn(msg)
+                } else if battery > 0.1 {
+                    ColoredStatus::Error(msg)
+                } else {
+                    ColoredStatus::Error(msg)
+                }
+            } else {
+                ColoredStatus::Error(Some("ERR".to_string()))
+            }
         }
     }
 }

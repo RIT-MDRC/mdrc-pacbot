@@ -15,7 +15,7 @@ use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::PacbotSettings;
 use core_pb::pacbot_rs::game_state::GameState;
 use eframe::egui;
-use eframe::egui::{Align, Color32, Pos2};
+use eframe::egui::{Align, Color32, Pos2, Visuals};
 use egui_dock::{DockArea, DockState, NodeIndex, Style};
 // todo use native_dialog::FileDialog;
 use crate::drawing::motors::MotorStatusGraphFrames;
@@ -38,12 +38,22 @@ use std::time::Duration;
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() {
+    env_logger::Builder::from_default_env()
+        .filter_level(log::LevelFilter::Info)
+        .init();
     console_log!("RIT Pacbot gui starting up");
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
         "RIT Pacbot",
         native_options,
-        Box::new(|cc| Box::new(App::new(cc))),
+        Box::new(|cc| {
+            let style = egui::Style {
+                visuals: Visuals::dark(),
+                ..egui::Style::default()
+            };
+            cc.egui_ctx.set_style(style);
+            Box::new(App::new(cc))
+        }),
     )
     .expect("Failed to start egui app!");
 }
@@ -63,7 +73,14 @@ fn main() {
             .start(
                 "the_canvas_id", // hardcode it
                 web_options,
-                Box::new(|cc| Box::new(App::new(cc))),
+                Box::new(|cc| {
+                    let style = egui::Style {
+                        visuals: Visuals::dark(),
+                        ..egui::Style::default()
+                    };
+                    cc.egui_ctx.set_style(style);
+                    Box::new(App::new(cc))
+                }),
             )
             .await;
         let loading_text = web_sys::window()
@@ -146,11 +163,12 @@ impl App {
             DockState::new(vec![Tab::Grid, Tab::Motors, Tab::Robot, Tab::Stopwatch]);
         let surface = dock_state.main_surface_mut();
         surface.split_right(NodeIndex::root(), 0.75, vec![Tab::Settings]);
-        surface.split_left(
+        let [_, left] = surface.split_left(
             NodeIndex::root(),
             0.15,
             vec![Tab::OverTheAirProgramming, Tab::Keybindings],
         );
+        surface.split_below(left, 0.7, vec![Tab::RobotDisplay]);
 
         let ui_settings: UiSettings = Default::default();
 

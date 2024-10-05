@@ -1,3 +1,6 @@
+use crate::constants::MAX_ROBOT_PATH_LENGTH;
+#[cfg(feature = "std")]
+use crate::grid::standard_grid::StandardGrid;
 #[cfg(feature = "std")]
 use crate::messages::server_status::ServerStatus;
 #[cfg(feature = "std")]
@@ -47,6 +50,8 @@ pub enum GuiToServerMessage {
     ClearFirmwareUpdateHistory(RobotName),
     /// Set a robot's target location
     TargetLocation(Point2<i8>),
+    /// Restart simulation (including rebuild)
+    RestartSimulation,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -63,9 +68,11 @@ pub enum ServerToGuiMessage {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
 /// Messages sent from `sim_pb` to `server_pb`
-pub struct SimulationToServerMessage {
+pub enum SimulationToServerMessage {
     /// The positions of the simulated robots, to be shown in the gui
-    pub robot_positions: [Option<(Point2<f32>, Rotation2<f32>)>; NUM_ROBOT_NAMES],
+    RobotPositions([Option<(Point2<f32>, Rotation2<f32>)>; NUM_ROBOT_NAMES]),
+    /// The display of a simulated robot
+    RobotDisplay(RobotName, Vec<u128>),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -75,6 +82,7 @@ pub enum ServerToSimulationMessage {
     Teleport(RobotName, Point2<i8>),
     Delete(RobotName),
     SetPacman(RobotName),
+    SetStandardGrid(StandardGrid),
 }
 
 /// This is sent regularly and frequently to robots via [`ServerToRobotMessage::FrequentRobotItems`]
@@ -101,6 +109,14 @@ pub struct FrequentServerToRobot {
     pub motor_config: [[usize; 2]; 3],
     /// Basic parameters for the PID controller
     pub pid: [f32; 3],
+    /// The grid cell the CV system thinks the robot is in
+    ///
+    /// Not used when this struct functions as a configuration in server settings
+    pub cv_location: Option<Point2<i8>>,
+    /// The points the robot should try to go to
+    pub target_path: heapless::Vec<Point2<i8>, MAX_ROBOT_PATH_LENGTH>,
+    /// Whether the robot should try to follow the target path (including maintaining heading 0)
+    pub follow_target_path: bool,
 }
 
 impl FrequentServerToRobot {
@@ -113,6 +129,9 @@ impl FrequentServerToRobot {
             pwm_override: [[None; 2]; 3],
             motor_config: definition.default_motor_config,
             pid: definition.default_pid,
+            cv_location: None,
+            target_path: heapless::Vec::new(),
+            follow_target_path: false,
         }
     }
 }
@@ -170,6 +189,8 @@ pub struct SensorData {
     pub distances: [Result<Option<f32>, ()>; 4],
     /// The best guess location of the robot
     pub location: Option<Point2<f32>>,
+    /// The battery level of the robot
+    pub battery: Result<f32, ()>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
