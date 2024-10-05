@@ -58,7 +58,7 @@ impl RobotPeripheralsBehavior for SimPeripherals {
     async fn flip_screen(&mut self) {
         self.robot.write().unwrap().display_ready = true;
     }
-
+//example for running one robot at a time for velocity
     async fn absolute_rotation(&mut self) -> Result<f32, Self::Error> {
         self.robot
             .read()

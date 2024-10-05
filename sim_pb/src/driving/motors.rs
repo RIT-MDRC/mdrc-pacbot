@@ -6,12 +6,17 @@ use core_pb::driving::motors::RobotMotorsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use core_pb::names::RobotName;
 use core_pb::util::StdInstant;
+use std::sync::Arc;
 use std::time::Duration;
+use crate::SimRobot;
+use crate::RwLock;
+
 
 pub struct SimMotors {
     name: RobotName,
     drive_system: DriveSystem<3>,
     channels: TaskChannels,
+    sim_robot:  Arc<RwLock<SimRobot>>,
 
     pwm_values: [[u16; 2]; 3],
     motor_speeds: [f32; 3],
@@ -23,6 +28,7 @@ impl SimMotors {
         name: RobotName,
         channels: TaskChannels,
         sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
+        sim_robot: Arc<RwLock<SimRobot>>,
     ) -> Self {
         Self {
             name,
@@ -31,6 +37,7 @@ impl SimMotors {
             pwm_values: Default::default(),
             motor_speeds: Default::default(),
             sim_tx,
+            sim_robot
         }
     }
 }
@@ -81,7 +88,7 @@ impl RobotMotorsBehavior for SimMotors {
                 .unwrap();
         }
     }
-
+//TODO: grab velocity from sim robot, pass to get_motor_speed_omni from drive system, index into the array
     async fn get_motor_speed(&mut self, motor: usize) -> f32 {
         self.motor_speeds[motor]
     }

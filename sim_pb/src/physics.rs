@@ -92,6 +92,7 @@ impl MyApp {
             if let Some((_, sim_robot)) = &mut self.robots[robot.name as usize] {
                 let rotation = t.rotation.to_axis_angle().1;
                 sim_robot.write().unwrap().imu_angle = Ok(rotation);
+                sim_robot.write().unwrap().velocity = v.linvel.into();
 
                 let mut distance_sensors: [Result<Option<f32>, ()>; 4] = [Err(()); 4];
 
