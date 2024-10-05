@@ -16,6 +16,7 @@ mod vl6180x;
 
 use crate::encoders::{run_encoders, PioEncoder};
 use crate::i2c::{RobotPeripherals, PERIPHERALS_CHANNEL};
+use crate::i2c::read_distance_sensors;
 use crate::motors::{Motors, MOTORS_CHANNEL};
 use crate::network::{initialize_network, Network, NETWORK_CHANNEL};
 use core::ops::{Deref, DerefMut};
@@ -32,9 +33,11 @@ use defmt_rtt as _;
 use embassy_executor::{InterruptExecutor, Spawner};
 use embassy_futures::select::select;
 use embassy_futures::select::Either;
+use embassy_rp::gpio::Pin;
 use embassy_rp::interrupt::{InterruptExt, Priority};
 use embassy_rp::peripherals::{I2C0, PIO0, PIO1};
 use embassy_rp::pio::Pio;
+use embassy_rp::i2c as e_i2c;
 use embassy_rp::watchdog::Watchdog;
 use embassy_rp::{bind_interrupts, interrupt};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
@@ -119,10 +122,25 @@ async fn main(spawner: Spawner) {
             (p.PWM_SLICE3, p.PWM_SLICE4, p.PWM_SLICE7),
         )
     )));
-    unwrap!(spawner.spawn(do_i2c(
-        name,
-        RobotPeripherals::new(p.I2C0, p.PIN_17, p.PIN_16)
-    )));
+
+    // xshut pins array
+    // TODO: Figure out correct pins. For now, these are random unused
+    let xshut = [
+        p.PIN_2.degrade(),
+        p.PIN_3.degrade(),
+        p.PIN_4.degrade(),
+        p.PIN_5.degrade(),
+        p.PIN_10.degrade(),
+        p.PIN_11.degrade(),
+        p.PIN_12.degrade(),
+        p.PIN_13.degrade(),
+    ];
+
+    let i2c_inst = e_i2c::I2c::new_async(p.I2C0, p.PIN_17, p.PIN_16, Irqs, e_i2c::Config::default());
+    // let mut bus = shared_bus::BusManagerSimple::new(i2c_inst);
+    let bus: &'static _ = shared_bus::new_std!(SomeI2cBus = i2c_inst).unwrap();
+    unwrap!(spawner.spawn(do_i2c(name, RobotPeripherals::new(&mut bus))));
+    unwrap!(spawner.spawn(read_distance_sensors(&mut bus, xshut)));
 
     info!("Finished spawning tasks");
 

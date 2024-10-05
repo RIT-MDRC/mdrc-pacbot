@@ -1170,9 +1170,11 @@ dependencies = [
  "portable-atomic",
  "rand",
  "serde",
+ "shared-bus",
  "smoltcp",
  "ssd1306",
  "static_cell",
+ "vl53l4cd",
 ]
 
 [[package]]
@@ -1635,6 +1637,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "shared-bus"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6b8d3f0e34309c22ca4a9a27d24fa493e31573485f3493802b75b9d706756a6"
+dependencies = [
+ "embedded-hal 0.2.7",
+ "nb 1.1.0",
+]
+
+[[package]]
 name = "signature"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1832,6 +1844,16 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
+name = "vl53l4cd"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e457caae6f0963bebc41eca7e0e0d137dc63a2662b055b20b0810cad3405601f"
+dependencies = [
+ "embedded-hal-async",
+ "futures-util",
+]
 
 [[package]]
 name = "void"

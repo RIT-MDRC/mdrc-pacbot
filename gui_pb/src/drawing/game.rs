@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 use core::f32;
 
 use crate::colors::*;
@@ -233,3 +234,5 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
         );
     }
 }
+=======
+>>>>>>> Stashed changes
