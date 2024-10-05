@@ -60,6 +60,8 @@ pub struct RobotStatus {
     pub distance_sensors: [Result<Option<f32>, ()>; 4],
     pub estimated_location: Option<Point2<f32>>,
     pub battery: Result<f32, ()>,
+
+    pub display: Option<Vec<u128>>,
 }
 
 impl RobotStatus {
@@ -79,6 +81,8 @@ impl RobotStatus {
             distance_sensors: [Err(()); 4],
             estimated_location: None,
             battery: Err(()),
+
+            display: None,
         }
     }
 }

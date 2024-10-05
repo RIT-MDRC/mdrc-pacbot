@@ -68,9 +68,11 @@ pub enum ServerToGuiMessage {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
 /// Messages sent from `sim_pb` to `server_pb`
-pub struct SimulationToServerMessage {
+pub enum SimulationToServerMessage {
     /// The positions of the simulated robots, to be shown in the gui
-    pub robot_positions: [Option<(Point2<f32>, Rotation2<f32>)>; NUM_ROBOT_NAMES],
+    RobotPositions([Option<(Point2<f32>, Rotation2<f32>)>; NUM_ROBOT_NAMES]),
+    /// The display of a simulated robot
+    RobotDisplay(RobotName, Vec<u128>),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
