@@ -24,7 +24,7 @@ cyw43 = { git = "https://github.com/embassy-rs/embassy.git", features = ["defmt"
 cyw43-pio = { git = "https://github.com/embassy-rs/embassy.git", features = ["defmt", "overclock"] }
 embassy-boot-rp = { version = "0.2.0", git = "https://github.com/embassy-rs/embassy.git" }
 
-ssd1306 = { version = "0.8.4" }
+ssd1306 = { version = "0.9.0", default-features = false, features = ["async", "embedded-graphics-core", "graphics"] }
 
 defmt = "0.3.6"
 defmt-rtt = "0.4"
@@ -55,9 +55,8 @@ bincode = { version = "2.0.0-rc.3", default-features = false, features = ["serde
 serde = { version = "1.0.197", default-features = false, features = ["derive"] }
 num-traits = { version = "0.2.18", default-features = false }
 smoltcp = { version = "0.11.0", default-features = false, features = ["defmt"] }
-display-interface = "0.4.1"
+display-interface = "0.5.0"
 vl53l4cd = { version = "0.4.0", default-features = false }
-shared-bus = "0.3.1"
 
 [profile.release]
 debug = 2

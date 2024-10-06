@@ -1,54 +1,51 @@
-use crate::{receive_timeout, send_blocking2, send_or_drop2, EmbassyInstant, Irqs};
+use crate::{receive_timeout, send_blocking2, send_or_drop2, EmbassyInstant, I2cBus, Irqs};
 use core::time::Duration;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use defmt::{info, Format};
+use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_rp::gpio::{AnyPin, Level, Output};
 use embassy_rp::i2c::{Async, SclPin, SdaPin};
 use embassy_rp::peripherals::I2C0;
 use embassy_rp::{i2c, Peripheral};
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
 use embassy_sync::channel::Channel;
 use embassy_time::Timer;
 use embedded_hal_1::delay::DelayNs;
 use embedded_hal_async::i2c::I2c;
-use ssd1306::mode::BufferedGraphicsMode;
+use futures::SinkExt;
+use ssd1306::mode::{BufferedGraphicsMode, BufferedGraphicsModeAsync};
 use ssd1306::prelude::{DisplayRotation, I2CInterface};
-use ssd1306::size::DisplaySize128x64;
-use ssd1306::Ssd1306;
+use ssd1306::size::{DisplaySize128x64, DisplaySizeAsync};
+use ssd1306::{I2CDisplayInterface, Ssd1306Async};
 use vl53l4cd::Vl53l4cd;
 
 /// numbr of distance sensors on the robot
 pub const NUM_DIST_SENSORS: usize = 8;
 //// what I2C addresses to reassign each distance sensor to
-pub const DIST_SENSOR_ADDRESSES: [u8; NUM_DIST_SENSORS] = [0x29, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37];
+pub const DIST_SENSOR_ADDRESSES: [u8; NUM_DIST_SENSORS] =
+    [0x29, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37];
 
 pub static PERIPHERALS_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64> =
     Channel::new();
 
 pub struct RobotPeripherals {
-    display: Ssd1306<
-        I2CInterface<i2c::I2c<'static, I2C0, Async>>,
+    display: Ssd1306Async<
+        I2CInterface<I2cDevice<'static, NoopRawMutex, embassy_rp::i2c::I2c<'static, I2C0, Async>>>,
         DisplaySize128x64,
-        BufferedGraphicsMode<DisplaySize128x64>,
+        BufferedGraphicsModeAsync<DisplaySize128x64>,
     >,
 }
 
 impl RobotPeripherals {
-    pub fn new(
-        bus: &mut shared_bus::BusManagerSimple<i2c::I2c<'static, I2C0, Async>>,
-    ) -> Self {
-        let disp_i2c = bus.acquire_i2c();
+    pub fn new(bus: &'static I2cBus) -> Self {
+        let disp_i2c = I2cDevice::new(bus);
 
-        let interface = I2CInterface::new(disp_i2c, 0x3c, 0);
-        let display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
+        let interface = I2CInterface::new(disp_i2c, 0x01, 0);
+        let display = Ssd1306Async::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
             .into_buffered_graphics_mode();
 
-        // can't use i2c for anything else - see shared_bus crate
-
-        Self {
-            display,
-        }
+        Self { display }
     }
 }
 
@@ -77,10 +74,10 @@ impl RobotTask for RobotPeripherals {
 }
 
 impl RobotPeripheralsBehavior for RobotPeripherals {
-    type Display = Ssd1306<
-        I2CInterface<i2c::I2c<'static, I2C0, Async>>,
+    type Display = Ssd1306Async<
+        I2CInterface<I2cDevice<'static, NoopRawMutex, embassy_rp::i2c::I2c<'static, I2C0, Async>>>,
         DisplaySize128x64,
-        BufferedGraphicsMode<DisplaySize128x64>,
+        BufferedGraphicsModeAsync<DisplaySize128x64>,
     >;
     type Instant = EmbassyInstant;
     type Error = ();
@@ -93,7 +90,7 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
     }
 
     async fn flip_screen(&mut self) {
-        let _ = self.display.flush();
+        let _ = self.display.flush().await;
     }
 
     async fn absolute_rotation(&mut self) -> Result<f32, Self::Error> {
@@ -111,12 +108,11 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
 
 #[embassy_executor::task]
 pub async fn read_distance_sensors(
-    bus: &mut shared_bus::BusManagerSimple<i2c::I2c<'static, I2C0, Async>>,
+    bus: &'static I2cBus<'static>,
     xshut: [AnyPin; NUM_DIST_SENSORS],
 ) {
-
     let mut xshut = xshut.map(|p| Output::new(p, Level::Low));
-    let mut dist_sensors = [None; NUM_DIST_SENSORS];
+    let mut dist_sensors = [0, 1, 2, 3, 4, 5, 6, 7].map(|_| None);
 
     // initialize all sensors
     for i in 0..NUM_DIST_SENSORS {
@@ -124,7 +120,8 @@ pub async fn read_distance_sensors(
         // this will error out since there are no sensors on 0x00 and will eventually be replaced
         // with the correct one.
         // TODO: figure out correct type annotations for dist_sensors
-        let i2c_inst = bus.acquire_i2c();
+        // let i2c_inst = bus.acquire_i2c();
+        let i2c_inst = I2cDevice::new(bus);
         let sensor = Vl53l4cd::with_addr(i2c_inst, 0x00, embassy_time::Delay, vl53l4cd::wait::Poll);
 
         dist_sensors[i] = Some(sensor);
@@ -147,10 +144,7 @@ pub async fn read_distance_sensors(
                         changed = true;
                     }
                     if measurement.distance == 0 {
-                        info!(
-                            "Range status error {:?}",
-                            measurement.status
-                        );
+                        // info!("Range status error {:?}", measurement.status);
                     }
                 } else {
                     sensor_error = true;
@@ -163,15 +157,15 @@ pub async fn read_distance_sensors(
                 Timer::after_millis(300).await;
 
                 // create new inst since the sensor library takes ownership
-                let i2c_inst = bus.acquire_i2c();
+                let i2c_inst = I2cDevice::new(bus);
                 // if let Err(e) = Vl53l4cd::new(&mut i2c, 0x29).await {
-                let sensor = Vl53l4cd::with_addr(i2c_inst, 0x29, embassy_time::Delay, vl53l4cd::wait::Poll);
+                let mut sensor =
+                    Vl53l4cd::with_addr(i2c_inst, 0x29, embassy_time::Delay, vl53l4cd::wait::Poll);
 
                 match sensor.init().await {
-                    Ok(_) => {
-                    }
+                    Ok(_) => {}
                     Err(e) => {
-                        info!("{:?}", e);
+                        // info!("{:?}", e);
                     }
                 }
             }

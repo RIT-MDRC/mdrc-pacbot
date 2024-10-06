@@ -15,8 +15,8 @@ mod vl6180x;
 // todo https://github.com/adafruit/Adafruit_CircuitPython_BNO055/blob/main/adafruit_bno055.py https://crates.io/crates/bno055
 
 use crate::encoders::{run_encoders, PioEncoder};
-use crate::i2c::{RobotPeripherals, PERIPHERALS_CHANNEL};
 use crate::i2c::read_distance_sensors;
+use crate::i2c::{RobotPeripherals, PERIPHERALS_CHANNEL};
 use crate::motors::{Motors, MOTORS_CHANNEL};
 use crate::network::{initialize_network, Network, NETWORK_CHANNEL};
 use core::ops::{Deref, DerefMut};
@@ -34,16 +34,22 @@ use embassy_executor::{InterruptExecutor, Spawner};
 use embassy_futures::select::select;
 use embassy_futures::select::Either;
 use embassy_rp::gpio::Pin;
+use embassy_rp::i2c as e_i2c;
+use embassy_rp::i2c::Async;
 use embassy_rp::interrupt::{InterruptExt, Priority};
 use embassy_rp::peripherals::{I2C0, PIO0, PIO1};
 use embassy_rp::pio::Pio;
-use embassy_rp::i2c as e_i2c;
 use embassy_rp::watchdog::Watchdog;
 use embassy_rp::{bind_interrupts, interrupt};
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
 use embassy_sync::channel::Channel;
+use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Instant, Timer};
 use panic_probe as _;
+use ssd1306::I2CDisplayInterface;
+use static_cell::StaticCell;
+
+pub type I2cBus<'a> = Mutex<NoopRawMutex, e_i2c::I2c<'a, I2C0, Async>>;
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
@@ -136,11 +142,14 @@ async fn main(spawner: Spawner) {
         p.PIN_13.degrade(),
     ];
 
-    let i2c_inst = e_i2c::I2c::new_async(p.I2C0, p.PIN_17, p.PIN_16, Irqs, e_i2c::Config::default());
-    // let mut bus = shared_bus::BusManagerSimple::new(i2c_inst);
-    let bus: &'static _ = shared_bus::new_std!(SomeI2cBus = i2c_inst).unwrap();
-    unwrap!(spawner.spawn(do_i2c(name, RobotPeripherals::new(&mut bus))));
-    unwrap!(spawner.spawn(read_distance_sensors(&mut bus, xshut)));
+    // set up shared I2C
+    static I2C_BUS: StaticCell<I2cBus> = StaticCell::new();
+    let i2c = e_i2c::I2c::new_async(p.I2C0, p.PIN_17, p.PIN_16, Irqs, e_i2c::Config::default());
+    let i2c_bus = Mutex::new(i2c);
+    let i2c_bus = I2C_BUS.init(i2c_bus);
+
+    unwrap!(spawner.spawn(do_i2c(name, RobotPeripherals::new(i2c_bus))));
+    unwrap!(spawner.spawn(read_distance_sensors(i2c_bus, xshut)));
 
     info!("Finished spawning tasks");
 
