@@ -76,6 +76,7 @@ pub enum PeripheralsError {
     Uninitialized,
     DisplayError(DisplayError),
     DistanceSensorError(Option<Status>),
+    ImuError,
     #[allow(dead_code)]
     Unimplemented,
 }
@@ -192,16 +193,16 @@ impl PacbotDistanceSensor {
         }
     }
 
-    async fn update(&mut self) -> Result<Option<u16>, PeripheralsError> {
+    async fn update(&mut self) -> Option<Result<Option<u16>, PeripheralsError>> {
         match self._update().await {
-            Ok(None) => self.last_measurement.clone(),
+            Ok(None) => None,
             Ok(Some(dist)) => {
                 self.last_measurement = Ok(dist);
-                Ok(dist)
+                Some(Ok(dist))
             }
             Err(e) => {
                 self.last_measurement = Err(e.clone());
-                Err(e)
+                Some(Err(e))
             }
         }
     }
@@ -264,6 +265,73 @@ impl PacbotDistanceSensor {
     }
 }
 
+struct PacbotIMU {
+    initialized: bool,
+    last_initialization_attempt: Instant,
+
+    sensor: bno08x_async::wrapper::BNO080<bno08x_async::interface::I2cInterface<PacbotI2cDevice>>,
+    delay_source: Delay,
+}
+
+type ImuError =
+    bno08x_async::wrapper::WrapperError<bno08x_async::Error<I2cDeviceError<i2c::Error>, ()>>;
+
+impl PacbotIMU {
+    fn new(bus: &'static PacbotI2cBus) -> Self {
+        Self {
+            initialized: false,
+            last_initialization_attempt: Instant::now(),
+
+            sensor: bno08x_async::wrapper::BNO080::new_with_interface(
+                bno08x_async::interface::I2cInterface::default(I2cDevice::new(bus)),
+            ),
+            delay_source: Delay,
+        }
+    }
+
+    async fn update(&mut self) -> Option<Result<f32, PeripheralsError>> {
+        if !self.initialized {
+            if self.last_initialization_attempt.elapsed() < embassy_time::Duration::from_millis(500)
+            {
+                return None;
+            }
+            if let Err(_) = self.initialize().await {
+                return Some(Err(PeripheralsError::ImuError));
+            }
+        }
+        self.sensor
+            .handle_all_messages(&mut self.delay_source, 10)
+            .await;
+
+        match self.sensor.rotation_quaternion() {
+            Err(_) => {
+                self.initialized = false;
+                Some(Err(PeripheralsError::ImuError))
+            }
+            Ok(quat) => {
+                // todo convert quat to angle
+                Some(Err(PeripheralsError::Unimplemented))
+            }
+        }
+    }
+
+    async fn initialize(&mut self) -> Result<(), ImuError> {
+        self.last_initialization_attempt = Instant::now();
+
+        info!("Attempting to initialize IMU");
+
+        // initialize sensor
+        self.sensor.init(&mut self.delay_source).await?;
+        self.sensor.enable_rotation_vector(10).await?;
+        self.sensor
+            .handle_all_messages(&mut self.delay_source, 100)
+            .await;
+
+        self.initialized = true;
+        Ok(())
+    }
+}
+
 #[embassy_executor::task]
 pub async fn manage_pico_i2c(bus: &'static PacbotI2cBus, xshut: [AnyPin; NUM_DIST_SENSORS]) {
     let mut i = 0;
@@ -277,30 +345,24 @@ pub async fn manage_pico_i2c(bus: &'static PacbotI2cBus, xshut: [AnyPin; NUM_DIS
             DIST_SENSOR_ADDRESSES[i - 1],
         )
     });
+    let mut imu = PacbotIMU::new(bus);
 
     let mut distances = DIST_SENSOR_ADDRESSES.map(|_| Err(PeripheralsError::Uninitialized));
+    let mut angle = Err(PeripheralsError::Uninitialized);
 
     loop {
         // fetch new values
         let mut changed = false;
 
         for (i, sensor) in dist_sensors.iter_mut().enumerate() {
-            match sensor.update().await {
-                Ok(dist) => {
-                    if let Ok(old_dist) = distances[i] {
-                        if dist != old_dist {
-                            changed = true;
-                        }
-                    } else {
-                        changed = true;
-                    }
-                    distances[i] = Ok(dist)
-                }
-                Err(e) => {
-                    changed = true;
-                    distances[i] = Err(e)
-                }
+            if let Some(updated_value) = sensor.update().await {
+                distances[i] = updated_value;
+                changed = true;
             }
+        }
+        if let Some(updated_value) = imu.update().await {
+            angle = updated_value;
+            changed = true;
         }
 
         if changed {
@@ -309,7 +371,7 @@ pub async fn manage_pico_i2c(bus: &'static PacbotI2cBus, xshut: [AnyPin; NUM_DIS
                 distances
                     .clone()
                     .map(|d| d.map_err(|_| ()).map(|x| x.map(|x| x as f32))),
-                Err(()),
+                angle.clone().map_err(|_| ()),
             ))
         }
         Timer::after_millis(1).await;

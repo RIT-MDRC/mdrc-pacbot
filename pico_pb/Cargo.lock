@@ -123,6 +123,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bno08x-async"
+version = "0.2.0"
+source = "git+https://github.com/MJE10/bno080?rev=eaadaef31e46416cfb07d007325f99df92e13236#eaadaef31e46416cfb07d007325f99df92e13236"
+dependencies = [
+ "defmt",
+ "embedded-hal-async",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1159,6 +1168,7 @@ name = "mdrc-pacbot-pico"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "bno08x-async",
  "core_pb",
  "cortex-m",
  "cortex-m-rt",
