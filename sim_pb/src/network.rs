@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 use crate::driving::SimRobot;
 use crate::{MyApp, Robot, RobotToSimulationMessage, Wall};
 use bevy::prelude::{error, info, Commands, Entity, Query, ResMut, Resource, Transform};
@@ -321,5 +320,3 @@ impl PacbotNetworkSimulation {
         }
     }
 }
-=======
->>>>>>> Stashed changes
