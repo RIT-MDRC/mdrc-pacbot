@@ -1,6 +1,6 @@
 //! Based on https://github.com/sparkfun/Qwiic_VL53L1X_Py/blob/master/qwiic_vl53l1x.py
 
-use crate::i2c::{read_u16, read_u32, read_u8, write_u16, write_u32, write_u8};
+use crate::peripherals::{read_u16, read_u32, read_u8, write_u16, write_u32, write_u8};
 use constants::*;
 use embassy_time::Timer;
 use embedded_hal_async::i2c::I2c;
