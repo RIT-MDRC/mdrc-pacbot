@@ -1,6 +1,7 @@
 use crate::driving::TaskChannels;
 use crate::RobotToSimulationMessage;
 use async_channel::Sender;
+//use bevy_rapier2d::prelude::Velocity;
 use core_pb::drive_system::DriveSystem;
 use core_pb::driving::motors::RobotMotorsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
@@ -14,9 +15,9 @@ use crate::RwLock;
 
 pub struct SimMotors {
     name: RobotName,
-    drive_system: DriveSystem<3>,
+    drive_system: DriveSystem<3>, //has omni drive system
     channels: TaskChannels,
-    sim_robot:  Arc<RwLock<SimRobot>>,
+    sim_robot:  Arc<RwLock<SimRobot>>, 
 
     pwm_values: [[u16; 2]; 3],
     motor_speeds: [f32; 3],
@@ -88,8 +89,16 @@ impl RobotMotorsBehavior for SimMotors {
                 .unwrap();
         }
     }
-//TODO: grab velocity from sim robot, pass to get_motor_speed_omni from drive system, index into the array
+
     async fn get_motor_speed(&mut self, motor: usize) -> f32 {
-        self.motor_speeds[motor]
+        self.motor_speeds[motor];
+        let new_velocity  = self.sim_robot.read()
+        .unwrap().velocity;
+
+        //let new_ang_velocity  = self.sim_robot.read().unwrap().ang_velocity;
+        return 0.0;
+        //let target_speed = self.drive_system.get_motor_speed_omni(new_velocity, new_ang_velocity);
+        //target_speed[motor]
     }
 }
+

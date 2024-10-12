@@ -1,7 +1,7 @@
 use async_channel::{bounded, Receiver, Sender, TrySendError};
 use async_std::task::sleep;
 use bevy::log::info;
-use bevy::math::vec2;
+//use bevy::math::vec2;
 use bevy::tasks::block_on;
 use bevy_rapier2d::na::Vector2;
 use core_pb::driving::motors::motors_task;
@@ -41,6 +41,7 @@ pub struct SimRobot {
 
     pub imu_angle: Result<f32, ()>,
     pub velocity: Vector2<f32>,
+    pub ang_velocity: f32,
     pub distance_sensors: [Result<Option<f32>, ()>; 4],
 }
 
@@ -70,6 +71,7 @@ impl SimRobot {
 
             imu_angle: Err(()),
             velocity:Vector2::new(0.0,0.0),
+            ang_velocity: 0.0,
             distance_sensors: [Err(()); 4],
         }));
 

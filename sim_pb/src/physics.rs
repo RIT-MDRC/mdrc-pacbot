@@ -97,6 +97,7 @@ impl MyApp {
                         .angle();
                 sim_robot.write().unwrap().imu_angle = Ok(rotation);
                 sim_robot.write().unwrap().velocity = v.linvel.into();
+                sim_robot.write().unwrap().ang_velocity = v.angvel.into();
 
                 let mut distance_sensors: [Result<Option<f32>, ()>; 4] = [Err(()); 4];
 
@@ -132,9 +133,8 @@ impl MyApp {
                 sim_robot.write().unwrap().distance_sensors = distance_sensors;
             }
             let mut rng = rand::thread_rng();
-            let x_noise:f32=rng.gen_range(-10.0..10.0);
-            let y_noise:f32=rng.gen_range(-10.0..10.0);
-            let torque_noise:f32=rng.gen_range(-5.0..5.0);
+            let noise_rng: f32 = 0.0025;
+            
             let mut target_vel = robot
                 .wasd_target_vel
                 .unwrap_or((Vector2::new(0.0, 0.0), 0.0));
@@ -142,12 +142,14 @@ impl MyApp {
             if target_vel.0 != Vector2::new(0.0, 0.0) {
                 target_vel.0 = target_vel.0.normalize() * move_scale;
             }
-           
-            imp.impulse.x = target_vel.0.x - v.linvel.x * 0.6+x_noise;
-
-            imp.impulse.y = target_vel.0.y - v.linvel.y * 0.6+y_noise;
-            imp.torque_impulse = target_vel.1 - v.angvel * 0.1+torque_noise;
-            //println!("check");
+            let torque_noise_rng: f32 = 0.001;
+            let x_noise:f32=target_vel.0.x*rng.gen_range(-noise_rng..noise_rng);
+            let y_noise:f32=target_vel.0.y*rng.gen_range(-noise_rng..noise_rng);
+            let torque_noise:f32=0.0*target_vel.1*rng.gen_range(-torque_noise_rng..torque_noise_rng);
+            println!("target velocity {:?}", target_vel);
+            imp.impulse.x = target_vel.0.x - v.linvel.x * 0.6;
+            imp.impulse.y = target_vel.0.y - v.linvel.y * 0.6;
+            imp.torque_impulse = target_vel.1 - v.angvel * 0.1;
         }
     }
 
