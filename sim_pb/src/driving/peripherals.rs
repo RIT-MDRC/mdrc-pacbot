@@ -52,7 +52,7 @@ impl RobotPeripheralsBehavior for SimPeripherals {
     type Instant = StdInstant;
     type Error = SimPeripheralsError;
 
-    fn draw_display<F>(&mut self, draw: F) -> Result<(), SimPeripheralsError>
+    async fn draw_display<F>(&mut self, draw: F) -> Result<(), SimPeripheralsError>
     where
         F: FnOnce(&mut Self::Display) -> Result<(), SimPeripheralsError>,
     {
@@ -61,8 +61,9 @@ impl RobotPeripheralsBehavior for SimPeripherals {
         Ok(())
     }
 
-    async fn flip_screen(&mut self) {
+    async fn flip_screen(&mut self) -> Result<(), SimPeripheralsError> {
         self.robot.write().unwrap().display_updated = true;
+        Ok(())
     }
 
     async fn absolute_rotation(&mut self) -> Result<f32, Self::Error> {
