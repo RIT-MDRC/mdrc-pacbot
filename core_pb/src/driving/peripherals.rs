@@ -22,11 +22,11 @@ pub trait RobotPeripheralsBehavior: RobotTask {
     type Instant: CrossPlatformInstant + Default;
     type Error: Debug;
 
-    fn draw_display<F>(&mut self, draw: F) -> Result<(), Self::Error>
+    async fn draw_display<F>(&mut self, draw: F) -> Result<(), Self::Error>
     where
         F: FnOnce(&mut Self::Display) -> Result<(), <Self::Display as DrawTarget>::Error>;
 
-    async fn flip_screen(&mut self);
+    async fn flip_screen(&mut self) -> Result<(), Self::Error>;
 
     async fn absolute_rotation(&mut self) -> Result<f32, Self::Error>;
 
@@ -49,20 +49,22 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior>(
     let robot = RobotDefinition::new(name);
 
     // testing screen
-    peripherals.draw_display(|d| {
-        Pixel(Point::new(0, 0), BinaryColor::On).draw(d)?;
-        Pixel(Point::new(127, 0), BinaryColor::On).draw(d)?;
-        Pixel(Point::new(127, 63), BinaryColor::On).draw(d)?;
-        Pixel(Point::new(0, 63), BinaryColor::On).draw(d)?;
-        Text::new(
-            name.get_str(),
-            Point::new(2, 8),
-            MonoTextStyle::new(&FONT_6X10, BinaryColor::On),
-        )
-        .draw(d)?;
-        Ok(())
-    })?;
-    peripherals.flip_screen().await;
+    peripherals
+        .draw_display(|d| {
+            Pixel(Point::new(0, 0), BinaryColor::On).draw(d)?;
+            Pixel(Point::new(127, 0), BinaryColor::On).draw(d)?;
+            Pixel(Point::new(127, 63), BinaryColor::On).draw(d)?;
+            Pixel(Point::new(0, 63), BinaryColor::On).draw(d)?;
+            Text::new(
+                name.get_str(),
+                Point::new(2, 8),
+                MonoTextStyle::new(&FONT_6X10, BinaryColor::On),
+            )
+            .draw(d)?;
+            Ok(())
+        })
+        .await?;
+    let _ = peripherals.flip_screen().await;
 
     let mut last_display_change = T::Instant::default();
     let mut last_display_state = false;
@@ -81,13 +83,15 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior>(
                 .stroke_color(color)
                 .stroke_width(1)
                 .build();
-            peripherals.draw_display(|d| {
-                Rectangle::new(Point::new(20, 20), Size::new(2, 2))
-                    .into_styled(rectangle_style)
-                    .draw(d)?;
-                Ok(())
-            })?;
-            peripherals.flip_screen().await;
+            peripherals
+                .draw_display(|d| {
+                    Rectangle::new(Point::new(20, 20), Size::new(2, 2))
+                        .into_styled(rectangle_style)
+                        .draw(d)?;
+                    Ok(())
+                })
+                .await?;
+            let _ = peripherals.flip_screen().await;
         }
 
         let angle = peripherals.absolute_rotation().await.map_err(|_| ());

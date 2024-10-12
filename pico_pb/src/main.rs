@@ -3,22 +3,22 @@
 
 #[allow(dead_code)]
 mod encoders;
-mod i2c;
 mod motors;
 mod network;
+mod peripherals;
 #[allow(dead_code)]
 mod vl53l1x;
 mod vl6180x;
-// todo distance sensor https://crates.io/crates/vl53l1x
+
 // todo https://github.com/adafruit/Adafruit_CircuitPython_seesaw/blob/main/adafruit_seesaw/seesaw.py https://crates.io/crates/adafruit-seesaw
 // todo https://github.com/adafruit/Adafruit_SSD1306/blob/master/Adafruit_SSD1306.cpp#L992 https://crates.io/crates/ssd1306
 // todo https://github.com/adafruit/Adafruit_CircuitPython_BNO055/blob/main/adafruit_bno055.py https://crates.io/crates/bno055
 
 use crate::encoders::{run_encoders, PioEncoder};
-use crate::i2c::read_distance_sensors;
-use crate::i2c::{RobotPeripherals, PERIPHERALS_CHANNEL};
 use crate::motors::{Motors, MOTORS_CHANNEL};
 use crate::network::{initialize_network, Network, NETWORK_CHANNEL};
+use crate::peripherals::manage_pico_i2c;
+use crate::peripherals::{RobotPeripherals, PERIPHERALS_CHANNEL};
 use core::ops::{Deref, DerefMut};
 use core_pb::driving::motors::motors_task;
 #[allow(unused_imports)]
@@ -30,12 +30,12 @@ use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::CrossPlatformInstant;
 use defmt::{info, unwrap};
 use defmt_rtt as _;
+use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_executor::{InterruptExecutor, Spawner};
 use embassy_futures::select::select;
 use embassy_futures::select::Either;
 use embassy_rp::gpio::Pin;
-use embassy_rp::i2c as e_i2c;
-use embassy_rp::i2c::Async;
+use embassy_rp::i2c::{Async, I2c};
 use embassy_rp::interrupt::{InterruptExt, Priority};
 use embassy_rp::peripherals::{I2C0, PIO0, PIO1};
 use embassy_rp::pio::Pio;
@@ -46,10 +46,10 @@ use embassy_sync::channel::Channel;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Instant, Timer};
 use panic_probe as _;
-use ssd1306::I2CDisplayInterface;
 use static_cell::StaticCell;
 
-pub type I2cBus<'a> = Mutex<NoopRawMutex, e_i2c::I2c<'a, I2C0, Async>>;
+pub type PacbotI2cBus = Mutex<NoopRawMutex, I2c<'static, I2C0, Async>>;
+pub type PacbotI2cDevice = I2cDevice<'static, NoopRawMutex, I2c<'static, I2C0, Async>>;
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
@@ -64,23 +64,6 @@ unsafe fn SWI_IRQ_1() {
     EXECUTOR_HIGH.on_interrupt()
 }
 
-fn send_or_drop2(message: RobotInterTaskMessage, to: Task) -> bool {
-    let result = match to {
-        Task::Wifi => NETWORK_CHANNEL.try_send(message),
-        Task::Motors => MOTORS_CHANNEL.try_send(message),
-        Task::Peripherals => PERIPHERALS_CHANNEL.try_send(message),
-    };
-    result.is_ok()
-}
-
-async fn send_blocking2(message: RobotInterTaskMessage, to: Task) {
-    match to {
-        Task::Wifi => NETWORK_CHANNEL.send(message).await,
-        Task::Motors => MOTORS_CHANNEL.send(message).await,
-        Task::Peripherals => PERIPHERALS_CHANNEL.send(message).await,
-    }
-}
-
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     info!("Hello world!");
@@ -91,6 +74,7 @@ async fn main(spawner: Spawner) {
     let mut watchdog = Watchdog::new(p.WATCHDOG);
     watchdog.start(Duration::from_secs(8));
 
+    // Initialize encoders
     let Pio {
         mut common,
         sm0,
@@ -108,6 +92,7 @@ async fn main(spawner: Spawner) {
     let int_spawner = EXECUTOR_HIGH.start(interrupt::SWI_IRQ_1);
     unwrap!(int_spawner.spawn(run_encoders((encoder_a, encoder_b, encoder_c))));
 
+    // Initialize network
     let mut network = initialize_network(
         spawner, p.PIN_23, p.PIN_25, p.PIO0, p.PIN_24, p.PIN_29, p.DMA_CH0, p.FLASH,
     )
@@ -136,32 +121,23 @@ async fn main(spawner: Spawner) {
         p.PIN_3.degrade(),
         p.PIN_4.degrade(),
         p.PIN_5.degrade(),
-        p.PIN_10.degrade(),
-        p.PIN_11.degrade(),
-        p.PIN_12.degrade(),
-        p.PIN_13.degrade(),
     ];
 
     // set up shared I2C
-    static I2C_BUS: StaticCell<I2cBus> = StaticCell::new();
-    let i2c = e_i2c::I2c::new_async(p.I2C0, p.PIN_17, p.PIN_16, Irqs, e_i2c::Config::default());
-    let i2c_bus = Mutex::new(i2c);
-    let i2c_bus = I2C_BUS.init(i2c_bus);
+    static I2C_BUS: StaticCell<PacbotI2cBus> = StaticCell::new();
+    let i2c_bus = I2C_BUS.init(Mutex::new(embassy_rp::i2c::I2c::new_async(
+        p.I2C0,
+        p.PIN_17,
+        p.PIN_16,
+        Irqs,
+        embassy_rp::i2c::Config::default(),
+    )));
 
     unwrap!(spawner.spawn(do_i2c(name, RobotPeripherals::new(i2c_bus))));
-    unwrap!(spawner.spawn(read_distance_sensors(i2c_bus, xshut)));
+    unwrap!(spawner.spawn(manage_pico_i2c(i2c_bus, xshut)));
 
     info!("Finished spawning tasks");
 
-    loop {
-        info!("I'm alive!");
-        watchdog.feed();
-        Timer::after_secs(1).await;
-    }
-}
-
-#[embassy_executor::task]
-async fn keep_watchdog_happy(mut watchdog: Watchdog) {
     loop {
         info!("I'm alive!");
         watchdog.feed();
@@ -182,6 +158,23 @@ async fn do_motors(name: RobotName, motors: Motors<3>) {
 #[embassy_executor::task]
 async fn do_i2c(name: RobotName, i2c: RobotPeripherals) {
     unwrap!(peripherals_task(i2c, name).await)
+}
+
+fn send_or_drop2(message: RobotInterTaskMessage, to: Task) -> bool {
+    let result = match to {
+        Task::Wifi => NETWORK_CHANNEL.try_send(message),
+        Task::Motors => MOTORS_CHANNEL.try_send(message),
+        Task::Peripherals => PERIPHERALS_CHANNEL.try_send(message),
+    };
+    result.is_ok()
+}
+
+async fn send_blocking2(message: RobotInterTaskMessage, to: Task) {
+    match to {
+        Task::Wifi => NETWORK_CHANNEL.send(message).await,
+        Task::Motors => MOTORS_CHANNEL.send(message).await,
+        Task::Peripherals => PERIPHERALS_CHANNEL.send(message).await,
+    }
 }
 
 async fn receive_timeout(
