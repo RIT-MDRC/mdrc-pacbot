@@ -191,6 +191,7 @@ impl App {
             )
             .await; // check if new AI calculation is needed
         }
+        // todo this should happen when the game state changes, not when one step has been taken
         if self.status.target_path.len() < 4
             && self.settings.driving.strategy == StrategyChoice::ReinforcementLearning
         {
@@ -199,7 +200,6 @@ impl App {
                 .rl_manager
                 .hybrid_strategy(self.status.game_state.clone());
             let mut rl_vec = rl_direction.vector();
-            // todo multiple steps
             self.status.target_path = vec![Point2::new(
                 self.status.game_state.pacman_loc.row + rl_vec.0,
                 self.status.game_state.pacman_loc.col + rl_vec.1,
