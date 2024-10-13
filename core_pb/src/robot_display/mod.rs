@@ -12,40 +12,17 @@ use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::*;
 use embedded_graphics::text::Text;
 use embedded_graphics::Drawable;
-use nalgebra::max;
-
-#[derive(Copy, Clone, Debug, PartialOrd, PartialEq)]
-enum Tab {
-    Main,
-    TypingTest(Option<usize>),
-}
-
-impl Tab {
-    fn previous_tab(&self) -> Option<Self> {
-        match self {
-            Tab::Main => Some(Tab::TypingTest(None)),
-            Tab::TypingTest(None) => Some(Tab::Main),
-            _ => None,
-        }
-    }
-
-    fn next_tab(&self) -> Option<Self> {
-        match self {
-            Tab::Main => Some(Tab::TypingTest(None)),
-            Tab::TypingTest(None) => Some(Tab::Main),
-            _ => None,
-        }
-    }
-}
+use pacbot_rs::game_state::GameState;
 
 pub struct DisplayManager<I: CrossPlatformInstant + Default> {
     name: RobotName,
-    started_at: I,
+    initial_time: I,
 
+    animation_timer: I,
     page: Page,
     submenu_index: usize,
-
-    tab: Tab,
+    game_state: GameState,
+    last_game_state_step: I,
 
     typing_tests: [TextInput<32>; 3],
 
@@ -63,14 +40,18 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
         for (i, ch) in DEFAULT_NETWORK.as_bytes().iter().enumerate().take(32) {
             ssid[i] = *ch;
         }
+        let mut game_state = GameState::new_with_seed(123);
+        game_state.paused = false;
+        game_state.step();
         Self {
             name,
-            started_at: I::default(),
+            initial_time: I::default(),
 
-            page: Page::Main,
+            animation_timer: I::default(),
+            page: Page::Pacman,
             submenu_index: 0,
-
-            tab: Tab::Main,
+            game_state,
+            last_game_state_step: I::default(),
 
             typing_tests: [TextInput::new(); 3],
 
@@ -86,26 +67,11 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
     pub fn draw<D: DrawTarget<Color = BinaryColor>>(&mut self, d: &mut D) -> Result<(), D::Error> {
         d.clear(BinaryColor::Off)?;
         self.draw_content(self.page, d)?;
-        match self.tab {
-            Tab::Main => self.main_content(d)?,
-            Tab::TypingTest(_) => self.typing_test(d)?,
-        }
         Ok(())
     }
 
     pub fn button_event(&mut self, button: RobotButton, pressed: bool) {
-        if button == RobotButton::EastA && pressed {
-            if let Some(tab) = self.tab.next_tab() {
-                self.tab = tab;
-                return;
-            }
-        }
-        if button == RobotButton::WestY && pressed {
-            if let Some(tab) = self.tab.previous_tab() {
-                self.tab = tab;
-                return;
-            }
-        }
+        self.consume(button, pressed);
     }
 
     fn text<D: DrawTarget<Color = BinaryColor>>(
@@ -125,6 +91,11 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
         max_len_px: usize,
         d: &mut D,
     ) -> Result<(), D::Error> {
+        if text.len() * 5 < max_len_px {
+            self.text(text, at, d)?;
+            return Ok(());
+        }
+
         let start_t = 1500;
         let px_transition_t = 40;
         let end_t = 1500;
@@ -132,7 +103,7 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
         let num_px_transitions = (text.len() * 5).saturating_sub(max_len_px) as i32 + 1;
         let cycle_t = start_t + px_transition_t * num_px_transitions + end_t;
 
-        let phase = (self.started_at.elapsed().as_millis() % cycle_t as u128) as i32;
+        let phase = (self.animation_timer.elapsed().as_millis() % cycle_t as u128) as i32;
         let first_char_loc_px = if phase < start_t {
             0
         } else if phase > start_t + px_transition_t * num_px_transitions {
@@ -142,9 +113,9 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
         };
 
         for i in 0..text.len() {
-            // if the entire character fits within the ticker, draw the character
+            // if any part of the character fits within the ticker, draw the character
             let x_offset = first_char_loc_px + 5 * i as i32;
-            if 0 <= x_offset && x_offset + 5 < max_len_px as i32 {
+            if -4 <= x_offset && x_offset + 5 < max_len_px as i32 + 4 {
                 Text::new(
                     &text[i..(i + 1)],
                     Point::new(at.x + x_offset, at.y),
@@ -155,11 +126,20 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
                 break;
             }
         }
+        // clear area outside of ticker
+        for y in -6..=2 {
+            for x in -4..0 {
+                Pixel(Point::new(at.x + x, at.y + y), BinaryColor::Off).draw(d)?;
+            }
+            for x in (max_len_px as i32)..(max_len_px as i32 + 4) {
+                Pixel(Point::new(at.x + x, at.y + y), BinaryColor::Off).draw(d)?;
+            }
+        }
         Ok(())
     }
 
     fn alternating_interval(&self, on_ms: u128, off_ms: u128, on_offset: u128) -> bool {
-        let elapsed_ms = self.started_at.elapsed().as_millis();
+        let elapsed_ms = self.animation_timer.elapsed().as_millis();
         let cycle_length = on_ms + off_ms;
         let offset_in_cycle = on_offset % cycle_length;
         let phase = (elapsed_ms + cycle_length - offset_in_cycle) % cycle_length;
@@ -170,10 +150,6 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
         &mut self,
         d: &mut D,
     ) -> Result<(), D::Error> {
-        // test ticker
-        Pixel(Point::new(29, 20), BinaryColor::On).draw(d)?;
-        Pixel(Point::new(62, 20), BinaryColor::On).draw(d)?;
-        self.text_ticker("this is a very long", Point::new(30, 20), 31, d)?;
         // name top left
         self.text(self.name.get_str(), Point::new(3, 6), d)?;
         let mut buf = [0; 20];
@@ -199,18 +175,39 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
         // alive indicator
         self.pacman_animation2(10 + (15 - ip_str.len() as u128) * 5, 50, 38, 0, d)?;
         // network below ip
-        let net_str = match self.ssid {
-            None => "UNKNOWN NETWORK",
-            Some((name, len)) => format_no_std::show(
-                &mut buf,
-                format_args!(
-                    "{:>19}",
-                    core::str::from_utf8(&name[..usize::min(len, 19)]).unwrap_or("FORMAT ERR1")
-                ),
-            )
-            .unwrap_or("FORMAT ERR2"),
-        };
-        self.text(net_str, Point::new(33, 13), d)?;
+        let ssid_u8 = self.ssid;
+        let net_str = ssid_u8
+            .iter()
+            .next()
+            .map(|(name, len)| core::str::from_utf8(&name[..*len]).unwrap_or("FORMAT ERR"))
+            .unwrap_or("UNKNOWN NETWORK");
+        if net_str.len() <= 19 {
+            self.text(
+                net_str,
+                Point::new(ROBOT_DISPLAY_WIDTH as i32 - (5 * net_str.len() as i32), 13),
+                d,
+            )?;
+        } else {
+            self.text_ticker(net_str, Point::new(33, 13), ROBOT_DISPLAY_WIDTH - 33, d)?;
+        }
+        // uptime
+        let uptime_str = format_no_std::show(
+            &mut buf,
+            format_args!(
+                "uptime {}:{:0>2}",
+                self.initial_time.elapsed().as_secs() / 60,
+                self.initial_time.elapsed().as_secs() % 60
+            ),
+        )
+        .unwrap_or("FORMAT ERR");
+        self.text(
+            uptime_str,
+            Point::new(
+                ROBOT_DISPLAY_WIDTH as i32 - (5 * uptime_str.len() as i32),
+                20,
+            ),
+            d,
+        )?;
         // distance sensors
         self.text(
             "dist",
@@ -321,7 +318,7 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
         let tot_ms = 2 * speed * len_px + 1200;
         let pellet_on_ms = speed * (len_px + 8);
 
-        let dir = self.started_at.elapsed().as_millis() % (tot_ms * 2) < tot_ms;
+        let dir = self.animation_timer.elapsed().as_millis() % (tot_ms * 2) < tot_ms;
 
         // pellets
         for i in (2..len_px).step_by(2) {
@@ -335,7 +332,7 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
         }
 
         // pacman
-        let phase = self.started_at.elapsed().as_millis() % tot_ms / speed;
+        let phase = self.animation_timer.elapsed().as_millis() % tot_ms / speed;
         let pacman_start_x = phase as i32 - 10 - len_px as i32;
         for (x2, y2) in [
             (0, 3),
@@ -365,14 +362,6 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
             }
         }
 
-        Ok(())
-    }
-
-    fn typing_test<D: DrawTarget<Color = BinaryColor>>(
-        &mut self,
-        d: &mut D,
-    ) -> Result<(), D::Error> {
-        self.text("Typing Test", Point::new(10, 10), d)?;
         Ok(())
     }
 }
