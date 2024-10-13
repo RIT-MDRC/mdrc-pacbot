@@ -75,6 +75,16 @@ pub enum SimulationToServerMessage {
     RobotDisplay(RobotName, Vec<u128>),
 }
 
+#[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub enum RobotButton {
+    EastA,
+    SouthB,
+    NorthX,
+    WestY,
+    LeftStart,
+    RightSelect,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
 pub enum ServerToSimulationMessage {
@@ -83,6 +93,9 @@ pub enum ServerToSimulationMessage {
     Delete(RobotName),
     SetPacman(RobotName),
     SetStandardGrid(StandardGrid),
+    /// A button press (true) or release (false) for a simulated robot
+    RobotButton(RobotName, (RobotButton, bool)),
+    RobotJoystick(RobotName, (f32, f32)),
 }
 
 /// This is sent regularly and frequently to robots via [`ServerToRobotMessage::FrequentRobotItems`]

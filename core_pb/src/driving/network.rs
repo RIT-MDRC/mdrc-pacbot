@@ -1,11 +1,13 @@
 use crate::driving::{info, RobotInterTaskMessage, RobotTask, Task};
-use crate::messages::{RobotToServerMessage, ServerToRobotMessage};
+use crate::messages::{NetworkStatus, RobotToServerMessage, ServerToRobotMessage};
 use crate::names::RobotName;
 use core::fmt::Debug;
 use core::pin::pin;
 use embedded_io_async::{Read, Write};
 use futures::future::{select, Either};
 use heapless::Vec;
+
+pub const DEFAULT_NETWORK: &str = "testnetwork";
 
 #[derive(Copy, Clone)]
 pub struct NetworkScanInfo {
@@ -88,13 +90,35 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
 
     loop {
         if network.wifi_is_connected().await.is_none() {
+            network
+                .send_blocking(
+                    RobotInterTaskMessage::NetworkStatus(NetworkStatus::Connecting, None),
+                    Task::Peripherals,
+                )
+                .await;
             loop {
                 if let Ok(()) = network
-                    .connect_wifi("testnetwork", option_env!("WIFI_PASSWORD"))
+                    .connect_wifi(DEFAULT_NETWORK, option_env!("WIFI_PASSWORD"))
                     .await
                 {
+                    let ip = network.wifi_is_connected().await.unwrap_or([0; 4]);
+                    network
+                        .send_blocking(
+                            RobotInterTaskMessage::NetworkStatus(
+                                NetworkStatus::Connected,
+                                Some(ip),
+                            ),
+                            Task::Peripherals,
+                        )
+                        .await;
                     break;
                 }
+                network
+                    .send_blocking(
+                        RobotInterTaskMessage::NetworkStatus(NetworkStatus::ConnectionFailed, None),
+                        Task::Peripherals,
+                    )
+                    .await;
             }
             info!("{} network connected", name);
         }

@@ -2,6 +2,7 @@ use crate::{receive_timeout, send_blocking2, send_or_drop2, EmbassyInstant, Irqs
 use core::time::Duration;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
+use core_pb::messages::RobotButton;
 use defmt::Format;
 use embassy_rp::i2c::{Async, SclPin, SdaPin};
 use embassy_rp::peripherals::I2C0;
@@ -98,6 +99,14 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
 
     async fn battery_level(&mut self) -> Result<f32, Self::Error> {
         Err(())
+    }
+
+    async fn read_button_event(&mut self) -> Option<(RobotButton, bool)> {
+        None
+    }
+
+    async fn read_joystick(&mut self) -> Option<(f32, f32)> {
+        None
     }
 }
 

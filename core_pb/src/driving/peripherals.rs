@@ -1,19 +1,15 @@
 use crate::driving::{RobotInterTaskMessage, RobotTask, Task};
 use crate::grid::standard_grid::StandardGrid;
 use crate::localization::estimate_location;
-use crate::messages::SensorData;
+use crate::messages::{RobotButton, SensorData};
 use crate::names::RobotName;
 use crate::robot_definition::RobotDefinition;
+use crate::robot_display::DisplayManager;
 use crate::util::CrossPlatformInstant;
 use core::fmt::Debug;
 use core::time::Duration;
-use embedded_graphics::mono_font::ascii::FONT_6X10;
-use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::pixelcolor::BinaryColor;
-use embedded_graphics::prelude::{DrawTarget, Point, Primitive, Size};
-use embedded_graphics::primitives::{PrimitiveStyleBuilder, Rectangle};
-use embedded_graphics::text::Text;
-use embedded_graphics::{Drawable, Pixel};
+use embedded_graphics::prelude::DrawTarget;
 use nalgebra::Point2;
 
 /// Functionality that robots with peripherals must support
@@ -33,6 +29,10 @@ pub trait RobotPeripheralsBehavior: RobotTask {
     async fn distance_sensor(&mut self, index: usize) -> Result<Option<f32>, Self::Error>;
 
     async fn battery_level(&mut self) -> Result<f32, Self::Error>;
+
+    async fn read_button_event(&mut self) -> Option<(RobotButton, bool)>;
+
+    async fn read_joystick(&mut self) -> Option<(f32, f32)>;
 }
 
 /// The "main" method for the peripherals task
@@ -48,47 +48,19 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior>(
 
     let robot = RobotDefinition::new(name);
 
-    // testing screen
-    peripherals.draw_display(|d| {
-        Pixel(Point::new(0, 0), BinaryColor::On).draw(d)?;
-        Pixel(Point::new(127, 0), BinaryColor::On).draw(d)?;
-        Pixel(Point::new(127, 63), BinaryColor::On).draw(d)?;
-        Pixel(Point::new(0, 63), BinaryColor::On).draw(d)?;
-        Text::new(
-            name.get_str(),
-            Point::new(2, 8),
-            MonoTextStyle::new(&FONT_6X10, BinaryColor::On),
-        )
-        .draw(d)?;
-        Ok(())
-    })?;
+    let mut display_manager: DisplayManager<T::Instant> = DisplayManager::new(name);
+    peripherals.draw_display(|d| display_manager.draw(d))?;
     peripherals.flip_screen().await;
 
-    let mut last_display_change = T::Instant::default();
-    let mut last_display_state = false;
-
     loop {
-        if last_display_change.elapsed() > Duration::from_millis(500) {
-            last_display_change = T::Instant::default();
-            last_display_state = !last_display_state;
-            let color = if last_display_state {
-                BinaryColor::On
-            } else {
-                BinaryColor::Off
-            };
-            let rectangle_style = PrimitiveStyleBuilder::new()
-                .fill_color(color)
-                .stroke_color(color)
-                .stroke_width(1)
-                .build();
-            peripherals.draw_display(|d| {
-                Rectangle::new(Point::new(20, 20), Size::new(2, 2))
-                    .into_styled(rectangle_style)
-                    .draw(d)?;
-                Ok(())
-            })?;
-            peripherals.flip_screen().await;
+        while let Some((button, pressed)) = peripherals.read_button_event().await {
+            display_manager.button_event(button, pressed);
         }
+        if let Some(joystick) = peripherals.read_joystick().await {
+            display_manager.joystick = joystick;
+        }
+        peripherals.draw_display(|d| display_manager.draw(d))?;
+        peripherals.flip_screen().await;
 
         let angle = peripherals.absolute_rotation().await.map_err(|_| ());
         let mut distances = [Err(()); 4];
@@ -96,6 +68,8 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior>(
             *sensor = peripherals.distance_sensor(i).await.map_err(|_| ());
         }
         let location = estimate_location(grid, cv_location, &distances, &robot);
+        display_manager.imu_angle = angle;
+        display_manager.distances = distances;
         let sensors = SensorData {
             angle,
             distances,
@@ -111,6 +85,10 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior>(
             Some(RobotInterTaskMessage::Grid(new_grid)) => grid = new_grid,
             Some(RobotInterTaskMessage::FrequentServerToRobot(data)) => {
                 cv_location = data.cv_location
+            }
+            Some(RobotInterTaskMessage::NetworkStatus(status, ip)) => {
+                display_manager.network_status = status;
+                display_manager.ip = ip;
             }
             _ => {}
         }

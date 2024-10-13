@@ -1,3 +1,7 @@
+use crate::driving::motors::SimMotors;
+use crate::driving::network::SimNetwork;
+use crate::driving::peripherals::{SimDisplay, SimPeripherals};
+use crate::RobotToSimulationMessage;
 use async_channel::{bounded, Receiver, Sender, TrySendError};
 use async_std::task::sleep;
 use bevy::log::info;
@@ -6,20 +10,17 @@ use core_pb::driving::motors::motors_task;
 use core_pb::driving::network::network_task;
 use core_pb::driving::peripherals::peripherals_task;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
+use core_pb::messages::RobotButton;
 use core_pb::names::RobotName;
 use futures::future::{select, Either};
 use futures::{select, FutureExt};
+use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::future::Future;
 use std::pin::pin;
 use std::sync::{Arc, RwLock};
 use std::thread::spawn;
 use std::time::Duration;
-
-use crate::driving::motors::SimMotors;
-use crate::driving::network::SimNetwork;
-use crate::driving::peripherals::{SimDisplay, SimPeripherals};
-use crate::RobotToSimulationMessage;
 
 mod motors;
 mod network;
@@ -39,6 +40,9 @@ pub struct SimRobot {
 
     pub imu_angle: Result<f32, ()>,
     pub distance_sensors: [Result<Option<f32>, ()>; 4],
+
+    pub button_events: VecDeque<(RobotButton, bool)>,
+    pub joystick: Option<(f32, f32)>,
 }
 
 async fn handle_task<F, E: Debug>(task: F)
@@ -67,6 +71,9 @@ impl SimRobot {
 
             imu_angle: Err(()),
             distance_sensors: [Err(()); 4],
+
+            button_events: VecDeque::new(),
+            joystick: None,
         }));
 
         let (motors, motors_rx, motors_tx) = TaskChannels::new();
