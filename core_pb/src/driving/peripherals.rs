@@ -18,11 +18,11 @@ pub trait RobotPeripheralsBehavior: RobotTask {
     type Instant: CrossPlatformInstant + Default;
     type Error: Debug;
 
-    fn draw_display<F>(&mut self, draw: F) -> Result<(), Self::Error>
+    async fn draw_display<F>(&mut self, draw: F) -> Result<(), Self::Error>
     where
         F: FnOnce(&mut Self::Display) -> Result<(), <Self::Display as DrawTarget>::Error>;
 
-    async fn flip_screen(&mut self);
+    async fn flip_screen(&mut self) -> Result<(), Self::Error>;
 
     async fn absolute_rotation(&mut self) -> Result<f32, Self::Error>;
 
