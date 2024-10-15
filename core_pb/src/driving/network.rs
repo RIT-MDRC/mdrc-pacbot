@@ -7,7 +7,7 @@ use embedded_io_async::{Read, Write};
 use futures::future::{select, Either};
 use heapless::Vec;
 
-pub const DEFAULT_NETWORK: &str = "testnetwork";
+pub const DEFAULT_NETWORK: &str = "The Province";
 
 #[derive(Copy, Clone)]
 pub struct NetworkScanInfo {

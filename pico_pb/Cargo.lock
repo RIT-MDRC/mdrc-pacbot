@@ -1166,6 +1166,7 @@ dependencies = [
  "embedded-io-async",
  "fixed",
  "fixed-macro",
+ "format_no_std",
  "futures",
  "heapless",
  "log",

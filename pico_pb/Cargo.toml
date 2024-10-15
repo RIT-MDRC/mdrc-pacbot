@@ -56,6 +56,7 @@ serde = { version = "1.0.197", default-features = false, features = ["derive"] }
 num-traits = { version = "0.2.18", default-features = false }
 smoltcp = { version = "0.11.0", default-features = false, features = ["defmt"] }
 display-interface = "0.4.1"
+format_no_std = "1.2.0"
 
 [profile.release]
 debug = 2

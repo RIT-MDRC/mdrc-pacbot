@@ -3,7 +3,7 @@ use core::time::Duration;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use core_pb::messages::RobotButton;
-use defmt::Format;
+use defmt::{error, Format};
 use embassy_rp::i2c::{Async, SclPin, SdaPin};
 use embassy_rp::peripherals::I2C0;
 use embassy_rp::{i2c, Peripheral};
@@ -11,7 +11,7 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
 use embedded_hal_async::i2c::I2c;
 use ssd1306::mode::BufferedGraphicsMode;
-use ssd1306::prelude::{DisplayRotation, I2CInterface};
+use ssd1306::prelude::{DisplayConfig, DisplayRotation, I2CInterface};
 use ssd1306::size::DisplaySize128x64;
 use ssd1306::Ssd1306;
 
@@ -35,8 +35,15 @@ impl RobotPeripherals {
         let i2c = i2c::I2c::new_async(peri, scl, sda, Irqs, i2c::Config::default());
 
         let interface = I2CInterface::new(i2c, 0x3c, 0);
-        let display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
+        let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
             .into_buffered_graphics_mode();
+        let mut err_str = [0; 256];
+        let _ = display.init().map_err(|e| {
+            error!(
+                "display init err {}",
+                format_no_std::show(&mut err_str, format_args!("{:?}", e)).unwrap_or("err")
+            )
+        });
 
         // can't use i2c for anything else - see shared_bus crate
 
@@ -82,7 +89,8 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
     where
         F: FnOnce(&mut Self::Display) -> Result<(), display_interface::DisplayError>,
     {
-        draw(&mut self.display).map_err(|_| ())
+        draw(&mut self.display).map_err(|e| error!("display draw err"))
+        // Ok(())
     }
 
     async fn flip_screen(&mut self) {
