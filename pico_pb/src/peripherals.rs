@@ -22,6 +22,7 @@ use ssd1306::prelude::*;
 use ssd1306::Ssd1306Async;
 use vl53l4cd::wait::Poll;
 use vl53l4cd::{Status, Vl53l4cd};
+use micromath::F32Ext;
 
 /// numbr of distance sensors on the robot
 pub const NUM_DIST_SENSORS: usize = 4;
@@ -309,8 +310,13 @@ impl PacbotIMU {
                 Some(Err(PeripheralsError::ImuError))
             }
             Ok(quat) => {
-                // todo convert quat to angle
-                Some(Err(PeripheralsError::Unimplemented))
+                // convert quat to angle (yaw)
+                // https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+                let siny_cosp = 2.0 * (quat[3] * quat[2] + quat[0] * quat[1]);
+                let cosy_cosp = 1.0 - 2.0 * (quat[1] * quat[1] + quat[2] * quat[2]);
+                let yaw = f32::atan2(siny_cosp, cosy_cosp);
+                defmt::info!("yaw: {}", yaw);
+                Some(Ok(yaw))
             }
         }
     }

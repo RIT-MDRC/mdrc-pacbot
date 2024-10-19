@@ -1194,6 +1194,7 @@ dependencies = [
  "futures",
  "heapless",
  "log",
+ "micromath",
  "num-traits",
  "panic-probe",
  "pid",
