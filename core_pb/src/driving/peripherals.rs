@@ -18,11 +18,11 @@ pub trait RobotPeripheralsBehavior: RobotTask {
     type Instant: CrossPlatformInstant + Default;
     type Error: Debug;
 
-    async fn draw_display<F>(&mut self, draw: F) -> Result<(), Self::Error>
+    async fn draw_display<F>(&mut self, draw: F)
     where
         F: FnOnce(&mut Self::Display) -> Result<(), <Self::Display as DrawTarget>::Error>;
 
-    async fn flip_screen(&mut self) -> Result<(), Self::Error>;
+    async fn flip_screen(&mut self);
 
     async fn absolute_rotation(&mut self) -> Result<f32, Self::Error>;
 
@@ -49,7 +49,7 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior>(
     let robot = RobotDefinition::new(name);
 
     let mut display_manager: DisplayManager<T::Instant> = DisplayManager::new(name);
-    peripherals.draw_display(|d| display_manager.draw(d))?;
+    peripherals.draw_display(|d| display_manager.draw(d)).await;
     peripherals.flip_screen().await;
 
     loop {
@@ -59,7 +59,7 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior>(
         if let Some(joystick) = peripherals.read_joystick().await {
             display_manager.joystick = joystick;
         }
-        peripherals.draw_display(|d| display_manager.draw(d))?;
+        peripherals.draw_display(|d| display_manager.draw(d)).await;
         peripherals.flip_screen().await;
 
         let angle = peripherals.absolute_rotation().await.map_err(|_| ());
