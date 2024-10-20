@@ -2,6 +2,7 @@ use crate::driving::{SimRobot, TaskChannels};
 use core_pb::constants::{ROBOT_DISPLAY_HEIGHT, ROBOT_DISPLAY_WIDTH};
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
+use core_pb::messages::RobotButton;
 use core_pb::util::StdInstant;
 use embedded_graphics::draw_target::DrawTarget;
 use embedded_graphics::geometry::{OriginDimensions, Size};
@@ -80,6 +81,14 @@ impl RobotPeripheralsBehavior for SimPeripherals {
 
     async fn battery_level(&mut self) -> Result<f32, Self::Error> {
         Ok(1.0)
+    }
+
+    async fn read_button_event(&mut self) -> Option<(RobotButton, bool)> {
+        self.robot.write().unwrap().button_events.pop_front()
+    }
+
+    async fn read_joystick(&mut self) -> Option<(f32, f32)> {
+        self.robot.read().unwrap().joystick
     }
 }
 

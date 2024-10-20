@@ -4,7 +4,8 @@ use crate::{
 use core::time::Duration;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
-use defmt::{info, Format};
+use core_pb::messages::RobotButton;
+use defmt::{error, info, Format};
 use display_interface::DisplayError;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;
@@ -29,7 +30,7 @@ pub const NUM_DIST_SENSORS: usize = 4;
 /// what I2C addresses to reassign each distance sensor to
 pub const DIST_SENSOR_ADDRESSES: [u8; NUM_DIST_SENSORS] = [0x29, 0x31, 0x32, 0x33];
 
-const DISPLAY_ADDRESS: u8 = 0x3c;
+const DISPLAY_ADDRESS: u8 = 0x3d;
 
 static PERIPHERALS_SIGNAL: Signal<
     ThreadModeRawMutex,
@@ -58,9 +59,9 @@ pub struct RobotPeripherals {
 }
 
 impl RobotPeripherals {
-    pub fn new(bus: &'static PacbotI2cBus) -> Self {
+    pub async fn new(bus: &'static PacbotI2cBus) -> Self {
         let i2c_device = I2cDevice::new(bus);
-        let interface = I2CInterface::new(i2c_device, DISPLAY_ADDRESS, 0);
+        let interface = I2CInterface::new(i2c_device, DISPLAY_ADDRESS, 0xC0);
         let display = Ssd1306Async::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
             .into_buffered_graphics_mode();
 
@@ -117,31 +118,44 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
     type Instant = EmbassyInstant;
     type Error = PeripheralsError;
 
-    async fn draw_display<F>(&mut self, draw: F) -> Result<(), Self::Error>
+    async fn draw_display<F>(&mut self, draw: F)
     where
         F: FnOnce(&mut Self::Display) -> Result<(), DisplayError>,
     {
         if !self.display_initialized {
-            self.display.init().await?;
+            if let Err(e) = self.display.init().await {
+                error!("display init err {:?}", e);
+                Timer::after(embassy_time::Duration::from_millis(500)).await;
+                return;
+            }
+            error!("display OK");
+            error!(
+                "set display on {:?}",
+                self.display.set_display_on(true).await
+            );
+            // self.display.set_pixel(1, 1, true);
+            self.display.clear_buffer();
+            error!("flush {:?}", self.display.flush().await);
+            Timer::after(embassy_time::Duration::from_millis(5000)).await;
             self.display_initialized = true;
         }
-        match draw(&mut self.display) {
-            Err(e) => {
-                self.display_initialized = false;
-                Err(e.into())
-            }
-            _ => Ok(()),
+        if let Err(e) = draw(&mut self.display) {
+            self.display_initialized = false;
+            error!("display draw err {:?}", e);
+            return;
         }
+        error!("display draw OK");
     }
 
-    async fn flip_screen(&mut self) -> Result<(), Self::Error> {
-        match self.display.flush().await {
-            Err(e) => {
-                self.display_initialized = false;
-                Err(e.into())
-            }
-            _ => Ok(()),
+    async fn flip_screen(&mut self) {
+        if let Err(_) = self.display.flush().await {
+            self.display_initialized = false;
+            error!("display flush err");
+            return;
         }
+        error!("display flush OK");
+        self.display_initialized = false;
+        Timer::after(embassy_time::Duration::from_millis(1000)).await;
     }
 
     async fn absolute_rotation(&mut self) -> Result<f32, Self::Error> {
@@ -157,6 +171,14 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
     async fn battery_level(&mut self) -> Result<f32, Self::Error> {
         self.fetch_sensor_signal().await;
         self.battery.clone()
+    }
+
+    async fn read_button_event(&mut self) -> Option<(RobotButton, bool)> {
+        None
+    }
+
+    async fn read_joystick(&mut self) -> Option<(f32, f32)> {
+        None
     }
 }
 
@@ -354,6 +376,7 @@ impl PacbotIMU {
 
 #[embassy_executor::task]
 pub async fn manage_pico_i2c(bus: &'static PacbotI2cBus, xshut: [AnyPin; NUM_DIST_SENSORS]) {
+    return;
     let mut i = 0;
     let mut dist_sensors = xshut.map(|pin| {
         i += 1;

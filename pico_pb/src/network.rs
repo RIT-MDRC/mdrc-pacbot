@@ -102,6 +102,8 @@ impl RobotNetworkBehavior for Network {
         info!("Joining network {} with password {:?}", network, password);
 
         if let Some(password) = password {
+            // let x = self.control.scan(cyw43::ScanOptions::default()).await.next().await.unwrap();
+            // x.
             self.control.join_wpa2(network, password).await
         } else {
             self.control.join_open(network).await

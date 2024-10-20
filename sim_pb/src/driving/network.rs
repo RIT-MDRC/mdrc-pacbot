@@ -100,7 +100,7 @@ impl RobotNetworkBehavior for SimNetwork {
 
     async fn wifi_is_connected(&self) -> Option<[u8; 4]> {
         if self.network_connected {
-            Some([55, 55, 55, 55])
+            Some([127, 0, 0, 1])
         } else {
             None
         }
@@ -116,6 +116,7 @@ impl RobotNetworkBehavior for SimNetwork {
         _password: Option<&str>,
     ) -> Result<(), <Self as RobotNetworkBehavior>::Error> {
         self.network_connected = true;
+        sleep(Duration::from_secs(1)).await;
         Ok(())
     }
 

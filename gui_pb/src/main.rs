@@ -24,7 +24,7 @@ use crate::drawing::widgets::draw_widgets;
 use core_pb::console_log;
 #[cfg(target_arch = "wasm32")]
 pub use core_pb::log;
-use core_pb::messages::{GameServerCommand, GuiToServerMessage, ServerToGuiMessage};
+use core_pb::messages::{GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToGuiMessage};
 use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
 use core_pb::util::stopwatch::Stopwatch;
 #[cfg(not(target_arch = "wasm32"))]
@@ -110,6 +110,7 @@ pub struct App {
     pointer_pos: Option<Pos2>,
     background_color: Color32,
     world_to_screen: Transform,
+    robot_buttons_wts: Transform,
     // replay_manager: ReplayManager,
     server_status: ServerStatus,
     saved_game_state: Option<GameState>,
@@ -125,6 +126,7 @@ pub struct App {
     gui_stopwatch: Stopwatch<5, 30, StdInstant>,
     rotated_grid: bool,
     settings_fields: Option<HashMap<String, (String, String)>>,
+    pacbot_server_connection_status: NetworkStatus,
 }
 
 impl eframe::App for App {
@@ -168,7 +170,8 @@ impl App {
             0.15,
             vec![Tab::OverTheAirProgramming, Tab::Keybindings],
         );
-        surface.split_below(left, 0.7, vec![Tab::RobotDisplay]);
+        let [_, below] = surface.split_below(left, 0.6, vec![Tab::RobotDisplay]);
+        surface.split_below(below, 0.6, vec![Tab::RobotButtonPanel]);
 
         let ui_settings: UiSettings = Default::default();
 
@@ -179,6 +182,13 @@ impl App {
             pointer_pos: None,
             background_color: Color32::BLACK,
             world_to_screen: Transform::new_letterboxed(
+                Pos2::new(0.0, 0.0),
+                Pos2::new(0.0, 1.0),
+                Pos2::new(0.0, 0.0),
+                Pos2::new(0.0, 1.0),
+                false,
+            ),
+            robot_buttons_wts: Transform::new_letterboxed(
                 Pos2::new(0.0, 0.0),
                 Pos2::new(0.0, 1.0),
                 Pos2::new(0.0, 0.0),
@@ -207,6 +217,7 @@ impl App {
 
             rotated_grid: true,
             settings_fields: Some(HashMap::new()),
+            pacbot_server_connection_status: NetworkStatus::NotConnected,
         }
     }
 
@@ -234,12 +245,20 @@ impl App {
         while let Some(TextOrT::T(msg)) = self.network.0.read() {
             match msg {
                 ServerToGuiMessage::Settings(settings) => {
+                    if self.pacbot_server_connection_status != NetworkStatus::Connected
+                        && self.network.0.status() == NetworkStatus::Connected
+                        && self.settings != PacbotSettings::default()
+                    {
+                        // send our settings to hopefully replace the server's
+                        self.send(GuiToServerMessage::Settings(self.settings.clone()));
+                    }
                     self.settings = settings.clone();
                     self.old_settings = settings
                 }
                 ServerToGuiMessage::Status(status) => self.server_status = status,
             }
         }
+        self.pacbot_server_connection_status = self.network.0.status();
     }
 
     /// Draw the main outer layout

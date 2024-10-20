@@ -133,7 +133,7 @@ async fn main(spawner: Spawner) {
         embassy_rp::i2c::Config::default(),
     )));
 
-    unwrap!(spawner.spawn(do_i2c(name, RobotPeripherals::new(i2c_bus))));
+    unwrap!(spawner.spawn(do_i2c(name, RobotPeripherals::new(i2c_bus).await)));
     unwrap!(spawner.spawn(manage_pico_i2c(i2c_bus, xshut)));
 
     info!("Finished spawning tasks");
