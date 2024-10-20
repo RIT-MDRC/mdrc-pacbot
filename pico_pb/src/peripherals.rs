@@ -17,12 +17,12 @@ use embassy_sync::channel::Channel;
 use embassy_sync::signal::Signal;
 use embassy_time::{Delay, Instant, Timer};
 use embedded_hal_async::i2c::I2c;
+use micromath::F32Ext;
 use ssd1306::mode::BufferedGraphicsModeAsync;
 use ssd1306::prelude::*;
 use ssd1306::Ssd1306Async;
 use vl53l4cd::wait::Poll;
 use vl53l4cd::{Status, Vl53l4cd};
-use micromath::F32Ext;
 
 /// numbr of distance sensors on the robot
 pub const NUM_DIST_SENSORS: usize = 4;
@@ -33,7 +33,10 @@ const DISPLAY_ADDRESS: u8 = 0x3c;
 
 static PERIPHERALS_SIGNAL: Signal<
     ThreadModeRawMutex,
-    ([Result<Option<f32>, ()>; NUM_DIST_SENSORS], Result<f32, ()>),
+    (
+        [Result<Option<f32>, PeripheralsError>; NUM_DIST_SENSORS],
+        Result<f32, PeripheralsError>,
+    ),
 > = Signal::new();
 
 pub static PERIPHERALS_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64> =
@@ -77,7 +80,7 @@ pub enum PeripheralsError {
     Uninitialized,
     DisplayError(DisplayError),
     DistanceSensorError(Option<Status>),
-    ImuError,
+    ImuError(ImuError),
     #[allow(dead_code)]
     Unimplemented,
 }
@@ -142,18 +145,27 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
     }
 
     async fn absolute_rotation(&mut self) -> Result<f32, Self::Error> {
-        if let Some((_, ang)) = PERIPHERALS_SIGNAL.try_take() {
-            self.angle = ang.map_err(|_| PeripheralsError::ImuError);
-        }
+        self.fetch_sensor_signal().await;
         self.angle.clone()
     }
 
     async fn distance_sensor(&mut self, index: usize) -> Result<Option<f32>, Self::Error> {
+        self.fetch_sensor_signal().await;
         self.distances[index].clone()
     }
 
     async fn battery_level(&mut self) -> Result<f32, Self::Error> {
+        self.fetch_sensor_signal().await;
         self.battery.clone()
+    }
+}
+
+impl RobotPeripherals {
+    async fn fetch_sensor_signal(&mut self) {
+        if let Some((dist, ang)) = PERIPHERALS_SIGNAL.try_take() {
+            self.distances = dist;
+            self.angle = ang;
+        }
     }
 }
 
@@ -300,17 +312,19 @@ impl PacbotIMU {
                 return None;
             }
             if let Err(e) = self.initialize().await {
-                return Some(Err(PeripheralsError::ImuError));
+                return Some(Err(PeripheralsError::ImuError(e)));
             }
         }
-        let _ = self.sensor
+        let _ = self
+            .sensor
             .handle_one_message(&mut self.delay_source, 10)
-            .await > 0;
+            .await
+            > 0;
 
         match self.sensor.rotation_quaternion() {
-            Err(_) => {
+            Err(e) => {
                 self.initialized = false;
-                Some(Err(PeripheralsError::ImuError))
+                Some(Err(PeripheralsError::ImuError(e)))
             }
             Ok(quat) => {
                 // convert quat to angle (yaw)
@@ -318,7 +332,7 @@ impl PacbotIMU {
                 let siny_cosp = 2.0 * (quat[3] * quat[2] + quat[0] * quat[1]);
                 let cosy_cosp = 1.0 - 2.0 * (quat[1] * quat[1] + quat[2] * quat[2]);
                 let yaw = f32::atan2(siny_cosp, cosy_cosp);
-                 defmt::info!("IMU yaw reading: {}", yaw);
+                defmt::debug!("IMU yaw reading: {}", yaw);
                 Some(Ok(yaw))
             }
         }
@@ -332,10 +346,6 @@ impl PacbotIMU {
         // initialize sensor
         self.sensor.init(&mut self.delay_source).await?;
         self.sensor.enable_rotation_vector(10).await?;
-        // while self.sensor
-        //     .handle_one_message(&mut self.delay_source, 100)
-        //     .await > 0 {}
-        // defmt::error!("no problems!");
 
         self.initialized = true;
         Ok(())
@@ -371,19 +381,16 @@ pub async fn manage_pico_i2c(bus: &'static PacbotI2cBus, xshut: [AnyPin; NUM_DIS
             }
         }
         if let Some(updated_value) = imu.update().await {
-
             angle = updated_value;
             changed = true;
         }
 
         if changed {
             // convert errors to () and distances to f32
-            // PERIPHERALS_SIGNAL.signal((
-            //     distances
-            //         .clone()
-            //         .map(|d| d.map_err(|_| ()).map(|x| x.map(|x| x as f32))),
-            //     angle.clone().map_err(|_| ()),
-            // ))
+            PERIPHERALS_SIGNAL.signal((
+                distances.clone().map(|d| d.map(|x| x.map(|x| x as f32))),
+                angle.clone(),
+            ))
         }
         Timer::after_millis(1).await;
     }

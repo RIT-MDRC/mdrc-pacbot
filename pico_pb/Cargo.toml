@@ -57,7 +57,7 @@ num-traits = { version = "0.2.18", default-features = false }
 smoltcp = { version = "0.11.0", default-features = false, features = ["defmt"] }
 display-interface = { version = "0.5.0", features = ["defmt-03"] }
 vl53l4cd = { version = "0.4.0", default-features = false, features = ["defmt-03"] }
-bno08x-async = { version = "0.2.0", git = "https://github.com/MJE10/bno080", features = ["defmt"], rev = "eaadaef31e46416cfb07d007325f99df92e13236" }
+bno08x-async = { version = "0.2.0", git = "https://github.com/MJE10/bno080", features = ["defmt"], rev = "3baf5648bcd331ec135e66fd9e464e55f616a010" }
 micromath = "2.1.0"
 
 [profile.release]
