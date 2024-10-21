@@ -48,6 +48,7 @@ impl Default for ServerStatus {
 pub struct RobotStatus {
     pub name: RobotName,
     pub connection: NetworkStatus,
+    pub ping: Option<Duration>,
 
     pub ota_current: OverTheAirStep,
     pub ota_completed: Vec<OverTheAirStepCompletion>,
@@ -69,6 +70,7 @@ impl RobotStatus {
         Self {
             name,
             connection: NetworkStatus::default(),
+            ping: None,
 
             ota_current: OverTheAirStep::GuiRequest,
             ota_completed: vec![],

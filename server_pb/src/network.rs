@@ -123,6 +123,11 @@ impl App {
                 self.status.robots[name as usize].estimated_location = sensors.location;
                 self.status.robots[name as usize].battery = sensors.battery;
             }
+            (Robot(name), FromRobot(RobotToServerMessage::Pong)) => {
+                if let Some(t) = self.robot_ping_timers[name as usize] {
+                    self.status.robots[name as usize].ping = Some(t.elapsed())
+                }
+            }
             (Robot(name), FromRobot(msg)) => info!("Message received from {name}: {msg:?}"),
             (Robot(_), _) => {}
             (_, FromRobot(_)) => {}

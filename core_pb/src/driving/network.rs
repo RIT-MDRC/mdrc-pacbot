@@ -154,6 +154,9 @@ pub async fn network_task<T: RobotNetworkBehavior, M: RobotTaskMessenger>(
                         }
                         Either::Right(_) => {}
                         Either::Left(Err(())) => break,
+                        Either::Left(Ok(ServerToRobotMessage::Ping)) => {
+                            let _ = write(name, &mut socket, RobotToServerMessage::Pong).await;
+                        }
                         Either::Left(Ok(ServerToRobotMessage::FrequentRobotItems(msg))) => {
                             msgs.send_or_drop(
                                 RobotInterTaskMessage::FrequentServerToRobot(msg.clone()),

@@ -165,6 +165,7 @@ pub enum ServerToRobotMessage {
     CancelFirmwareUpdate,
     /// See [`FrequentServerToRobot`]
     FrequentRobotItems(FrequentServerToRobot),
+    Ping,
 }
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
@@ -187,6 +188,7 @@ pub enum RobotToServerMessage {
     Name(RobotName),
     MotorControlStatus((Duration, MotorControlStatus)),
     Sensors(SensorData),
+    Pong,
 }
 
 /// Sent from the robot peripherals task to the wifi task and back to the server
