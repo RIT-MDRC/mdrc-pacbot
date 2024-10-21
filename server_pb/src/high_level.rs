@@ -42,7 +42,15 @@ impl ReinforcementLearningManager {
     }
 
     pub fn hybrid_strategy(&mut self, game_state: GameState) -> Direction {
-        // todo make this switch between models
-        self.do_inference(KnownRLModel::QNet, game_state, true, 6)
+        if game_state.pellet_at((3, 1))
+            || game_state.pellet_at((23, 1))
+            || game_state.pellet_at((3, 26))
+            || game_state.pellet_at((23, 26))
+            || game_state.ghosts.into_iter().any(|g| g.is_frightened())
+        {
+            self.do_inference(KnownRLModel::QNet, game_state, true, 6)
+        } else {
+            self.do_inference(KnownRLModel::Endgame, game_state, true, 6)
+        }
     }
 }

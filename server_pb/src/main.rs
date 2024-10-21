@@ -191,19 +191,35 @@ impl App {
             )
             .await; // check if new AI calculation is needed
         }
-        if self.status.target_path.is_empty()
+        // todo this should happen when the game state changes, not when one step has been taken
+        if self.status.target_path.len() < 4
             && self.settings.driving.strategy == StrategyChoice::ReinforcementLearning
         {
             self.inference_timer.start();
-            let rl_direction = self
+            let mut rl_direction = self
                 .rl_manager
                 .hybrid_strategy(self.status.game_state.clone());
-            let rl_vec = rl_direction.vector();
-            // todo multiple steps
+            let mut rl_vec = rl_direction.vector();
             self.status.target_path = vec![Point2::new(
                 self.status.game_state.pacman_loc.row + rl_vec.0,
                 self.status.game_state.pacman_loc.col + rl_vec.1,
             )];
+
+            let mut future = self.status.game_state.clone();
+            let mut i = 0;
+            while i < 4 {
+                future.set_pacman_location((
+                    future.pacman_loc.row + rl_vec.0,
+                    future.pacman_loc.col + rl_vec.1,
+                ));
+                rl_direction = self.rl_manager.hybrid_strategy(future.clone());
+                rl_vec = rl_direction.vector();
+                i += 1;
+                self.status.target_path.push(Point2::new(
+                    future.pacman_loc.row + rl_vec.0,
+                    future.pacman_loc.col + rl_vec.1,
+                ));
+            }
             self.inference_timer.mark_completed("inference").unwrap();
             self.status.inference_time = self.inference_timer.status();
         }
