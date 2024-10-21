@@ -367,6 +367,7 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)]
 struct TextInput<const L: usize> {
     buf: [u8; L],
     len: usize,

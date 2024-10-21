@@ -1,6 +1,6 @@
 use crate::drive_system::DriveSystem;
 use crate::driving::RobotInterTaskMessage;
-use crate::driving::RobotTask;
+use crate::driving::RobotTaskMessenger;
 use crate::driving::Task;
 use crate::messages::{
     FrequentServerToRobot, MotorControlStatus, RobotToServerMessage, SensorData,
@@ -17,7 +17,7 @@ use nalgebra::{Rotation2, Vector2};
 use pid::Pid;
 
 /// Functionality that robots with motors must support
-pub trait RobotMotorsBehavior: RobotTask {
+pub trait RobotMotorsBehavior {
     type Error: Debug;
 
     type Instant: CrossPlatformInstant + Default;
@@ -49,9 +49,10 @@ struct MotorsData<const WHEELS: usize, T: RobotMotorsBehavior> {
 }
 
 /// The "main" method for the motors task
-pub async fn motors_task<T: RobotMotorsBehavior>(
+pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
     name: RobotName,
     motors: T,
+    mut msgs: M,
 ) -> Result<(), T::Error> {
     let robot = name.robot();
     let config = FrequentServerToRobot::new(name);
@@ -163,7 +164,7 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
                             .await;
                     }
                 }
-                data.motors.send_or_drop(
+                msgs.send_or_drop(
                     RobotInterTaskMessage::ToServer(RobotToServerMessage::MotorControlStatus((
                         task_start.elapsed(),
                         MotorControlStatus {
@@ -182,7 +183,7 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
             Some(t) => t,
         };
 
-        match data.motors.receive_message_timeout(time_to_wait).await {
+        match msgs.receive_message_timeout(time_to_wait).await {
             Some(RobotInterTaskMessage::FrequentServerToRobot(msg)) => {
                 last_command = T::Instant::default();
                 data.config = msg;

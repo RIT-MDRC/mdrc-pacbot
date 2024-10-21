@@ -2,17 +2,14 @@
 #![no_main]
 
 #[allow(dead_code)]
+mod devices;
+#[allow(dead_code)]
 mod encoders;
 mod motors;
 mod network;
 mod peripherals;
-#[allow(dead_code)]
-mod vl53l1x;
-mod vl6180x;
 
 // todo https://github.com/adafruit/Adafruit_CircuitPython_seesaw/blob/main/adafruit_seesaw/seesaw.py https://crates.io/crates/adafruit-seesaw
-// todo https://github.com/adafruit/Adafruit_SSD1306/blob/master/Adafruit_SSD1306.cpp#L992 https://crates.io/crates/ssd1306
-// todo https://github.com/adafruit/Adafruit_CircuitPython_BNO055/blob/main/adafruit_bno055.py https://crates.io/crates/bno055
 
 use crate::encoders::{run_encoders, PioEncoder};
 use crate::motors::{Motors, MOTORS_CHANNEL};
@@ -21,10 +18,9 @@ use crate::peripherals::manage_pico_i2c;
 use crate::peripherals::{RobotPeripherals, PERIPHERALS_CHANNEL};
 use core::ops::{Deref, DerefMut};
 use core_pb::driving::motors::motors_task;
-#[allow(unused_imports)]
 use core_pb::driving::network::{network_task, RobotNetworkBehavior};
 use core_pb::driving::peripherals::peripherals_task;
-use core_pb::driving::{RobotInterTaskMessage, Task};
+use core_pb::driving::{RobotInterTaskMessage, RobotTaskMessenger, Task};
 use core_pb::names::RobotName;
 use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::CrossPlatformInstant;
@@ -41,8 +37,7 @@ use embassy_rp::peripherals::{I2C0, PIO0, PIO1};
 use embassy_rp::pio::Pio;
 use embassy_rp::watchdog::Watchdog;
 use embassy_rp::{bind_interrupts, interrupt};
-use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
-use embassy_sync::channel::Channel;
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Instant, Timer};
 use panic_probe as _;
@@ -147,43 +142,56 @@ async fn main(spawner: Spawner) {
 
 #[embassy_executor::task]
 async fn do_wifi(network: Network) {
-    unwrap!(network_task(network).await);
+    unwrap!(network_task(network, Messenger(Task::Wifi)).await);
 }
 
 #[embassy_executor::task]
 async fn do_motors(name: RobotName, motors: Motors<3>) {
-    unwrap!(motors_task(name, motors).await)
+    unwrap!(motors_task(name, motors, Messenger(Task::Motors)).await)
 }
 
 #[embassy_executor::task]
 async fn do_i2c(name: RobotName, i2c: RobotPeripherals) {
-    unwrap!(peripherals_task(i2c, name).await)
+    unwrap!(peripherals_task(name, i2c, Messenger(Task::Peripherals)).await)
 }
 
-fn send_or_drop2(message: RobotInterTaskMessage, to: Task) -> bool {
-    let result = match to {
-        Task::Wifi => NETWORK_CHANNEL.try_send(message),
-        Task::Motors => MOTORS_CHANNEL.try_send(message),
-        Task::Peripherals => PERIPHERALS_CHANNEL.try_send(message),
-    };
-    result.is_ok()
-}
+pub struct Messenger(Task);
 
-async fn send_blocking2(message: RobotInterTaskMessage, to: Task) {
-    match to {
-        Task::Wifi => NETWORK_CHANNEL.send(message).await,
-        Task::Motors => MOTORS_CHANNEL.send(message).await,
-        Task::Peripherals => PERIPHERALS_CHANNEL.send(message).await,
+impl RobotTaskMessenger for Messenger {
+    fn send_or_drop(&mut self, message: RobotInterTaskMessage, to: Task) -> bool {
+        match to {
+            Task::Wifi => NETWORK_CHANNEL.try_send(message),
+            Task::Motors => MOTORS_CHANNEL.try_send(message),
+            Task::Peripherals => PERIPHERALS_CHANNEL.try_send(message),
+        }
+        .is_ok()
     }
-}
 
-async fn receive_timeout(
-    channel: &Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64>,
-    timeout: core::time::Duration,
-) -> Option<RobotInterTaskMessage> {
-    match select(channel.receive(), Timer::after(timeout.try_into().unwrap())).await {
-        Either::First(msg) => Some(msg),
-        Either::Second(_) => None,
+    async fn send_blocking(&mut self, message: RobotInterTaskMessage, to: Task) {
+        match to {
+            Task::Wifi => NETWORK_CHANNEL.send(message).await,
+            Task::Motors => MOTORS_CHANNEL.send(message).await,
+            Task::Peripherals => PERIPHERALS_CHANNEL.send(message).await,
+        }
+    }
+
+    async fn receive_message(&mut self) -> RobotInterTaskMessage {
+        PERIPHERALS_CHANNEL.receive().await
+    }
+
+    async fn receive_message_timeout(
+        &mut self,
+        timeout: core::time::Duration,
+    ) -> Option<RobotInterTaskMessage> {
+        let channel = match self.0 {
+            Task::Wifi => &NETWORK_CHANNEL,
+            Task::Motors => &MOTORS_CHANNEL,
+            Task::Peripherals => &PERIPHERALS_CHANNEL,
+        };
+        match select(channel.receive(), Timer::after(timeout.try_into().unwrap())).await {
+            Either::First(msg) => Some(msg),
+            Either::Second(_) => None,
+        }
     }
 }
 

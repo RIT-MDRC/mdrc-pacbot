@@ -134,7 +134,7 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
             },
             _ => {
                 // if this page is a text edit field, send the input to it
-                if let Some(text_edit) = self.page.clone().text_edit(self) {
+                if let Some(_text_edit) = self.page.clone().text_edit(self) {
                     // todo send button to text_edit
                     if (button == RobotButton::LeftStart || button == RobotButton::RightSelect)
                         && pressed

@@ -1,4 +1,4 @@
-use crate::driving::{info, RobotInterTaskMessage, RobotTask, Task};
+use crate::driving::{info, RobotInterTaskMessage, RobotTaskMessenger, Task};
 use crate::messages::{NetworkStatus, RobotToServerMessage, ServerToRobotMessage};
 use crate::names::RobotName;
 use core::fmt::Debug;
@@ -16,7 +16,7 @@ pub struct NetworkScanInfo {
 }
 
 /// Functionality that robots with networking must support
-pub trait RobotNetworkBehavior: RobotTask {
+pub trait RobotNetworkBehavior {
     type Error: Debug;
     type Socket<'a>: Read + Write
     where
@@ -79,7 +79,10 @@ pub trait RobotNetworkBehavior: RobotTask {
 }
 
 /// The "main" method for the network task
-pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(), T::Error> {
+pub async fn network_task<T: RobotNetworkBehavior, M: RobotTaskMessenger>(
+    mut network: T,
+    mut msgs: M,
+) -> Result<(), T::Error> {
     info!("mac address: {:?}", network.mac_address().await);
     let name = RobotName::from_mac_address(&network.mac_address().await)
         .expect("Unrecognized mac address");
@@ -90,35 +93,29 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
 
     loop {
         if network.wifi_is_connected().await.is_none() {
-            network
-                .send_blocking(
-                    RobotInterTaskMessage::NetworkStatus(NetworkStatus::Connecting, None),
-                    Task::Peripherals,
-                )
-                .await;
+            msgs.send_blocking(
+                RobotInterTaskMessage::NetworkStatus(NetworkStatus::Connecting, None),
+                Task::Peripherals,
+            )
+            .await;
             loop {
                 if let Ok(()) = network
                     .connect_wifi(DEFAULT_NETWORK, option_env!("WIFI_PASSWORD"))
                     .await
                 {
                     let ip = network.wifi_is_connected().await.unwrap_or([0; 4]);
-                    network
-                        .send_blocking(
-                            RobotInterTaskMessage::NetworkStatus(
-                                NetworkStatus::Connected,
-                                Some(ip),
-                            ),
-                            Task::Peripherals,
-                        )
-                        .await;
-                    break;
-                }
-                network
-                    .send_blocking(
-                        RobotInterTaskMessage::NetworkStatus(NetworkStatus::ConnectionFailed, None),
+                    msgs.send_blocking(
+                        RobotInterTaskMessage::NetworkStatus(NetworkStatus::Connected, Some(ip)),
                         Task::Peripherals,
                     )
                     .await;
+                    break;
+                }
+                msgs.send_blocking(
+                    RobotInterTaskMessage::NetworkStatus(NetworkStatus::ConnectionFailed, None),
+                    Task::Peripherals,
+                )
+                .await;
             }
             info!("{} network connected", name);
         }
@@ -141,7 +138,7 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                 info!("{} sent name", name);
 
                 loop {
-                    match next_event(name, &mut network, &mut socket).await {
+                    match next_event::<T, M>(name, &mut msgs, &mut socket).await {
                         Either::Right(RobotInterTaskMessage::ToServer(msg)) => {
                             if write(name, &mut socket, msg).await.is_err() {
                                 break;
@@ -158,11 +155,11 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
                         Either::Right(_) => {}
                         Either::Left(Err(())) => break,
                         Either::Left(Ok(ServerToRobotMessage::FrequentRobotItems(msg))) => {
-                            network.send_or_drop(
+                            msgs.send_or_drop(
                                 RobotInterTaskMessage::FrequentServerToRobot(msg.clone()),
                                 Task::Motors,
                             );
-                            network.send_or_drop(
+                            msgs.send_or_drop(
                                 RobotInterTaskMessage::FrequentServerToRobot(msg),
                                 Task::Peripherals,
                             );
@@ -251,9 +248,9 @@ pub async fn network_task<T: RobotNetworkBehavior>(mut network: T) -> Result<(),
     }
 }
 
-async fn next_event<'a, T: RobotNetworkBehavior>(
+async fn next_event<'a, T: RobotNetworkBehavior, M: RobotTaskMessenger>(
     name: RobotName,
-    network: &mut T,
+    msgs: &mut M,
     mut socket: &mut T::Socket<'a>,
 ) -> Either<Result<ServerToRobotMessage, ()>, RobotInterTaskMessage> {
     // if the socket has data, we need to be sure to completely read it, or we'll only have half
@@ -261,7 +258,7 @@ async fn next_event<'a, T: RobotNetworkBehavior>(
     let mut len_buf = [0; 4];
     match select(
         pin!(socket.read(&mut len_buf)),
-        pin!(network.receive_message()),
+        pin!(msgs.receive_message()),
     )
     .await
     {

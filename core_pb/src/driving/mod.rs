@@ -29,7 +29,7 @@ pub enum RobotInterTaskMessage {
 }
 
 /// Functionality that all tasks must support
-pub trait RobotTask {
+pub trait RobotTaskMessenger {
     /// Send a message to the given task
     ///
     /// If the receiver's buffer is full, drops the message and returns false

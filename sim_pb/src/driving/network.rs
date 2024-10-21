@@ -1,4 +1,3 @@
-use crate::driving::TaskChannels;
 use crate::RobotToSimulationMessage;
 use async_channel::Sender;
 use async_std::io::{ReadExt, WriteExt};
@@ -6,7 +5,6 @@ use async_std::net::{TcpListener, TcpStream};
 use async_std::task::sleep;
 use bevy::prelude::{error, info};
 use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
-use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use core_pb::names::RobotName;
 use embedded_io_async::{ErrorType, Read, ReadExactError, Write};
 use std::io;
@@ -15,7 +13,6 @@ use std::time::Duration;
 
 pub struct SimNetwork {
     name: RobotName,
-    channels: TaskChannels,
     sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
     network_connected: bool,
 
@@ -26,12 +23,10 @@ impl SimNetwork {
     pub fn new(
         name: RobotName,
         firmware_swapped: bool,
-        channels: TaskChannels,
         sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
     ) -> Self {
         Self {
             name,
-            channels,
             sim_tx,
             network_connected: false,
             firmware_swapped,
@@ -66,27 +61,6 @@ impl Read for TcpStreamReadWrite {
 impl Write for TcpStreamReadWrite {
     async fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         self.0.write(buf).await
-    }
-}
-
-impl RobotTask for SimNetwork {
-    fn send_or_drop(&mut self, message: RobotInterTaskMessage, to: Task) -> bool {
-        self.channels.send_or_drop(message, to)
-    }
-
-    async fn send_blocking(&mut self, message: RobotInterTaskMessage, to: Task) {
-        self.channels.send_blocking(message, to).await
-    }
-
-    async fn receive_message(&mut self) -> RobotInterTaskMessage {
-        self.channels.receive_message().await
-    }
-
-    async fn receive_message_timeout(
-        &mut self,
-        timeout: Duration,
-    ) -> Option<RobotInterTaskMessage> {
-        self.channels.receive_message_timeout(timeout).await
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::driving::{RobotInterTaskMessage, RobotTask, Task};
+use crate::driving::{RobotInterTaskMessage, RobotTaskMessenger, Task};
 use crate::grid::standard_grid::StandardGrid;
 use crate::localization::estimate_location;
 use crate::messages::{RobotButton, SensorData};
@@ -13,7 +13,7 @@ use embedded_graphics::prelude::DrawTarget;
 use nalgebra::Point2;
 
 /// Functionality that robots with peripherals must support
-pub trait RobotPeripheralsBehavior: RobotTask {
+pub trait RobotPeripheralsBehavior {
     type Display: DrawTarget<Color = BinaryColor>;
     type Instant: CrossPlatformInstant + Default;
     type Error: Debug;
@@ -36,9 +36,10 @@ pub trait RobotPeripheralsBehavior: RobotTask {
 }
 
 /// The "main" method for the peripherals task
-pub async fn peripherals_task<T: RobotPeripheralsBehavior>(
-    mut peripherals: T,
+pub async fn peripherals_task<T: RobotPeripheralsBehavior, M: RobotTaskMessenger>(
     name: RobotName,
+    mut peripherals: T,
+    mut msgs: M,
 ) -> Result<(), T::Error> {
     let mut grid = StandardGrid::default();
     let mut cv_location = Some(Point2::new(
@@ -76,9 +77,9 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior>(
             location,
             battery: peripherals.battery_level().await.map_err(|_| ()),
         };
-        peripherals.send_or_drop(RobotInterTaskMessage::Sensors(sensors.clone()), Task::Wifi);
-        peripherals.send_or_drop(RobotInterTaskMessage::Sensors(sensors), Task::Motors);
-        match peripherals
+        msgs.send_or_drop(RobotInterTaskMessage::Sensors(sensors.clone()), Task::Wifi);
+        msgs.send_or_drop(RobotInterTaskMessage::Sensors(sensors), Task::Motors);
+        match msgs
             .receive_message_timeout(Duration::from_millis(10))
             .await
         {
