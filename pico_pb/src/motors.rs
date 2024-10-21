@@ -1,8 +1,7 @@
 use crate::encoders::ENCODER_VELOCITIES;
-use crate::{receive_timeout, send_blocking2, send_or_drop2, EmbassyInstant};
-use core::time::Duration;
+use crate::EmbassyInstant;
 use core_pb::driving::motors::RobotMotorsBehavior;
-use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
+use core_pb::driving::RobotInterTaskMessage;
 use core_pb::robot_definition::RobotDefinition;
 use defmt::Format;
 use embassy_rp::peripherals::{
@@ -52,27 +51,6 @@ impl Motors<3> {
 
 #[derive(Debug, Format)]
 pub enum MotorError {}
-
-impl<const WHEELS: usize> RobotTask for Motors<WHEELS> {
-    fn send_or_drop(&mut self, message: RobotInterTaskMessage, to: Task) -> bool {
-        send_or_drop2(message, to)
-    }
-
-    async fn send_blocking(&mut self, message: RobotInterTaskMessage, to: Task) {
-        send_blocking2(message, to).await
-    }
-
-    async fn receive_message(&mut self) -> RobotInterTaskMessage {
-        MOTORS_CHANNEL.receive().await
-    }
-
-    async fn receive_message_timeout(
-        &mut self,
-        timeout: Duration,
-    ) -> Option<RobotInterTaskMessage> {
-        receive_timeout(&MOTORS_CHANNEL, timeout).await
-    }
-}
 
 impl RobotMotorsBehavior for Motors<3> {
     type Error = MotorError;

@@ -3,7 +3,7 @@ pub mod network;
 pub mod peripherals;
 
 use crate::grid::standard_grid::StandardGrid;
-use crate::messages::{FrequentServerToRobot, RobotToServerMessage, SensorData};
+use crate::messages::{FrequentServerToRobot, NetworkStatus, RobotToServerMessage, SensorData};
 use core::time::Duration;
 #[cfg(feature = "defmt")]
 pub(crate) use defmt::*;
@@ -25,10 +25,11 @@ pub enum RobotInterTaskMessage {
     ToServer(RobotToServerMessage),
     Sensors(SensorData),
     Grid(StandardGrid),
+    NetworkStatus(NetworkStatus, Option<[u8; 4]>),
 }
 
 /// Functionality that all tasks must support
-pub trait RobotTask {
+pub trait RobotTaskMessenger {
     /// Send a message to the given task
     ///
     /// If the receiver's buffer is full, drops the message and returns false
