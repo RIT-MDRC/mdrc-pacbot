@@ -12,7 +12,6 @@ use core::time::Duration;
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::DrawTarget;
 use nalgebra::Point2;
-use std::time::Instant;
 
 /// Functionality that robots with peripherals must support
 pub trait RobotPeripheralsBehavior {
@@ -59,11 +58,11 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior, M: RobotTaskMessenger
         UtilizationMonitor::new(0.0, 0.0);
     utilization_monitor.start();
 
-    let mut last_send_time = Instant::now();
+    let mut last_send_time = T::Instant::default();
 
     loop {
         if last_send_time.elapsed() > Duration::from_millis(30) {
-            last_send_time = Instant::now();
+            last_send_time = T::Instant::default();
             while let Some((button, pressed)) = peripherals.read_button_event().await {
                 display_manager.button_event(button, pressed);
             }

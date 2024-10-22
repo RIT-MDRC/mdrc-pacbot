@@ -6,7 +6,7 @@ use embassy_embedded_hal::shared_bus::I2cDeviceError;
 use embassy_rp::gpio::Output;
 use embassy_rp::i2c;
 use embassy_rp::i2c::Async;
-use embassy_rp::peripherals::I2C0;
+use embassy_rp::peripherals::I2C1;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_time::{Delay, Instant, Timer};
 use embedded_hal_async::i2c::I2c;
@@ -14,7 +14,7 @@ use vl53l4cd::wait::Poll;
 use vl53l4cd::{Status, Vl53l4cd};
 
 type PacbotDistanceSensorType =
-    Vl53l4cd<I2cDevice<'static, NoopRawMutex, i2c::I2c<'static, I2C0, Async>>, Delay, Poll>;
+    Vl53l4cd<I2cDevice<'static, NoopRawMutex, i2c::I2c<'static, I2C1, Async>>, Delay, Poll>;
 
 impl From<vl53l4cd::Error<I2cDeviceError<i2c::Error>>> for PeripheralsError {
     fn from(_value: vl53l4cd::Error<I2cDeviceError<i2c::Error>>) -> Self {
