@@ -5,7 +5,7 @@ use nalgebra::ComplexField;
 use nalgebra::{Point2, Vector2};
 use ordered_float::NotNan;
 
-const CV_ERROR: f32 = 2.0;
+const CV_ERROR: f32 = 1.5;
 
 const VECTORS: [Vector2<f32>; 4] = [
     Vector2::new(1.0, 0.0),

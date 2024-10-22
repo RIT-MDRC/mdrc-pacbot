@@ -6,6 +6,7 @@ use micromath::F32Ext;
 use nalgebra::{Point2, Vector2};
 
 const SPEED: f32 = 1.5;
+const LOCAL_MAX_PATH_LENGTH: usize = MAX_ROBOT_PATH_LENGTH + 1;
 
 pub fn pure_pursuit(
     sensors: &SensorData,
@@ -20,10 +21,14 @@ pub fn pure_pursuit(
         return None;
     };
 
-    let path_f32: heapless::Vec<Point2<f32>, MAX_ROBOT_PATH_LENGTH> =
+    let mut path_f32: heapless::Vec<Point2<f32>, LOCAL_MAX_PATH_LENGTH> =
         path.into_iter().map(|x| x.map(|y| y as f32)).collect();
 
-    let closest_point = if path.len() > 1 {
+    path_f32
+        .insert(0, round_point(loc))
+        .expect("CANNOT GET HERE");
+
+    let closest_point = if path_f32.len() > 1 {
         get_closest_point(&loc, &path_f32, get_closest_segment(&loc, &path_f32))
     } else {
         loc
@@ -45,10 +50,10 @@ fn get_vec(loc: Point2<f32>, pursuit_point: Point2<f32>) -> Vector2<f32> {
 
 fn get_pursuit_point(
     loc: &Point2<f32>,
-    path: &heapless::Vec<Point2<f32>, MAX_ROBOT_PATH_LENGTH>,
+    path: &heapless::Vec<Point2<f32>, LOCAL_MAX_PATH_LENGTH>,
     lookahead: f32,
 ) -> Option<Point2<f32>> {
-    let mut intersections: heapless::Vec<Point2<f32>, MAX_ROBOT_PATH_LENGTH> = heapless::Vec::new();
+    let mut intersections: heapless::Vec<Point2<f32>, LOCAL_MAX_PATH_LENGTH> = heapless::Vec::new();
 
     if path.len() == 1 {
         if let Some(intersection) = get_intersection(loc, *loc, path[0], lookahead) {
@@ -77,11 +82,11 @@ fn get_pursuit_point(
 }
 
 fn in_line(loc: Point2<f32>, p1: Point2<f32>, p2: Point2<f32>) -> bool {
-    let x1: bool = loc.x >= p1.x && loc.x <= p2.x;
-    let x2: bool = loc.x <= p1.x && loc.x >= p2.x;
-    let y1: bool = loc.y >= p1.y && loc.y <= p2.y;
-    let y2: bool = loc.y <= p1.y && loc.y >= p2.y;
-    return x1 || x2 || y1 || y2;
+    if p1.x == p2.x {
+        return loc.y >= p1.y && loc.y <= p2.y || loc.y <= p1.y && loc.y >= p2.y;
+    } else {
+        return loc.x >= p1.x && loc.x <= p2.x || loc.x <= p1.x && loc.x >= p2.x;
+    }
 }
 
 //gets intersection closest to p2
@@ -144,7 +149,7 @@ fn get_intersection(
 
 fn get_closest_point(
     loc: &Point2<f32>,
-    path: &heapless::Vec<Point2<f32>, MAX_ROBOT_PATH_LENGTH>,
+    path: &heapless::Vec<Point2<f32>, LOCAL_MAX_PATH_LENGTH>,
     i: usize,
 ) -> Point2<f32> {
     if i == path.len() - 1 {
@@ -186,7 +191,7 @@ fn get_closest_point(
 
 fn get_closest_segment(
     loc: &Point2<f32>,
-    path: &heapless::Vec<Point2<f32>, MAX_ROBOT_PATH_LENGTH>,
+    path: &heapless::Vec<Point2<f32>, LOCAL_MAX_PATH_LENGTH>,
 ) -> usize {
     if path.len() == 1 {
         return 0;
@@ -217,4 +222,8 @@ fn get_closest_segment(
     }
 
     usize::min(index1, index2)
+}
+
+fn round_point(p: Point2<f32>) -> Point2<f32> {
+    Point2::new((p.x + 0.5) as i8 as f32, (p.y + 0.5) as i8 as f32)
 }
