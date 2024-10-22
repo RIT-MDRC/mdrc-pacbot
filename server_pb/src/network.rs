@@ -117,6 +117,10 @@ impl App {
             (Robot(name), FromRobot(RobotToServerMessage::MotorControlStatus(status))) => {
                 self.status.robots[name as usize].last_motor_status = status;
             }
+            (Robot(name), FromRobot(RobotToServerMessage::Utilization(utilization))) => {
+                // todo draw
+                self.status.robots[name as usize].utilization = utilization;
+            }
             (Robot(name), FromRobot(RobotToServerMessage::Sensors(sensors))) => {
                 self.status.robots[name as usize].imu_angle = sensors.angle;
                 self.status.robots[name as usize].distance_sensors = sensors.distances;

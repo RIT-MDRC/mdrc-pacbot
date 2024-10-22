@@ -8,6 +8,7 @@ use crate::messages::{
 use crate::names::RobotName;
 use crate::pure_pursuit::pure_pursuit;
 use crate::robot_definition::RobotDefinition;
+use crate::util::utilization::UtilizationMonitor;
 use crate::util::CrossPlatformInstant;
 use core::fmt::Debug;
 use core::time::Duration;
@@ -92,6 +93,10 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
 
     let mut last_command = T::Instant::default();
 
+    let mut utilization_monitor: UtilizationMonitor<50, T::Instant> =
+        UtilizationMonitor::new(0.0, 0.0);
+    utilization_monitor.start();
+
     loop {
         if data.config.follow_target_path {
             if let Some(sensors) = &sensors {
@@ -175,6 +180,13 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
                     ))),
                     Task::Wifi,
                 );
+                msgs.send_or_drop(
+                    RobotInterTaskMessage::Utilization(
+                        utilization_monitor.utilization(),
+                        Task::Motors,
+                    ),
+                    Task::Wifi,
+                );
                 last_motor_control_status = T::Instant::default();
                 run_pid_every
                     .checked_sub(last_motor_control_status.elapsed())
@@ -183,7 +195,11 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
             Some(t) => t,
         };
 
-        match msgs.receive_message_timeout(time_to_wait).await {
+        utilization_monitor.stop();
+        let event = msgs.receive_message_timeout(time_to_wait).await;
+        utilization_monitor.start();
+
+        match event {
             Some(RobotInterTaskMessage::FrequentServerToRobot(msg)) => {
                 last_command = T::Instant::default();
                 data.config = msg;

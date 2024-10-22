@@ -1,6 +1,8 @@
 use crate::driving::{info, RobotInterTaskMessage, RobotTaskMessenger, Task};
 use crate::messages::{NetworkStatus, RobotToServerMessage, ServerToRobotMessage};
 use crate::names::RobotName;
+use crate::util::utilization::UtilizationMonitor;
+use crate::util::CrossPlatformInstant;
 use core::fmt::Debug;
 use core::pin::pin;
 use embedded_io_async::{Read, Write};
@@ -21,6 +23,7 @@ pub trait RobotNetworkBehavior {
     type Socket<'a>: Read + Write
     where
         Self: 'a;
+    type Instant: CrossPlatformInstant + Default;
 
     /// Get the device's mac address
     async fn mac_address(&mut self) -> [u8; 6];
@@ -91,6 +94,12 @@ pub async fn network_task<T: RobotNetworkBehavior, M: RobotTaskMessenger>(
     let mut tx_buffer = [0; 5000];
     let mut rx_buffer = [0; 5000];
 
+    let mut utilization_monitor: UtilizationMonitor<50, T::Instant> =
+        UtilizationMonitor::new(0.0, 0.0);
+    utilization_monitor.start();
+
+    let mut utilizations = [0.0; 3];
+
     loop {
         if network.wifi_is_connected().await.is_none() {
             msgs.send_blocking(
@@ -138,7 +147,21 @@ pub async fn network_task<T: RobotNetworkBehavior, M: RobotTaskMessenger>(
                 info!("{} sent name", name);
 
                 loop {
-                    match next_event::<T, M>(name, &mut msgs, &mut socket).await {
+                    utilization_monitor.stop();
+                    let event = next_event::<T, M>(name, &mut msgs, &mut socket).await;
+                    utilization_monitor.start();
+
+                    match event {
+                        Either::Right(RobotInterTaskMessage::Utilization(util, task)) => {
+                            utilizations[task as usize] = util;
+                            utilizations[Task::Wifi as usize] = utilization_monitor.utilization();
+                            let _ = write(
+                                name,
+                                &mut socket,
+                                RobotToServerMessage::Utilization(utilizations),
+                            )
+                            .await;
+                        }
                         Either::Right(RobotInterTaskMessage::ToServer(msg)) => {
                             if write(name, &mut socket, msg).await.is_err() {
                                 break;

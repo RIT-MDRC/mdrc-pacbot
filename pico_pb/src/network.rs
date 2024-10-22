@@ -1,4 +1,4 @@
-use crate::Irqs;
+use crate::{EmbassyInstant, Irqs};
 use core::cell::RefCell;
 use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
 use core_pb::driving::RobotInterTaskMessage;
@@ -46,6 +46,7 @@ pub enum NetworkError {
 impl RobotNetworkBehavior for Network {
     type Error = NetworkError;
     type Socket<'a> = TcpSocket<'a>;
+    type Instant = EmbassyInstant;
 
     async fn mac_address(&mut self) -> [u8; 6] {
         self.control.address().await

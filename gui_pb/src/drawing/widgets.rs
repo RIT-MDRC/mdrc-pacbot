@@ -1,5 +1,5 @@
 use crate::App;
-use core_pb::messages::NetworkStatus;
+use core_pb::messages::{NetworkStatus, Task};
 use core_pb::util::ColoredStatus;
 use eframe::egui;
 use eframe::egui::{RichText, Ui};
@@ -130,6 +130,19 @@ impl PacbotWidget {
                 });
                 draw_status(ui, &app.server_status.utilization, "Server");
                 draw_status(ui, &app.server_status.inference_time, "Inference");
+                ui.separator();
+                for task in Task::get_all() {
+                    draw_status(
+                        ui,
+                        &ColoredStatus::Ok(Some(format!(
+                            "{:.3}%",
+                            app.server_status.robots[app.ui_settings.selected_robot as usize]
+                                .utilization[task as usize]
+                                * 100.0
+                        ))),
+                        format!("{task:?}"),
+                    );
+                }
             }
             PacbotWidget::SensorsWidget => {
                 let robot = &app.server_status.robots[app.ui_settings.selected_robot as usize];

@@ -20,7 +20,8 @@ use core::ops::{Deref, DerefMut};
 use core_pb::driving::motors::motors_task;
 use core_pb::driving::network::{network_task, RobotNetworkBehavior};
 use core_pb::driving::peripherals::peripherals_task;
-use core_pb::driving::{RobotInterTaskMessage, RobotTaskMessenger, Task};
+use core_pb::driving::{RobotInterTaskMessage, RobotTaskMessenger};
+use core_pb::messages::Task;
 use core_pb::names::RobotName;
 use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::CrossPlatformInstant;
@@ -176,7 +177,12 @@ impl RobotTaskMessenger for Messenger {
     }
 
     async fn receive_message(&mut self) -> RobotInterTaskMessage {
-        PERIPHERALS_CHANNEL.receive().await
+        let channel = match self.0 {
+            Task::Wifi => &NETWORK_CHANNEL,
+            Task::Motors => &MOTORS_CHANNEL,
+            Task::Peripherals => &PERIPHERALS_CHANNEL,
+        };
+        channel.receive().await
     }
 
     async fn receive_message_timeout(

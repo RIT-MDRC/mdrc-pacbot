@@ -3,20 +3,14 @@ pub mod network;
 pub mod peripherals;
 
 use crate::grid::standard_grid::StandardGrid;
-use crate::messages::{FrequentServerToRobot, NetworkStatus, RobotToServerMessage, SensorData};
+use crate::messages::{
+    FrequentServerToRobot, NetworkStatus, RobotToServerMessage, SensorData, Task,
+};
 use core::time::Duration;
 #[cfg(feature = "defmt")]
 pub(crate) use defmt::*;
 #[cfg(feature = "log")]
 pub(crate) use log::*;
-
-/// The different async tasks that run on the robot
-#[derive(Copy, Clone, Debug)]
-pub enum Task {
-    Wifi,
-    Motors,
-    Peripherals,
-}
 
 /// Messages passed between the various tasks
 #[derive(Clone)]
@@ -26,6 +20,7 @@ pub enum RobotInterTaskMessage {
     Sensors(SensorData),
     Grid(StandardGrid),
     NetworkStatus(NetworkStatus, Option<[u8; 4]>),
+    Utilization(f32, Task),
 }
 
 /// Functionality that all tasks must support

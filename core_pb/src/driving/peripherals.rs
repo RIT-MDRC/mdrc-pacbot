@@ -5,12 +5,14 @@ use crate::messages::{RobotButton, SensorData};
 use crate::names::RobotName;
 use crate::robot_definition::RobotDefinition;
 use crate::robot_display::DisplayManager;
+use crate::util::utilization::UtilizationMonitor;
 use crate::util::CrossPlatformInstant;
 use core::fmt::Debug;
 use core::time::Duration;
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::DrawTarget;
 use nalgebra::Point2;
+use std::time::Instant;
 
 /// Functionality that robots with peripherals must support
 pub trait RobotPeripheralsBehavior {
@@ -53,36 +55,56 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior, M: RobotTaskMessenger
     peripherals.draw_display(|d| display_manager.draw(d)).await;
     peripherals.flip_screen().await;
 
-    loop {
-        while let Some((button, pressed)) = peripherals.read_button_event().await {
-            display_manager.button_event(button, pressed);
-        }
-        if let Some(joystick) = peripherals.read_joystick().await {
-            display_manager.joystick = joystick;
-        }
-        peripherals.draw_display(|d| display_manager.draw(d)).await;
-        peripherals.flip_screen().await;
+    let mut utilization_monitor: UtilizationMonitor<50, T::Instant> =
+        UtilizationMonitor::new(0.0, 0.0);
+    utilization_monitor.start();
 
-        let angle = peripherals.absolute_rotation().await.map_err(|_| ());
-        let mut distances = [Err(()); 4];
-        for (i, sensor) in distances.iter_mut().enumerate() {
-            *sensor = peripherals.distance_sensor(i).await.map_err(|_| ());
+    let mut last_send_time = Instant::now();
+
+    loop {
+        if last_send_time.elapsed() > Duration::from_millis(30) {
+            last_send_time = Instant::now();
+            while let Some((button, pressed)) = peripherals.read_button_event().await {
+                display_manager.button_event(button, pressed);
+            }
+            if let Some(joystick) = peripherals.read_joystick().await {
+                display_manager.joystick = joystick;
+            }
+            peripherals.draw_display(|d| display_manager.draw(d)).await;
+            peripherals.flip_screen().await;
+
+            let angle = peripherals.absolute_rotation().await.map_err(|_| ());
+            let mut distances = [Err(()); 4];
+            for (i, sensor) in distances.iter_mut().enumerate() {
+                *sensor = peripherals.distance_sensor(i).await.map_err(|_| ());
+            }
+            let location = estimate_location(grid, cv_location, &distances, &robot);
+            display_manager.imu_angle = angle;
+            display_manager.distances = distances;
+            let sensors = SensorData {
+                angle,
+                distances,
+                location,
+                battery: peripherals.battery_level().await.map_err(|_| ()),
+            };
+            msgs.send_or_drop(RobotInterTaskMessage::Sensors(sensors.clone()), Task::Wifi);
+            msgs.send_or_drop(RobotInterTaskMessage::Sensors(sensors), Task::Motors);
+            msgs.send_or_drop(
+                RobotInterTaskMessage::Utilization(
+                    utilization_monitor.utilization(),
+                    Task::Peripherals,
+                ),
+                Task::Wifi,
+            );
         }
-        let location = estimate_location(grid, cv_location, &distances, &robot);
-        display_manager.imu_angle = angle;
-        display_manager.distances = distances;
-        let sensors = SensorData {
-            angle,
-            distances,
-            location,
-            battery: peripherals.battery_level().await.map_err(|_| ()),
-        };
-        msgs.send_or_drop(RobotInterTaskMessage::Sensors(sensors.clone()), Task::Wifi);
-        msgs.send_or_drop(RobotInterTaskMessage::Sensors(sensors), Task::Motors);
-        match msgs
+
+        utilization_monitor.stop();
+        let event = msgs
             .receive_message_timeout(Duration::from_millis(10))
-            .await
-        {
+            .await;
+        utilization_monitor.start();
+
+        match event {
             Some(RobotInterTaskMessage::Grid(new_grid)) => grid = new_grid,
             Some(RobotInterTaskMessage::FrequentServerToRobot(data)) => {
                 cv_location = data.cv_location

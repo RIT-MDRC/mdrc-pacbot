@@ -9,8 +9,8 @@ use bevy::tasks::block_on;
 use core_pb::driving::motors::motors_task;
 use core_pb::driving::network::network_task;
 use core_pb::driving::peripherals::peripherals_task;
-use core_pb::driving::{RobotInterTaskMessage, RobotTaskMessenger, Task};
-use core_pb::messages::RobotButton;
+use core_pb::driving::{RobotInterTaskMessage, RobotTaskMessenger};
+use core_pb::messages::{RobotButton, Task};
 use core_pb::names::RobotName;
 use futures::future::{select, Either};
 use futures::{select, FutureExt};
@@ -136,11 +136,11 @@ impl SimRobot {
             _ = thread_stopper.recv().fuse() => {
                 info!("{name} destroyed");
             }
-            _ = handle_task(motors_task(name, motors, t0)).fuse() => {
-                info!("{name} motors task ended early");
-            }
-            _ = handle_task(network_task(network, t1)).fuse() => {
+            _ = handle_task(network_task(network, t0)).fuse() => {
                 info!("{name} network task ended early");
+            }
+            _ = handle_task(motors_task(name, motors, t1)).fuse() => {
+                info!("{name} motors task ended early");
             }
             _ = handle_task(peripherals_task(name, peripherals, t2)).fuse() => {
                 info!("{name} peripherals task ended early");
