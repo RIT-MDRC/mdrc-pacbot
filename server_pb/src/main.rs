@@ -305,7 +305,7 @@ impl App {
             if self.sim_game_engine_process.is_none() {
                 self.sim_game_engine_process = Some(
                     Command::new("cargo")
-                        .args(["run", "--bin", "sim_pb", "--release"])
+                        .args(["run", "--bin", "sim_pb"])
                         .current_dir(env!("CARGO_MANIFEST_DIR").to_string() + "/../")
                         .spawn()
                         .unwrap(),

@@ -109,7 +109,7 @@ fn get_sim_ray_cast(loc: Point2<i8>, grid: &Grid, radius: f32) -> [f32; 4] {
     })
 }
 
-fn get_dist(p0: Point2<f32>, p1: Point2<f32>) -> f32 {
+pub fn get_dist(p0: Point2<f32>, p1: Point2<f32>) -> f32 {
     let t0 = p1.x - p0.x;
     let t1 = p1.y - p0.y;
     (t0 * t0 + t1 * t1).sqrt()
