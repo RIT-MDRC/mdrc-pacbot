@@ -28,6 +28,8 @@ pub enum Tab {
     Unknown,
     /// Simulated robot display
     RobotDisplay,
+    /// Simulated robot controls
+    RobotButtonPanel,
 }
 
 impl TabViewer for App {
@@ -43,6 +45,7 @@ impl TabViewer for App {
             Tab::Keybindings => "Keybindings",
             Tab::OverTheAirProgramming => "OTA Programming",
             Tab::RobotDisplay => "Robot Display",
+            Tab::RobotButtonPanel => "Robot Button Panel",
             Tab::Unknown => "?",
         }
         .into()
@@ -84,8 +87,11 @@ impl TabViewer for App {
                 let rect = ui.max_rect();
 
                 let wts = Transform::new_letterboxed(
-                    Pos2::new(0.0, 0.0),
-                    Pos2::new(ROBOT_DISPLAY_HEIGHT as f32, ROBOT_DISPLAY_WIDTH as f32),
+                    Pos2::new(-1.0, 1.0),
+                    Pos2::new(
+                        ROBOT_DISPLAY_HEIGHT as f32 + 1.0,
+                        ROBOT_DISPLAY_WIDTH as f32 + 1.0,
+                    ),
                     Pos2::new(rect.top(), rect.left()),
                     Pos2::new(rect.bottom(), rect.right()),
                     false,
@@ -95,10 +101,10 @@ impl TabViewer for App {
 
                 painter.rect(
                     Rect::from_two_pos(
-                        wts.map_point(Pos2::new(0.0, 0.0)),
+                        wts.map_point(Pos2::new(-1.0, 1.0)),
                         wts.map_point(Pos2::new(
-                            ROBOT_DISPLAY_HEIGHT as f32,
-                            ROBOT_DISPLAY_WIDTH as f32,
+                            ROBOT_DISPLAY_HEIGHT as f32 + 1.0,
+                            ROBOT_DISPLAY_WIDTH as f32 + 1.0,
                         )),
                     ),
                     Rounding::ZERO,
@@ -124,6 +130,45 @@ impl TabViewer for App {
                             }
                         }
                     }
+                }
+            }
+            Tab::RobotButtonPanel => {
+                let rect = ui.max_rect();
+
+                let wts = Transform::new_letterboxed(
+                    Pos2::new(0.0, 0.0),
+                    Pos2::new(4.0, 10.0),
+                    Pos2::new(rect.top(), rect.left()),
+                    Pos2::new(rect.bottom(), rect.right()),
+                    false,
+                );
+                self.robot_buttons_wts = wts;
+
+                let painter = ui.painter_at(rect);
+
+                painter.rect(
+                    Rect::from_two_pos(
+                        wts.map_point(Pos2::new(0.0, 0.0)),
+                        wts.map_point(Pos2::new(4.0, 10.0)),
+                    ),
+                    Rounding::ZERO,
+                    Color32::BLACK,
+                    Stroke::NONE,
+                );
+
+                for (x, y) in [
+                    (8.0, 1.0),
+                    (9.0, 2.0),
+                    (7.0, 2.0),
+                    (8.0, 3.0),
+                    (4.3, 3.0),
+                    (5.7, 3.0),
+                ] {
+                    painter.circle_filled(
+                        wts.map_point(Pos2::new(y, x)),
+                        wts.map_dist(0.4),
+                        Color32::WHITE,
+                    );
                 }
             }
             _ => {

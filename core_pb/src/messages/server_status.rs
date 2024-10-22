@@ -48,11 +48,13 @@ impl Default for ServerStatus {
 pub struct RobotStatus {
     pub name: RobotName,
     pub connection: NetworkStatus,
+    pub ping: Option<Duration>,
 
     pub ota_current: OverTheAirStep,
     pub ota_completed: Vec<OverTheAirStepCompletion>,
 
     pub last_motor_status: (Duration, MotorControlStatus),
+    pub utilization: [f32; 3],
 
     pub sim_position: Option<(Point2<f32>, Rotation2<f32>)>,
 
@@ -69,11 +71,13 @@ impl RobotStatus {
         Self {
             name,
             connection: NetworkStatus::default(),
+            ping: None,
 
             ota_current: OverTheAirStep::GuiRequest,
             ota_completed: vec![],
 
             last_motor_status: Default::default(),
+            utilization: [0.0; 3],
 
             sim_position: None,
 

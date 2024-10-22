@@ -184,6 +184,16 @@ impl PacbotNetworkSimulation {
                                     }
                                 }
                             }
+                            ServerToSimulationMessage::RobotButton(name, event) => {
+                                if let Some((_, sim_robot)) = &app.robots[name as usize] {
+                                    sim_robot.write().unwrap().button_events.push_back(event)
+                                }
+                            }
+                            ServerToSimulationMessage::RobotJoystick(name, values) => {
+                                if let Some((_, sim_robot)) = &app.robots[name as usize] {
+                                    sim_robot.write().unwrap().joystick = Some(values)
+                                }
+                            }
                         },
                         Err(e) => error!("Error decoding simulation message: {e:?}"),
                     },

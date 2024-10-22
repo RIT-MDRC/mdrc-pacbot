@@ -1,7 +1,7 @@
-use crate::{receive_timeout, send_blocking2, send_or_drop2, Irqs};
+use crate::{EmbassyInstant, Irqs};
 use core::cell::RefCell;
 use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
-use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
+use core_pb::driving::RobotInterTaskMessage;
 use cyw43::{Control, NetDriver};
 use cyw43_pio::PioSpi;
 use defmt::{info, unwrap, Format};
@@ -43,30 +43,10 @@ pub enum NetworkError {
     FirmwareUpdater,
 }
 
-impl RobotTask for Network {
-    fn send_or_drop(&mut self, message: RobotInterTaskMessage, to: Task) -> bool {
-        send_or_drop2(message, to)
-    }
-
-    async fn send_blocking(&mut self, message: RobotInterTaskMessage, to: Task) {
-        send_blocking2(message, to).await
-    }
-
-    async fn receive_message(&mut self) -> RobotInterTaskMessage {
-        NETWORK_CHANNEL.receive().await
-    }
-
-    async fn receive_message_timeout(
-        &mut self,
-        timeout: core::time::Duration,
-    ) -> Option<RobotInterTaskMessage> {
-        receive_timeout(&NETWORK_CHANNEL, timeout).await
-    }
-}
-
 impl RobotNetworkBehavior for Network {
     type Error = NetworkError;
     type Socket<'a> = TcpSocket<'a>;
+    type Instant = EmbassyInstant;
 
     async fn mac_address(&mut self) -> [u8; 6] {
         self.control.address().await
@@ -102,6 +82,8 @@ impl RobotNetworkBehavior for Network {
         info!("Joining network {} with password {:?}", network, password);
 
         if let Some(password) = password {
+            // let x = self.control.scan(cyw43::ScanOptions::default()).await.next().await.unwrap();
+            // x.
             self.control.join_wpa2(network, password).await
         } else {
             self.control.join_open(network).await

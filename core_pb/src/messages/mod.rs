@@ -75,6 +75,16 @@ pub enum SimulationToServerMessage {
     RobotDisplay(RobotName, Vec<u128>),
 }
 
+#[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub enum RobotButton {
+    EastA,
+    SouthB,
+    NorthX,
+    WestY,
+    LeftStart,
+    RightSelect,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
 pub enum ServerToSimulationMessage {
@@ -83,6 +93,9 @@ pub enum ServerToSimulationMessage {
     Delete(RobotName),
     SetPacman(RobotName),
     SetStandardGrid(StandardGrid),
+    /// A button press (true) or release (false) for a simulated robot
+    RobotButton(RobotName, (RobotButton, bool)),
+    RobotJoystick(RobotName, (f32, f32)),
 }
 
 /// This is sent regularly and frequently to robots via [`ServerToRobotMessage::FrequentRobotItems`]
@@ -152,6 +165,7 @@ pub enum ServerToRobotMessage {
     CancelFirmwareUpdate,
     /// See [`FrequentServerToRobot`]
     FrequentRobotItems(FrequentServerToRobot),
+    Ping,
 }
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
@@ -173,7 +187,24 @@ pub enum RobotToServerMessage {
     MarkedFirmwareBooted,
     Name(RobotName),
     MotorControlStatus((Duration, MotorControlStatus)),
+    Utilization([f32; 3]),
     Sensors(SensorData),
+    Pong,
+}
+
+/// The different async tasks that run on the robot
+#[derive(Copy, Clone, Debug)]
+#[repr(usize)]
+pub enum Task {
+    Wifi = 0,
+    Motors = 1,
+    Peripherals = 2,
+}
+
+impl Task {
+    pub fn get_all() -> [Self; 3] {
+        [Task::Wifi, Task::Motors, Task::Peripherals]
+    }
 }
 
 /// Sent from the robot peripherals task to the wifi task and back to the server

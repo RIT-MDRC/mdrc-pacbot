@@ -173,7 +173,7 @@ impl OverTheAirProgramming {
                 Some(t) => {
                     t.elapsed()
                         > match status.robots[name as usize].ota_current {
-                            OverTheAirStep::DataTransfer { .. } => Duration::from_millis(100),
+                            OverTheAirStep::DataTransfer { .. } => Duration::from_millis(2000),
                             _ => Duration::from_millis(5000),
                         }
                 }
@@ -278,7 +278,10 @@ impl OverTheAirProgramming {
                     {
                         if *offset != received {
                             self.robots[*name as usize].update_failed(status);
-                            error!("Robot received bytes at the wrong offset");
+                            error!(
+                                "Robot received bytes at the wrong offset: {} != {}",
+                                *offset, received
+                            );
                             self.cancel_update(*name, status).await;
                         } else {
                             // is there another firmware part?

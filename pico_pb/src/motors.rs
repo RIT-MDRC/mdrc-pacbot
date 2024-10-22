@@ -1,13 +1,10 @@
 use crate::encoders::ENCODER_VELOCITIES;
-use crate::{receive_timeout, send_blocking2, send_or_drop2, EmbassyInstant};
-use core::time::Duration;
+use crate::EmbassyInstant;
 use core_pb::driving::motors::RobotMotorsBehavior;
-use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
+use core_pb::driving::RobotInterTaskMessage;
 use core_pb::robot_definition::RobotDefinition;
 use defmt::Format;
-use embassy_rp::peripherals::{
-    PIN_14, PIN_15, PIN_6, PIN_7, PIN_8, PIN_9, PWM_SLICE3, PWM_SLICE4, PWM_SLICE7,
-};
+use embassy_rp::peripherals::*;
 use embassy_rp::pwm;
 use embassy_rp::pwm::Pwm;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
@@ -27,8 +24,8 @@ pub struct Motors<const WHEELS: usize> {
 impl Motors<3> {
     pub fn new(
         robot: RobotDefinition<3>,
-        pwm_pins: (PIN_6, PIN_7, PIN_8, PIN_9, PIN_14, PIN_15),
-        pwm: (PWM_SLICE3, PWM_SLICE4, PWM_SLICE7),
+        pwm_pins: (PIN_2, PIN_3, PIN_6, PIN_7, PIN_10, PIN_11),
+        pwm: (PWM_SLICE1, PWM_SLICE3, PWM_SLICE5),
     ) -> Self {
         let mut pwm_config = pwm::Config::default();
         pwm_config.top = robot.pwm_top;
@@ -52,27 +49,6 @@ impl Motors<3> {
 
 #[derive(Debug, Format)]
 pub enum MotorError {}
-
-impl<const WHEELS: usize> RobotTask for Motors<WHEELS> {
-    fn send_or_drop(&mut self, message: RobotInterTaskMessage, to: Task) -> bool {
-        send_or_drop2(message, to)
-    }
-
-    async fn send_blocking(&mut self, message: RobotInterTaskMessage, to: Task) {
-        send_blocking2(message, to).await
-    }
-
-    async fn receive_message(&mut self) -> RobotInterTaskMessage {
-        MOTORS_CHANNEL.receive().await
-    }
-
-    async fn receive_message_timeout(
-        &mut self,
-        timeout: Duration,
-    ) -> Option<RobotInterTaskMessage> {
-        receive_timeout(&MOTORS_CHANNEL, timeout).await
-    }
-}
 
 impl RobotMotorsBehavior for Motors<3> {
     type Error = MotorError;

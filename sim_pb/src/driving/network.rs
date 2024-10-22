@@ -1,4 +1,3 @@
-use crate::driving::TaskChannels;
 use crate::RobotToSimulationMessage;
 use async_channel::Sender;
 use async_std::io::{ReadExt, WriteExt};
@@ -6,8 +5,8 @@ use async_std::net::{TcpListener, TcpStream};
 use async_std::task::sleep;
 use bevy::prelude::{error, info};
 use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
-use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use core_pb::names::RobotName;
+use core_pb::util::StdInstant;
 use embedded_io_async::{ErrorType, Read, ReadExactError, Write};
 use std::io;
 use std::io::ErrorKind;
@@ -15,7 +14,6 @@ use std::time::Duration;
 
 pub struct SimNetwork {
     name: RobotName,
-    channels: TaskChannels,
     sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
     network_connected: bool,
 
@@ -26,12 +24,10 @@ impl SimNetwork {
     pub fn new(
         name: RobotName,
         firmware_swapped: bool,
-        channels: TaskChannels,
         sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
     ) -> Self {
         Self {
             name,
-            channels,
             sim_tx,
             network_connected: false,
             firmware_swapped,
@@ -69,30 +65,10 @@ impl Write for TcpStreamReadWrite {
     }
 }
 
-impl RobotTask for SimNetwork {
-    fn send_or_drop(&mut self, message: RobotInterTaskMessage, to: Task) -> bool {
-        self.channels.send_or_drop(message, to)
-    }
-
-    async fn send_blocking(&mut self, message: RobotInterTaskMessage, to: Task) {
-        self.channels.send_blocking(message, to).await
-    }
-
-    async fn receive_message(&mut self) -> RobotInterTaskMessage {
-        self.channels.receive_message().await
-    }
-
-    async fn receive_message_timeout(
-        &mut self,
-        timeout: Duration,
-    ) -> Option<RobotInterTaskMessage> {
-        self.channels.receive_message_timeout(timeout).await
-    }
-}
-
 impl RobotNetworkBehavior for SimNetwork {
     type Error = SimNetworkError;
     type Socket<'a> = TcpStreamReadWrite where Self: 'a;
+    type Instant = StdInstant;
 
     async fn mac_address(&mut self) -> [u8; 6] {
         self.name.mac_address()
@@ -100,7 +76,7 @@ impl RobotNetworkBehavior for SimNetwork {
 
     async fn wifi_is_connected(&self) -> Option<[u8; 4]> {
         if self.network_connected {
-            Some([55, 55, 55, 55])
+            Some([127, 0, 0, 1])
         } else {
             None
         }
@@ -116,6 +92,7 @@ impl RobotNetworkBehavior for SimNetwork {
         _password: Option<&str>,
     ) -> Result<(), <Self as RobotNetworkBehavior>::Error> {
         self.network_connected = true;
+        sleep(Duration::from_secs(1)).await;
         Ok(())
     }
 
