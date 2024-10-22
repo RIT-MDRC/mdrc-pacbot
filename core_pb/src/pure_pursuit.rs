@@ -7,19 +7,25 @@ use nalgebra::{Point2, Vector2};
 
 const SPEED: f32 = 1.5;
 const LOCAL_MAX_PATH_LENGTH: usize = MAX_ROBOT_PATH_LENGTH + 1;
+const DIST_TOWARDS_CENTER: f32 = 0.3;
 
 pub fn pure_pursuit(
     sensors: &SensorData,
     path: &heapless::Vec<Point2<i8>, MAX_ROBOT_PATH_LENGTH>,
     lookahead: f32,
 ) -> Option<Vector2<f32>> {
-    if path.len() == 0 {
-        return None;
-    }
-
     let Some(loc) = sensors.location else {
         return None;
     };
+
+    if path.len() == 0 {
+        let r = round_point(loc);
+        if get_dist(loc, r) > DIST_TOWARDS_CENTER {
+            return Some(get_vec(loc, r, false));
+        } else {
+            return None;
+        }
+    }
 
     let mut path_f32: heapless::Vec<Point2<f32>, LOCAL_MAX_PATH_LENGTH> =
         path.into_iter().map(|x| x.map(|y| y as f32)).collect();
@@ -35,17 +41,18 @@ pub fn pure_pursuit(
     };
 
     if let Some(pursuit_point) = get_pursuit_point(&closest_point, &path_f32, lookahead) {
-        return Some(get_vec(loc, pursuit_point));
+        return Some(get_vec(loc, pursuit_point, true));
     }
 
     None
 }
 
-fn get_vec(loc: Point2<f32>, pursuit_point: Point2<f32>) -> Vector2<f32> {
+fn get_vec(loc: Point2<f32>, pursuit_point: Point2<f32>, normalize: bool) -> Vector2<f32> {
     let x = pursuit_point.x - loc.x;
     let y = pursuit_point.y - loc.y;
     let mag = (x * x + y * y).sqrt(); // could potentially do math here to ease acceleration as to not overshoot endpoint
-    Vector2::new(x / mag * SPEED, y / mag * SPEED)
+    let mult = if normalize { SPEED / mag } else { 1.0 };
+    Vector2::new(x * mult, y * mult)
 }
 
 fn get_pursuit_point(
