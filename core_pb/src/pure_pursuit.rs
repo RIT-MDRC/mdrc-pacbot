@@ -1,6 +1,8 @@
 use crate::messages::SensorData;
 use crate::{constants::MAX_ROBOT_PATH_LENGTH, localization};
 use localization::get_dist;
+#[allow(unused_imports)]
+use micromath::F32Ext;
 use nalgebra::{Point2, Vector2};
 
 const SPEED: f32 = 1.5;
