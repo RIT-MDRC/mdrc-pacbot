@@ -48,7 +48,7 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
             initial_time: I::default(),
 
             animation_timer: I::default(),
-            page: Page::Pacman,
+            page: Page::Main,
             submenu_index: 0,
             game_state,
             last_game_state_step: I::default(),
