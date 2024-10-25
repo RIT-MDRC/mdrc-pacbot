@@ -77,7 +77,7 @@ impl Default for App {
             over_the_air_programming: OverTheAirProgramming::new(sockets.outgoing.clone()),
 
             sockets,
-            robot_ping_timers: [None; 5],
+            robot_ping_timers: [None; NUM_ROBOT_NAMES],
 
             grid: Default::default(),
         }

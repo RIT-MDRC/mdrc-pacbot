@@ -42,7 +42,7 @@ impl Default for UiSettings {
             mdrc_server_collapsed: true,
             simulation_collapsed: true,
             game_server_collapsed: true,
-            robots_collapsed: [true; 5],
+            robots_collapsed: [true; NUM_ROBOT_NAMES],
 
             record_motor_data: false,
         }
