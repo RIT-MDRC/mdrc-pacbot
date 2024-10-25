@@ -54,7 +54,7 @@ impl Display for RobotName {
 #[cfg(feature = "defmt")]
 impl defmt::Format for RobotName {
     fn format(&self, fmt: defmt::Formatter) {
-        defmt::write!(fmt, "", self.get_str())
+        defmt::write!(fmt, "{}", self.get_str())
     }
 }
 
