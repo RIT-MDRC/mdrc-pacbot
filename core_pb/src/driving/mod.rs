@@ -21,6 +21,7 @@ pub enum RobotInterTaskMessage {
     Grid(StandardGrid),
     NetworkStatus(NetworkStatus, Option<[u8; 4]>),
     Utilization(f32, Task),
+    ResetAngle,
 }
 
 /// Functionality that all tasks must support

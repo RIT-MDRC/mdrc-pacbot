@@ -49,6 +49,8 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior, M: RobotTaskMessenger
     ));
 
     let robot = RobotDefinition::new(name);
+    let mut last_success_angle = 0.0;
+    let mut angle_offset = 0.0;
 
     let mut display_manager: DisplayManager<T::Instant> = DisplayManager::new(name);
     peripherals.draw_display(|d| display_manager.draw(d)).await;
@@ -86,7 +88,14 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior, M: RobotTaskMessenger
                 }
             }
 
-            let angle = handle_err(peripherals.absolute_rotation().await);
+            let angle = match handle_err(peripherals.absolute_rotation().await) {
+                Ok(a) => {
+                    last_success_angle = a;
+                    let a = a - angle_offset;
+                    Ok(a)
+                }
+                e => e,
+            };
 
             let mut distances = [const { Err(heapless::String::new()) }; 4];
             for (i, sensor) in distances.iter_mut().enumerate() {
@@ -126,6 +135,9 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior, M: RobotTaskMessenger
             Some(RobotInterTaskMessage::NetworkStatus(status, ip)) => {
                 display_manager.network_status = status;
                 display_manager.ip = ip;
+            }
+            Some(RobotInterTaskMessage::ResetAngle) => {
+                angle_offset = last_success_angle;
             }
             _ => {}
         }

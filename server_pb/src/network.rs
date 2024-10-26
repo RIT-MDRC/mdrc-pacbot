@@ -118,7 +118,6 @@ impl App {
                 self.status.robots[name as usize].last_motor_status = status;
             }
             (Robot(name), FromRobot(RobotToServerMessage::Utilization(utilization))) => {
-                // todo draw
                 self.status.robots[name as usize].utilization = utilization;
             }
             (Robot(name), FromRobot(RobotToServerMessage::Sensors(sensors))) => {
@@ -168,6 +167,9 @@ impl App {
                 }
                 GuiToServerMessage::SimulationCommand(msg) => {
                     self.send(Simulation, ToSimulation(msg)).await;
+                }
+                GuiToServerMessage::RobotCommand(name, msg) => {
+                    self.send(Robot(name), ToRobot(msg)).await;
                 }
                 GuiToServerMessage::RestartSimulation => {
                     if self.settings.simulation.simulate {
