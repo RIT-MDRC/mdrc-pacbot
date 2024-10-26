@@ -1,5 +1,4 @@
 use core::f32;
-
 use crate::driving::SimRobot;
 use crate::{MyApp, Robot, Wall};
 use bevy::math::Vec3;
@@ -10,7 +9,7 @@ use bevy_rapier2d::prelude::*;
 use core_pb::constants::GU_PER_M;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::RobotName;
-use core_pb::robot_definition::RobotDefinition;
+use core_pb::robot_definition::{self, RobotDefinition};
 use rand::prelude::*;
 
 pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
@@ -133,20 +132,24 @@ impl MyApp {
                 sim_robot.write().unwrap().distance_sensors = distance_sensors;
             }
             let mut rng = rand::thread_rng();
-            let noise_rng: f32 = 0.0025;
-            
-            let mut target_vel = robot
+            let noise_rng: f32 = 0.005;
+            let mut motor_speeds = robot
                 .wasd_target_vel
-                .unwrap_or((Vector2::new(0.0, 0.0), 0.0));
+                .unwrap_or([0.0;3]);
+            let robot_definition = RobotDefinition::new(robot.name);
+            //for each motor add noise
+            for i in 0..3{
+                let noise:f32=rng.gen_range(-noise_rng..noise_rng).abs();
+                if motor_speeds[i]!=0.0 {
+                    motor_speeds[i]*=noise;
+                }
+                println!("{:?}: {:?}, noise {:?} ",i,motor_speeds[i],noise);
+            }
+            let mut target_vel = robot_definition.drive_system.get_actual_vel_omni(motor_speeds);
             let move_scale = target_vel.0.magnitude();
             if target_vel.0 != Vector2::new(0.0, 0.0) {
                 target_vel.0 = target_vel.0.normalize() * move_scale;
             }
-            let torque_noise_rng: f32 = 0.001;
-            let x_noise:f32=target_vel.0.x*rng.gen_range(-noise_rng..noise_rng);
-            let y_noise:f32=target_vel.0.y*rng.gen_range(-noise_rng..noise_rng);
-            let torque_noise:f32=0.0*target_vel.1*rng.gen_range(-torque_noise_rng..torque_noise_rng);
-            println!("target velocity {:?}", target_vel);
             imp.impulse.x = target_vel.0.x - v.linvel.x * 0.6;
             imp.impulse.y = target_vel.0.y - v.linvel.y * 0.6;
             imp.torque_impulse = target_vel.1 - v.angvel * 0.1;

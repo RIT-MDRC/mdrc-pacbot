@@ -76,14 +76,14 @@ impl RobotMotorsBehavior for SimMotors {
         let motor = pin / 2;
         if self.pwm_values[motor][pin % 2] != to {
             self.pwm_values[motor][pin % 2] = to;
+            //converts pid output to simulator velocity
             self.motor_speeds[motor] = 60.0
                 * (self.pwm_values[motor][0] as f32 - self.pwm_values[motor][1] as f32)
                 / self.name.robot().pwm_top as f32;
-            let (lin, ang) = self.drive_system.get_actual_vel_omni(self.motor_speeds);
             self.sim_tx
                 .send((
                     self.name,
-                    RobotToSimulationMessage::SimulatedVelocity(lin, ang),
+                    RobotToSimulationMessage::SimulatedMotors(self.motor_speeds),
                 ))
                 .await
                 .unwrap();
@@ -95,10 +95,12 @@ impl RobotMotorsBehavior for SimMotors {
         let new_velocity  = self.sim_robot.read()
         .unwrap().velocity;
 
-        //let new_ang_velocity  = self.sim_robot.read().unwrap().ang_velocity;
-        return 0.0;
-        //let target_speed = self.drive_system.get_motor_speed_omni(new_velocity, new_ang_velocity);
-        //target_speed[motor]
+        let new_ang_velocity  = self.sim_robot.read().unwrap().ang_velocity;
+        if new_ang_velocity.abs()>30.0{
+            panic!()
+        }
+        let target_speed = self.drive_system.get_motor_speed_omni(new_velocity, new_ang_velocity);
+        target_speed[motor]
     }
 }
 

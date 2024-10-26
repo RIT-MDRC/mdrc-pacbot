@@ -25,7 +25,7 @@ pub struct MyApp {
     standard_grid: StandardGrid,
     grid: ComputedGrid,
 
-    server_target_vel: [Option<(Vector2<f32>, f32)>; NUM_ROBOT_NAMES],
+    server_target_vel: [Option<[f32;3]>; NUM_ROBOT_NAMES],
 
     robots: [Option<(Entity, Arc<RwLock<SimRobot>>)>; NUM_ROBOT_NAMES],
     from_robots: (
@@ -40,7 +40,7 @@ pub enum SimulationToRobotMessage {}
 
 #[derive(Copy, Clone, Debug)]
 pub enum RobotToSimulationMessage {
-    SimulatedVelocity(Vector2<f32>, f32),
+    SimulatedMotors([f32;3]),
     MarkFirmwareUpdated,
     Reboot,
 }
@@ -51,7 +51,7 @@ pub struct Wall;
 #[derive(Component)]
 pub struct Robot {
     name: RobotName,
-    wasd_target_vel: Option<(Vector2<f32>, f32)>,
+    wasd_target_vel: Option<[f32;3]>,
 }
 
 fn main() {
@@ -177,7 +177,7 @@ fn keyboard_input(
         if target_vel == (Vector2::new(0.0, 0.0), 0.0) {
             robot.wasd_target_vel = app.server_target_vel[robot.name as usize];
         } else {
-            robot.wasd_target_vel = Some(target_vel)
+            //robot.wasd_target_vel = Some(target_vel)
         }
     }
 
