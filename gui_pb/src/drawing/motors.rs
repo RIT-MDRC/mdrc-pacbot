@@ -243,7 +243,7 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                 plot_ui.line(
                     Line::new(PlotPoints::new(app.motor_status_frames.pwm[m][1].clone()))
                         .name(format!("{m}b PWM"))
-                        .color(color.1),
+                        .color(Color32::LIGHT_BLUE),
                 );
             }
         });
