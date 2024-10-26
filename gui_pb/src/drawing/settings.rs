@@ -42,7 +42,7 @@ impl Default for UiSettings {
             mdrc_server_collapsed: true,
             simulation_collapsed: true,
             game_server_collapsed: true,
-            robots_collapsed: [true; 5],
+            robots_collapsed: [true; NUM_ROBOT_NAMES],
 
             record_motor_data: false,
         }
@@ -161,15 +161,19 @@ fn collapsable_section(
     button_color: Color32,
     header_contents: impl FnOnce(&mut Ui),
     body_contents: impl FnOnce(&mut Ui),
+    tooltip: Option<impl Into<WidgetText>>,
 ) {
     ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-        let button = ui.add(
+        let mut button = ui.add(
             egui::Button::new(match *collapsed {
                 true => egui_phosphor::regular::CARET_RIGHT,
                 false => egui_phosphor::regular::CARET_DOWN,
             })
             .fill(button_color),
         );
+        if let Some(tt) = tooltip {
+            button = button.on_hover_text(tt)
+        }
         if button.clicked() {
             *collapsed = !*collapsed;
         }
@@ -191,6 +195,7 @@ pub fn generic_server(
     collapsed: &mut bool,
     status: &NetworkStatus,
     right_ui: impl FnOnce(&mut Ui),
+    tooltip: Option<impl Into<WidgetText>>,
 ) {
     let ip_name = name.to_string() + "server_ip";
     let port_name = name.to_string() + "server_port";
@@ -206,6 +211,7 @@ pub fn generic_server(
             ipv4(ip_name, ui, fields, &mut connection_settings.ipv4, "IP");
             num(port_name, ui, fields, &mut connection_settings.port, "Port");
         },
+        tooltip,
     );
 }
 
@@ -287,6 +293,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         &mut app.ui_settings.mdrc_server_collapsed,
         &app.network.0.status(),
         |_| {},
+        None::<&str>,
     );
 
     generic_server(
@@ -297,6 +304,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         &mut app.ui_settings.simulation_collapsed,
         &app.server_status.simulation_connection,
         |_| {},
+        None::<&str>,
     );
 
     generic_server(
@@ -341,6 +349,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
                     )));
             }
         },
+        None::<&str>,
     );
 
     ui.separator();
@@ -382,6 +391,9 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
                     );
                 }
             },
+            app.server_status.robots[name as usize]
+                .ping
+                .map(|x| format!("Ping: {x:?}")),
         );
         if app.settings.robots[name as usize].connection.connect {
             any_robot_enabled = Some(name);

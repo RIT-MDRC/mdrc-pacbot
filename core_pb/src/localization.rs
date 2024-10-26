@@ -1,4 +1,5 @@
 use crate::grid::{Grid, GRID_SIZE};
+use crate::messages::MAX_SENSOR_ERR_LEN;
 use crate::{grid::standard_grid::StandardGrid, robot_definition::RobotDefinition};
 #[cfg(not(feature = "std"))]
 use nalgebra::ComplexField;
@@ -17,7 +18,7 @@ const VECTORS: [Vector2<f32>; 4] = [
 pub fn estimate_location(
     grid: StandardGrid,
     cv_location: Option<Point2<i8>>,
-    distance_sensors: &[Result<Option<f32>, ()>; 4],
+    distance_sensors: &[Result<Option<f32>, heapless::String<MAX_SENSOR_ERR_LEN>>; 4],
     robot: &RobotDefinition<3>,
 ) -> Option<Point2<f32>> {
     let cv_location_int = cv_location?;
@@ -80,7 +81,7 @@ pub fn estimate_location(
 fn get_estimated_poses(
     grid: &Grid,
     cv_location: Point2<i8>,
-    distance_sensors: &[Result<Option<f32>, ()>; 4],
+    distance_sensors: &[Result<Option<f32>, heapless::String<MAX_SENSOR_ERR_LEN>>; 4],
     radius: f32,
 ) -> [Option<Point2<f32>>; 4] {
     let cv_distances = get_sim_ray_cast(cv_location, grid, radius);
@@ -88,6 +89,7 @@ fn get_estimated_poses(
 
     [0, 1, 2, 3].map(|i| {
         distance_sensors[i]
+            .clone()
             .ok()
             .flatten()
             .map(|dist| cv_location + (VECTORS[i] * (cv_distances[i] - dist)))

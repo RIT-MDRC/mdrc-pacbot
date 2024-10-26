@@ -1,7 +1,7 @@
 //! See [`RobotName`], a unique identifier for each known robot
 
 /// The number of unique [`RobotName`]s
-pub const NUM_ROBOT_NAMES: usize = 5;
+pub const NUM_ROBOT_NAMES: usize = 6;
 
 /// Represents a unique robot, either a physical device or a simulation
 ///
@@ -23,12 +23,12 @@ pub enum RobotName {
     // [P]ico boards
     Pierre = 0,
     Prince = 1,
-    // Patric,
+    Patric = 2,
     // Pancho,
     // [S]imulated robots
-    Stella = 2,
-    Stevie = 3,
-    Speers = 4,
+    Stella = 3,
+    Stevie = 4,
+    Speers = 5,
 }
 
 impl From<usize> for RobotName {
@@ -36,9 +36,10 @@ impl From<usize> for RobotName {
         match value {
             0 => Pierre,
             1 => Prince,
-            2 => Stella,
-            3 => Stevie,
-            4 => Speers,
+            2 => Patric,
+            3 => Stella,
+            4 => Stevie,
+            5 => Speers,
             _ => panic!("Invalid robot name index: {}", value),
         }
     }
@@ -46,26 +47,14 @@ impl From<usize> for RobotName {
 
 impl Display for RobotName {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Stella => write!(f, "Stella"),
-            Stevie => write!(f, "Stevie"),
-            Speers => write!(f, "Speers"),
-            Pierre => write!(f, "Pierre"),
-            Prince => write!(f, "Prince"),
-        }
+        write!(f, "{}", self.get_str())
     }
 }
 
 #[cfg(feature = "defmt")]
 impl defmt::Format for RobotName {
     fn format(&self, fmt: defmt::Formatter) {
-        let _ = match self {
-            Stella => defmt::write!(fmt, "Stella"),
-            Stevie => defmt::write!(fmt, "Stevie"),
-            Speers => defmt::write!(fmt, "Speers"),
-            Pierre => defmt::write!(fmt, "Pierre"),
-            Prince => defmt::write!(fmt, "Prince"),
-        };
+        defmt::write!(fmt, "{}", self.get_str())
     }
 }
 
@@ -77,7 +66,7 @@ use RobotName::*;
 impl RobotName {
     /// All robot names in order
     pub fn get_all() -> [RobotName; NUM_ROBOT_NAMES] {
-        [Pierre, Prince, Stella, Stevie, Speers]
+        [Pierre, Prince, Patric, Stella, Stevie, Speers]
     }
 
     pub fn get_str(&self) -> &'static str {
@@ -87,6 +76,7 @@ impl RobotName {
             Speers => "Speers",
             Pierre => "Pierre",
             Prince => "Prince",
+            Patric => "Patric",
         }
     }
 
@@ -97,7 +87,7 @@ impl RobotName {
 
     /// Whether this robot is a raspberry pi pico
     pub fn is_pico(&self) -> bool {
-        matches!(self, Pierre | Prince)
+        matches!(self, Pierre | Prince | Patric)
     }
 
     /// The mac address of this robot, must be unique
@@ -109,8 +99,9 @@ impl RobotName {
             Stevie => [0x02, 0, 0, 0, 0, 0x02],
             Speers => [0x02, 0, 0, 0, 0, 0x03],
 
-            Pierre => [0x28, 0xcd, 0xc1, 0x0f, 0x82, 0x87],
+            Pierre => [0x28, 0xcd, 0xc1, 0x0f, 0x29, 0x35],
             Prince => [0x28, 0xcd, 0xc1, 0x0c, 0x81, 0xca],
+            Patric => [0x28, 0xcd, 0xc1, 0x0f, 0x29, 0x4f],
         }
     }
 
@@ -126,8 +117,9 @@ impl RobotName {
                 _ => None,
             },
 
-            [0x28, 0xcd, 0xc1, 0x0f, 0x82, 0x87] => Some(Pierre),
+            [0x28, 0xcd, 0xc1, 0x0f, 0x29, 0x35] => Some(Pierre),
             [0x28, 0xcd, 0xc1, 0x0c, 0x81, 0xca] => Some(Prince),
+            [0x28, 0xcd, 0xc1, 0x0f, 0x29, 0x4f] => Some(Patric),
 
             _ => None,
         }
@@ -136,8 +128,9 @@ impl RobotName {
     /// The default pre-filled ip - robots need not necessarily use this ip
     pub fn default_ip(&self) -> [u8; 4] {
         match self {
-            Pierre => [192, 168, 4, 17],
-            Prince => [192, 168, 1, 226],
+            Pierre => [192, 168, 8, 114],
+            Prince => [192, 168, 8, 113],
+            Patric => [192, 168, 8, 115],
             // simulated robots are local
             _ => [127, 0, 0, 1],
         }

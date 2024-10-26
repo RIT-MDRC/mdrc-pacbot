@@ -16,7 +16,7 @@ use core_pb::messages::{
     GameServerCommand, NetworkStatus, ServerToGuiMessage, ServerToRobotMessage,
     ServerToSimulationMessage,
 };
-use core_pb::names::RobotName;
+use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
 use core_pb::pacbot_rs::location::Direction;
 use core_pb::util::stopwatch::Stopwatch;
 use core_pb::util::utilization::UtilizationMonitor;
@@ -27,7 +27,7 @@ use nalgebra::Point2;
 use std::process::{Child, Command};
 use std::time::Duration;
 use tokio::select;
-use tokio::time::{interval, Interval};
+use tokio::time::{interval, Instant, Interval};
 
 mod high_level;
 pub mod network;
@@ -46,6 +46,7 @@ pub struct App {
     sim_game_engine_process: Option<Child>,
 
     sockets: Sockets,
+    robot_ping_timers: [Option<Instant>; NUM_ROBOT_NAMES],
 
     rl_manager: ReinforcementLearningManager,
     over_the_air_programming: OverTheAirProgramming,
@@ -76,6 +77,7 @@ impl Default for App {
             over_the_air_programming: OverTheAirProgramming::new(sockets.outgoing.clone()),
 
             sockets,
+            robot_ping_timers: [None; NUM_ROBOT_NAMES],
 
             grid: Default::default(),
         }
@@ -180,6 +182,18 @@ impl App {
         previous_settings: &mut PacbotSettings,
         move_pacman_interval: &mut Interval,
     ) {
+        // trigger pings to any robots who don't have an active ping
+        for name in RobotName::get_all() {
+            if self.status.robots[name as usize].connection == NetworkStatus::Connected
+                && self.robot_ping_timers[name as usize]
+                    .map(|x| x.elapsed().as_millis() > 500)
+                    .unwrap_or(true)
+            {
+                self.robot_ping_timers[name as usize] = Some(Instant::now());
+                self.send(Robot(name), ToRobot(ServerToRobotMessage::Ping))
+                    .await;
+            }
+        }
         self.over_the_air_programming.tick(&mut self.status).await;
         if self.settings != *previous_settings {
             *previous_settings = self.settings.clone();

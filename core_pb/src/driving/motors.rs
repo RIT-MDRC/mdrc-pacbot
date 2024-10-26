@@ -1,6 +1,6 @@
 use crate::drive_system::DriveSystem;
 use crate::driving::RobotInterTaskMessage;
-use crate::driving::RobotTask;
+use crate::driving::RobotTaskMessenger;
 use crate::driving::Task;
 use crate::messages::{
     FrequentServerToRobot, MotorControlStatus, RobotToServerMessage, SensorData,
@@ -8,6 +8,7 @@ use crate::messages::{
 use crate::names::RobotName;
 use crate::pure_pursuit::pure_pursuit;
 use crate::robot_definition::RobotDefinition;
+use crate::util::utilization::UtilizationMonitor;
 use crate::util::CrossPlatformInstant;
 use core::fmt::Debug;
 use core::time::Duration;
@@ -17,7 +18,7 @@ use nalgebra::{Rotation2, Vector2};
 use pid::Pid;
 
 /// Functionality that robots with motors must support
-pub trait RobotMotorsBehavior: RobotTask {
+pub trait RobotMotorsBehavior {
     type Error: Debug;
 
     type Instant: CrossPlatformInstant + Default;
@@ -49,9 +50,10 @@ struct MotorsData<const WHEELS: usize, T: RobotMotorsBehavior> {
 }
 
 /// The "main" method for the motors task
-pub async fn motors_task<T: RobotMotorsBehavior>(
+pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
     name: RobotName,
     motors: T,
+    mut msgs: M,
 ) -> Result<(), T::Error> {
     let robot = name.robot();
     let config = FrequentServerToRobot::new(name);
@@ -90,6 +92,10 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
     let run_pid_every = Duration::from_millis(30);
 
     let mut last_command = T::Instant::default();
+
+    let mut utilization_monitor: UtilizationMonitor<50, T::Instant> =
+        UtilizationMonitor::new(0.0, 0.0);
+    utilization_monitor.start();
 
     loop {
         if data.config.follow_target_path {
@@ -163,7 +169,7 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
                             .await;
                     }
                 }
-                data.motors.send_or_drop(
+                msgs.send_or_drop(
                     RobotInterTaskMessage::ToServer(RobotToServerMessage::MotorControlStatus((
                         task_start.elapsed(),
                         MotorControlStatus {
@@ -174,6 +180,13 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
                     ))),
                     Task::Wifi,
                 );
+                msgs.send_or_drop(
+                    RobotInterTaskMessage::Utilization(
+                        utilization_monitor.utilization(),
+                        Task::Motors,
+                    ),
+                    Task::Wifi,
+                );
                 last_motor_control_status = T::Instant::default();
                 run_pid_every
                     .checked_sub(last_motor_control_status.elapsed())
@@ -182,7 +195,11 @@ pub async fn motors_task<T: RobotMotorsBehavior>(
             Some(t) => t,
         };
 
-        match data.motors.receive_message_timeout(time_to_wait).await {
+        utilization_monitor.stop();
+        let event = msgs.receive_message_timeout(time_to_wait).await;
+        utilization_monitor.start();
+
+        match event {
             Some(RobotInterTaskMessage::FrequentServerToRobot(msg)) => {
                 last_command = T::Instant::default();
                 data.config = msg;
