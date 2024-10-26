@@ -17,7 +17,7 @@ use vl53l4cd::Status;
 /// numbr of distance sensors on the robot
 pub const NUM_DIST_SENSORS: usize = 4;
 /// what I2C addresses to reassign each distance sensor to
-pub const DIST_SENSOR_ADDRESSES: [u8; NUM_DIST_SENSORS] = [0x29, 0x31, 0x32, 0x33];
+pub const DIST_SENSOR_ADDRESSES: [u8; NUM_DIST_SENSORS] = [0x31, 0x32, 0x33, 0x34];
 
 static PERIPHERALS_SIGNAL: Signal<
     ThreadModeRawMutex,
@@ -119,7 +119,7 @@ pub async fn manage_pico_i2c(bus: &'static PacbotI2cBus, xshut: [AnyPin; NUM_DIS
             bus,
             // initialize xshut pins with low output to disable sensors
             Output::new(pin, Level::Low),
-            i,
+            i - 1,
             DIST_SENSOR_ADDRESSES[i - 1],
         )
     });

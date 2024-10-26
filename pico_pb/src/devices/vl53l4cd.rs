@@ -129,25 +129,35 @@ impl PacbotDistanceSensor {
             self.index
         );
 
-        self.last_measurement = {
+        self.has_update = true;
+
+        async fn init(sensor: &mut PacbotDistanceSensor) -> Result<Option<u16>, PeripheralsError> {
             // set XSHUT high to turn the sensor on
-            self.xshut.set_high();
-            Timer::after_millis(50).await;
+            sensor.xshut.set_high();
+            Timer::after_millis(300).await;
 
             // initialize sensor with default address
-            self.default_sensor.init().await?;
+            sensor.default_sensor.init().await?;
             // change address
             // https://github.com/adafruit/Adafruit_CircuitPython_VL53L4CD/blob/main/adafruit_vl53l4cd.py
-            self.i2c_device
-                .write(vl53l4cd::PERIPHERAL_ADDR, &[0x0001, self.addr])
+            sensor
+                .i2c_device
+                .write(vl53l4cd::PERIPHERAL_ADDR, &[0x00, 0x01, sensor.addr])
                 .await?;
-            Timer::after_millis(50).await;
+            Timer::after_millis(300).await;
             // initialize sensor with new address
-            self.sensor.init().await?;
-            self.sensor.start_ranging().await?;
+            sensor.sensor.init().await?;
+            sensor.sensor.start_ranging().await?;
 
             Ok(None)
-        };
+        }
+
+        self.last_measurement = init(self).await;
+        if self.last_measurement.is_err() {
+            // set XSHUT low to turn the sensor off
+            self.xshut.set_low();
+            Timer::after_millis(50).await;
+        }
 
         self.last_measurement.clone().map(|_| ())
     }

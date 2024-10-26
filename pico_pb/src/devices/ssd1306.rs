@@ -94,15 +94,16 @@ impl PacbotDisplayWrapper {
 
         info!("Attempting to initialize ssd1306 display");
 
-        self.initialized = {
-            self.display.init().await?;
-            self.display.set_display_on(true).await?;
-            self.display.clear_buffer();
-            self.display.flush().await?;
+        async fn init(display: &mut PacbotDisplayWrapper) -> Result<(), DisplayError> {
+            display.display.init().await?;
+            display.display.set_display_on(true).await?;
+            display.display.clear_buffer();
+            display.display.flush().await?;
 
             Ok(())
         }
-        .map_err(PeripheralsError::DisplayError);
+
+        self.initialized = init(self).await.map_err(PeripheralsError::DisplayError);
 
         self.initialized.clone()
     }

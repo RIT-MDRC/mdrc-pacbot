@@ -97,13 +97,15 @@ impl PacbotIMU {
 
         info!("Attempting to initialize bno08x IMU");
 
-        // initialize sensor
-        self.last_measurement = {
-            self.sensor.init(&mut Delay).await?;
-            self.sensor.enable_rotation_vector(10).await?;
+        async fn init(sensor: &mut PacbotIMU) -> Result<f32, PeripheralsError> {
+            sensor.sensor.init(&mut Delay).await?;
+            sensor.sensor.enable_rotation_vector(10).await?;
 
             Ok(0.0)
-        };
+        }
+
+        // initialize sensor
+        self.last_measurement = init(self).await;
 
         self.last_measurement.clone().map(|_| ())
     }
