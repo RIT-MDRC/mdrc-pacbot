@@ -264,6 +264,13 @@ pub async fn network_task<T: RobotNetworkBehavior, M: RobotTaskMessenger>(
                             }
                         }
                         Either::Left(Ok(ServerToRobotMessage::CancelFirmwareUpdate)) => {}
+                        Either::Left(Ok(ServerToRobotMessage::ResetAngle)) => {
+                            msgs.send_blocking(
+                                RobotInterTaskMessage::ResetAngle,
+                                Task::Peripherals,
+                            )
+                            .await;
+                        }
                     }
                 }
             }

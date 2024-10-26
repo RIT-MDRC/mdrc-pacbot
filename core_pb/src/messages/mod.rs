@@ -40,6 +40,8 @@ pub enum GuiToServerMessage {
     SimulationCommand(ServerToSimulationMessage),
     /// Set a robot's target velocity (for WASD movement)
     RobotVelocity(RobotName, Option<(Vector2<f32>, f32)>),
+    /// Send a message to a robot
+    RobotCommand(RobotName, ServerToRobotMessage),
     /// Initiate an Over the Air Programming update for a robot
     StartOtaFirmwareUpdate(RobotName),
     /// Cancel an Over the Air Programming update for a robot
@@ -166,6 +168,7 @@ pub enum ServerToRobotMessage {
     /// See [`FrequentServerToRobot`]
     FrequentRobotItems(FrequentServerToRobot),
     Ping,
+    ResetAngle,
 }
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
