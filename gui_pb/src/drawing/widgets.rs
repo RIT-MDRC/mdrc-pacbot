@@ -153,16 +153,16 @@ impl PacbotWidget {
                         "",
                     );
                 }
-                let imu_status = match robot.imu_angle {
+                let imu_status = match &robot.imu_angle {
                     Ok(angle) => ColoredStatus::Ok(Some(format!("{angle:.3}"))),
-                    Err(_) => ColoredStatus::Error(Some("ERR".to_string())),
+                    Err(s) => ColoredStatus::Error(Some(format!("ERR: {s}"))),
                 };
                 draw_status(ui, &imu_status, "IMU");
                 for i in 0..4 {
-                    let dist_status = match robot.distance_sensors[i] {
+                    let dist_status = match &robot.distance_sensors[i] {
                         Ok(Some(dist)) => ColoredStatus::Ok(Some(format!("{dist:.3}"))),
                         Ok(None) => ColoredStatus::Warn(Some("MAX".to_string())),
-                        Err(_) => ColoredStatus::Error(Some("ERR".to_string())),
+                        Err(s) => ColoredStatus::Error(Some(format!("ERR: {s}"))),
                     };
                     draw_status(ui, &dist_status, format!("DIST_{i}"));
                 }

@@ -122,8 +122,10 @@ impl App {
                 self.status.robots[name as usize].utilization = utilization;
             }
             (Robot(name), FromRobot(RobotToServerMessage::Sensors(sensors))) => {
-                self.status.robots[name as usize].imu_angle = sensors.angle;
-                self.status.robots[name as usize].distance_sensors = sensors.distances;
+                self.status.robots[name as usize].imu_angle =
+                    sensors.angle.map_err(|s| s.to_string());
+                self.status.robots[name as usize].distance_sensors =
+                    sensors.distances.map(|x| x.map_err(|s| s.to_string()));
                 self.status.robots[name as usize].estimated_location = sensors.location;
                 self.status.robots[name as usize].battery = sensors.battery;
             }

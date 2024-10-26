@@ -2,6 +2,7 @@ mod menu;
 
 use crate::constants::{ROBOT_DISPLAY_HEIGHT, ROBOT_DISPLAY_WIDTH};
 use crate::driving::network::DEFAULT_NETWORK;
+use crate::messages::MAX_SENSOR_ERR_LEN;
 use crate::messages::{NetworkStatus, RobotButton};
 use crate::names::RobotName;
 use crate::robot_display::menu::Page;
@@ -29,8 +30,8 @@ pub struct DisplayManager<I: CrossPlatformInstant + Default> {
     pub network_status: NetworkStatus,
     pub ip: Option<[u8; 4]>,
     pub ssid: Option<([u8; 32], usize)>,
-    pub distances: [Result<Option<f32>, ()>; 4],
-    pub imu_angle: Result<f32, ()>,
+    pub distances: [Result<Option<f32>, heapless::String<MAX_SENSOR_ERR_LEN>>; 4],
+    pub imu_angle: Result<f32, heapless::String<MAX_SENSOR_ERR_LEN>>,
     pub joystick: (f32, f32),
 }
 
@@ -58,8 +59,8 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
             network_status: NetworkStatus::NotConnected,
             ssid: Some((ssid, DEFAULT_NETWORK.len().min(32))),
             ip: None,
-            distances: [Err(()); 4],
-            imu_angle: Err(()),
+            distances: [const { Err(heapless::String::new()) }; 4],
+            imu_angle: Err(heapless::String::new()),
             joystick: (0.0, 0.0),
         }
     }

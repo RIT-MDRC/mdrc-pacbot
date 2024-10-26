@@ -84,7 +84,7 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
 
             for (i, sensor) in app.server_status.robots[name as usize]
                 .distance_sensors
-                .into_iter()
+                .iter()
                 .enumerate()
             {
                 if let Ok(Some(distance)) = sensor {

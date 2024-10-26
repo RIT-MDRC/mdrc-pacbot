@@ -1,7 +1,7 @@
 use crate::driving::{RobotInterTaskMessage, RobotTaskMessenger, Task};
 use crate::grid::standard_grid::StandardGrid;
 use crate::localization::estimate_location;
-use crate::messages::{RobotButton, SensorData};
+use crate::messages::{RobotButton, SensorData, MAX_SENSOR_ERR_LEN};
 use crate::names::RobotName;
 use crate::robot_definition::RobotDefinition;
 use crate::robot_display::DisplayManager;
@@ -72,14 +72,29 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior, M: RobotTaskMessenger
             peripherals.draw_display(|d| display_manager.draw(d)).await;
             peripherals.flip_screen().await;
 
-            let angle = peripherals.absolute_rotation().await.map_err(|_| ());
-            let mut distances = [Err(()); 4];
+            fn handle_err<T, E: Debug>(
+                r: Result<T, E>,
+            ) -> Result<T, heapless::String<MAX_SENSOR_ERR_LEN>> {
+                let mut fmt_buf = [0; 100];
+                match r {
+                    Ok(x) => Ok(x),
+                    Err(e) => Err(heapless::String::try_from(
+                        &format_no_std::show(&mut fmt_buf, format_args!("{:?}", e)).unwrap_or("?")
+                            [..MAX_SENSOR_ERR_LEN],
+                    )
+                    .unwrap_or(heapless::String::new())),
+                }
+            }
+
+            let angle = handle_err(peripherals.absolute_rotation().await);
+
+            let mut distances = [const { Err(heapless::String::new()) }; 4];
             for (i, sensor) in distances.iter_mut().enumerate() {
-                *sensor = peripherals.distance_sensor(i).await.map_err(|_| ());
+                *sensor = handle_err(peripherals.distance_sensor(i).await);
             }
             let location = estimate_location(grid, cv_location, &distances, &robot);
-            display_manager.imu_angle = angle;
-            display_manager.distances = distances;
+            display_manager.imu_angle = angle.clone();
+            display_manager.distances = distances.clone();
             let sensors = SensorData {
                 angle,
                 distances,
