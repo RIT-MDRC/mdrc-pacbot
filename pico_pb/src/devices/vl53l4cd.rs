@@ -35,6 +35,7 @@ pub struct PacbotDistanceSensor {
     addr: u8,
 
     last_measurement: Result<Option<u16>, PeripheralsError>,
+    last_measurement_time: Instant,
     has_update: bool,
 
     last_init_time: Instant,
@@ -62,6 +63,7 @@ impl PacbotDistanceSensor {
             addr,
 
             last_measurement: Err(PeripheralsError::Uninitialized),
+            last_measurement_time: Instant::now(),
             has_update: true,
 
             last_init_time: Instant::now(),
@@ -101,14 +103,20 @@ impl PacbotDistanceSensor {
         if self.sensor.has_measurement().await? {
             let measurement = self.sensor.read_measurement().await?;
             self.has_update = true;
+            self.last_measurement_time = Instant::now();
             self.last_measurement = match measurement.status {
                 Status::Valid => Ok(Some(measurement.distance)),
                 Status::DistanceBelowDetectionThreshold => Ok(Some(0)),
                 Status::SignalTooWeak => Ok(None),
                 status => Err(PeripheralsError::DistanceSensorError(Some(status))),
             };
+            self.sensor.clear_interrupt().await?;
         }
-        Ok(())
+        if self.last_measurement_time.elapsed().as_secs() >= 1 {
+            Err(PeripheralsError::Timeout)
+        } else {
+            Ok(())
+        }
     }
 
     pub async fn initialize(&mut self) -> Result<(), PeripheralsError> {
@@ -157,6 +165,8 @@ impl PacbotDistanceSensor {
             // set XSHUT low to turn the sensor off
             self.xshut.set_low();
             Timer::after_millis(50).await;
+        } else {
+            self.last_measurement_time = Instant::now();
         }
 
         self.last_measurement.clone().map(|_| ())

@@ -54,6 +54,7 @@ impl RobotPeripherals {
 pub enum PeripheralsError {
     Uninitialized,
     Disabled,
+    Timeout,
     DisplayError(DisplayError),
     DistanceSensorError(Option<Status>),
     ImuError(ImuError),
