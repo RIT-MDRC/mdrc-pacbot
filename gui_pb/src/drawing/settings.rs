@@ -24,6 +24,7 @@ pub struct UiSettings {
     pub simulation_collapsed: bool,
     pub game_server_collapsed: bool,
     pub robots_collapsed: [bool; NUM_ROBOT_NAMES],
+    pub graph_lines: [[bool; 4]; 3],
 
     pub record_motor_data: bool,
 }
@@ -44,6 +45,7 @@ impl Default for UiSettings {
             simulation_collapsed: true,
             game_server_collapsed: true,
             robots_collapsed: [true; NUM_ROBOT_NAMES],
+            graph_lines: [[true; 4]; 3],
 
             record_motor_data: false,
         }

@@ -38,6 +38,18 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
         if ui.button("Clear data").clicked() {
             app.motor_status_frames = MotorStatusGraphFrames::new(app.ui_settings.selected_robot);
         }
+        if ui.button("Toggle all graphs").clicked() {
+            if app
+                .ui_settings
+                .graph_lines
+                .iter()
+                .any(|x| x.iter().any(|x| !x))
+            {
+                app.ui_settings.graph_lines = [[true; 4]; 3];
+            } else {
+                app.ui_settings.graph_lines = [[false; 4]; 3];
+            }
+        }
         ui.separator();
         num(
             "motor_p".to_string(),
@@ -74,6 +86,13 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
             for i in 0..3 {
                 ui.horizontal(|ui| {
                     ui.label(format!("Motor {i}"));
+                    if ui.button("Toggle graphs").clicked() {
+                        if app.ui_settings.graph_lines[i].iter().any(|x| !x) {
+                            app.ui_settings.graph_lines[i] = [true; 4];
+                        } else {
+                            app.ui_settings.graph_lines[i] = [false; 4];
+                        }
+                    }
                     ui.separator();
                     let current_override = &mut app.settings.robots
                         [app.ui_settings.selected_robot as usize]
@@ -98,6 +117,8 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                         )
                         .text("Setpoint"),
                     );
+                    ui.checkbox(&mut app.ui_settings.graph_lines[i][0], "Graph Setpoint");
+                    ui.checkbox(&mut app.ui_settings.graph_lines[i][1], "Graph Speed");
                 });
                 egui::Grid::new(format!("motor_pins{i}")).show(ui, |ui| {
                     ui.label("Forwards pin: ");
@@ -133,6 +154,7 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                         )
                         .text("Set PWM"),
                     );
+                    ui.checkbox(&mut app.ui_settings.graph_lines[i][2], "Graph PWM");
                     ui.end_row();
 
                     ui.label("Backwards pin: ");
@@ -168,6 +190,7 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                         )
                         .text("Set PWM"),
                     );
+                    ui.checkbox(&mut app.ui_settings.graph_lines[i][3], "Graph PWM");
                     ui.end_row();
                 });
                 ui.separator();
@@ -197,7 +220,7 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
             ]);
             app.motor_status_frames.pwm[i][1].push([
                 x,
-                100.0 * status.pwm[i][1] as f64
+                -100.0 * status.pwm[i][1] as f64
                     / app.ui_settings.selected_robot.robot().pwm_top as f64,
             ]);
             app.motor_status_frames.speeds[i].push([x, status.measured_speeds[i] as f64]);
@@ -222,29 +245,37 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                     extra_points.push([first_x + 10.0, 0.0]);
                 }
                 plot_ui.points(Points::new(extra_points).color(app.background_color));
-                plot_ui.line(
-                    Line::new(PlotPoints::new(
-                        app.motor_status_frames.set_points[m].clone(),
-                    ))
-                    .name(format!("{m} Setpoint"))
-                    .style(LineStyle::Dashed { length: 6.0 })
-                    .color(color.0),
-                );
-                plot_ui.line(
-                    Line::new(PlotPoints::new(app.motor_status_frames.speeds[m].clone()))
-                        .name(format!("{m} Speed"))
+                if app.ui_settings.graph_lines[m][0] {
+                    plot_ui.line(
+                        Line::new(PlotPoints::new(
+                            app.motor_status_frames.set_points[m].clone(),
+                        ))
+                        .name(format!("{m} Setpoint"))
+                        .style(LineStyle::Dashed { length: 6.0 })
                         .color(color.0),
-                );
-                plot_ui.line(
-                    Line::new(PlotPoints::new(app.motor_status_frames.pwm[m][0].clone()))
-                        .name(format!("{m}a PWM"))
-                        .color(color.1),
-                );
-                plot_ui.line(
-                    Line::new(PlotPoints::new(app.motor_status_frames.pwm[m][1].clone()))
-                        .name(format!("{m}b PWM"))
-                        .color(color.1),
-                );
+                    );
+                }
+                if app.ui_settings.graph_lines[m][1] {
+                    plot_ui.line(
+                        Line::new(PlotPoints::new(app.motor_status_frames.speeds[m].clone()))
+                            .name(format!("{m} Speed"))
+                            .color(color.0),
+                    );
+                }
+                if app.ui_settings.graph_lines[m][2] {
+                    plot_ui.line(
+                        Line::new(PlotPoints::new(app.motor_status_frames.pwm[m][0].clone()))
+                            .name(format!("{m}a PWM"))
+                            .color(color.1),
+                    );
+                }
+                if app.ui_settings.graph_lines[m][3] {
+                    plot_ui.line(
+                        Line::new(PlotPoints::new(app.motor_status_frames.pwm[m][1].clone()))
+                            .name(format!("{m}b PWM"))
+                            .color(color.1),
+                    );
+                }
             }
         });
 }
