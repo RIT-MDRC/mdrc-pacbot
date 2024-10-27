@@ -16,7 +16,7 @@ use core_pb::messages::{
     GameServerCommand, NetworkStatus, ServerToGuiMessage, ServerToRobotMessage,
     ServerToSimulationMessage,
 };
-use core_pb::names::RobotName;
+use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
 use core_pb::pacbot_rs::location::Direction;
 use core_pb::util::stopwatch::Stopwatch;
 use core_pb::util::utilization::UtilizationMonitor;
@@ -27,7 +27,7 @@ use nalgebra::Point2;
 use std::process::{Child, Command};
 use std::time::Duration;
 use tokio::select;
-use tokio::time::{interval, Interval};
+use tokio::time::{interval, Instant, Interval};
 
 mod high_level;
 pub mod network;
@@ -46,6 +46,7 @@ pub struct App {
     sim_game_engine_process: Option<Child>,
 
     sockets: Sockets,
+    robot_ping_timers: [Option<Instant>; NUM_ROBOT_NAMES],
 
     rl_manager: ReinforcementLearningManager,
     over_the_air_programming: OverTheAirProgramming,
@@ -76,6 +77,7 @@ impl Default for App {
             over_the_air_programming: OverTheAirProgramming::new(sockets.outgoing.clone()),
 
             sockets,
+            robot_ping_timers: [None; NUM_ROBOT_NAMES],
 
             grid: Default::default(),
         }
@@ -180,6 +182,18 @@ impl App {
         previous_settings: &mut PacbotSettings,
         move_pacman_interval: &mut Interval,
     ) {
+        // trigger pings to any robots who don't have an active ping
+        for name in RobotName::get_all() {
+            if self.status.robots[name as usize].connection == NetworkStatus::Connected
+                && self.robot_ping_timers[name as usize]
+                    .map(|x| x.elapsed().as_millis() > 500)
+                    .unwrap_or(true)
+            {
+                self.robot_ping_timers[name as usize] = Some(Instant::now());
+                self.send(Robot(name), ToRobot(ServerToRobotMessage::Ping))
+                    .await;
+            }
+        }
         self.over_the_air_programming.tick(&mut self.status).await;
         if self.settings != *previous_settings {
             *previous_settings = self.settings.clone();
@@ -191,19 +205,35 @@ impl App {
             )
             .await; // check if new AI calculation is needed
         }
-        if self.status.target_path.is_empty()
+        // todo this should happen when the game state changes, not when one step has been taken
+        if self.status.target_path.len() < 4
             && self.settings.driving.strategy == StrategyChoice::ReinforcementLearning
         {
             self.inference_timer.start();
-            let rl_direction = self
+            let mut rl_direction = self
                 .rl_manager
                 .hybrid_strategy(self.status.game_state.clone());
-            let rl_vec = rl_direction.vector();
-            // todo multiple steps
+            let mut rl_vec = rl_direction.vector();
             self.status.target_path = vec![Point2::new(
                 self.status.game_state.pacman_loc.row + rl_vec.0,
                 self.status.game_state.pacman_loc.col + rl_vec.1,
             )];
+
+            let mut future = self.status.game_state.clone();
+            let mut i = 0;
+            while i < 4 {
+                future.set_pacman_location((
+                    future.pacman_loc.row + rl_vec.0,
+                    future.pacman_loc.col + rl_vec.1,
+                ));
+                rl_direction = self.rl_manager.hybrid_strategy(future.clone());
+                rl_vec = rl_direction.vector();
+                i += 1;
+                self.status.target_path.push(Point2::new(
+                    future.pacman_loc.row + rl_vec.0,
+                    future.pacman_loc.col + rl_vec.1,
+                ));
+            }
             self.inference_timer.mark_completed("inference").unwrap();
             self.status.inference_time = self.inference_timer.status();
         }

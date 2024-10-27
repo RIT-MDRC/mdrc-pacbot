@@ -48,16 +48,18 @@ impl Default for ServerStatus {
 pub struct RobotStatus {
     pub name: RobotName,
     pub connection: NetworkStatus,
+    pub ping: Option<Duration>,
 
     pub ota_current: OverTheAirStep,
     pub ota_completed: Vec<OverTheAirStepCompletion>,
 
     pub last_motor_status: (Duration, MotorControlStatus),
+    pub utilization: [f32; 3],
 
     pub sim_position: Option<(Point2<f32>, Rotation2<f32>)>,
 
-    pub imu_angle: Result<f32, ()>,
-    pub distance_sensors: [Result<Option<f32>, ()>; 4],
+    pub imu_angle: Result<f32, String>,
+    pub distance_sensors: [Result<Option<f32>, String>; 4],
     pub estimated_location: Option<Point2<f32>>,
     pub battery: Result<f32, ()>,
 
@@ -69,16 +71,18 @@ impl RobotStatus {
         Self {
             name,
             connection: NetworkStatus::default(),
+            ping: None,
 
             ota_current: OverTheAirStep::GuiRequest,
             ota_completed: vec![],
 
             last_motor_status: Default::default(),
+            utilization: [0.0; 3],
 
             sim_position: None,
 
-            imu_angle: Err(()),
-            distance_sensors: [Err(()); 4],
+            imu_angle: Err(String::new()),
+            distance_sensors: [const { Err(String::new()) }; 4],
             estimated_location: None,
             battery: Err(()),
 

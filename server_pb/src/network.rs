@@ -117,11 +117,21 @@ impl App {
             (Robot(name), FromRobot(RobotToServerMessage::MotorControlStatus(status))) => {
                 self.status.robots[name as usize].last_motor_status = status;
             }
+            (Robot(name), FromRobot(RobotToServerMessage::Utilization(utilization))) => {
+                self.status.robots[name as usize].utilization = utilization;
+            }
             (Robot(name), FromRobot(RobotToServerMessage::Sensors(sensors))) => {
-                self.status.robots[name as usize].imu_angle = sensors.angle;
-                self.status.robots[name as usize].distance_sensors = sensors.distances;
+                self.status.robots[name as usize].imu_angle =
+                    sensors.angle.map_err(|s| s.to_string());
+                self.status.robots[name as usize].distance_sensors =
+                    sensors.distances.map(|x| x.map_err(|s| s.to_string()));
                 self.status.robots[name as usize].estimated_location = sensors.location;
                 self.status.robots[name as usize].battery = sensors.battery;
+            }
+            (Robot(name), FromRobot(RobotToServerMessage::Pong)) => {
+                if let Some(t) = self.robot_ping_timers[name as usize] {
+                    self.status.robots[name as usize].ping = Some(t.elapsed())
+                }
             }
             (Robot(name), FromRobot(msg)) => info!("Message received from {name}: {msg:?}"),
             (Robot(_), _) => {}
@@ -157,6 +167,9 @@ impl App {
                 }
                 GuiToServerMessage::SimulationCommand(msg) => {
                     self.send(Simulation, ToSimulation(msg)).await;
+                }
+                GuiToServerMessage::RobotCommand(name, msg) => {
+                    self.send(Robot(name), ToRobot(msg)).await;
                 }
                 GuiToServerMessage::RestartSimulation => {
                     if self.settings.simulation.simulate {

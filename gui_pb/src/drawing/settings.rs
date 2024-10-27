@@ -2,7 +2,8 @@ use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::settings::{ConnectionSettings, StrategyChoice};
 use core_pb::messages::{
-    GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToSimulationMessage,
+    GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToRobotMessage,
+    ServerToSimulationMessage,
 };
 use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
 use core_pb::threaded_websocket::TextOrT;
@@ -42,7 +43,7 @@ impl Default for UiSettings {
             mdrc_server_collapsed: true,
             simulation_collapsed: true,
             game_server_collapsed: true,
-            robots_collapsed: [true; 5],
+            robots_collapsed: [true; NUM_ROBOT_NAMES],
 
             record_motor_data: false,
         }
@@ -161,15 +162,19 @@ fn collapsable_section(
     button_color: Color32,
     header_contents: impl FnOnce(&mut Ui),
     body_contents: impl FnOnce(&mut Ui),
+    tooltip: Option<impl Into<WidgetText>>,
 ) {
     ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-        let button = ui.add(
+        let mut button = ui.add(
             egui::Button::new(match *collapsed {
                 true => egui_phosphor::regular::CARET_RIGHT,
                 false => egui_phosphor::regular::CARET_DOWN,
             })
             .fill(button_color),
         );
+        if let Some(tt) = tooltip {
+            button = button.on_hover_text(tt)
+        }
         if button.clicked() {
             *collapsed = !*collapsed;
         }
@@ -191,6 +196,7 @@ pub fn generic_server(
     collapsed: &mut bool,
     status: &NetworkStatus,
     right_ui: impl FnOnce(&mut Ui),
+    tooltip: Option<impl Into<WidgetText>>,
 ) {
     let ip_name = name.to_string() + "server_ip";
     let port_name = name.to_string() + "server_port";
@@ -206,6 +212,7 @@ pub fn generic_server(
             ipv4(ip_name, ui, fields, &mut connection_settings.ipv4, "IP");
             num(port_name, ui, fields, &mut connection_settings.port, "Port");
         },
+        tooltip,
     );
 }
 
@@ -250,6 +257,19 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         &mut app.settings.target_speed,
         "Target speed",
     );
+    ui.add_enabled_ui(
+        app.server_status.robots[app.ui_settings.selected_robot as usize].connection
+            == NetworkStatus::Connected,
+        |ui| {
+            if ui.button("Reset angle").clicked() {
+                app.send(GuiToServerMessage::RobotCommand(
+                    app.ui_settings.selected_robot,
+                    ServerToRobotMessage::ResetAngle,
+                ));
+            }
+        },
+    );
+    ui.end_row();
     ui.end_row();
 
     ui.separator();
@@ -287,6 +307,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         &mut app.ui_settings.mdrc_server_collapsed,
         &app.network.0.status(),
         |_| {},
+        None::<&str>,
     );
 
     generic_server(
@@ -297,6 +318,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         &mut app.ui_settings.simulation_collapsed,
         &app.server_status.simulation_connection,
         |_| {},
+        None::<&str>,
     );
 
     generic_server(
@@ -341,6 +363,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
                     )));
             }
         },
+        None::<&str>,
     );
 
     ui.separator();
@@ -348,6 +371,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
 
     let mut any_robot_enabled = None;
     for name in RobotName::get_all() {
+        let conn_status = app.server_status.robots[name as usize].connection;
         generic_server(
             ui,
             &format!("{name}"),
@@ -356,6 +380,16 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
             &mut app.ui_settings.robots_collapsed[name as usize],
             &app.server_status.robots[name as usize].connection,
             |ui| {
+                ui.add_enabled_ui(conn_status == NetworkStatus::Connected, |ui| {
+                    if ui.button(egui_phosphor::regular::ARROW_CLOCKWISE).clicked() {
+                        app.network
+                            .0
+                            .send(TextOrT::T(GuiToServerMessage::RobotCommand(
+                                name,
+                                ServerToRobotMessage::Reboot,
+                            )));
+                    }
+                });
                 if name.is_simulated() {
                     ui.add_enabled_ui(
                         app.server_status.simulation_connection == NetworkStatus::Connected,
@@ -382,6 +416,9 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
                     );
                 }
             },
+            app.server_status.robots[name as usize]
+                .ping
+                .map(|x| format!("Ping: {x:?}")),
         );
         if app.settings.robots[name as usize].connection.connect {
             any_robot_enabled = Some(name);

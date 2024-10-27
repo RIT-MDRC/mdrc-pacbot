@@ -1738,6 +1738,7 @@ dependencies = [
  "egui-phosphor",
  "embedded-graphics",
  "embedded-io-async",
+ "format_no_std",
  "futures",
  "heapless",
  "libm",
@@ -2510,6 +2511,12 @@ checksum = "e13624c2627564efccf4934284bdd98cbaa14e79b0b5a141218e507b3a823456"
 dependencies = [
  "percent-encoding",
 ]
+
+[[package]]
+name = "format_no_std"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ae45e32b0bfe2c62c805f8e87027b5aa08562000326edbc5b421ab6d92873a7"
 
 [[package]]
 name = "futures"

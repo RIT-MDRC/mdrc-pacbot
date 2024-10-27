@@ -110,6 +110,7 @@ pub struct App {
     pointer_pos: Option<Pos2>,
     background_color: Color32,
     world_to_screen: Transform,
+    robot_buttons_wts: Transform,
     // replay_manager: ReplayManager,
     server_status: ServerStatus,
     saved_game_state: Option<GameState>,
@@ -169,7 +170,8 @@ impl App {
             0.15,
             vec![Tab::OverTheAirProgramming, Tab::Keybindings],
         );
-        surface.split_below(left, 0.7, vec![Tab::RobotDisplay]);
+        let [_, below] = surface.split_below(left, 0.6, vec![Tab::RobotDisplay]);
+        surface.split_below(below, 0.6, vec![Tab::RobotButtonPanel]);
 
         let ui_settings: UiSettings = Default::default();
 
@@ -180,6 +182,13 @@ impl App {
             pointer_pos: None,
             background_color: Color32::BLACK,
             world_to_screen: Transform::new_letterboxed(
+                Pos2::new(0.0, 0.0),
+                Pos2::new(0.0, 1.0),
+                Pos2::new(0.0, 0.0),
+                Pos2::new(0.0, 1.0),
+                false,
+            ),
+            robot_buttons_wts: Transform::new_letterboxed(
                 Pos2::new(0.0, 0.0),
                 Pos2::new(0.0, 1.0),
                 Pos2::new(0.0, 0.0),
@@ -238,6 +247,7 @@ impl App {
                 ServerToGuiMessage::Settings(settings) => {
                     if self.pacbot_server_connection_status != NetworkStatus::Connected
                         && self.network.0.status() == NetworkStatus::Connected
+                        && self.settings != PacbotSettings::default()
                     {
                         // send our settings to hopefully replace the server's
                         self.send(GuiToServerMessage::Settings(self.settings.clone()));

@@ -1,10 +1,8 @@
-use crate::driving::TaskChannels;
 use crate::RobotToSimulationMessage;
 use async_channel::Sender;
 //use bevy_rapier2d::prelude::Velocity;
 use core_pb::drive_system::DriveSystem;
 use core_pb::driving::motors::RobotMotorsBehavior;
-use core_pb::driving::{RobotInterTaskMessage, RobotTask, Task};
 use core_pb::names::RobotName;
 use core_pb::util::StdInstant;
 use std::sync::Arc;
@@ -15,9 +13,8 @@ use crate::RwLock;
 
 pub struct SimMotors {
     name: RobotName,
-    drive_system: DriveSystem<3>, //has omni drive system
-    channels: TaskChannels,
-    sim_robot:  Arc<RwLock<SimRobot>>, 
+    drive_system: DriveSystem<3>,
+    sim_robot:  Arc<RwLock<SimRobot>>,
 
     pwm_values: [[u16; 2]; 3],
     motor_speeds: [f32; 3],
@@ -25,16 +22,10 @@ pub struct SimMotors {
 }
 
 impl SimMotors {
-    pub fn new(
-        name: RobotName,
-        channels: TaskChannels,
-        sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
-        sim_robot: Arc<RwLock<SimRobot>>,
-    ) -> Self {
+    pub fn new(name: RobotName, sim_tx: Sender<(RobotName, RobotToSimulationMessage)>, sim_robot: Arc<RwLock<SimRobot>>,) -> Self {
         Self {
             name,
             drive_system: name.robot().drive_system,
-            channels,
             pwm_values: Default::default(),
             motor_speeds: Default::default(),
             sim_tx,
@@ -45,27 +36,6 @@ impl SimMotors {
 
 #[derive(Debug)]
 pub enum SimMotorsError {}
-
-impl RobotTask for SimMotors {
-    fn send_or_drop(&mut self, message: RobotInterTaskMessage, to: Task) -> bool {
-        self.channels.send_or_drop(message, to)
-    }
-
-    async fn send_blocking(&mut self, message: RobotInterTaskMessage, to: Task) {
-        self.channels.send_blocking(message, to).await
-    }
-
-    async fn receive_message(&mut self) -> RobotInterTaskMessage {
-        self.channels.receive_message().await
-    }
-
-    async fn receive_message_timeout(
-        &mut self,
-        timeout: Duration,
-    ) -> Option<RobotInterTaskMessage> {
-        self.channels.receive_message_timeout(timeout).await
-    }
-}
 
 impl RobotMotorsBehavior for SimMotors {
     type Error = SimMotorsError;

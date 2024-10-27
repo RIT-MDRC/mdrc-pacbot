@@ -1,5 +1,5 @@
 use crate::App;
-use core_pb::messages::NetworkStatus;
+use core_pb::messages::{NetworkStatus, Task};
 use core_pb::util::ColoredStatus;
 use eframe::egui;
 use eframe::egui::{RichText, Ui};
@@ -130,6 +130,19 @@ impl PacbotWidget {
                 });
                 draw_status(ui, &app.server_status.utilization, "Server");
                 draw_status(ui, &app.server_status.inference_time, "Inference");
+                ui.separator();
+                for task in Task::get_all() {
+                    draw_status(
+                        ui,
+                        &ColoredStatus::Ok(Some(format!(
+                            "{:.3}%",
+                            app.server_status.robots[app.ui_settings.selected_robot as usize]
+                                .utilization[task as usize]
+                                * 100.0
+                        ))),
+                        format!("{task:?}"),
+                    );
+                }
             }
             PacbotWidget::SensorsWidget => {
                 let robot = &app.server_status.robots[app.ui_settings.selected_robot as usize];
@@ -140,16 +153,16 @@ impl PacbotWidget {
                         "",
                     );
                 }
-                let imu_status = match robot.imu_angle {
+                let imu_status = match &robot.imu_angle {
                     Ok(angle) => ColoredStatus::Ok(Some(format!("{angle:.3}"))),
-                    Err(_) => ColoredStatus::Error(Some("ERR".to_string())),
+                    Err(s) => ColoredStatus::Error(Some(format!("ERR: {s}"))),
                 };
                 draw_status(ui, &imu_status, "IMU");
                 for i in 0..4 {
-                    let dist_status = match robot.distance_sensors[i] {
+                    let dist_status = match &robot.distance_sensors[i] {
                         Ok(Some(dist)) => ColoredStatus::Ok(Some(format!("{dist:.3}"))),
                         Ok(None) => ColoredStatus::Warn(Some("MAX".to_string())),
-                        Err(_) => ColoredStatus::Error(Some("ERR".to_string())),
+                        Err(s) => ColoredStatus::Error(Some(format!("ERR: {s}"))),
                     };
                     draw_status(ui, &dist_status, format!("DIST_{i}"));
                 }

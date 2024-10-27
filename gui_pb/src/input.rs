@@ -2,7 +2,7 @@ use crate::App;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::settings::StrategyChoice;
 use core_pb::messages::{
-    GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToSimulationMessage,
+    GameServerCommand, GuiToServerMessage, NetworkStatus, RobotButton, ServerToSimulationMessage,
 };
 use core_pb::pacbot_rs::location::Direction;
 use core_pb::threaded_websocket::TextOrT;
@@ -146,18 +146,39 @@ impl App {
                     // Mouse buttons
                     Event::PointerButton {
                         button: PointerButton::Primary,
-                        pressed: true,
+                        pressed,
                         pos,
                         ..
                     } => {
-                        let pos = self.world_to_screen.inverse().map_point(*pos);
-                        if let Some(loc) = self.grid.node_nearest(pos.x, pos.y) {
-                            self.send(GuiToServerMessage::SimulationCommand(
-                                ServerToSimulationMessage::Teleport(
-                                    self.ui_settings.selected_robot,
-                                    loc,
-                                ),
-                            ))
+                        let pos2 = self.world_to_screen.inverse().map_point(*pos);
+                        if *pressed {
+                            if let Some(loc) = self.grid.node_nearest(pos2.x, pos2.y) {
+                                self.send(GuiToServerMessage::SimulationCommand(
+                                    ServerToSimulationMessage::Teleport(
+                                        self.ui_settings.selected_robot,
+                                        loc,
+                                    ),
+                                ))
+                            }
+                        }
+                        let pos2 = self.robot_buttons_wts.inverse().map_point(*pos);
+                        for (x, y, button) in [
+                            (1.0, 8.0, RobotButton::NorthX),
+                            (2.0, 9.0, RobotButton::EastA),
+                            (2.0, 7.0, RobotButton::WestY),
+                            (3.0, 8.0, RobotButton::SouthB),
+                            (3.0, 4.3, RobotButton::LeftStart),
+                            (3.0, 5.7, RobotButton::RightSelect),
+                        ] {
+                            let dist = ((pos2.x - x).powi(2) + (pos2.y - y).powi(2)).sqrt();
+                            if dist < 0.4 {
+                                self.send(GuiToServerMessage::SimulationCommand(
+                                    ServerToSimulationMessage::RobotButton(
+                                        self.ui_settings.selected_robot,
+                                        (button, *pressed),
+                                    ),
+                                ))
+                            }
                         }
                     }
                     Event::PointerButton {

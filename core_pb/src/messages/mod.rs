@@ -40,6 +40,8 @@ pub enum GuiToServerMessage {
     SimulationCommand(ServerToSimulationMessage),
     /// Set a robot's target velocity (for WASD movement)
     RobotVelocity(RobotName, Option<(Vector2<f32>, f32)>),
+    /// Send a message to a robot
+    RobotCommand(RobotName, ServerToRobotMessage),
     /// Initiate an Over the Air Programming update for a robot
     StartOtaFirmwareUpdate(RobotName),
     /// Cancel an Over the Air Programming update for a robot
@@ -75,6 +77,16 @@ pub enum SimulationToServerMessage {
     RobotDisplay(RobotName, Vec<u128>),
 }
 
+#[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub enum RobotButton {
+    EastA,
+    SouthB,
+    NorthX,
+    WestY,
+    LeftStart,
+    RightSelect,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg(feature = "std")]
 pub enum ServerToSimulationMessage {
@@ -83,6 +95,9 @@ pub enum ServerToSimulationMessage {
     Delete(RobotName),
     SetPacman(RobotName),
     SetStandardGrid(StandardGrid),
+    /// A button press (true) or release (false) for a simulated robot
+    RobotButton(RobotName, (RobotButton, bool)),
+    RobotJoystick(RobotName, (f32, f32)),
 }
 
 /// This is sent regularly and frequently to robots via [`ServerToRobotMessage::FrequentRobotItems`]
@@ -152,6 +167,8 @@ pub enum ServerToRobotMessage {
     CancelFirmwareUpdate,
     /// See [`FrequentServerToRobot`]
     FrequentRobotItems(FrequentServerToRobot),
+    Ping,
+    ResetAngle,
 }
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
@@ -173,20 +190,39 @@ pub enum RobotToServerMessage {
     MarkedFirmwareBooted,
     Name(RobotName),
     MotorControlStatus((Duration, MotorControlStatus)),
+    Utilization([f32; 3]),
     Sensors(SensorData),
+    Pong,
 }
+
+/// The different async tasks that run on the robot
+#[derive(Copy, Clone, Debug)]
+#[repr(usize)]
+pub enum Task {
+    Wifi = 0,
+    Motors = 1,
+    Peripherals = 2,
+}
+
+impl Task {
+    pub fn get_all() -> [Self; 3] {
+        [Task::Wifi, Task::Motors, Task::Peripherals]
+    }
+}
+
+pub const MAX_SENSOR_ERR_LEN: usize = 10;
 
 /// Sent from the robot peripherals task to the wifi task and back to the server
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SensorData {
     /// The absolute orientation of the robot, given by the IMU
-    pub angle: Result<f32, ()>,
+    pub angle: Result<f32, heapless::String<MAX_SENSOR_ERR_LEN>>,
     /// Readings from the distance sensors, in order of angle 0, 90, 180, 270
     ///
     /// - Err(_) indicates that something is wrong with the sensor and the reading can't be trusted
     /// - Ok(None) indicates that the sensor is working, but didn't detect any object in its range
     /// - Ok(x) indicates an object x grid units in front of the sensor
-    pub distances: [Result<Option<f32>, ()>; 4],
+    pub distances: [Result<Option<f32>, heapless::String<MAX_SENSOR_ERR_LEN>>; 4],
     /// The best guess location of the robot
     pub location: Option<Point2<f32>>,
     /// The battery level of the robot

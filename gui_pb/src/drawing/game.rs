@@ -9,6 +9,7 @@ use core_pb::pacbot_rs::ghost_state::GhostColor;
 use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::TRANSLUCENT_YELLOW_COLOR;
 use eframe::egui::{Color32, Painter, Pos2, Rect, Rounding, Stroke};
+use nalgebra::Rotation2;
 
 pub fn draw_grid(app: &mut App, painter: &Painter) {
     let wts = app.world_to_screen;
@@ -71,20 +72,36 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
             );
 
             let estimated_location = app.server_status.robots[name as usize].estimated_location;
-            if let Some(estimated_location) = estimated_location {
-                let estimated_location: Pos2 =
-                    wts.map_point(Pos2::new(estimated_location.x, estimated_location.y));
+            if let Some(orig_estimated_location) = estimated_location {
+                let estimated_location: Pos2 = wts.map_point(Pos2::new(
+                    orig_estimated_location.x,
+                    orig_estimated_location.y,
+                ));
                 painter.circle(
                     estimated_location,
                     wts.map_dist(name.robot().radius),
                     Color32::TRANSPARENT,
                     Stroke::new(1.0, Color32::GREEN),
                 );
+                if let Ok(angle) = app.server_status.robots[name as usize].imu_angle {
+                    let rot_cos = Rotation2::new(angle).matrix()[(0, 0)];
+                    let rot_sin = Rotation2::new(angle).matrix()[(1, 0)];
+                    painter.line_segment(
+                        [
+                            estimated_location,
+                            wts.map_point(Pos2::new(
+                                orig_estimated_location.x + rot_cos * name.robot().radius,
+                                orig_estimated_location.y + rot_sin * name.robot().radius,
+                            )),
+                        ],
+                        Stroke::new(1.0, Color32::GREEN),
+                    );
+                }
             }
 
             for (i, sensor) in app.server_status.robots[name as usize]
                 .distance_sensors
-                .into_iter()
+                .iter()
                 .enumerate()
             {
                 if let Ok(Some(distance)) = sensor {
