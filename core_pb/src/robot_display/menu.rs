@@ -77,7 +77,7 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
         page: Page,
         d: &mut D,
     ) -> Result<(), D::Error> {
-        if page.submenu().len() > 0 {
+        if !page.submenu().is_empty() {
             self.scroll_menu(page, d)
         } else {
             match page {
@@ -150,7 +150,7 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
         if self.page != old_page {
             self.animation_timer = I::default();
             if !self.page.submenu().is_empty() {
-                self.submenu_index = self.submenu_index % self.page.submenu().len();
+                self.submenu_index %= self.page.submenu().len();
             }
         }
     }

@@ -1,7 +1,6 @@
 use crate::driving::motors::SimMotors;
 use crate::driving::network::SimNetwork;
 use crate::driving::peripherals::{SimDisplay, SimPeripherals};
-use crate::RobotToSimulationMessage;
 use async_channel::{bounded, Receiver, Sender, TrySendError};
 use async_std::task::sleep;
 use bevy::log::info;
@@ -31,7 +30,6 @@ mod peripherals;
 pub const CHANNEL_BUFFER_SIZE: usize = 64;
 
 pub struct SimRobot {
-    #[allow(unused)]
     pub name: RobotName,
 
     pub display: SimDisplay,
@@ -39,30 +37,23 @@ pub struct SimRobot {
 
     pub thread_stopper: Sender<()>,
     pub firmware_updated: bool,
+    pub reboot: bool,
 
     pub imu_angle: Result<f32, ()>,
     pub velocity: Vector2<f32>,
     pub ang_velocity: f32,
     pub distance_sensors: [Result<Option<f32>, ()>; 4],
+
+    pub wasd_motor_speeds: Option<[f32; 3]>,
+    pub requested_motor_speeds: [f32; 3],
     pub actual_motor_speeds: [f32; 3],
 
     pub button_events: VecDeque<(RobotButton, bool)>,
     pub joystick: Option<(f32, f32)>,
 }
 
-async fn handle_task<F, E: Debug>(task: F)
-where
-    F: Future<Output = Result<(), E>>,
-{
-    task.await.unwrap();
-}
-
 impl SimRobot {
-    pub fn start(
-        name: RobotName,
-        firmware_swapped: bool,
-        sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
-    ) -> Arc<RwLock<Self>> {
+    pub fn start(name: RobotName, firmware_swapped: bool) -> Arc<RwLock<Self>> {
         let (thread_stopper_tx, thread_stopper_rx) = bounded(CHANNEL_BUFFER_SIZE);
 
         let robot = Arc::new(RwLock::new(Self {
@@ -73,11 +64,15 @@ impl SimRobot {
 
             thread_stopper: thread_stopper_tx,
             firmware_updated: false,
+            reboot: false,
 
             imu_angle: Err(()),
             velocity: Vector2::new(0.0, 0.0),
             ang_velocity: 0.0,
             distance_sensors: [Err(()); 4],
+
+            wasd_motor_speeds: None,
+            requested_motor_speeds: [0.0; 3],
             actual_motor_speeds: [0.0; 3],
 
             button_events: VecDeque::new(),
@@ -88,8 +83,8 @@ impl SimRobot {
         let (tc_network, network_rx, network_tx) = TaskChannels::new();
         let (tc_peripherals, peripherals_rx, peripherals_tx) = TaskChannels::new();
 
-        let motors = SimMotors::new(name, sim_tx.clone(), robot.clone());
-        let network = SimNetwork::new(name, firmware_swapped, sim_tx.clone());
+        let motors = SimMotors::new(name, robot.clone());
+        let network = SimNetwork::new(name, firmware_swapped, robot.clone());
         let peripherals = SimPeripherals::new(robot.clone());
 
         spawn(move || {
@@ -128,6 +123,7 @@ impl SimRobot {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn start_async(
         name: RobotName,
         motors: SimMotors,
@@ -138,6 +134,12 @@ impl SimRobot {
         task_channels: [TaskChannels; 3],
         thread_stopper: Receiver<()>,
     ) {
+        async fn handle_task<F, E: Debug>(task: F)
+        where
+            F: Future<Output = Result<(), E>>,
+        {
+            task.await.unwrap();
+        }
         let [r0, r1, r2] = receivers;
         let [t0, t1, t2] = task_channels;
         select! {

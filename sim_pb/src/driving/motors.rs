@@ -1,7 +1,5 @@
-use crate::RobotToSimulationMessage;
 use crate::RwLock;
 use crate::SimRobot;
-use async_channel::Sender;
 use core_pb::driving::motors::RobotMotorsBehavior;
 use core_pb::names::RobotName;
 use core_pb::util::StdInstant;
@@ -12,21 +10,13 @@ pub struct SimMotors {
     sim_robot: Arc<RwLock<SimRobot>>,
 
     pwm_values: [[u16; 2]; 3],
-    motor_speeds: [f32; 3],
-    sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
 }
 
 impl SimMotors {
-    pub fn new(
-        name: RobotName,
-        sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
-        sim_robot: Arc<RwLock<SimRobot>>,
-    ) -> Self {
+    pub fn new(name: RobotName, sim_robot: Arc<RwLock<SimRobot>>) -> Self {
         Self {
             name,
             pwm_values: Default::default(),
-            motor_speeds: Default::default(),
-            sim_tx,
             sim_robot,
         }
     }
@@ -45,16 +35,9 @@ impl RobotMotorsBehavior for SimMotors {
         if self.pwm_values[motor][pin % 2] != to {
             self.pwm_values[motor][pin % 2] = to;
             //converts pid output to simulator velocity
-            self.motor_speeds[motor] = 60.0
+            self.sim_robot.write().unwrap().requested_motor_speeds[motor] = 60.0
                 * (self.pwm_values[motor][0] as f32 - self.pwm_values[motor][1] as f32)
                 / self.name.robot().pwm_top as f32;
-            self.sim_tx
-                .send((
-                    self.name,
-                    RobotToSimulationMessage::SimulatedMotors(self.motor_speeds),
-                ))
-                .await
-                .unwrap();
         }
     }
 

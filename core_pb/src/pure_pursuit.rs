@@ -14,11 +14,9 @@ pub fn pure_pursuit(
     path: &heapless::Vec<Point2<i8>, MAX_ROBOT_PATH_LENGTH>,
     lookahead: f32,
 ) -> Option<Vector2<f32>> {
-    let Some(loc) = sensors.location else {
-        return None;
-    };
+    let loc = sensors.location?;
 
-    if path.len() == 0 {
+    if path.is_empty() {
         let r = round_point(loc);
         if get_dist(loc, r) > DIST_TOWARDS_CENTER {
             return Some(get_vec(loc, r, false));
@@ -90,9 +88,9 @@ fn get_pursuit_point(
 
 fn in_line(loc: Point2<f32>, p1: Point2<f32>, p2: Point2<f32>) -> bool {
     if p1.x == p2.x {
-        return loc.y >= p1.y && loc.y <= p2.y || loc.y <= p1.y && loc.y >= p2.y;
+        loc.y >= p1.y && loc.y <= p2.y || loc.y <= p1.y && loc.y >= p2.y
     } else {
-        return loc.x >= p1.x && loc.x <= p2.x || loc.x <= p1.x && loc.x >= p2.x;
+        loc.x >= p1.x && loc.x <= p2.x || loc.x <= p1.x && loc.x >= p2.x
     }
 }
 
@@ -182,16 +180,13 @@ fn get_closest_point(
     let b = p1.y - m * p1.x;
     let perp_b = loc.y - perp_m * loc.x;
 
-    let x: f32;
-    let y: f32;
-
-    if b == perp_b {
-        x = 0.0;
+    let x = if b == perp_b {
+        0.0
     } else {
-        x = (m - perp_m) / (perp_b - b);
-    }
+        (m - perp_m) / (perp_b - b)
+    };
 
-    y = perp_m * x + perp_b;
+    let y = perp_m * x + perp_b;
 
     Point2::new(x, y)
 }
@@ -204,7 +199,7 @@ fn get_closest_segment(
         return 0;
     }
 
-    let (mut index1, mut dist1) = (0 as usize, get_dist(*loc, path[0]));
+    let (mut index1, mut dist1) = (0, get_dist(*loc, path[0]));
 
     for (i, point) in path.iter().enumerate() {
         let new_dist = get_dist(*loc, *point);
@@ -215,9 +210,9 @@ fn get_closest_segment(
     }
 
     let (mut index2, mut dist2) = if index1 != 0 {
-        (0 as usize, get_dist(*loc, path[0]))
+        (0, get_dist(*loc, path[0]))
     } else {
-        (1 as usize, get_dist(*loc, path[1]))
+        (1, get_dist(*loc, path[1]))
     };
 
     for (i, point) in path.iter().enumerate() {

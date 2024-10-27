@@ -1,5 +1,4 @@
-use crate::RobotToSimulationMessage;
-use async_channel::Sender;
+use crate::driving::SimRobot;
 use async_std::io::{ReadExt, WriteExt};
 use async_std::net::{TcpListener, TcpStream};
 use async_std::task::sleep;
@@ -10,25 +9,22 @@ use core_pb::util::StdInstant;
 use embedded_io_async::{ErrorType, Read, ReadExactError, Write};
 use std::io;
 use std::io::ErrorKind;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 pub struct SimNetwork {
     name: RobotName,
-    sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
+    sim_robot: Arc<RwLock<SimRobot>>,
     network_connected: bool,
 
     firmware_swapped: bool,
 }
 
 impl SimNetwork {
-    pub fn new(
-        name: RobotName,
-        firmware_swapped: bool,
-        sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
-    ) -> Self {
+    pub fn new(name: RobotName, firmware_swapped: bool, sim_robot: Arc<RwLock<SimRobot>>) -> Self {
         Self {
             name,
-            sim_tx,
+            sim_robot,
             network_connected: false,
             firmware_swapped,
         }
@@ -141,10 +137,7 @@ impl RobotNetworkBehavior for SimNetwork {
     }
 
     async fn mark_firmware_updated(&mut self) {
-        self.sim_tx
-            .send((self.name, RobotToSimulationMessage::MarkFirmwareUpdated))
-            .await
-            .unwrap();
+        self.sim_robot.write().unwrap().firmware_updated = true;
     }
 
     async fn firmware_swapped(&mut self) -> bool {
@@ -152,10 +145,7 @@ impl RobotNetworkBehavior for SimNetwork {
     }
 
     async fn reboot(self) {
-        self.sim_tx
-            .send((self.name, RobotToSimulationMessage::Reboot))
-            .await
-            .unwrap();
+        self.sim_robot.write().unwrap().reboot = true;
         sleep(Duration::from_secs(99999)).await
     }
 

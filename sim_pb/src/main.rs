@@ -1,4 +1,3 @@
-use async_channel::{unbounded, Receiver, Sender};
 use bevy::prelude::*;
 use bevy_rapier2d::na::Vector2;
 use bevy_rapier2d::prelude::*;
@@ -20,39 +19,19 @@ mod network;
 mod physics;
 
 #[derive(Resource)]
-#[allow(clippy::type_complexity)]
 pub struct MyApp {
     standard_grid: StandardGrid,
     grid: ComputedGrid,
 
-    server_target_vel: [Option<[f32;3]>; NUM_ROBOT_NAMES],
-
     robots: [Option<(Entity, Arc<RwLock<SimRobot>>)>; NUM_ROBOT_NAMES],
-    from_robots: (
-        Sender<(RobotName, RobotToSimulationMessage)>,
-        Receiver<(RobotName, RobotToSimulationMessage)>,
-    ),
     selected_robot: RobotName,
 }
 
-#[derive(Copy, Clone, Debug)]
-pub enum SimulationToRobotMessage {}
-
-#[derive(Copy, Clone, Debug)]
-pub enum RobotToSimulationMessage {
-    SimulatedMotors([f32;3]),
-    MarkFirmwareUpdated,
-    Reboot,
-}
+#[derive(Clone, Component)]
+pub struct RobotReference(RobotName, Arc<RwLock<SimRobot>>);
 
 #[derive(Component)]
 pub struct Wall;
-
-#[derive(Component)]
-pub struct Robot {
-    name: RobotName,
-    wasd_target_vel: Option<[f32;3]>,
-}
 
 fn main() {
     info!("Simulation starting up");
@@ -65,11 +44,7 @@ fn main() {
             standard_grid: StandardGrid::Pacman,
             grid: StandardGrid::Pacman.compute_grid(),
 
-            server_target_vel: [None; NUM_ROBOT_NAMES],
-
             robots: RobotName::get_all().map(|_| None),
-            from_robots: unbounded(),
-
             selected_robot: RobotName::Stella,
         })
         .insert_resource(PacbotNetworkSimulation::new().unwrap())
@@ -104,21 +79,14 @@ fn setup_physics(
 fn robot_position_to_game_state(
     app: ResMut<MyApp>,
     mut network: ResMut<PacbotNetworkSimulation>,
-    robots: Query<(Entity, &Transform, &Robot)>,
+    robots: Query<(Entity, &Transform, &RobotReference)>,
 ) {
-    for robot in &robots {
-        if robot.2.name == app.selected_robot {
-            let pos = app
-                .grid
-                .node_nearest(robot.1.translation.x, robot.1.translation.y)
-                .unwrap();
-            let new_loc = LocationState {
-                row: pos.x,
-                col: pos.y,
-                dir: network.game_state.pacman_loc.dir,
-            };
-            if network.game_state.pacman_loc != new_loc {
-                network.game_state.set_pacman_location((pos.x, pos.y))
+    for (_, t, robot) in &robots {
+        if robot.0 == app.selected_robot {
+            if let Some(pos) = app.grid.node_nearest(t.translation.x, t.translation.y) {
+                if network.game_state.pacman_loc.get_coords() != (pos.x, pos.y) {
+                    network.game_state.set_pacman_location((pos.x, pos.y))
+                }
             }
         }
     }
@@ -134,7 +102,7 @@ fn keyboard_input(
         &mut Transform,
         &mut Velocity,
         &mut ExternalImpulse,
-        &mut Robot,
+        &RobotReference,
     )>,
     rapier_context: Res<RapierContext>,
 ) {
@@ -166,18 +134,21 @@ fn keyboard_input(
         (KeyCode::KeyQ, (Vector2::new(0.0, 0.0), 0.3)),
         (KeyCode::KeyE, (Vector2::new(0.0, 0.0), -0.3)),
     ];
-    for (_, _, _, _, mut robot) in &mut robots {
+    for (_, _, _, _, robot) in &robots {
         let mut target_vel = (Vector2::new(0.0, 0.0), 0.0);
         for (key, dir) in &key_directions {
-            if robot.name == app.selected_robot && keys.pressed(*key) {
+            if robot.0 == app.selected_robot && keys.pressed(*key) {
                 target_vel.0 += dir.0;
                 target_vel.1 += dir.1;
             }
         }
-        if target_vel == (Vector2::new(0.0, 0.0), 0.0) {
-            robot.wasd_target_vel = app.server_target_vel[robot.name as usize];
-        } else {
-            //robot.wasd_target_vel = Some(target_vel)
+        if target_vel != (Vector2::new(0.0, 0.0), 0.0) {
+            let motors = robot
+                .0
+                .robot()
+                .drive_system
+                .get_motor_speed_omni(target_vel.0, target_vel.1);
+            robot.1.write().unwrap().wasd_motor_speeds = Some(motors)
         }
     }
 
