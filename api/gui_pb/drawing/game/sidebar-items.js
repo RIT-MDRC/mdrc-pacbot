@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["draw_game","draw_grid"]};
