@@ -5,7 +5,9 @@ use crate::RobotToSimulationMessage;
 use async_channel::{bounded, Receiver, Sender, TrySendError};
 use async_std::task::sleep;
 use bevy::log::info;
+//use bevy::math::vec2;
 use bevy::tasks::block_on;
+use bevy_rapier2d::na::Vector2;
 use core_pb::driving::motors::motors_task;
 use core_pb::driving::network::network_task;
 use core_pb::driving::peripherals::peripherals_task;
@@ -39,7 +41,10 @@ pub struct SimRobot {
     pub firmware_updated: bool,
 
     pub imu_angle: Result<f32, ()>,
+    pub velocity: Vector2<f32>,
+    pub ang_velocity: f32,
     pub distance_sensors: [Result<Option<f32>, ()>; 4],
+    pub actual_motor_speeds: [f32; 3],
 
     pub button_events: VecDeque<(RobotButton, bool)>,
     pub joystick: Option<(f32, f32)>,
@@ -70,7 +75,10 @@ impl SimRobot {
             firmware_updated: false,
 
             imu_angle: Err(()),
+            velocity: Vector2::new(0.0, 0.0),
+            ang_velocity: 0.0,
             distance_sensors: [Err(()); 4],
+            actual_motor_speeds: [0.0; 3],
 
             button_events: VecDeque::new(),
             joystick: None,
@@ -80,7 +88,7 @@ impl SimRobot {
         let (tc_network, network_rx, network_tx) = TaskChannels::new();
         let (tc_peripherals, peripherals_rx, peripherals_tx) = TaskChannels::new();
 
-        let motors = SimMotors::new(name, sim_tx.clone());
+        let motors = SimMotors::new(name, sim_tx.clone(), robot.clone());
         let network = SimNetwork::new(name, firmware_swapped, sim_tx.clone());
         let peripherals = SimPeripherals::new(robot.clone());
 

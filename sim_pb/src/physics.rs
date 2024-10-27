@@ -1,5 +1,3 @@
-use core::f32;
-
 use crate::driving::SimRobot;
 use crate::{MyApp, Robot, Wall};
 use bevy::math::Vec3;
@@ -7,10 +5,12 @@ use bevy::prelude::*;
 use bevy_rapier2d::geometry::{Collider, CollisionGroups, Group};
 use bevy_rapier2d::na::{Point2, Rotation2, Vector2};
 use bevy_rapier2d::prelude::*;
+use core::f32;
 use core_pb::constants::GU_PER_M;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::RobotName;
 use core_pb::robot_definition::RobotDefinition;
+use rand::prelude::*;
 
 pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
     let grid = grid.compute_grid();
@@ -95,6 +95,8 @@ impl MyApp {
                     Rotation2::new(2.0 * t.rotation.normalize().w.acos() * t.rotation.z.signum())
                         .angle();
                 sim_robot.write().unwrap().imu_angle = Ok(rotation);
+                sim_robot.write().unwrap().velocity = v.linvel.into();
+                sim_robot.write().unwrap().ang_velocity = v.angvel.into();
 
                 let mut distance_sensors: [Result<Option<f32>, ()>; 4] = [Err(()); 4];
 
@@ -128,18 +130,30 @@ impl MyApp {
                 }
 
                 sim_robot.write().unwrap().distance_sensors = distance_sensors;
-            }
 
-            let mut target_vel = robot
-                .wasd_target_vel
-                .unwrap_or((Vector2::new(0.0, 0.0), 0.0));
-            let move_scale = target_vel.0.magnitude();
-            if target_vel.0 != Vector2::new(0.0, 0.0) {
-                target_vel.0 = target_vel.0.normalize() * move_scale;
+                let mut rng = thread_rng();
+                let noise_rng: f32 = 0.08;
+                let mut motor_speeds = robot.wasd_target_vel.unwrap_or([0.0; 3]);
+                let robot_definition = RobotDefinition::new(robot.name);
+                //for each motor add noise
+                for i in 0..3 {
+                    let noise: f32 = rng.gen_range(-noise_rng..noise_rng).abs();
+                    if motor_speeds[i] != 0.0 {
+                        motor_speeds[i] += motor_speeds[i] * noise;
+                    }
+                }
+                sim_robot.write().unwrap().actual_motor_speeds = motor_speeds;
+                let mut target_vel = robot_definition
+                    .drive_system
+                    .get_actual_vel_omni(motor_speeds);
+                let move_scale = target_vel.0.magnitude();
+                if target_vel.0 != Vector2::new(0.0, 0.0) {
+                    target_vel.0 = target_vel.0.normalize() * move_scale;
+                }
+                imp.impulse.x = target_vel.0.x - v.linvel.x * 0.6;
+                imp.impulse.y = target_vel.0.y - v.linvel.y * 0.6;
+                imp.torque_impulse = target_vel.1 - v.angvel * 0.1;
             }
-            imp.impulse.x = target_vel.0.x - v.linvel.x * 0.6;
-            imp.impulse.y = target_vel.0.y - v.linvel.y * 0.6;
-            imp.torque_impulse = target_vel.1 - v.angvel * 0.1;
         }
     }
 
