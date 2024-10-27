@@ -46,7 +46,6 @@ struct MotorsData<const WHEELS: usize, T: RobotMotorsBehavior> {
 
     set_points: [f32; WHEELS],
     pwm: [[u16; 2]; WHEELS],
-    prev_out: [f32; WHEELS],
 }
 
 /// The "main" method for the motors task
@@ -81,7 +80,6 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
 
         set_points: Default::default(),
         pwm: Default::default(),
-        prev_out: [0.0; 3],
     };
 
     let mut sensors: Option<SensorData> = None;
@@ -124,9 +122,7 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
         if last_command.elapsed() > Duration::from_millis(300) {
             // we might have disconnected, set all motors to stop
             data.config = FrequentServerToRobot::new(data.name);
-            for p in 0..6 {
-                data.motors.set_pwm(p, 0).await;
-            }
+            data.config.pwm_override = [[Some(0); 2]; 3];
         }
 
         let time_to_wait = run_pid_every.checked_sub(last_motor_control_status.elapsed());
@@ -150,15 +146,18 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
                     }
                     // calculate pid
                     data.pid_controllers[m].setpoint(data.set_points[m]);
-                    let output = data.pid_controllers[m].next_control_output(measured_speeds[m]);
-                    let output_built = output.output + data.prev_out[m];
-                    data.prev_out[m] = output_built;
+                    let output = if data.set_points[m] == 0.0 {
+                        data.pid_controllers[m].reset_integral_term();
+                        0.0
+                    } else {
+                        data.pid_controllers[m].next_control_output(measured_speeds[m]).output
+                    };
 
                     // set value to PWM on motors
-                    if output_built > 0.0 {
-                        data.pwm[m] = [output_built.abs().round() as u16, 0];
+                    if output > 0.0 {
+                        data.pwm[m] = [output.abs().round() as u16, 0];
                     } else {
-                        data.pwm[m] = [0, output_built.abs().round() as u16];
+                        data.pwm[m] = [0, output.abs().round() as u16];
                     }
                     for p in 0..2 {
                         if let Some(pwm_override) = data.config.pwm_override[m][p] {
