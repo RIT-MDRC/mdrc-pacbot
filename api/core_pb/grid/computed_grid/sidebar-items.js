@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["facing_direction","validate_grid"],"struct":["ComputedGrid","Wall"]};
