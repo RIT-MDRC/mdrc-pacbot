@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["NUM_ROBOT_NAMES"],"enum":["RobotName"]};
