@@ -1,20 +1,15 @@
 use crate::RobotToSimulationMessage;
+use crate::RwLock;
+use crate::SimRobot;
 use async_channel::Sender;
-//use bevy_rapier2d::prelude::Velocity;
-use core_pb::drive_system::DriveSystem;
 use core_pb::driving::motors::RobotMotorsBehavior;
 use core_pb::names::RobotName;
 use core_pb::util::StdInstant;
 use std::sync::Arc;
-use std::time::Duration;
-use crate::SimRobot;
-use crate::RwLock;
-
 
 pub struct SimMotors {
     name: RobotName,
-    drive_system: DriveSystem<3>,
-    sim_robot:  Arc<RwLock<SimRobot>>,
+    sim_robot: Arc<RwLock<SimRobot>>,
 
     pwm_values: [[u16; 2]; 3],
     motor_speeds: [f32; 3],
@@ -22,14 +17,17 @@ pub struct SimMotors {
 }
 
 impl SimMotors {
-    pub fn new(name: RobotName, sim_tx: Sender<(RobotName, RobotToSimulationMessage)>, sim_robot: Arc<RwLock<SimRobot>>,) -> Self {
+    pub fn new(
+        name: RobotName,
+        sim_tx: Sender<(RobotName, RobotToSimulationMessage)>,
+        sim_robot: Arc<RwLock<SimRobot>>,
+    ) -> Self {
         Self {
             name,
-            drive_system: name.robot().drive_system,
             pwm_values: Default::default(),
             motor_speeds: Default::default(),
             sim_tx,
-            sim_robot
+            sim_robot,
         }
     }
 }
@@ -61,16 +59,6 @@ impl RobotMotorsBehavior for SimMotors {
     }
 
     async fn get_motor_speed(&mut self, motor: usize) -> f32 {
-        self.motor_speeds[motor];
-        let new_velocity  = self.sim_robot.read()
-        .unwrap().velocity;
-
-        let new_ang_velocity  = self.sim_robot.read().unwrap().ang_velocity;
-        if new_ang_velocity.abs()>30.0{
-            panic!()
-        }
-        let target_speed = self.drive_system.get_motor_speed_omni(new_velocity, new_ang_velocity);
-        target_speed[motor]
+        self.sim_robot.read().unwrap().actual_motor_speeds[motor]
     }
 }
-
