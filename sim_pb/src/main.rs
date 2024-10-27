@@ -6,7 +6,6 @@ use std::sync::{Arc, RwLock};
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
-use core_pb::pacbot_rs::location::LocationState;
 
 use crate::driving::SimRobot;
 use crate::network::{update_network, PacbotNetworkSimulation};

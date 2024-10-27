@@ -188,6 +188,7 @@ fn collapsable_section(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn generic_server(
     ui: &mut Ui,
     name: &str,
