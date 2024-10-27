@@ -49,7 +49,7 @@ impl RobotDefinition<3> {
             default_pid: if name.is_simulated() {
                 [150.0, 0.0, 0.0]
             } else {
-                [10.0, 0.0, 0.0]
+                [500.0, 20.0, 0.0]
             },
             pwm_top: 0x8000,
             default_motor_config: if name.is_simulated() {
