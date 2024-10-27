@@ -1,5 +1,5 @@
 use crate::driving::SimRobot;
-use crate::{MyApp, Robot, RobotToSimulationMessage, Wall};
+use crate::{MyApp, RobotReference, Wall};
 use bevy::prelude::{error, info, Commands, Entity, Query, ResMut, Resource, Transform};
 use bevy_rapier2d::dynamics::{ExternalImpulse, Velocity};
 use bevy_rapier2d::na::{Point2, Rotation2};
@@ -37,7 +37,7 @@ pub fn update_network(
         &mut Transform,
         &mut Velocity,
         &mut ExternalImpulse,
-        &mut Robot,
+        &RobotReference,
     )>,
 ) {
     network.update(app, commands, walls, robots);
@@ -77,7 +77,7 @@ impl PacbotNetworkSimulation {
             &mut Transform,
             &mut Velocity,
             &mut ExternalImpulse,
-            &mut Robot,
+            &RobotReference,
         )>,
     ) {
         while let Some(event) = self.event_hub.next_event() {
@@ -177,7 +177,7 @@ impl PacbotNetworkSimulation {
                                 if !app.grid.wall_at(&loc) {
                                     if let Some((_, mut transforms, ..)) = robots
                                         .iter_mut()
-                                        .find(|(_, _, _, _, robot)| robot.name == name)
+                                        .find(|(_, _, _, _, robot)| robot.0 == name)
                                     {
                                         transforms.translation.x = loc.x as f32;
                                         transforms.translation.y = loc.y as f32;
@@ -219,7 +219,7 @@ impl PacbotNetworkSimulation {
                                 .and_then(|(_, _)| {
                                     robots
                                         .iter_mut()
-                                        .find(|(_, _, _, _, robot)| robot.name == name)
+                                        .find(|(_, _, _, _, robot)| robot.0 == name)
                                 })
                                 .map(|(_, t, ..)| t)
                                 .map(|t| {
@@ -276,31 +276,18 @@ impl PacbotNetworkSimulation {
         }
 
         // robot messages
-        while let Ok((name, msg)) = app.from_robots.1.try_recv() {
-            match msg {
-                RobotToSimulationMessage::SimulatedMotors(motors) => {
-                    if Some(motors) != app.server_target_vel[name as usize] {
-                        app.server_target_vel[name as usize] = Some(motors)
-                    }
+        for (_, robot) in app.robots.iter_mut().flatten() {
+            if let Some((name, swapped)) = {
+                let mut sim_robot = robot.write().unwrap();
+                if sim_robot.reboot {
+                    let (name, swapped) = (sim_robot.name, sim_robot.firmware_updated);
+                    sim_robot.destroy();
+                    Some((name, swapped))
+                } else {
+                    None
                 }
-                RobotToSimulationMessage::MarkFirmwareUpdated => {
-                    if let Some((_, sim_robot)) = &mut app.robots[name as usize] {
-                        info!("{name} declared updated firmware");
-                        sim_robot.write().unwrap().firmware_updated = true;
-                    }
-                }
-                RobotToSimulationMessage::Reboot => {
-                    let tx = app.from_robots.0.clone();
-                    if let Some((_, sim_robot)) = &mut app.robots[name as usize] {
-                        let swapped;
-                        {
-                            let mut r = sim_robot.write().unwrap();
-                            swapped = r.firmware_updated;
-                            r.destroy();
-                        }
-                        *sim_robot = SimRobot::start(name, swapped, tx);
-                    }
-                }
+            } {
+                *robot = SimRobot::start(name, swapped);
             }
         }
 

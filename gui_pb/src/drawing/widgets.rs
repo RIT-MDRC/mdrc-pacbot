@@ -6,24 +6,24 @@ use eframe::egui::{RichText, Ui};
 
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq)]
 pub enum PacbotWidget {
-    GridWidget,
-    UtilizationWidget,
-    SensorsWidget,
-    BatteryWidget,
+    Grid,
+    Utilization,
+    Sensors,
+    Battery,
 }
 
 pub fn draw_widgets(app: &mut App, ui: &mut Ui) {
     for widget_name in [
-        PacbotWidget::GridWidget,
-        PacbotWidget::UtilizationWidget,
-        PacbotWidget::SensorsWidget,
-        PacbotWidget::BatteryWidget,
+        PacbotWidget::Grid,
+        PacbotWidget::Utilization,
+        PacbotWidget::Sensors,
+        PacbotWidget::Battery,
     ] {
         let button = ui.add(
             egui::Button::new(widget_name.button_text(app))
                 .fill(widget_name.overall_status(app).to_color32()),
         );
-        if widget_name != PacbotWidget::GridWidget {
+        if widget_name != PacbotWidget::Grid {
             button.on_hover_ui(|ui| widget_name.hover_ui(app, ui));
         }
     }
@@ -33,14 +33,14 @@ fn draw_status(ui: &mut Ui, status: &ColoredStatus, label: impl Into<String>) {
     ui.horizontal(|ui| {
         ui.label(RichText::new(status.icon()).color(status.to_color32_solid()));
         let label: String = label.into();
-        if label != "" {
+        if !label.is_empty() {
             ui.label(format!(
                 "{}: {}",
                 label,
                 status.message().unwrap_or("?".to_string())
             ));
         } else {
-            ui.label(format!("{}", status.message().unwrap_or("?".to_string())));
+            ui.label(status.message().unwrap_or("?".to_string()));
         }
     });
 }
@@ -48,7 +48,7 @@ fn draw_status(ui: &mut Ui, status: &ColoredStatus, label: impl Into<String>) {
 impl PacbotWidget {
     pub fn button_text(&self, app: &mut App) -> RichText {
         match self {
-            PacbotWidget::GridWidget => RichText::new(format!(
+            PacbotWidget::Grid => RichText::new(format!(
                 "{} {} {} {} {} {}",
                 egui_phosphor::regular::HEART,
                 app.server_status.game_state.curr_lives,
@@ -57,9 +57,9 @@ impl PacbotWidget {
                 egui_phosphor::regular::TIMER,
                 app.server_status.game_state.curr_ticks
             )),
-            PacbotWidget::UtilizationWidget => RichText::new(egui_phosphor::regular::TIMER),
-            PacbotWidget::SensorsWidget => RichText::new(egui_phosphor::regular::HEADLIGHTS),
-            PacbotWidget::BatteryWidget => {
+            PacbotWidget::Utilization => RichText::new(egui_phosphor::regular::TIMER),
+            PacbotWidget::Sensors => RichText::new(egui_phosphor::regular::HEADLIGHTS),
+            PacbotWidget::Battery => {
                 let battery = app.server_status.robots[app.ui_settings.selected_robot as usize]
                     .battery
                     .unwrap_or(0.0);
@@ -80,8 +80,8 @@ impl PacbotWidget {
 
     pub fn overall_status(&self, app: &mut App) -> ColoredStatus {
         match self {
-            PacbotWidget::GridWidget => ColoredStatus::NotApplicable(None),
-            PacbotWidget::UtilizationWidget => vec![
+            PacbotWidget::Grid => ColoredStatus::NotApplicable(None),
+            PacbotWidget::Utilization => vec![
                 app.gui_stopwatch.status(),
                 app.server_status.utilization.clone(),
                 app.server_status.inference_time.clone(),
@@ -89,20 +89,19 @@ impl PacbotWidget {
             .into_iter()
             .max_by_key(|x| x.severity())
             .unwrap(),
-            PacbotWidget::SensorsWidget => {
+            PacbotWidget::Sensors => {
                 let robot = &app.server_status.robots[app.ui_settings.selected_robot as usize];
                 if robot.connection != NetworkStatus::Connected {
                     ColoredStatus::NotApplicable(None)
+                } else if robot.imu_angle.is_err()
+                    || robot.distance_sensors.iter().any(|x| x.is_err())
+                {
+                    ColoredStatus::Error(None)
                 } else {
-                    if robot.imu_angle.is_err() || robot.distance_sensors.iter().any(|x| x.is_err())
-                    {
-                        ColoredStatus::Error(None)
-                    } else {
-                        ColoredStatus::Ok(None)
-                    }
+                    ColoredStatus::Ok(None)
                 }
             }
-            PacbotWidget::BatteryWidget => {
+            PacbotWidget::Battery => {
                 app.server_status.robots[app.ui_settings.selected_robot as usize].battery_status()
             }
         }
@@ -111,13 +110,13 @@ impl PacbotWidget {
     pub fn hover_ui(&self, app: &mut App, ui: &mut Ui) {
         #[allow(clippy::single_match)]
         match self {
-            PacbotWidget::BatteryWidget => draw_status(
+            PacbotWidget::Battery => draw_status(
                 ui,
                 &app.server_status.robots[app.ui_settings.selected_robot as usize].battery_status(),
                 "",
             ),
-            PacbotWidget::GridWidget => {}
-            PacbotWidget::UtilizationWidget => {
+            PacbotWidget::Grid => {}
+            PacbotWidget::Utilization => {
                 let status = app.gui_stopwatch.status();
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(status.icon()).color(status.to_color32_solid()));
@@ -144,7 +143,7 @@ impl PacbotWidget {
                     );
                 }
             }
-            PacbotWidget::SensorsWidget => {
+            PacbotWidget::Sensors => {
                 let robot = &app.server_status.robots[app.ui_settings.selected_robot as usize];
                 if robot.connection != NetworkStatus::Connected {
                     draw_status(

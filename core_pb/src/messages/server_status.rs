@@ -96,23 +96,17 @@ impl RobotStatus {
     pub fn battery_status(&self) -> ColoredStatus {
         if self.connection != NetworkStatus::Connected {
             ColoredStatus::NotApplicable(Some("Not connected".to_string()))
-        } else {
-            if let Ok(battery) = self.battery {
-                let msg = Some(format!("{:.1}%", battery * 100.0));
-                if battery > 0.75 {
-                    ColoredStatus::Ok(msg)
-                } else if battery > 0.5 {
-                    ColoredStatus::Ok(msg)
-                } else if battery > 0.25 {
-                    ColoredStatus::Warn(msg)
-                } else if battery > 0.1 {
-                    ColoredStatus::Error(msg)
-                } else {
-                    ColoredStatus::Error(msg)
-                }
+        } else if let Ok(battery) = self.battery {
+            let msg = Some(format!("{:.1}%", battery * 100.0));
+            if battery > 0.5 {
+                ColoredStatus::Ok(msg)
+            } else if battery > 0.25 {
+                ColoredStatus::Warn(msg)
             } else {
-                ColoredStatus::Error(Some("ERR".to_string()))
+                ColoredStatus::Error(msg)
             }
+        } else {
+            ColoredStatus::Error(Some("ERR".to_string()))
         }
     }
 }
