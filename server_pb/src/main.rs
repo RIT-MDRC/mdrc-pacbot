@@ -25,6 +25,7 @@ use core_pb::util::StdInstant;
 use env_logger::Builder;
 use log::{info, LevelFilter};
 use nalgebra::Point2;
+use std::path::Path;
 use std::process::{Child, Command};
 use std::time::Duration;
 use tokio::select;
@@ -96,6 +97,11 @@ async fn main() {
         .init();
 
     info!("RIT Pacbot server starting up");
+
+    let folder_path = Path::new("server_pb");
+    if !folder_path.is_dir() {
+        panic!("Please run the server from the repository root.");
+    }
 
     let mut app = App::default();
     info!("Listening on 0.0.0.0:{GUI_LISTENER_PORT}");
