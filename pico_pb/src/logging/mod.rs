@@ -43,7 +43,7 @@ use embassy_sync::pipe::Pipe;
 struct Logger;
 
 /// Added by RIT: allows writing logs to TCP
-pub static LOGS_PIPE: Pipe<ThreadModeRawMutex, 1024> = Pipe::new();
+pub static LOGS_PIPE: Pipe<ThreadModeRawMutex, 4096> = Pipe::new();
 
 /// Global logger lock.
 static TAKEN: AtomicBool = AtomicBool::new(false);

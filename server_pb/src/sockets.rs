@@ -113,7 +113,7 @@ async fn receive_outgoing(
     ));
 
     fn robot_decoder(bytes: &[u8]) -> Result<RobotToServerMessage, bincode::error::DecodeError> {
-        if bytes[0] == 255 {
+        if !bytes.is_empty() && bytes[0] == 255 {
             Ok(RobotToServerMessage::LogBytes(bytes[1..].to_vec()))
         } else {
             bin_decode(bytes)

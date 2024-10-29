@@ -39,7 +39,7 @@ pub struct RobotPeripherals {
 }
 
 impl RobotPeripherals {
-    pub async fn new(bus: &'static PacbotI2cBus) -> Self {
+    pub fn new(bus: &'static PacbotI2cBus) -> Self {
         Self {
             display: PacbotDisplayWrapper::new(bus),
 

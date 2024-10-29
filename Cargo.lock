@@ -5059,6 +5059,7 @@ dependencies = [
  "bincode",
  "core_pb",
  "defmt-decoder",
+ "defmt-parser",
  "env_logger",
  "futures",
  "futures-channel",

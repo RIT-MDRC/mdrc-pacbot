@@ -25,7 +25,7 @@ use core_pb::messages::Task;
 use core_pb::names::RobotName;
 use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::CrossPlatformInstant;
-use defmt::{info, unwrap};
+use defmt::{debug, info, unwrap};
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_executor::{InterruptExecutor, Spawner};
 use embassy_futures::select::select;
@@ -127,13 +127,13 @@ async fn main(spawner: Spawner) {
         embassy_rp::i2c::Config::default(),
     )));
 
-    unwrap!(spawner.spawn(do_i2c(name, RobotPeripherals::new(i2c_bus).await)));
+    unwrap!(spawner.spawn(do_i2c(name, RobotPeripherals::new(i2c_bus))));
     unwrap!(spawner.spawn(manage_pico_i2c(i2c_bus, xshut)));
 
     info!("Finished spawning tasks");
 
     loop {
-        info!("I'm alive!");
+        debug!("I'm alive!");
         watchdog.feed();
         Timer::after_secs(1).await;
     }

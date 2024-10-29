@@ -1,6 +1,6 @@
 use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
 use defmt_decoder::{DecodeError, Frame, Locations, StreamDecoder, Table};
-use log::info;
+use log::{info, Level, Record};
 use ouroboros::self_referencing;
 use std::env;
 use std::path::Path;
@@ -43,12 +43,31 @@ impl RobotLoggers {
                     Ok(frame) => {
                         let (file, line, mod_path) =
                             location_info(&self.locs, &frame, &env::current_dir().unwrap());
-                        defmt_decoder::log::log_defmt(
-                            &frame,
-                            file.as_deref(),
-                            line,
-                            mod_path.as_deref(),
-                        )
+                        log::logger().log(
+                            &Record::builder()
+                                .args(format_args!("{}", frame.display_message()))
+                                .level(
+                                    frame
+                                        .level()
+                                        .map(|l| match l {
+                                            defmt_parser::Level::Trace => Level::Trace,
+                                            defmt_parser::Level::Debug => Level::Debug,
+                                            defmt_parser::Level::Info => Level::Info,
+                                            defmt_parser::Level::Warn => Level::Warn,
+                                            defmt_parser::Level::Error => Level::Error,
+                                        })
+                                        .unwrap_or(Level::Info),
+                                )
+                                .target(&format!(
+                                    "defmt::{name}@{}::{}",
+                                    mod_path.as_deref().unwrap_or("unknown"),
+                                    line.unwrap_or(0),
+                                ))
+                                .module_path(mod_path.as_deref())
+                                .file(file.as_deref())
+                                .line(line)
+                                .build(),
+                        );
                     }
                     Err(DecodeError::UnexpectedEof) => break,
                     Err(DecodeError::Malformed) => {
