@@ -79,6 +79,9 @@ pub trait RobotNetworkBehavior {
 
     /// See https://docs.embassy.dev/embassy-boot/git/default/struct.FirmwareUpdater.html#method.mark_booted
     async fn mark_firmware_booted(&mut self);
+
+    /// Read (blocking) some bytes emitted by defmt
+    fn read_logging_bytes(buf: &mut [u8]) -> usize;
 }
 
 /// The "main" method for the network task
@@ -93,6 +96,8 @@ pub async fn network_task<T: RobotNetworkBehavior, M: RobotTaskMessenger>(
 
     let mut tx_buffer = [0; 5000];
     let mut rx_buffer = [0; 5000];
+
+    let mut logs_buffer = [0; 512];
 
     let mut utilization_monitor: UtilizationMonitor<50, T::Instant> =
         UtilizationMonitor::new(0.0, 0.0);
@@ -150,6 +155,16 @@ pub async fn network_task<T: RobotNetworkBehavior, M: RobotTaskMessenger>(
                     utilization_monitor.stop();
                     let event = next_event::<T, M>(name, &mut msgs, &mut socket).await;
                     utilization_monitor.start();
+
+                    // emit logs if we can find any
+                    loop {
+                        let count = T::read_logging_bytes(&mut logs_buffer);
+                        if count == 0 {
+                            break;
+                        }
+                        let _ = write_bytes(name, &mut socket, &logs_buffer[..count], count, true)
+                            .await;
+                    }
 
                     match event {
                         Either::Right(RobotInterTaskMessage::Utilization(util, task)) => {
@@ -349,21 +364,39 @@ async fn write<T: Write>(
                 return Err(());
             }
         };
+    write_bytes(name, network, &buf, len, false).await
+}
 
+async fn write_bytes<T: Write>(
+    _name: RobotName,
+    network: &mut T,
+    buf: &[u8],
+    len: usize,
+    raw_bytes: bool,
+) -> Result<(), ()> {
     // first write the length of the message (u32)
-    let len_buf = (len as u32).to_be_bytes();
+    let len_buf = if raw_bytes {
+        (len as u32 + 1).to_be_bytes()
+    } else {
+        (len as u32).to_be_bytes()
+    };
     if network.write_all(&len_buf).await.is_err() {
-        info!("{} error writing to socket", name);
+        // info!("{} error writing to socket", name);
         return Err(());
     }
 
+    if raw_bytes {
+        // write the bytes identifier
+        if network.write_all(&[255]).await.is_err() {
+            // info!("{} error writing to socket", name);
+            return Err(());
+        }
+    }
     // then write the message
     if network.write_all(&buf[..len]).await.is_err() {
-        info!("{} error writing to socket", name);
+        // info!("{} error writing to socket", name);
         return Err(());
     }
-
-    // info!("{} sent message of length {}", name, len);
 
     Ok(())
 }

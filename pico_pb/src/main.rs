@@ -5,12 +5,12 @@
 mod devices;
 #[allow(dead_code)]
 mod encoders;
+mod logging;
 mod motors;
 mod network;
 mod peripherals;
 
 // todo https://github.com/adafruit/Adafruit_CircuitPython_seesaw/blob/main/adafruit_seesaw/seesaw.py https://crates.io/crates/adafruit-seesaw
-
 use crate::encoders::{run_encoders, PioEncoder};
 use crate::motors::{Motors, MOTORS_CHANNEL};
 use crate::network::{initialize_network, Network, NETWORK_CHANNEL};
@@ -26,7 +26,6 @@ use core_pb::names::RobotName;
 use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::CrossPlatformInstant;
 use defmt::{info, unwrap};
-use defmt_rtt as _;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_executor::{InterruptExecutor, Spawner};
 use embassy_futures::select::select;

@@ -10,6 +10,7 @@ use core_pb::messages::{
 };
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
+use defmt_decoder::DecodeError;
 use log::{error, info};
 use nalgebra::Point2;
 
@@ -131,6 +132,18 @@ impl App {
             (Robot(name), FromRobot(RobotToServerMessage::Pong)) => {
                 if let Some(t) = self.robot_ping_timers[name as usize] {
                     self.status.robots[name as usize].ping = Some(t.elapsed())
+                }
+            }
+            (Robot(name), FromRobot(RobotToServerMessage::LogBytes(bytes))) => {
+                self.robot_logger.received(&bytes);
+                loop {
+                    match self.robot_logger.decode() {
+                        Ok(frame) => defmt_decoder::log::log_defmt(&frame, None, None, None),
+                        Err(DecodeError::UnexpectedEof) => break,
+                        Err(DecodeError::Malformed) => {
+                            info!("{name} malformed message")
+                        }
+                    }
                 }
             }
             (Robot(name), FromRobot(msg)) => info!("Message received from {name}: {msg:?}"),

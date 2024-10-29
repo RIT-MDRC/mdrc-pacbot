@@ -182,7 +182,10 @@ pub struct MotorControlStatus {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum RobotToServerMessage {
     ReadyToStartUpdate,
-    ConfirmFirmwarePart { offset: usize, len: usize },
+    ConfirmFirmwarePart {
+        offset: usize,
+        len: usize,
+    },
     MarkedFirmwareUpdated,
     FirmwareHash([u8; 32]),
     Rebooting,
@@ -193,6 +196,11 @@ pub enum RobotToServerMessage {
     Utilization([f32; 3]),
     Sensors(SensorData),
     Pong,
+    #[cfg(feature = "std")]
+    LogBytes(Vec<u8>),
+    #[cfg(not(feature = "std"))]
+    LogBytes(()),
+    // 255 is reserved for raw bytes for logs
 }
 
 /// The different async tasks that run on the robot

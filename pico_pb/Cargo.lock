@@ -374,16 +374,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "defmt-rtt"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bab697b3dbbc1750b7c8b821aa6f6e7f2480b47a99bc057a2ed7b170ebef0c51"
-dependencies = [
- "critical-section",
- "defmt",
-]
-
-[[package]]
 name = "diff"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1179,10 +1169,10 @@ dependencies = [
  "core_pb",
  "cortex-m",
  "cortex-m-rt",
+ "critical-section",
  "cyw43",
  "cyw43-pio",
  "defmt",
- "defmt-rtt",
  "display-interface",
  "embassy-boot-rp",
  "embassy-embedded-hal",

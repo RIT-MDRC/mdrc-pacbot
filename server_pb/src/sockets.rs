@@ -112,6 +112,14 @@ async fn receive_outgoing(
         Incoming::FromSimulation,
     ));
 
+    fn robot_decoder(bytes: &[u8]) -> Result<RobotToServerMessage, bincode::error::DecodeError> {
+        if bytes[0] == 255 {
+            Ok(RobotToServerMessage::LogBytes(bytes[1..].to_vec()))
+        } else {
+            bin_decode(bytes)
+        }
+    }
+
     // robots
     let robots = RobotName::get_all().map(|name| {
         let incoming_tx = incoming_tx.clone();
@@ -122,7 +130,7 @@ async fn receive_outgoing(
                 format!("server[{name}]"),
                 None,
                 bin_encode,
-                bin_decode,
+                robot_decoder,
             ),
             robot_rx,
             incoming_tx,
