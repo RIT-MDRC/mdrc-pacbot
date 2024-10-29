@@ -1,3 +1,4 @@
+use crate::logging::RobotLoggers;
 use crate::sockets::Destination::*;
 use crate::sockets::Incoming::*;
 use crate::sockets::Outgoing::*;
@@ -10,7 +11,6 @@ use core_pb::messages::{
 };
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
-use defmt_decoder::DecodeError;
 use log::{error, info};
 use nalgebra::Point2;
 
@@ -135,15 +135,8 @@ impl App {
                 }
             }
             (Robot(name), FromRobot(RobotToServerMessage::LogBytes(bytes))) => {
-                self.robot_logger.received(&bytes);
-                loop {
-                    match self.robot_logger.decode() {
-                        Ok(frame) => defmt_decoder::log::log_defmt(&frame, None, None, None),
-                        Err(DecodeError::UnexpectedEof) => break,
-                        Err(DecodeError::Malformed) => {
-                            info!("{name} malformed message")
-                        }
-                    }
+                if let Some(loggers) = &mut self.robot_loggers {
+                    loggers.feed_robot_logs(name, &bytes)
                 }
             }
             (Robot(name), FromRobot(msg)) => info!("Message received from {name}: {msg:?}"),
@@ -193,6 +186,10 @@ impl App {
                         let new_settings = old_settings.clone();
                         self.update_settings(&old_settings, new_settings).await;
                     }
+                }
+                GuiToServerMessage::StartOtaFirmwareUpdate(_) => {
+                    // the ELF file probably changed
+                    self.robot_loggers = RobotLoggers::generate().ok();
                 }
                 _ => {}
             },

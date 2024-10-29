@@ -1,4 +1,5 @@
 use crate::high_level::ReinforcementLearningManager;
+use crate::logging::RobotLoggers;
 use crate::ota::OverTheAirProgramming;
 use crate::sockets::Destination::{GuiClients, Simulation};
 use crate::sockets::Incoming::FromRobot;
@@ -21,17 +22,16 @@ use core_pb::pacbot_rs::location::Direction;
 use core_pb::util::stopwatch::Stopwatch;
 use core_pb::util::utilization::UtilizationMonitor;
 use core_pb::util::StdInstant;
-use defmt_decoder::{StreamDecoder, Table};
 use env_logger::Builder;
 use log::{info, LevelFilter};
 use nalgebra::Point2;
 use std::process::{Child, Command};
-use std::sync::OnceLock;
 use std::time::Duration;
 use tokio::select;
 use tokio::time::{interval, Instant, Interval};
 
 mod high_level;
+mod logging;
 pub mod network;
 mod ota;
 mod sockets;
@@ -49,8 +49,7 @@ pub struct App {
 
     sockets: Sockets,
     robot_ping_timers: [Option<Instant>; NUM_ROBOT_NAMES],
-    robot_logger_table: &'static Table,
-    robot_logger: Box<dyn StreamDecoder>,
+    robot_loggers: Option<RobotLoggers>,
 
     rl_manager: ReinforcementLearningManager,
     over_the_air_programming: OverTheAirProgramming,
@@ -58,8 +57,8 @@ pub struct App {
     grid: ComputedGrid,
 }
 
-impl App {
-    fn new(robot_logger_table: &'static Table) -> Self {
+impl Default for App {
+    fn default() -> Self {
         let sockets = Sockets::spawn();
 
         App {
@@ -82,8 +81,7 @@ impl App {
 
             sockets,
             robot_ping_timers: [None; NUM_ROBOT_NAMES],
-            robot_logger_table,
-            robot_logger: robot_logger_table.new_stream_decoder(),
+            robot_loggers: RobotLoggers::generate().ok(),
 
             grid: Default::default(),
         }
@@ -99,11 +97,7 @@ async fn main() {
 
     info!("RIT Pacbot server starting up");
 
-    let elf = std::fs::read("pico_pb/target/thumbv6m-none-eabi/release/mdrc-pacbot-pico").unwrap();
-    static TABLE_CELL: OnceLock<Table> = OnceLock::new();
-    let table = TABLE_CELL.get_or_init(|| Table::parse(&elf).unwrap().unwrap());
-
-    let mut app = App::new(table);
+    let mut app = App::default();
     info!("Listening on 0.0.0.0:{GUI_LISTENER_PORT}");
     app.utilization_monitor.start();
 

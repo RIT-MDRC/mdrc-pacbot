@@ -180,27 +180,27 @@ pub struct MotorControlStatus {
 
 /// Firmware related items MUST remain first, or OTA programming will break
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[repr(usize)]
 pub enum RobotToServerMessage {
-    ReadyToStartUpdate,
+    ReadyToStartUpdate = 0,
     ConfirmFirmwarePart {
         offset: usize,
         len: usize,
-    },
-    MarkedFirmwareUpdated,
-    FirmwareHash([u8; 32]),
-    Rebooting,
-    FirmwareIsSwapped(bool),
-    MarkedFirmwareBooted,
-    Name(RobotName),
-    MotorControlStatus((Duration, MotorControlStatus)),
-    Utilization([f32; 3]),
-    Sensors(SensorData),
-    Pong,
+    } = 1,
+    MarkedFirmwareUpdated = 2,
+    FirmwareHash([u8; 32]) = 3,
+    Rebooting = 4,
+    FirmwareIsSwapped(bool) = 5,
+    MarkedFirmwareBooted = 6,
+    Name(RobotName) = 7,
+    MotorControlStatus((Duration, MotorControlStatus)) = 8,
+    Utilization([f32; 3]) = 9,
+    Sensors(SensorData) = 10,
+    Pong = 11,
     #[cfg(feature = "std")]
-    LogBytes(Vec<u8>),
-    #[cfg(not(feature = "std"))]
-    LogBytes(()),
-    // 255 is reserved for raw bytes for logs
+    LogBytes(Vec<u8>) = 12,
+    /// 255 is reserved for raw bytes for logs
+    Never = 255,
 }
 
 /// The different async tasks that run on the robot
