@@ -38,8 +38,8 @@ impl App {
                 (Key::A, (Vector2::new(-scale, 0.0), 0.0)),
                 (Key::D, (Vector2::new(scale, 0.0), 0.0)),
                 (Key::S, (Vector2::new(0.0, -scale), 0.0)),
-                (Key::Q, (Vector2::new(0.0, 0.0), scale / 3.0)),
-                (Key::E, (Vector2::new(0.0, 0.0), -scale / 3.0)),
+                (Key::Q, (Vector2::new(0.0, 0.0), scale)),
+                (Key::E, (Vector2::new(0.0, 0.0), -scale)),
             ] {
                 if i.key_down(key) {
                     target_vel.0 += lin;

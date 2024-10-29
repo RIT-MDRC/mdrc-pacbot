@@ -150,7 +150,9 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
                         data.pid_controllers[m].reset_integral_term();
                         0.0
                     } else {
-                        data.pid_controllers[m].next_control_output(measured_speeds[m]).output
+                        data.pid_controllers[m]
+                            .next_control_output(measured_speeds[m])
+                            .output
                     };
 
                     // set value to PWM on motors
