@@ -139,6 +139,18 @@ impl App {
                     loggers.feed_robot_logs(name, &bytes)
                 }
             }
+            (Robot(name), FromRobot(RobotToServerMessage::Rebooting)) => {
+                info!("{name} rebooting");
+                self.send(Robot(name), Address(None)).await;
+                self.send(
+                    Robot(name),
+                    Address(Some((
+                        self.settings.robots[name as usize].connection.ipv4,
+                        self.settings.robots[name as usize].connection.port,
+                    ))),
+                )
+                .await;
+            }
             (Robot(name), FromRobot(msg)) => info!("Message received from {name}: {msg:?}"),
             (Robot(_), _) => {}
             (_, FromRobot(_)) => {}

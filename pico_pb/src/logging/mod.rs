@@ -36,6 +36,7 @@ mod consts;
 
 use crate::logging::{channel::Channel, consts::BUF_SIZE};
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use core_pb::constants::ROBOT_LOGS_BUFFER;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::pipe::Pipe;
 
@@ -43,7 +44,7 @@ use embassy_sync::pipe::Pipe;
 struct Logger;
 
 /// Added by RIT: allows writing logs to TCP
-pub static LOGS_PIPE: Pipe<ThreadModeRawMutex, 4096> = Pipe::new();
+pub static LOGS_PIPE: Pipe<ThreadModeRawMutex, ROBOT_LOGS_BUFFER> = Pipe::new();
 
 /// Global logger lock.
 static TAKEN: AtomicBool = AtomicBool::new(false);

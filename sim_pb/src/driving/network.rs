@@ -153,7 +153,7 @@ impl RobotNetworkBehavior for SimNetwork {
         self.firmware_swapped = false;
     }
 
-    fn read_logging_bytes(_buf: &mut [u8]) -> usize {
-        0
+    fn read_logging_bytes(_buf: &mut [u8]) -> Option<usize> {
+        None
     }
 }

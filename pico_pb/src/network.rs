@@ -168,8 +168,8 @@ impl RobotNetworkBehavior for Network {
         let _ = self.updater.mark_booted();
     }
 
-    fn read_logging_bytes(buf: &mut [u8]) -> usize {
-        LOGS_PIPE.try_read(buf).unwrap_or(0)
+    fn read_logging_bytes(buf: &mut [u8]) -> Option<usize> {
+        LOGS_PIPE.try_read(buf).ok()
     }
 }
 
