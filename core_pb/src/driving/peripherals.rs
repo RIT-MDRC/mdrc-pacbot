@@ -80,11 +80,14 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior, M: RobotTaskMessenger
                 let mut fmt_buf = [0; 100];
                 match r {
                     Ok(x) => Ok(x),
-                    Err(e) => Err(heapless::String::try_from(
-                        &format_no_std::show(&mut fmt_buf, format_args!("{:?}", e)).unwrap_or("?")
-                            [..MAX_SENSOR_ERR_LEN],
-                    )
-                    .unwrap_or(heapless::String::new())),
+                    Err(e) => {
+                        let s = format_no_std::show(&mut fmt_buf, format_args!("{:?}", e))
+                            .unwrap_or("?");
+                        Err(heapless::String::try_from(
+                            &s[..usize::min(MAX_SENSOR_ERR_LEN, s.len())],
+                        )
+                        .unwrap_or(heapless::String::new()))
+                    }
                 }
             }
 

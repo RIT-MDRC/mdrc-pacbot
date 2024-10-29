@@ -65,7 +65,7 @@ use RobotName::*;
 
 impl RobotName {
     /// All robot names in order
-    pub fn get_all() -> [RobotName; NUM_ROBOT_NAMES] {
+    pub const fn get_all() -> [RobotName; NUM_ROBOT_NAMES] {
         [Pierre, Prince, Patric, Stella, Stevie, Speers]
     }
 

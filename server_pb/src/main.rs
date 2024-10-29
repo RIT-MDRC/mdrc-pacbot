@@ -1,4 +1,5 @@
 use crate::high_level::ReinforcementLearningManager;
+use crate::logging::RobotLoggers;
 use crate::ota::OverTheAirProgramming;
 use crate::sockets::Destination::{GuiClients, Simulation};
 use crate::sockets::Incoming::FromRobot;
@@ -24,12 +25,14 @@ use core_pb::util::StdInstant;
 use env_logger::Builder;
 use log::{info, LevelFilter};
 use nalgebra::Point2;
+use std::path::Path;
 use std::process::{Child, Command};
 use std::time::Duration;
 use tokio::select;
 use tokio::time::{interval, Instant, Interval};
 
 mod high_level;
+mod logging;
 pub mod network;
 mod ota;
 mod sockets;
@@ -47,6 +50,7 @@ pub struct App {
 
     sockets: Sockets,
     robot_ping_timers: [Option<Instant>; NUM_ROBOT_NAMES],
+    robot_loggers: Option<RobotLoggers>,
 
     rl_manager: ReinforcementLearningManager,
     over_the_air_programming: OverTheAirProgramming,
@@ -78,6 +82,7 @@ impl Default for App {
 
             sockets,
             robot_ping_timers: [None; NUM_ROBOT_NAMES],
+            robot_loggers: RobotLoggers::generate().ok(),
 
             grid: Default::default(),
         }
@@ -92,6 +97,11 @@ async fn main() {
         .init();
 
     info!("RIT Pacbot server starting up");
+
+    let folder_path = Path::new("server_pb");
+    if !folder_path.is_dir() {
+        panic!("Please run the server from the repository root.");
+    }
 
     let mut app = App::default();
     info!("Listening on 0.0.0.0:{GUI_LISTENER_PORT}");

@@ -6,4 +6,4 @@ target = "thumbv6m-none-eabi"        # Cortex-M0 and Cortex-M0+
 rustflags = ["--cfg=unsound_local_offset"]
 
 [env]
-DEFMT_LOG = "debug"                  # changes require clean build
+DEFMT_LOG = "info"                  # changes require clean build

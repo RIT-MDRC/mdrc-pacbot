@@ -1,4 +1,4 @@
-use crate::driving::{info, RobotInterTaskMessage, RobotTaskMessenger, Task};
+use crate::driving::{error, info, RobotInterTaskMessage, RobotTaskMessenger, Task};
 use crate::messages::{NetworkStatus, RobotToServerMessage, ServerToRobotMessage};
 use crate::names::RobotName;
 use crate::util::utilization::UtilizationMonitor;
@@ -79,20 +79,96 @@ pub trait RobotNetworkBehavior {
 
     /// See https://docs.embassy.dev/embassy-boot/git/default/struct.FirmwareUpdater.html#method.mark_booted
     async fn mark_firmware_booted(&mut self);
+
+    /// Read (blocking) some bytes emitted by defmt
+    fn read_logging_bytes(buf: &mut [u8]) -> Option<usize>;
+}
+
+struct NetworkData<T: RobotNetworkBehavior, M: RobotTaskMessenger> {
+    name: RobotName,
+    network: T,
+    msgs: M,
+
+    socket_failed: bool,
+}
+
+impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
+    async fn connect_wifi(&mut self) {
+        while self.network.wifi_is_connected().await.is_none() {
+            self.status(NetworkStatus::Connecting, None).await;
+            loop {
+                if let Ok(()) = self
+                    .network
+                    .connect_wifi(DEFAULT_NETWORK, option_env!("WIFI_PASSWORD"))
+                    .await
+                {
+                    let ip = self.network.wifi_is_connected().await.unwrap_or([0; 4]);
+                    self.status(NetworkStatus::Connected, Some(ip)).await;
+                    break;
+                }
+                self.status(NetworkStatus::ConnectionFailed, None).await;
+            }
+            info!("{} network connected", self.name);
+        }
+    }
+
+    async fn status(&mut self, status: NetworkStatus, ip: Option<[u8; 4]>) {
+        self.msgs
+            .send_blocking(
+                RobotInterTaskMessage::NetworkStatus(status, ip),
+                Task::Peripherals,
+            )
+            .await;
+    }
+
+    async fn send(&mut self, socket: &mut T::Socket<'_>, message: RobotToServerMessage) {
+        let mut buf = [0; 1000];
+        let len =
+            match bincode::serde::encode_into_slice(message, &mut buf, bincode::config::standard())
+            {
+                Ok(len) => len,
+                Err(_) => {
+                    error!("{} failed to encode message", self.name);
+                    self.socket_failed = true;
+                    return;
+                }
+            };
+        if write_bytes(socket, &buf[..len], false).await.is_err() {
+            error!("{} failed to send message", self.name);
+            self.socket_failed = true;
+        }
+    }
+
+    async fn send_bytes(&mut self, socket: &mut T::Socket<'_>, bytes: &[u8]) {
+        if write_bytes(socket, &bytes, true).await.is_err() {
+            self.socket_failed = true;
+            // don't print here because that might cause infinite printing as it fails to send
+        }
+    }
 }
 
 /// The "main" method for the network task
-pub async fn network_task<T: RobotNetworkBehavior, M: RobotTaskMessenger>(
+pub async fn network_task<T: RobotNetworkBehavior + 'static, M: RobotTaskMessenger>(
     mut network: T,
-    mut msgs: M,
+    msgs: M,
 ) -> Result<(), T::Error> {
     info!("mac address: {:?}", network.mac_address().await);
     let name = RobotName::from_mac_address(&network.mac_address().await)
         .expect("Unrecognized mac address");
     info!("{} initialized", name);
 
+    let mut net = NetworkData {
+        name,
+        network,
+        msgs,
+
+        socket_failed: false,
+    };
+
     let mut tx_buffer = [0; 5000];
     let mut rx_buffer = [0; 5000];
+
+    let mut logs_buffer = [0; 512];
 
     let mut utilization_monitor: UtilizationMonitor<50, T::Instant> =
         UtilizationMonitor::new(0.0, 0.0);
@@ -101,91 +177,69 @@ pub async fn network_task<T: RobotNetworkBehavior, M: RobotTaskMessenger>(
     let mut utilizations = [0.0; 3];
 
     loop {
-        if network.wifi_is_connected().await.is_none() {
-            msgs.send_blocking(
-                RobotInterTaskMessage::NetworkStatus(NetworkStatus::Connecting, None),
-                Task::Peripherals,
-            )
-            .await;
-            loop {
-                if let Ok(()) = network
-                    .connect_wifi(DEFAULT_NETWORK, option_env!("WIFI_PASSWORD"))
-                    .await
-                {
-                    let ip = network.wifi_is_connected().await.unwrap_or([0; 4]);
-                    msgs.send_blocking(
-                        RobotInterTaskMessage::NetworkStatus(NetworkStatus::Connected, Some(ip)),
-                        Task::Peripherals,
-                    )
-                    .await;
-                    break;
-                }
-                msgs.send_blocking(
-                    RobotInterTaskMessage::NetworkStatus(NetworkStatus::ConnectionFailed, None),
-                    Task::Peripherals,
-                )
-                .await;
-            }
-            info!("{} network connected", name);
-        }
+        net.connect_wifi().await;
 
-        match network
+        match net
+            .network
             .tcp_accept(name.port(), &mut rx_buffer, &mut tx_buffer)
             .await
         {
             Ok(mut socket) => {
+                let mut socket_ok_time = T::Instant::default();
+
+                let s = &mut socket;
                 info!("{} client connected", name);
 
-                if write(name, &mut socket, RobotToServerMessage::Name(name))
-                    .await
-                    .is_err()
-                {
-                    info!("{} failed to send name", name);
+                net.send(s, RobotToServerMessage::Name(name)).await;
+                if net.socket_failed {
+                    error!("{} failed to send name", name);
                     continue;
                 }
 
                 info!("{} sent name", name);
 
                 loop {
+                    if net.socket_failed && socket_ok_time.elapsed().as_millis() >= 1_000 {
+                        error!("{} dropping socket due to extended downtime", name);
+                        break;
+                    }
+                    if !net.socket_failed {
+                        socket_ok_time = T::Instant::default();
+                    }
+
                     utilization_monitor.stop();
-                    let event = next_event::<T, M>(name, &mut msgs, &mut socket).await;
+                    let event = next_event::<T, M>(name, &mut net.msgs, s).await;
                     utilization_monitor.start();
+
+                    // emit logs if we can find any
+                    while let Some(count) = T::read_logging_bytes(&mut logs_buffer) {
+                        net.send_bytes(s, &logs_buffer[..count]).await;
+                    }
 
                     match event {
                         Either::Right(RobotInterTaskMessage::Utilization(util, task)) => {
                             utilizations[task as usize] = util;
                             utilizations[Task::Wifi as usize] = utilization_monitor.utilization();
-                            let _ = write(
-                                name,
-                                &mut socket,
-                                RobotToServerMessage::Utilization(utilizations),
-                            )
-                            .await;
+                            net.send(s, RobotToServerMessage::Utilization(utilizations))
+                                .await;
                         }
                         Either::Right(RobotInterTaskMessage::ToServer(msg)) => {
-                            if write(name, &mut socket, msg).await.is_err() {
-                                break;
-                            }
+                            net.send(s, msg).await;
                         }
                         Either::Right(RobotInterTaskMessage::Sensors(sensors)) => {
-                            if write(name, &mut socket, RobotToServerMessage::Sensors(sensors))
-                                .await
-                                .is_err()
-                            {
-                                break;
-                            }
+                            net.send(s, RobotToServerMessage::Sensors(sensors)).await;
                         }
                         Either::Right(_) => {}
                         Either::Left(Err(())) => break,
                         Either::Left(Ok(ServerToRobotMessage::Ping)) => {
-                            let _ = write(name, &mut socket, RobotToServerMessage::Pong).await;
+                            net.send(s, RobotToServerMessage::Pong).await;
                         }
                         Either::Left(Ok(ServerToRobotMessage::FrequentRobotItems(msg))) => {
-                            msgs.send_or_drop(
+                            net.msgs.send_or_drop(
                                 RobotInterTaskMessage::FrequentServerToRobot(msg.clone()),
                                 Task::Motors,
                             );
-                            msgs.send_or_drop(
+                            net.msgs.send_or_drop(
                                 RobotInterTaskMessage::FrequentServerToRobot(msg),
                                 Task::Peripherals,
                             );
@@ -197,15 +251,18 @@ pub async fn network_task<T: RobotNetworkBehavior, M: RobotTaskMessenger>(
                             let mut buf4 = [0; 4];
                             let mut buf = [0; 4096];
                             // the first number should be 4096
-                            if socket.read_exact(&mut buf4).await.is_ok() {
+                            if s.read_exact(&mut buf4).await.is_ok() {
                                 let len = u32::from_be_bytes(buf4) as usize;
                                 info!("{} is receiving {} bytes", name, len);
-                                if socket.read_exact(&mut buf[..len]).await.is_ok()
-                                    && network.write_firmware(offset, &buf[..len]).await.is_ok()
+                                if s.read_exact(&mut buf[..len]).await.is_ok()
+                                    && net
+                                        .network
+                                        .write_firmware(offset, &buf[..len])
+                                        .await
+                                        .is_ok()
                                 {
-                                    let _ = write(
-                                        name,
-                                        &mut socket,
+                                    net.send(
+                                        s,
                                         RobotToServerMessage::ConfirmFirmwarePart { offset, len },
                                     )
                                     .await;
@@ -214,62 +271,39 @@ pub async fn network_task<T: RobotNetworkBehavior, M: RobotTaskMessenger>(
                         }
                         Either::Left(Ok(ServerToRobotMessage::CalculateFirmwareHash(len))) => {
                             let mut buf = Default::default();
-                            network.hash_firmware(len, &mut buf).await;
-                            let _ =
-                                write(name, &mut socket, RobotToServerMessage::FirmwareHash(buf))
-                                    .await;
+                            net.network.hash_firmware(len, &mut buf).await;
+                            net.send(s, RobotToServerMessage::FirmwareHash(buf)).await;
                         }
                         Either::Left(Ok(ServerToRobotMessage::MarkFirmwareUpdated)) => {
-                            network.mark_firmware_updated().await;
-                            let _ = write(
-                                name,
-                                &mut socket,
-                                RobotToServerMessage::MarkedFirmwareUpdated,
-                            )
-                            .await;
+                            net.network.mark_firmware_updated().await;
+                            net.send(s, RobotToServerMessage::MarkedFirmwareUpdated)
+                                .await;
                         }
                         Either::Left(Ok(ServerToRobotMessage::IsFirmwareSwapped)) => {
-                            let _ = write(
-                                name,
-                                &mut socket,
-                                RobotToServerMessage::FirmwareIsSwapped(
-                                    network.firmware_swapped().await,
-                                ),
-                            )
-                            .await;
+                            let swapped = net.network.firmware_swapped().await;
+                            net.send(s, RobotToServerMessage::FirmwareIsSwapped(swapped))
+                                .await;
                         }
                         Either::Left(Ok(ServerToRobotMessage::MarkFirmwareBooted)) => {
-                            network.mark_firmware_booted().await;
-                            let _ = write(
-                                name,
-                                &mut socket,
-                                RobotToServerMessage::MarkedFirmwareBooted,
-                            )
-                            .await;
+                            net.network.mark_firmware_booted().await;
+                            net.send(s, RobotToServerMessage::MarkedFirmwareBooted)
+                                .await;
                         }
                         Either::Left(Ok(ServerToRobotMessage::ReadyToStartUpdate)) => {
-                            network.prepare_firmware_update().await;
+                            net.network.prepare_firmware_update().await;
                             info!("{} is ready for an update", name);
-                            let _ =
-                                write(name, &mut socket, RobotToServerMessage::ReadyToStartUpdate)
-                                    .await;
+                            net.send(s, RobotToServerMessage::ReadyToStartUpdate).await;
                         }
                         Either::Left(Ok(ServerToRobotMessage::Reboot)) => {
-                            if write(name, &mut socket, RobotToServerMessage::Rebooting)
-                                .await
-                                .is_ok()
-                            {
-                                network.reboot().await;
-                                unreachable!("o7")
-                            }
+                            net.send(s, RobotToServerMessage::Rebooting).await;
+                            net.network.reboot().await;
+                            unreachable!("o7")
                         }
                         Either::Left(Ok(ServerToRobotMessage::CancelFirmwareUpdate)) => {}
                         Either::Left(Ok(ServerToRobotMessage::ResetAngle)) => {
-                            msgs.send_blocking(
-                                RobotInterTaskMessage::ResetAngle,
-                                Task::Peripherals,
-                            )
-                            .await;
+                            net.msgs
+                                .send_blocking(RobotInterTaskMessage::ResetAngle, Task::Peripherals)
+                                .await;
                         }
                     }
                 }
@@ -335,35 +369,24 @@ async fn read_rest<T: Read>(
     }
 }
 
-async fn write<T: Write>(
-    name: RobotName,
-    network: &mut T,
-    message: RobotToServerMessage,
-) -> Result<(), ()> {
-    let mut buf = [0; 1000];
-    let len =
-        match bincode::serde::encode_into_slice(message, &mut buf, bincode::config::standard()) {
-            Ok(len) => len,
-            Err(_) => {
-                info!("{} failed to encode message", name);
-                return Err(());
-            }
-        };
-
+async fn write_bytes<T: Write>(
+    socket: &mut T,
+    buf: &[u8],
+    raw_bytes: bool,
+) -> Result<(), T::Error> {
     // first write the length of the message (u32)
-    let len_buf = (len as u32).to_be_bytes();
-    if network.write_all(&len_buf).await.is_err() {
-        info!("{} error writing to socket", name);
-        return Err(());
+    let len_buf = if raw_bytes {
+        buf.len() as u32 + 1
+    } else {
+        buf.len() as u32
     }
+    .to_be_bytes();
+    socket.write_all(&len_buf).await?;
 
+    if raw_bytes {
+        // write the bytes identifier
+        socket.write_all(&[255]).await?;
+    }
     // then write the message
-    if network.write_all(&buf[..len]).await.is_err() {
-        info!("{} error writing to socket", name);
-        return Err(());
-    }
-
-    // info!("{} sent message of length {}", name, len);
-
-    Ok(())
+    socket.write_all(&buf).await
 }

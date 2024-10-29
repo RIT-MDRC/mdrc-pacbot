@@ -152,4 +152,8 @@ impl RobotNetworkBehavior for SimNetwork {
     async fn mark_firmware_booted(&mut self) {
         self.firmware_swapped = false;
     }
+
+    fn read_logging_bytes(_buf: &mut [u8]) -> Option<usize> {
+        None
+    }
 }

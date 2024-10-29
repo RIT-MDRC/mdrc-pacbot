@@ -81,7 +81,10 @@ impl<const WHEELS: usize> DriveSystem<WHEELS> {
                 // this is the speed each wheel should turn forwards to achieve this
                 let target_angular_velocity_wheel_speed = robot_edge_speed / *wheel_radius;
 
-                let target_angle = target_velocity.y.atan2(target_velocity.x);
+                let mut target_angle = target_velocity.y.atan2(target_velocity.x);
+                if target_angle.is_nan() {
+                    target_angle = 0.0;
+                }
                 let target_speed = target_velocity.magnitude();
                 let mut i = 0;
                 radius_angles_rad.map(|radius_angle| {

@@ -16,6 +16,8 @@ pub const ROBOT_DISPLAY_WIDTH: usize = 128;
 /// The size of the OLED display on the robot
 pub const ROBOT_DISPLAY_HEIGHT: usize = 64;
 
+pub const ROBOT_LOGS_BUFFER: usize = 4096;
+
 /// Millimeters per inch
 pub const MM_PER_INCH: f32 = 25.4;
 /// Inches per grid unit

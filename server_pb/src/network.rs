@@ -1,3 +1,4 @@
+use crate::logging::RobotLoggers;
 use crate::sockets::Destination::*;
 use crate::sockets::Incoming::*;
 use crate::sockets::Outgoing::*;
@@ -133,6 +134,23 @@ impl App {
                     self.status.robots[name as usize].ping = Some(t.elapsed())
                 }
             }
+            (Robot(name), FromRobot(RobotToServerMessage::LogBytes(bytes))) => {
+                if let Some(loggers) = &mut self.robot_loggers {
+                    loggers.feed_robot_logs(name, &bytes)
+                }
+            }
+            (Robot(name), FromRobot(RobotToServerMessage::Rebooting)) => {
+                info!("{name} rebooting");
+                self.send(Robot(name), Address(None)).await;
+                self.send(
+                    Robot(name),
+                    Address(Some((
+                        self.settings.robots[name as usize].connection.ipv4,
+                        self.settings.robots[name as usize].connection.port,
+                    ))),
+                )
+                .await;
+            }
             (Robot(name), FromRobot(msg)) => info!("Message received from {name}: {msg:?}"),
             (Robot(_), _) => {}
             (_, FromRobot(_)) => {}
@@ -180,6 +198,10 @@ impl App {
                         let new_settings = old_settings.clone();
                         self.update_settings(&old_settings, new_settings).await;
                     }
+                }
+                GuiToServerMessage::StartOtaFirmwareUpdate(_) => {
+                    // the ELF file probably changed
+                    self.robot_loggers = RobotLoggers::generate().ok();
                 }
                 _ => {}
             },
