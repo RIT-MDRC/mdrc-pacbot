@@ -228,6 +228,10 @@ impl App {
                 self.status.game_state.pacman_loc.row + rl_vec.0,
                 self.status.game_state.pacman_loc.col + rl_vec.1,
             )];
+            let cur_p = Point2::new(
+                self.status.game_state.pacman_loc.row,
+                self.status.game_state.pacman_loc.col,
+            );
 
             let mut future = self.status.game_state.clone();
             let mut i = 0;
@@ -239,10 +243,15 @@ impl App {
                 rl_direction = self.rl_manager.hybrid_strategy(future.clone());
                 rl_vec = rl_direction.vector();
                 i += 1;
-                self.status.target_path.push(Point2::new(
+                let new_p = Point2::new(
                     future.pacman_loc.row + rl_vec.0,
                     future.pacman_loc.col + rl_vec.1,
-                ));
+                );
+                if !self.status.target_path.contains(&new_p) && new_p != cur_p {
+                    self.status.target_path.push(new_p);
+                } else {
+                    break;
+                }
             }
             self.inference_timer.mark_completed("inference").unwrap();
             self.status.inference_time = self.inference_timer.status();
@@ -375,6 +384,10 @@ impl App {
                 ToSimulation(ServerToSimulationMessage::SetPacman(new.pacman)),
             )
             .await;
+        }
+
+        if old.driving.strategy != new.driving.strategy {
+            self.status.target_path.clear();
         }
 
         self.settings = new;
