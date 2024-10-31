@@ -16,7 +16,7 @@ pub struct PacbotSettings {
     /// Which robot's position should be used as the pacman location
     pub pacman: RobotName,
     /// Whether the robot should try to drive the target path
-    pub do_target_path: TargetPath,
+    pub do_target_path: ShouldDoTargetPath,
     /// The target speed of the robot in gu/s
     pub target_speed: f32,
     /// Options for the simulation
@@ -35,7 +35,7 @@ impl Default for PacbotSettings {
             host_http: false,
             safe_mode: false,
             pacman: RobotName::Stella,
-            do_target_path: TargetPath::None,
+            do_target_path: ShouldDoTargetPath::No,
             target_speed: 3.0,
             simulation: Default::default(),
             standard_grid: Default::default(),
@@ -47,15 +47,19 @@ impl Default for PacbotSettings {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
-pub enum TargetPath {
-    None,
-    Do,
+pub enum ShouldDoTargetPath {
+    Yes,
+    No,
     DoWhilePlayed,
 }
 
-impl TargetPath {
-    pub fn get_all() -> [TargetPath; 3] {
-        [TargetPath::None, TargetPath::Do, TargetPath::DoWhilePlayed]
+impl ShouldDoTargetPath {
+    pub fn get_all() -> [ShouldDoTargetPath; 3] {
+        [
+            ShouldDoTargetPath::No,
+            ShouldDoTargetPath::Yes,
+            ShouldDoTargetPath::DoWhilePlayed,
+        ]
     }
 }
 

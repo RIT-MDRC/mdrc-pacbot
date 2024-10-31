@@ -11,7 +11,9 @@ use core_pb::constants::{GUI_LISTENER_PORT, MAX_ROBOT_PATH_LENGTH};
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::server_status::ServerStatus;
-use core_pb::messages::settings::{ConnectionSettings, PacbotSettings, StrategyChoice, TargetPath};
+use core_pb::messages::settings::{
+    ConnectionSettings, PacbotSettings, ShouldDoTargetPath, StrategyChoice,
+};
 use core_pb::messages::{
     GameServerCommand, NetworkStatus, ServerToGuiMessage, ServerToRobotMessage,
     ServerToSimulationMessage,
@@ -151,8 +153,9 @@ impl App {
     async fn move_pacman(&mut self) {
         // if the current pacman robot isn't connected, update game state with target path
         if let Some(target) = self.status.target_path.first() {
-            if (self.settings.do_target_path == TargetPath::Do
-                || self.settings.do_target_path == TargetPath::Do && !self.status.game_state.paused)
+            if (self.settings.do_target_path == ShouldDoTargetPath::Yes
+                || self.settings.do_target_path == ShouldDoTargetPath::DoWhilePlayed
+                    && !self.status.game_state.paused)
                 && self.status.advanced_game_server
                 && self.status.robots[self.settings.pacman as usize].connection
                     == NetworkStatus::NotConnected
@@ -253,8 +256,8 @@ impl App {
                     .into_iter()
                     .take(MAX_ROBOT_PATH_LENGTH)
                     .collect();
-                data.follow_target_path = self.settings.do_target_path == TargetPath::Do
-                    || self.settings.do_target_path == TargetPath::DoWhilePlayed
+                data.follow_target_path = self.settings.do_target_path == ShouldDoTargetPath::Yes
+                    || self.settings.do_target_path == ShouldDoTargetPath::DoWhilePlayed
                         && !self.status.game_state.paused;
             }
             self.send(
