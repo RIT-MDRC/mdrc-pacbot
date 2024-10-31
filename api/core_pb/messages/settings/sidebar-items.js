@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["KnownRLModel","ShouldDoTargetPath","StrategyChoice"],"struct":["ConnectionSettings","DriveSettings","GameServerSettings","PacbotSettings","RobotSettings","SimulationSettings"]};
