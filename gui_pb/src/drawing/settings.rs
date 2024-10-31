@@ -1,6 +1,6 @@
 use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
-use core_pb::messages::settings::{ConnectionSettings, StrategyChoice};
+use core_pb::messages::settings::{ConnectionSettings, StrategyChoice, TargetPath};
 use core_pb::messages::{
     GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToRobotMessage,
     ServerToSimulationMessage,
@@ -248,7 +248,24 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
     ui.end_row();
     ui.checkbox(&mut app.settings.safe_mode, "Safe mode");
     ui.end_row();
-    ui.checkbox(&mut app.settings.do_target_path, "Do target path");
+    // ui.checkbox(&mut app.settings.do_target_path, "Do target path");
+    // dropdown(
+    //     ui,
+    //     "gs_robot".to_string(),
+    //     "Pacman",
+    //     &mut app.settings.pacman,
+    //     &RobotName::get_all()
+    //         .into_iter()
+    //         .filter(|name| name.is_simulated())
+    //         .collect::<Vec<_>>(),
+    // );
+    dropdown(
+        ui,
+        "Target Path Dropdown".to_string(),
+        "Target Path",
+        &mut app.settings.do_target_path,
+        &TargetPath::get_all(),
+    );
     ui.end_row();
     num(
         "target_speed".to_string(),
