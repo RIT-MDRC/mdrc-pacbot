@@ -3,16 +3,19 @@ use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::settings::{CvLocationSource, StrategyChoice};
 use core_pb::messages::{
     GameServerCommand, GuiToServerMessage, NetworkStatus, RobotButton, ServerToSimulationMessage,
+    VelocityControl,
 };
 use core_pb::pacbot_rs::location::Direction;
 use core_pb::robot_definition::RobotDefinition;
 use core_pb::threaded_websocket::TextOrT;
 use eframe::egui;
 use eframe::egui::{Event, Key, PointerButton};
+use gilrs::{Axis, Button, EventType};
+use log::info;
 use nalgebra::{Point2, Vector2};
 
 impl App {
-    pub fn set_target_vel(&mut self, target_vel: Option<(Vector2<f32>, f32)>) {
+    pub fn set_target_vel(&mut self, target_vel: VelocityControl) {
         if target_vel != self.target_vel {
             self.target_vel = target_vel;
             self.network
@@ -27,7 +30,7 @@ impl App {
     pub fn read_input(&mut self, ctx: &egui::Context) {
         // don't activate keybindings if some element (text box, button) is focused
         if ctx.memory(|m| m.focused().is_some()) {
-            self.set_target_vel(None);
+            self.set_target_vel(VelocityControl::None);
             return;
         }
 
@@ -47,11 +50,48 @@ impl App {
                     target_vel.1 += ang;
                 }
             }
-            self.set_target_vel(if target_vel == (Vector2::new(0.0, 0.0), 0.0) {
-                None
-            } else {
-                Some(target_vel)
-            });
+            while let Some(gilrs::Event { event, .. }) = self.gilrs.next_event() {
+                match event {
+                    EventType::ButtonPressed(b, _) => match b {
+                        Button::East => self.ui_settings.do_lock_angle = true,
+                        Button::West => self.ui_settings.do_lock_angle = false,
+                        _ => {}
+                    },
+                    EventType::Connected => {
+                        info!("Gamepad connected")
+                    }
+                    EventType::Disconnected => {
+                        info!("Gamepad disconnected")
+                    }
+                    _ => {}
+                }
+            }
+            if let Some((_, gp)) = self.gilrs.gamepads().next() {
+                if let Some(left_x) = gp.axis_data(Axis::LeftStickX) {
+                    if left_x.value() != 0.0 {
+                        target_vel.0 += Vector2::new(left_x.value() * scale, 0.0);
+                    }
+                }
+                if let Some(left_y) = gp.axis_data(Axis::LeftStickY) {
+                    if left_y.value() != 0.0 {
+                        target_vel.0 += Vector2::new(0.0, left_y.value() * scale);
+                    }
+                }
+            }
+            self.set_target_vel(
+                if target_vel == (Vector2::new(0.0, 0.0), 0.0) && !self.ui_settings.do_lock_angle {
+                    VelocityControl::None
+                } else {
+                    if target_vel.0.magnitude() > 0.01 {
+                        target_vel.0 = target_vel.0.normalize() * scale;
+                    }
+                    if let Some(angle) = self.ui_settings.locked_angle {
+                        VelocityControl::LinVelFixedAng(target_vel.0, angle)
+                    } else {
+                        VelocityControl::LinVelAngVel(target_vel.0, target_vel.1)
+                    }
+                },
+            );
 
             // if the currently selected robot isn't connected, but the game server is, then
             // interpret WASD presses as an attempt to manually play Pacman
@@ -185,6 +225,7 @@ impl App {
                             // Grid
                             Key::B => self.settings.standard_grid = StandardGrid::Pacman,
                             Key::N => self.settings.standard_grid = StandardGrid::Playground,
+                            Key::M => self.settings.standard_grid = StandardGrid::Open,
                             _ => {}
                         }
                     }
