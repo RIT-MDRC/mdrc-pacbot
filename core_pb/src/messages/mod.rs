@@ -1,5 +1,4 @@
 use crate::constants::MAX_ROBOT_PATH_LENGTH;
-#[cfg(feature = "std")]
 use crate::grid::standard_grid::StandardGrid;
 #[cfg(feature = "std")]
 use crate::messages::server_status::ServerStatus;
