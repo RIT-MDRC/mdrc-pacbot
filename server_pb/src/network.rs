@@ -66,6 +66,8 @@ impl App {
                     match GameState::from_bytes(&bytes, self.status.game_state.seed) {
                         Ok(g) => {
                             if g != self.status.game_state {
+                                self.status.cv_location =
+                                    Some(Point2::new(g.pacman_loc.row, g.pacman_loc.col));
                                 let mut truncate_from = None;
                                 for (i, loc) in self.status.target_path.iter().enumerate().rev() {
                                     if (loc.x, loc.y) == (g.pacman_loc.row, g.pacman_loc.col) {
@@ -91,6 +93,7 @@ impl App {
                                         self.status.target_path.clear();
                                     }
                                 }
+                                self.trigger_strategy_update();
                             }
                         }
                         Err(e) => error!("Error updating game state: {e:?}"),

@@ -27,6 +27,8 @@ use core_pb::util::StdInstant;
 use env_logger::Builder;
 use log::{info, LevelFilter};
 use nalgebra::Point2;
+use rand::prelude::IteratorRandom;
+use rand::thread_rng;
 use std::path::Path;
 use std::process::{Child, Command};
 use std::time::Duration;
@@ -219,47 +221,6 @@ impl App {
             )
             .await; // check if new AI calculation is needed
         }
-        // todo this should happen when the game state changes, not when one step has been taken
-        if self.status.target_path.len() < 4
-            && self.settings.driving.strategy == StrategyChoice::ReinforcementLearning
-        {
-            self.inference_timer.start();
-            let mut rl_direction = self
-                .rl_manager
-                .hybrid_strategy(self.status.game_state.clone());
-            let mut rl_vec = rl_direction.vector();
-            self.status.target_path = vec![Point2::new(
-                self.status.game_state.pacman_loc.row + rl_vec.0,
-                self.status.game_state.pacman_loc.col + rl_vec.1,
-            )];
-            let cur_p = Point2::new(
-                self.status.game_state.pacman_loc.row,
-                self.status.game_state.pacman_loc.col,
-            );
-
-            let mut future = self.status.game_state.clone();
-            let mut i = 0;
-            while i < 4 {
-                future.set_pacman_location((
-                    future.pacman_loc.row + rl_vec.0,
-                    future.pacman_loc.col + rl_vec.1,
-                ));
-                rl_direction = self.rl_manager.hybrid_strategy(future.clone());
-                rl_vec = rl_direction.vector();
-                i += 1;
-                let new_p = Point2::new(
-                    future.pacman_loc.row + rl_vec.0,
-                    future.pacman_loc.col + rl_vec.1,
-                );
-                if !self.status.target_path.contains(&new_p) && new_p != cur_p {
-                    self.status.target_path.push(new_p);
-                } else {
-                    break;
-                }
-            }
-            self.inference_timer.mark_completed("inference").unwrap();
-            self.status.inference_time = self.inference_timer.status();
-        }
         // send motor commands to robots
         for name in RobotName::get_all() {
             let mut data = self.settings.robots[name as usize].config.clone();
@@ -301,6 +262,60 @@ impl App {
             .send((destination, outgoing))
             .await
             .unwrap();
+    }
+
+    fn trigger_strategy_update(&mut self) {
+        const LOOKAHEAD_DIST: usize = 4;
+        if let Some(cv_loc) = self.status.cv_location {
+            match self.settings.driving.strategy {
+                StrategyChoice::ReinforcementLearning => {
+                    self.inference_timer.start();
+                    self.status.target_path.clear();
+
+                    let mut future = self.status.game_state.clone();
+                    while self.status.target_path.len() < LOOKAHEAD_DIST {
+                        let rl_direction = self.rl_manager.hybrid_strategy(future.clone());
+                        let rl_vec = rl_direction.vector();
+                        let new_p = Point2::new(
+                            future.pacman_loc.row + rl_vec.0,
+                            future.pacman_loc.col + rl_vec.1,
+                        );
+                        if !self.status.target_path.contains(&new_p) && new_p != cv_loc {
+                            self.status.target_path.push(new_p);
+                        } else {
+                            break;
+                        }
+                        future.set_pacman_location((
+                            future.pacman_loc.row + rl_vec.0,
+                            future.pacman_loc.col + rl_vec.1,
+                        ));
+                    }
+
+                    self.inference_timer.mark_completed("inference").unwrap();
+                    self.status.inference_time = self.inference_timer.status();
+                }
+                StrategyChoice::TestUniform => {}
+                StrategyChoice::TestForward => {
+                    while self.status.target_path.len() < LOOKAHEAD_DIST {
+                        let last_loc = self.status.target_path.last().copied().unwrap_or(cv_loc);
+                        if let Some(neighbor) = self
+                            .grid
+                            .neighbors(&last_loc)
+                            .into_iter()
+                            .filter(|x| !self.status.target_path.contains(x) && *x != cv_loc)
+                            .choose(&mut thread_rng())
+                        {
+                            self.status.target_path.push(neighbor);
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        } else {
+            self.status.target_path.clear();
+        }
     }
 
     async fn update_connection(
@@ -394,6 +409,8 @@ impl App {
 
         if old.driving.strategy != new.driving.strategy {
             self.status.target_path.clear();
+            self.settings.driving.strategy = new.driving.strategy.clone();
+            self.trigger_strategy_update();
         }
 
         self.settings = new;
