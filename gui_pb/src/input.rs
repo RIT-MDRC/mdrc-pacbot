@@ -1,14 +1,15 @@
 use crate::App;
 use core_pb::grid::standard_grid::StandardGrid;
-use core_pb::messages::settings::StrategyChoice;
+use core_pb::messages::settings::{CvLocationSource, StrategyChoice};
 use core_pb::messages::{
     GameServerCommand, GuiToServerMessage, NetworkStatus, RobotButton, ServerToSimulationMessage,
 };
 use core_pb::pacbot_rs::location::Direction;
+use core_pb::robot_definition::RobotDefinition;
 use core_pb::threaded_websocket::TextOrT;
 use eframe::egui;
 use eframe::egui::{Event, Key, PointerButton};
-use nalgebra::Vector2;
+use nalgebra::{Point2, Vector2};
 
 impl App {
     pub fn set_target_vel(&mut self, target_vel: Option<(Vector2<f32>, f32)>) {
@@ -116,33 +117,114 @@ impl App {
                                     .connection
                                     .connect
                             }
-                            Key::M => {
-                                self.settings.driving.commands_use_pf_angle =
-                                    !self.settings.driving.commands_use_pf_angle
+                            Key::U => {
+                                self.settings.robots[self.ui_settings.selected_robot as usize]
+                                    .config
+                                    .pwm_override[0][0] = Some(
+                                    RobotDefinition::new(self.ui_settings.selected_robot).pwm_top
+                                        / 2,
+                                )
+                            }
+                            Key::J => {
+                                self.settings.robots[self.ui_settings.selected_robot as usize]
+                                    .config
+                                    .pwm_override[0][1] = Some(
+                                    RobotDefinition::new(self.ui_settings.selected_robot).pwm_top
+                                        / 2,
+                                )
+                            }
+                            Key::I => {
+                                self.settings.robots[self.ui_settings.selected_robot as usize]
+                                    .config
+                                    .pwm_override[1][0] = Some(
+                                    RobotDefinition::new(self.ui_settings.selected_robot).pwm_top
+                                        / 2,
+                                )
+                            }
+                            Key::K => {
+                                self.settings.robots[self.ui_settings.selected_robot as usize]
+                                    .config
+                                    .pwm_override[1][1] = Some(
+                                    RobotDefinition::new(self.ui_settings.selected_robot).pwm_top
+                                        / 2,
+                                )
+                            }
+                            Key::O => {
+                                self.settings.robots[self.ui_settings.selected_robot as usize]
+                                    .config
+                                    .pwm_override[2][0] = Some(
+                                    RobotDefinition::new(self.ui_settings.selected_robot).pwm_top
+                                        / 2,
+                                )
+                            }
+                            Key::L => {
+                                self.settings.robots[self.ui_settings.selected_robot as usize]
+                                    .config
+                                    .pwm_override[2][1] = Some(
+                                    RobotDefinition::new(self.ui_settings.selected_robot).pwm_top
+                                        / 2,
+                                )
                             }
                             // CV source
-                            // Key::G => {
-                            //     self.settings.particle_filter.cv_position = CvPositionSource::GameState
-                            // }
-                            // Key::H => {
-                            //     self.settings.particle_filter.cv_position =
-                            //         CvPositionSource::ParticleFilter
-                            // }
-                            // Key::T => {
-                            //     if let Some(pos) = self.pointer_pos {
-                            //         self.settings.particle_filter.cv_position =
-                            //             CvPositionSource::Constant(
-                            //                 pos.x.round() as i8,
-                            //                 pos.y.round() as i8,
-                            //             )
-                            //     }
-                            // }
+                            Key::G => {
+                                self.settings.cv_location_source = CvLocationSource::GameState
+                            }
+                            Key::H => {
+                                self.settings.cv_location_source = CvLocationSource::Localization
+                            }
+                            Key::T => {
+                                if let Some(pos) = self.pointer_pos {
+                                    let pos = self.world_to_screen.inverse().map_point(pos);
+                                    let p = Point2::new(pos.x.round() as i8, pos.y.round() as i8);
+                                    if !self.grid.wall_at(&p) {
+                                        self.settings.cv_location_source =
+                                            CvLocationSource::Constant(Some(p))
+                                    }
+                                }
+                            }
                             // Grid
                             Key::B => self.settings.standard_grid = StandardGrid::Pacman,
                             Key::N => self.settings.standard_grid = StandardGrid::Playground,
                             _ => {}
                         }
                     }
+                    Event::Key {
+                        key,
+                        pressed: false,
+                        ..
+                    } => match key {
+                        Key::U => {
+                            self.settings.robots[self.ui_settings.selected_robot as usize]
+                                .config
+                                .pwm_override[0][0] = None
+                        }
+                        Key::J => {
+                            self.settings.robots[self.ui_settings.selected_robot as usize]
+                                .config
+                                .pwm_override[0][1] = None
+                        }
+                        Key::I => {
+                            self.settings.robots[self.ui_settings.selected_robot as usize]
+                                .config
+                                .pwm_override[1][0] = None
+                        }
+                        Key::K => {
+                            self.settings.robots[self.ui_settings.selected_robot as usize]
+                                .config
+                                .pwm_override[1][1] = None
+                        }
+                        Key::O => {
+                            self.settings.robots[self.ui_settings.selected_robot as usize]
+                                .config
+                                .pwm_override[2][0] = None
+                        }
+                        Key::L => {
+                            self.settings.robots[self.ui_settings.selected_robot as usize]
+                                .config
+                                .pwm_override[2][1] = None
+                        }
+                        _ => {}
+                    },
                     // Mouse buttons
                     Event::PointerButton {
                         button: PointerButton::Primary,

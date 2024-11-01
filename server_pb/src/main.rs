@@ -10,10 +10,9 @@ use crate::Outgoing::ToRobot;
 use core_pb::bin_encode;
 use core_pb::constants::{GUI_LISTENER_PORT, MAX_ROBOT_PATH_LENGTH};
 use core_pb::grid::computed_grid::ComputedGrid;
-use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::{
-    ConnectionSettings, PacbotSettings, ShouldDoTargetPath, StrategyChoice,
+    ConnectionSettings, CvLocationSource, PacbotSettings, ShouldDoTargetPath, StrategyChoice,
 };
 use core_pb::messages::{
     GameServerCommand, NetworkStatus, ServerToGuiMessage, ServerToRobotMessage,
@@ -224,11 +223,9 @@ impl App {
         // send motor commands to robots
         for name in RobotName::get_all() {
             let mut data = self.settings.robots[name as usize].config.clone();
-            if name == self.settings.pacman && self.settings.standard_grid == StandardGrid::Pacman {
-                data.cv_location = Some(Point2::new(
-                    self.status.game_state.pacman_loc.get_coords().0,
-                    self.status.game_state.pacman_loc.get_coords().1,
-                ));
+            if name == self.settings.pacman {
+                data.grid = self.settings.standard_grid;
+                data.cv_location = self.status.cv_location;
                 data.target_path = self
                     .status
                     .target_path
@@ -332,6 +329,49 @@ impl App {
         }
     }
 
+    fn trigger_cv_location_update(&mut self) {
+        let old_loc = self.status.cv_location;
+        self.status.cv_location = match self.settings.cv_location_source {
+            CvLocationSource::GameState => Some(Point2::new(
+                self.status.game_state.pacman_loc.row,
+                self.status.game_state.pacman_loc.col,
+            )),
+            CvLocationSource::Constant(p) => p,
+            CvLocationSource::Localization => self.status.robots[self.settings.pacman as usize]
+                .estimated_location
+                .map(|p| Point2::new(p.x.round() as i8, p.y.round() as i8)),
+        };
+
+        if old_loc != self.status.cv_location {
+            if let Some(cv_loc) = self.status.cv_location {
+                let mut truncate_from = None;
+                for (i, loc) in self.status.target_path.iter().enumerate().rev() {
+                    if *loc == cv_loc {
+                        truncate_from = Some(i + 1);
+                        break;
+                    }
+                }
+                if let Some(truncate_from) = truncate_from {
+                    self.status.target_path = self
+                        .status
+                        .target_path
+                        .clone()
+                        .into_iter()
+                        .skip(truncate_from)
+                        .collect();
+                }
+                if let Some(first) = self.status.target_path.first() {
+                    if (first.x - cv_loc.x).abs() + (first.y - cv_loc.y).abs() > 1 {
+                        self.status.target_path.clear();
+                    }
+                }
+            } else {
+                self.status.target_path.clear();
+            }
+            self.trigger_strategy_update();
+        }
+    }
+
     async fn update_connection(
         &mut self,
         old_settings: &ConnectionSettings,
@@ -376,6 +416,7 @@ impl App {
         }
 
         if new.standard_grid != old.standard_grid {
+            self.grid = new.standard_grid.compute_grid();
             self.send(
                 Simulation,
                 ToSimulation(ServerToSimulationMessage::SetStandardGrid(
@@ -421,11 +462,13 @@ impl App {
             .await;
         }
 
-        if old.driving.strategy != new.driving.strategy {
+        if old.driving.strategy != new.driving.strategy || old.standard_grid != new.standard_grid {
             self.status.target_path.clear();
             self.settings.driving.strategy = new.driving.strategy.clone();
             self.trigger_strategy_update();
         }
+
+        self.trigger_cv_location_update();
 
         self.settings = new;
     }

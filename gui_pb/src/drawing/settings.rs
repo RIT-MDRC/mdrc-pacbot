@@ -1,6 +1,8 @@
 use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
-use core_pb::messages::settings::{ConnectionSettings, ShouldDoTargetPath, StrategyChoice};
+use core_pb::messages::settings::{
+    ConnectionSettings, CvLocationSource, ShouldDoTargetPath, StrategyChoice,
+};
 use core_pb::messages::{
     GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToRobotMessage,
     ServerToSimulationMessage,
@@ -454,6 +456,14 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
             StrategyChoice::TestUniform,
             StrategyChoice::TestForward,
         ],
+    );
+    ui.end_row();
+    dropdown(
+        ui,
+        "cv_location".to_string(),
+        "CV Location",
+        &mut app.settings.cv_location_source,
+        &[CvLocationSource::GameState, CvLocationSource::Localization],
     );
     ui.end_row();
 }

@@ -253,6 +253,9 @@ impl App {
                         self.send(GuiToServerMessage::Settings(self.settings.clone()));
                     }
                     self.settings = settings.clone();
+                    if &Some(self.settings.standard_grid) != self.grid.standard_grid() {
+                        self.grid = self.settings.standard_grid.compute_grid();
+                    }
                     self.old_settings = settings
                 }
                 ServerToGuiMessage::Status(status) => self.server_status = status,

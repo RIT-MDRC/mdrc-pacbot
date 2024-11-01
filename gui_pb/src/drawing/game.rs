@@ -9,7 +9,7 @@ use core_pb::pacbot_rs::ghost_state::GhostColor;
 use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::TRANSLUCENT_YELLOW_COLOR;
 use eframe::egui::{Color32, Painter, Pos2, Rect, Rounding, Stroke};
-use nalgebra::Rotation2;
+use nalgebra::{Point2, Rotation2};
 
 pub fn draw_grid(app: &mut App, painter: &Painter) {
     let wts = app.world_to_screen;
@@ -170,6 +170,36 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
         }
     }
 
+    // pacman
+    if let Some(cv_loc) = &app.server_status.cv_location {
+        painter.circle_filled(
+            wts.map_point(Pos2::new(cv_loc.x as f32, cv_loc.y as f32)),
+            wts.map_dist(0.3),
+            Color32::GREEN,
+        );
+    }
+
+    // target path
+    for i in 0..app.server_status.target_path.len() {
+        let first = wts.map_point(if i == 0 {
+            let p = app.server_status.cv_location.unwrap_or(Point2::new(0, 0));
+            Pos2::new(p.x as f32, p.y as f32)
+        } else {
+            Pos2::new(
+                app.server_status.target_path[i - 1].x as f32,
+                app.server_status.target_path[i - 1].y as f32,
+            )
+        });
+        let second = wts.map_point(Pos2::new(
+            app.server_status.target_path[i].x as f32,
+            app.server_status.target_path[i].y as f32,
+        ));
+        painter.line_segment(
+            [first, second],
+            Stroke::new(1.0, PACMAN_AI_TARGET_LOCATION_COLOR),
+        );
+    }
+
     if app.settings.standard_grid != StandardGrid::Pacman {
         return;
     }
@@ -215,38 +245,5 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
                 }
             }
         }
-    }
-
-    // pacman
-    painter.circle_filled(
-        wts.map_point(Pos2::new(
-            pacman_state.pacman_loc.row as f32,
-            pacman_state.pacman_loc.col as f32,
-        )),
-        wts.map_dist(0.3),
-        PACMAN_DISTANCE_SENSOR_RAY_COLOR,
-    );
-
-    // target path
-    for i in 0..app.server_status.target_path.len() {
-        let first = wts.map_point(if i == 0 {
-            Pos2::new(
-                pacman_state.pacman_loc.row as f32,
-                pacman_state.pacman_loc.col as f32,
-            )
-        } else {
-            Pos2::new(
-                app.server_status.target_path[i - 1].x as f32,
-                app.server_status.target_path[i - 1].y as f32,
-            )
-        });
-        let second = wts.map_point(Pos2::new(
-            app.server_status.target_path[i].x as f32,
-            app.server_status.target_path[i].y as f32,
-        ));
-        painter.line_segment(
-            [first, second],
-            Stroke::new(1.0, PACMAN_AI_TARGET_LOCATION_COLOR),
-        );
     }
 }
