@@ -38,7 +38,7 @@ pub enum GuiToServerMessage {
     /// Send a message to the simulation
     SimulationCommand(ServerToSimulationMessage),
     /// Set a robot's target velocity (for WASD movement)
-    RobotVelocity(RobotName, Option<(Vector2<f32>, f32)>),
+    RobotVelocity(RobotName, VelocityControl),
     /// Send a message to a robot
     RobotCommand(RobotName, ServerToRobotMessage),
     /// Initiate an Over the Air Programming update for a robot
@@ -53,6 +53,16 @@ pub enum GuiToServerMessage {
     TargetLocation(Point2<i8>),
     /// Restart simulation (including rebuild)
     RestartSimulation,
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub enum VelocityControl {
+    #[default]
+    None,
+    Stop,
+    LinVelAngVel(Vector2<f32>, f32),
+    LinVelFixedAng(Vector2<f32>, f32),
+    LinVelFaceForward(Vector2<f32>),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -108,7 +118,7 @@ pub struct FrequentServerToRobot {
     /// Which grid is currently in use
     pub grid: StandardGrid,
     /// Overall requested velocity of the robot, ex. using WASD or controller manual input
-    pub target_velocity: Option<(Vector2<f32>, f32)>,
+    pub target_velocity: VelocityControl,
     /// Requested velocity for each individual motor, forwards (+) or backwards (-), for testing
     pub motors_override: [Option<f32>; 3],
     /// Requested output for each PWM pin, for testing
@@ -141,7 +151,7 @@ impl FrequentServerToRobot {
         let definition = RobotDefinition::new(robot);
         Self {
             grid: StandardGrid::Pacman,
-            target_velocity: None,
+            target_velocity: VelocityControl::None,
             motors_override: [None; 3],
             pwm_override: [[None; 2]; 3],
             motor_config: definition.default_motor_config,

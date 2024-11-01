@@ -28,6 +28,9 @@ pub struct UiSettings {
     pub robots_collapsed: [bool; NUM_ROBOT_NAMES],
     pub graph_lines: [[bool; 4]; 3],
 
+    pub do_lock_angle: bool,
+    pub locked_angle: Option<f32>,
+
     pub record_motor_data: bool,
 }
 
@@ -48,6 +51,9 @@ impl Default for UiSettings {
             game_server_collapsed: true,
             robots_collapsed: [true; NUM_ROBOT_NAMES],
             graph_lines: [[true; 4]; 3],
+
+            do_lock_angle: false,
+            locked_angle: None,
 
             record_motor_data: false,
         }
@@ -280,6 +286,18 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
             }
         },
     );
+    ui.end_row();
+    ui.checkbox(&mut app.ui_settings.do_lock_angle, "Lock angle");
+    if app.ui_settings.do_lock_angle && app.ui_settings.locked_angle.is_none() {
+        if let Ok(angle) =
+            app.server_status.robots[app.ui_settings.selected_robot as usize].imu_angle
+        {
+            app.ui_settings.locked_angle = Some(angle);
+        }
+    }
+    if !app.ui_settings.do_lock_angle {
+        app.ui_settings.locked_angle = None;
+    }
     ui.end_row();
     ui.end_row();
 

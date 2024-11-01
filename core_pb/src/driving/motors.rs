@@ -3,7 +3,7 @@ use crate::driving::RobotInterTaskMessage;
 use crate::driving::RobotTaskMessenger;
 use crate::driving::Task;
 use crate::messages::{
-    FrequentServerToRobot, MotorControlStatus, RobotToServerMessage, SensorData,
+    FrequentServerToRobot, MotorControlStatus, RobotToServerMessage, SensorData, VelocityControl,
 };
 use crate::names::RobotName;
 use crate::pure_pursuit::pure_pursuit;
@@ -95,18 +95,26 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
         UtilizationMonitor::new(0.0, 0.0);
     utilization_monitor.start();
 
+    fn adjust_ang_vel(curr_ang: f32, desired_ang: f32) -> f32 {
+        // Calculate the difference between desired angle and current angle
+        let mut angle_diff = desired_ang - curr_ang;
+
+        // Normalize the angle to be within -PI to PI
+        angle_diff = (angle_diff + core::f32::consts::PI) % (2.0 * core::f32::consts::PI)
+            - core::f32::consts::PI;
+
+        // Calculate the angular velocity
+        angle_diff
+    }
+
     loop {
         if data.config.follow_target_path {
             if let Some(sensors) = &sensors {
                 let mut target_velocity = (Vector2::new(0.0, 0.0), 0.0);
                 // maintain heading 0
                 if let Ok(angle) = sensors.angle {
-                    // ensure angle stays in range -pi <= angle < pi
+                    target_velocity.1 = adjust_ang_vel(angle, 0.0);
                     let angle = Rotation2::new(angle).angle();
-                    if angle.abs() > 1.5_f32.to_radians() {
-                        const HEADING_CORRECTION_STRENGTH: f32 = 1.0 / 3.0;
-                        target_velocity.1 = -angle * HEADING_CORRECTION_STRENGTH;
-                    }
                     if angle.abs() < 5.0_f32.to_radians() {
                         // now that we've made sure we're facing the right way, try to follow the path
                         if let Some(vel) = pure_pursuit(sensors, &data.config.target_path, 0.5) {
@@ -115,7 +123,8 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
                     }
                 }
                 // calculate wheel velocities
-                data.config.target_velocity = Some(target_velocity);
+                data.config.target_velocity =
+                    VelocityControl::LinVelAngVel(target_velocity.0, target_velocity.1);
             }
         }
 
@@ -136,7 +145,19 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
                 ];
                 data.set_points = [0.0; 3];
                 data.pwm = [[0; 2]; 3];
-                if let Some((lin, ang)) = data.config.target_velocity {
+                if let Some((lin, ang)) = match data.config.target_velocity {
+                    VelocityControl::None => None,
+                    VelocityControl::Stop => Some((Vector2::new(0.0, 0.0), 0.0)),
+                    VelocityControl::LinVelAngVel(lin, ang) => Some((lin, ang)),
+                    VelocityControl::LinVelFixedAng(lin, set_ang) => sensors
+                        .as_ref()
+                        .and_then(|s| s.angle.clone().ok())
+                        .map(|cur_ang| (lin, adjust_ang_vel(cur_ang, set_ang))),
+                    VelocityControl::LinVelFaceForward(lin) => sensors
+                        .as_ref()
+                        .and_then(|s| s.angle.clone().ok())
+                        .map(|cur_ang| (lin, adjust_ang_vel(cur_ang, 0.0))),
+                } {
                     data.set_points = data.drive_system.get_motor_speed_omni(lin, ang);
                 }
                 #[allow(clippy::needless_range_loop)]
