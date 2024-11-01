@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"macro":["impl_number"],"struct":["MovingAverage"],"trait":["Number"]};
