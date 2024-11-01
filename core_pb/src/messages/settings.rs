@@ -35,7 +35,7 @@ impl Default for PacbotSettings {
             host_http: false,
             safe_mode: false,
             pacman: RobotName::Stella,
-            do_target_path: ShouldDoTargetPath::No,
+            do_target_path: Default::default(),
             target_speed: 3.0,
             simulation: Default::default(),
             standard_grid: Default::default(),
@@ -46,10 +46,11 @@ impl Default for PacbotSettings {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub enum ShouldDoTargetPath {
     Yes,
     No,
+    #[default]
     DoWhilePlayed,
 }
 
