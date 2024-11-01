@@ -10,10 +10,9 @@ use crate::Outgoing::ToRobot;
 use core_pb::bin_encode;
 use core_pb::constants::{GUI_LISTENER_PORT, MAX_ROBOT_PATH_LENGTH};
 use core_pb::grid::computed_grid::ComputedGrid;
-use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::{
-    ConnectionSettings, PacbotSettings, ShouldDoTargetPath, StrategyChoice,
+    ConnectionSettings, CvLocationSource, PacbotSettings, ShouldDoTargetPath, StrategyChoice,
 };
 use core_pb::messages::{
     GameServerCommand, NetworkStatus, ServerToGuiMessage, ServerToRobotMessage,
@@ -27,6 +26,8 @@ use core_pb::util::StdInstant;
 use env_logger::Builder;
 use log::{info, LevelFilter};
 use nalgebra::Point2;
+use rand::prelude::IteratorRandom;
+use rand::thread_rng;
 use std::path::Path;
 use std::process::{Child, Command};
 use std::time::Duration;
@@ -219,46 +220,12 @@ impl App {
             )
             .await; // check if new AI calculation is needed
         }
-        // todo this should happen when the game state changes, not when one step has been taken
-        if self.status.target_path.len() < 4
-            && self.settings.driving.strategy == StrategyChoice::ReinforcementLearning
-        {
-            self.inference_timer.start();
-            let mut rl_direction = self
-                .rl_manager
-                .hybrid_strategy(self.status.game_state.clone());
-            let mut rl_vec = rl_direction.vector();
-            self.status.target_path = vec![Point2::new(
-                self.status.game_state.pacman_loc.row + rl_vec.0,
-                self.status.game_state.pacman_loc.col + rl_vec.1,
-            )];
-
-            let mut future = self.status.game_state.clone();
-            let mut i = 0;
-            while i < 4 {
-                future.set_pacman_location((
-                    future.pacman_loc.row + rl_vec.0,
-                    future.pacman_loc.col + rl_vec.1,
-                ));
-                rl_direction = self.rl_manager.hybrid_strategy(future.clone());
-                rl_vec = rl_direction.vector();
-                i += 1;
-                self.status.target_path.push(Point2::new(
-                    future.pacman_loc.row + rl_vec.0,
-                    future.pacman_loc.col + rl_vec.1,
-                ));
-            }
-            self.inference_timer.mark_completed("inference").unwrap();
-            self.status.inference_time = self.inference_timer.status();
-        }
         // send motor commands to robots
         for name in RobotName::get_all() {
             let mut data = self.settings.robots[name as usize].config.clone();
-            if name == self.settings.pacman && self.settings.standard_grid == StandardGrid::Pacman {
-                data.cv_location = Some(Point2::new(
-                    self.status.game_state.pacman_loc.get_coords().0,
-                    self.status.game_state.pacman_loc.get_coords().1,
-                ));
+            if name == self.settings.pacman {
+                data.grid = self.settings.standard_grid;
+                data.cv_location = self.status.cv_location;
                 data.target_path = self
                     .status
                     .target_path
@@ -292,6 +259,117 @@ impl App {
             .send((destination, outgoing))
             .await
             .unwrap();
+    }
+
+    fn trigger_strategy_update(&mut self) {
+        const LOOKAHEAD_DIST: usize = 4;
+        if let Some(cv_loc) = self.status.cv_location {
+            match self.settings.driving.strategy {
+                StrategyChoice::ReinforcementLearning => {
+                    self.inference_timer.start();
+                    self.status.target_path.clear();
+
+                    let mut future = self.status.game_state.clone();
+                    while self.status.target_path.len() < LOOKAHEAD_DIST {
+                        let rl_direction = self.rl_manager.hybrid_strategy(future.clone());
+                        let rl_vec = rl_direction.vector();
+                        let new_p = Point2::new(
+                            future.pacman_loc.row + rl_vec.0,
+                            future.pacman_loc.col + rl_vec.1,
+                        );
+                        if !self.status.target_path.contains(&new_p) && new_p != cv_loc {
+                            self.status.target_path.push(new_p);
+                        } else {
+                            break;
+                        }
+                        future.set_pacman_location((
+                            future.pacman_loc.row + rl_vec.0,
+                            future.pacman_loc.col + rl_vec.1,
+                        ));
+                    }
+
+                    self.inference_timer.mark_completed("inference").unwrap();
+                    self.status.inference_time = self.inference_timer.status();
+                }
+                StrategyChoice::TestUniform => {
+                    if self.status.target_path.is_empty() {
+                        // find reachable location
+                        if let Some(path) = self
+                            .grid
+                            .walkable_nodes()
+                            .iter()
+                            .map(|p| self.grid.bfs_path(cv_loc, *p))
+                            .flatten()
+                            .choose(&mut thread_rng())
+                        {
+                            self.status.target_path = path.into_iter().skip(1).collect();
+                        }
+                    }
+                }
+                StrategyChoice::TestForward => {
+                    while self.status.target_path.len() < LOOKAHEAD_DIST {
+                        let last_loc = self.status.target_path.last().copied().unwrap_or(cv_loc);
+                        if let Some(neighbor) = self
+                            .grid
+                            .neighbors(&last_loc)
+                            .into_iter()
+                            .filter(|x| !self.status.target_path.contains(x) && *x != cv_loc)
+                            .choose(&mut thread_rng())
+                        {
+                            self.status.target_path.push(neighbor);
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        } else {
+            self.status.target_path.clear();
+        }
+    }
+
+    fn trigger_cv_location_update(&mut self) {
+        let old_loc = self.status.cv_location;
+        self.status.cv_location = match self.settings.cv_location_source {
+            CvLocationSource::GameState => Some(Point2::new(
+                self.status.game_state.pacman_loc.row,
+                self.status.game_state.pacman_loc.col,
+            )),
+            CvLocationSource::Constant(p) => p,
+            CvLocationSource::Localization => self.status.robots[self.settings.pacman as usize]
+                .estimated_location
+                .map(|p| Point2::new(p.x.round() as i8, p.y.round() as i8)),
+        };
+
+        if old_loc != self.status.cv_location {
+            if let Some(cv_loc) = self.status.cv_location {
+                let mut truncate_from = None;
+                for (i, loc) in self.status.target_path.iter().enumerate().rev() {
+                    if *loc == cv_loc {
+                        truncate_from = Some(i + 1);
+                        break;
+                    }
+                }
+                if let Some(truncate_from) = truncate_from {
+                    self.status.target_path = self
+                        .status
+                        .target_path
+                        .clone()
+                        .into_iter()
+                        .skip(truncate_from)
+                        .collect();
+                }
+                if let Some(first) = self.status.target_path.first() {
+                    if (first.x - cv_loc.x).abs() + (first.y - cv_loc.y).abs() > 1 {
+                        self.status.target_path.clear();
+                    }
+                }
+            } else {
+                self.status.target_path.clear();
+            }
+            self.trigger_strategy_update();
+        }
     }
 
     async fn update_connection(
@@ -338,6 +416,7 @@ impl App {
         }
 
         if new.standard_grid != old.standard_grid {
+            self.grid = new.standard_grid.compute_grid();
             self.send(
                 Simulation,
                 ToSimulation(ServerToSimulationMessage::SetStandardGrid(
@@ -382,6 +461,14 @@ impl App {
             )
             .await;
         }
+
+        if old.driving.strategy != new.driving.strategy || old.standard_grid != new.standard_grid {
+            self.status.target_path.clear();
+            self.settings.driving.strategy = new.driving.strategy.clone();
+            self.trigger_strategy_update();
+        }
+
+        self.trigger_cv_location_update();
 
         self.settings = new;
     }

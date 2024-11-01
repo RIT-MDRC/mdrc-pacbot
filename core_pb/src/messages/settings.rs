@@ -2,6 +2,7 @@ use crate::constants::{GAME_SERVER_PORT, SIMULATION_LISTENER_PORT};
 use crate::grid::standard_grid::StandardGrid;
 use crate::messages::FrequentServerToRobot;
 use crate::names::{RobotName, NUM_ROBOT_NAMES};
+use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
 
 /// Rarely changed options for the pacbot server
@@ -17,6 +18,8 @@ pub struct PacbotSettings {
     pub pacman: RobotName,
     /// Whether the robot should try to drive the target path
     pub do_target_path: ShouldDoTargetPath,
+    /// Where the cv location comes from
+    pub cv_location_source: CvLocationSource,
     /// The target speed of the robot in gu/s
     pub target_speed: f32,
     /// Options for the simulation
@@ -35,7 +38,8 @@ impl Default for PacbotSettings {
             host_http: false,
             safe_mode: false,
             pacman: RobotName::Stella,
-            do_target_path: ShouldDoTargetPath::No,
+            do_target_path: Default::default(),
+            cv_location_source: Default::default(),
             target_speed: 3.0,
             simulation: Default::default(),
             standard_grid: Default::default(),
@@ -46,10 +50,11 @@ impl Default for PacbotSettings {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, PartialOrd)]
 pub enum ShouldDoTargetPath {
     Yes,
     No,
+    #[default]
     DoWhilePlayed,
 }
 
@@ -61,6 +66,14 @@ impl ShouldDoTargetPath {
             ShouldDoTargetPath::DoWhilePlayed,
         ]
     }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, PartialOrd)]
+pub enum CvLocationSource {
+    #[default]
+    GameState,
+    Constant(Option<Point2<i8>>),
+    Localization,
 }
 
 /// Generic network connection settings
@@ -158,10 +171,6 @@ pub struct DriveSettings {
     pub manual_speed: f32,
     /// The rotational speed, in rad/s, when driving with manual controls
     pub manual_rotation_speed: f32,
-
-    /// When giving motor commands to the robot, should the particle
-    /// filter's current rotation be accounted for?
-    pub commands_use_pf_angle: bool,
 }
 
 impl Default for DriveSettings {
@@ -173,7 +182,6 @@ impl Default for DriveSettings {
             speed_cap: 8.0,
             manual_speed: 8.0,
             manual_rotation_speed: 2.0,
-            commands_use_pf_angle: true,
         }
     }
 }

@@ -131,8 +131,8 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior, M: RobotTaskMessenger
         utilization_monitor.start();
 
         match event {
-            Some(RobotInterTaskMessage::Grid(new_grid)) => grid = new_grid,
             Some(RobotInterTaskMessage::FrequentServerToRobot(data)) => {
+                grid = data.grid;
                 cv_location = data.cv_location
             }
             Some(RobotInterTaskMessage::NetworkStatus(status, ip)) => {

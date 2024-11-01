@@ -18,6 +18,7 @@ pub struct ServerStatus {
     pub game_server_connection: NetworkStatus,
     pub advanced_game_server: bool,
 
+    pub cv_location: Option<Point2<i8>>,
     pub target_path: Vec<Point2<i8>>,
 
     pub gui_clients: usize,
@@ -36,6 +37,7 @@ impl Default for ServerStatus {
             game_server_connection: NetworkStatus::default(),
             advanced_game_server: false,
 
+            cv_location: None,
             target_path: vec![],
 
             gui_clients: 0,

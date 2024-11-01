@@ -171,6 +171,55 @@ impl TabViewer for App {
                     );
                 }
             }
+            Tab::Keybindings => {
+                ui.label("General");
+                ui.label("[Left click] Set simulated robot position");
+                ui.label("[Right click] Set target position");
+                ui.label("[Y] Toggle rotated grid");
+                ui.label("[P] Toggle selected robot connection");
+                ui.separator();
+                ui.label("Movement, relative to estimated location");
+                ui.label("[W] Up");
+                ui.label("[A] Left");
+                ui.label("[S] Down");
+                ui.label("[D] Right");
+                ui.label("[Q] Rotate counterclockwise");
+                ui.label("[E] Rotate clockwise");
+                ui.separator();
+                ui.label("Test raw motor control");
+                ui.label("[U] First motor forwards");
+                ui.label("[J] First motor backwards");
+                ui.label("[I] Second motor forwards");
+                ui.label("[K] Second motor backwards");
+                ui.label("[O] Third motor forwards");
+                ui.label("[L] Third motor backwards");
+                ui.separator();
+                ui.label("Gameplay");
+                ui.label("[space] Pause/unpause");
+                ui.label("[R] Reset pacman game");
+                ui.separator();
+                ui.label("Strategy");
+                ui.label("[Z] Manual");
+                ui.label("[X] AI");
+                ui.label("[C] Test uniform");
+                ui.label("[V] Test forwards");
+                ui.separator();
+                ui.label("Grid");
+                ui.label("[B] Pacman grid");
+                ui.label("[N] Playground grid");
+                ui.separator();
+                ui.label("CV position source");
+                ui.label("[T] Mouse pointer");
+                ui.label("[G] Game state");
+                ui.label("[H] Particle filter");
+                // ui.separator();
+                // ui.label("Replay controls");
+                // ui.label("[shift + left] Go to beginning");
+                // ui.label("[left] Previous frame");
+                // ui.label("[space] Pause/unpause");
+                // ui.label("[right] Next frame");
+                // ui.label("[shift + right] Go to end");
+            }
             _ => {
                 ui.label(self.title(tab));
             }

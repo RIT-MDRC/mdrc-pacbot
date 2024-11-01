@@ -2,7 +2,6 @@ pub mod motors;
 pub mod network;
 pub mod peripherals;
 
-use crate::grid::standard_grid::StandardGrid;
 use crate::messages::{
     FrequentServerToRobot, NetworkStatus, RobotToServerMessage, SensorData, Task,
 };
@@ -18,7 +17,6 @@ pub enum RobotInterTaskMessage {
     FrequentServerToRobot(FrequentServerToRobot),
     ToServer(RobotToServerMessage),
     Sensors(SensorData),
-    Grid(StandardGrid),
     NetworkStatus(NetworkStatus, Option<[u8; 4]>),
     Utilization(f32, Task),
     ResetAngle,

@@ -12,7 +12,6 @@ use core_pb::messages::{
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
 use log::{error, info};
-use nalgebra::Point2;
 
 impl App {
     pub async fn handle_message(&mut self, from: Destination, message: Incoming) {
@@ -66,31 +65,9 @@ impl App {
                     match GameState::from_bytes(&bytes, self.status.game_state.seed) {
                         Ok(g) => {
                             if g != self.status.game_state {
-                                let mut truncate_from = None;
-                                for (i, loc) in self.status.target_path.iter().enumerate().rev() {
-                                    if (loc.x, loc.y) == (g.pacman_loc.row, g.pacman_loc.col) {
-                                        truncate_from = Some(i + 1);
-                                        break;
-                                    }
-                                }
-                                if let Some(truncate_from) = truncate_from {
-                                    self.status.target_path = self
-                                        .status
-                                        .target_path
-                                        .clone()
-                                        .into_iter()
-                                        .skip(truncate_from)
-                                        .collect();
-                                }
                                 self.status.game_state = g.clone();
-                                if let Some(first) = self.status.target_path.first() {
-                                    if (first.x - self.status.game_state.pacman_loc.row).abs()
-                                        + (first.y - self.status.game_state.pacman_loc.col).abs()
-                                        > 1
-                                    {
-                                        self.status.target_path.clear();
-                                    }
-                                }
+                                self.trigger_cv_location_update();
+                                self.trigger_strategy_update();
                             }
                         }
                         Err(e) => error!("Error updating game state: {e:?}"),
@@ -128,6 +105,7 @@ impl App {
                     sensors.distances.map(|x| x.map_err(|s| s.to_string()));
                 self.status.robots[name as usize].estimated_location = sensors.location;
                 self.status.robots[name as usize].battery = sensors.battery;
+                self.trigger_cv_location_update();
             }
             (Robot(name), FromRobot(RobotToServerMessage::Pong)) => {
                 if let Some(t) = self.robot_ping_timers[name as usize] {
@@ -172,14 +150,10 @@ impl App {
                 }
                 GuiToServerMessage::TargetLocation(loc) => {
                     if !self.grid.wall_at(&loc) {
-                        if let Some(path) = self.grid.bfs_path(
-                            Point2::new(
-                                self.status.game_state.pacman_loc.row,
-                                self.status.game_state.pacman_loc.col,
-                            ),
-                            loc,
-                        ) {
-                            self.status.target_path = path.into_iter().skip(1).collect();
+                        if let Some(cv_loc) = self.status.cv_location {
+                            if let Some(path) = self.grid.bfs_path(cv_loc, loc) {
+                                self.status.target_path = path.into_iter().skip(1).collect();
+                            }
                         }
                     }
                 }

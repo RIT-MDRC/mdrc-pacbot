@@ -1,5 +1,4 @@
 use crate::constants::MAX_ROBOT_PATH_LENGTH;
-#[cfg(feature = "std")]
 use crate::grid::standard_grid::StandardGrid;
 #[cfg(feature = "std")]
 use crate::messages::server_status::ServerStatus;
@@ -106,6 +105,8 @@ pub enum ServerToSimulationMessage {
 /// along as quickly as possible.
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct FrequentServerToRobot {
+    /// Which grid is currently in use
+    pub grid: StandardGrid,
     /// Overall requested velocity of the robot, ex. using WASD or controller manual input
     pub target_velocity: Option<(Vector2<f32>, f32)>,
     /// Requested velocity for each individual motor, forwards (+) or backwards (-), for testing
@@ -139,6 +140,7 @@ impl FrequentServerToRobot {
     pub fn new(robot: RobotName) -> Self {
         let definition = RobotDefinition::new(robot);
         Self {
+            grid: StandardGrid::Pacman,
             target_velocity: None,
             motors_override: [None; 3],
             pwm_override: [[None; 2]; 3],
