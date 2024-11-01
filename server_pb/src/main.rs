@@ -294,7 +294,21 @@ impl App {
                     self.inference_timer.mark_completed("inference").unwrap();
                     self.status.inference_time = self.inference_timer.status();
                 }
-                StrategyChoice::TestUniform => {}
+                StrategyChoice::TestUniform => {
+                    if self.status.target_path.is_empty() {
+                        // find reachable location
+                        if let Some(path) = self
+                            .grid
+                            .walkable_nodes()
+                            .iter()
+                            .map(|p| self.grid.bfs_path(cv_loc, *p))
+                            .flatten()
+                            .choose(&mut thread_rng())
+                        {
+                            self.status.target_path = path.into_iter().skip(1).collect();
+                        }
+                    }
+                }
                 StrategyChoice::TestForward => {
                     while self.status.target_path.len() < LOOKAHEAD_DIST {
                         let last_loc = self.status.target_path.last().copied().unwrap_or(cv_loc);
