@@ -24,14 +24,16 @@ use crate::drawing::widgets::draw_widgets;
 use core_pb::console_log;
 #[cfg(target_arch = "wasm32")]
 pub use core_pb::log;
-use core_pb::messages::{GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToGuiMessage};
+use core_pb::messages::{
+    GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToGuiMessage, VelocityControl,
+};
 use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
 use core_pb::util::stopwatch::Stopwatch;
 #[cfg(not(target_arch = "wasm32"))]
 use core_pb::util::StdInstant;
 #[cfg(target_arch = "wasm32")]
 use core_pb::util::WebTimeInstant as StdInstant;
-use nalgebra::Vector2;
+use gilrs::Gilrs;
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -121,12 +123,13 @@ pub struct App {
     old_settings: PacbotSettings,
     settings: PacbotSettings,
     ui_settings: UiSettings,
-    target_vel: Option<(Vector2<f32>, f32)>,
+    target_vel: VelocityControl,
     motor_status_frames: MotorStatusGraphFrames<3>,
     gui_stopwatch: Stopwatch<5, 30, StdInstant>,
     rotated_grid: bool,
     settings_fields: Option<HashMap<String, (String, String)>>,
     pacbot_server_connection_status: NetworkStatus,
+    gilrs: Gilrs,
 }
 
 impl eframe::App for App {
@@ -206,7 +209,7 @@ impl App {
             settings: Default::default(),
             motor_status_frames: MotorStatusGraphFrames::new(ui_settings.selected_robot),
             ui_settings,
-            target_vel: None,
+            target_vel: VelocityControl::None,
             gui_stopwatch: Stopwatch::new(
                 "Gui",
                 Duration::from_millis(15),
@@ -218,6 +221,7 @@ impl App {
             rotated_grid: true,
             settings_fields: Some(HashMap::new()),
             pacbot_server_connection_status: NetworkStatus::NotConnected,
+            gilrs: Gilrs::new().unwrap(),
         }
     }
 
@@ -253,6 +257,9 @@ impl App {
                         self.send(GuiToServerMessage::Settings(self.settings.clone()));
                     }
                     self.settings = settings.clone();
+                    if &Some(self.settings.standard_grid) != self.grid.standard_grid() {
+                        self.grid = self.settings.standard_grid.compute_grid();
+                    }
                     self.old_settings = settings
                 }
                 ServerToGuiMessage::Status(status) => self.server_status = status,

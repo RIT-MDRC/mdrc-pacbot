@@ -1,6 +1,8 @@
 use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
-use core_pb::messages::settings::{ConnectionSettings, StrategyChoice};
+use core_pb::messages::settings::{
+    ConnectionSettings, CvLocationSource, ShouldDoTargetPath, StrategyChoice,
+};
 use core_pb::messages::{
     GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToRobotMessage,
     ServerToSimulationMessage,
@@ -26,6 +28,9 @@ pub struct UiSettings {
     pub robots_collapsed: [bool; NUM_ROBOT_NAMES],
     pub graph_lines: [[bool; 4]; 3],
 
+    pub do_lock_angle: bool,
+    pub locked_angle: Option<f32>,
+
     pub record_motor_data: bool,
 }
 
@@ -46,6 +51,9 @@ impl Default for UiSettings {
             game_server_collapsed: true,
             robots_collapsed: [true; NUM_ROBOT_NAMES],
             graph_lines: [[true; 4]; 3],
+
+            do_lock_angle: false,
+            locked_angle: None,
 
             record_motor_data: false,
         }
@@ -251,7 +259,13 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
     ui.end_row();
     ui.checkbox(&mut app.settings.safe_mode, "Safe mode");
     ui.end_row();
-    ui.checkbox(&mut app.settings.do_target_path, "Do target path");
+    dropdown(
+        ui,
+        "Target Path Dropdown".to_string(),
+        "Target Path",
+        &mut app.settings.do_target_path,
+        &ShouldDoTargetPath::get_all(),
+    );
     ui.end_row();
     num(
         "target_speed".to_string(),
@@ -306,6 +320,18 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         "CV error",
     );
 
+    ui.checkbox(&mut app.ui_settings.do_lock_angle, "Lock angle");
+    if app.ui_settings.do_lock_angle && app.ui_settings.locked_angle.is_none() {
+        if let Ok(angle) =
+            app.server_status.robots[app.ui_settings.selected_robot as usize].imu_angle
+        {
+            app.ui_settings.locked_angle = Some(angle);
+        }
+    }
+    if !app.ui_settings.do_lock_angle {
+        app.ui_settings.locked_angle = None;
+    }
+    ui.end_row();
     ui.end_row();
 
     ui.separator();
@@ -481,6 +507,14 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
             StrategyChoice::TestUniform,
             StrategyChoice::TestForward,
         ],
+    );
+    ui.end_row();
+    dropdown(
+        ui,
+        "cv_location".to_string(),
+        "CV Location",
+        &mut app.settings.cv_location_source,
+        &[CvLocationSource::GameState, CvLocationSource::Localization],
     );
     ui.end_row();
 }

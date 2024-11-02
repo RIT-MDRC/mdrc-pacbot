@@ -1,5 +1,4 @@
 use crate::constants::MAX_ROBOT_PATH_LENGTH;
-#[cfg(feature = "std")]
 use crate::grid::standard_grid::StandardGrid;
 #[cfg(feature = "std")]
 use crate::messages::server_status::ServerStatus;
@@ -39,7 +38,7 @@ pub enum GuiToServerMessage {
     /// Send a message to the simulation
     SimulationCommand(ServerToSimulationMessage),
     /// Set a robot's target velocity (for WASD movement)
-    RobotVelocity(RobotName, Option<(Vector2<f32>, f32)>),
+    RobotVelocity(RobotName, VelocityControl),
     /// Send a message to a robot
     RobotCommand(RobotName, ServerToRobotMessage),
     /// Initiate an Over the Air Programming update for a robot
@@ -54,6 +53,16 @@ pub enum GuiToServerMessage {
     TargetLocation(Point2<i8>),
     /// Restart simulation (including rebuild)
     RestartSimulation,
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub enum VelocityControl {
+    #[default]
+    None,
+    Stop,
+    LinVelAngVel(Vector2<f32>, f32),
+    LinVelFixedAng(Vector2<f32>, f32),
+    LinVelFaceForward(Vector2<f32>),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -106,8 +115,10 @@ pub enum ServerToSimulationMessage {
 /// along as quickly as possible.
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct FrequentServerToRobot {
+    /// Which grid is currently in use
+    pub grid: StandardGrid,
     /// Overall requested velocity of the robot, ex. using WASD or controller manual input
-    pub target_velocity: Option<(Vector2<f32>, f32)>,
+    pub target_velocity: VelocityControl,
     /// Requested velocity for each individual motor, forwards (+) or backwards (-), for testing
     pub motors_override: [Option<f32>; 3],
     /// Requested output for each PWM pin, for testing
@@ -132,6 +143,10 @@ pub struct FrequentServerToRobot {
     pub target_path: heapless::Vec<Point2<i8>, MAX_ROBOT_PATH_LENGTH>,
     /// Whether the robot should try to follow the target path (including maintaining heading 0)
     pub follow_target_path: bool,
+    pub lookahead_dist: f32,
+    pub robot_speed: f32,
+    pub snapping_dist: f32,
+    pub cv_error: f32,
 }
 
 impl FrequentServerToRobot {
@@ -139,7 +154,8 @@ impl FrequentServerToRobot {
     pub fn new(robot: RobotName) -> Self {
         let definition = RobotDefinition::new(robot);
         Self {
-            target_velocity: None,
+            grid: StandardGrid::Pacman,
+            target_velocity: VelocityControl::None,
             motors_override: [None; 3],
             pwm_override: [[None; 2]; 3],
             motor_config: definition.default_motor_config,
@@ -147,6 +163,10 @@ impl FrequentServerToRobot {
             cv_location: None,
             target_path: heapless::Vec::new(),
             follow_target_path: false,
+            lookahead_dist: 0.0,
+            robot_speed: 0.0,
+            snapping_dist: 0.0,
+            cv_error: 0.0,
         }
     }
 }

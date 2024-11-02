@@ -1,4 +1,4 @@
-use crate::grid::standard_grid::StandardGrid;
+use crate::grid::standard_grid::{StandardGrid, GRID_OPEN};
 use crate::grid::{Grid, GRID_SIZE};
 use nalgebra::Point2;
 use ordered_float::OrderedFloat;
@@ -15,6 +15,10 @@ use std::collections::{HashMap, VecDeque};
 /// - There must be at least one walkable space.
 /// - No wall should have a walkable cell either both above and below or both to the left and right
 fn validate_grid(grid: &Grid) -> Result<(), String> {
+    if *grid == GRID_OPEN {
+        return Ok(());
+    }
+
     // the edges of the grid should all be walls
     if (0..GRID_SIZE).any(|row| !grid[row][0]) {
         return Err("Left edge of grid is not all walls".to_string());
@@ -129,6 +133,9 @@ impl TryFrom<Grid> for ComputedGrid {
     type Error = String;
 
     fn try_from(grid: Grid) -> Result<Self, Self::Error> {
+        if grid == GRID_OPEN {
+            return Ok(Self::compute_open_grid());
+        }
         validate_grid(&grid)?;
 
         let mut walkable_nodes = vec![];
@@ -492,6 +499,79 @@ impl ComputedGrid {
             }
         }
         None
+    }
+
+    fn compute_open_grid() -> Self {
+        let mut walkable_nodes = vec![];
+        let mut valid_actions = vec![];
+        let mut coords_to_node = HashMap::new();
+        let mut distance_matrix = vec![];
+
+        let grid = GRID_OPEN;
+
+        for row in 1..GRID_SIZE - 1 {
+            for col in 1..GRID_SIZE - 1 {
+                let pos = Point2::new(row as i8, col as i8);
+                if !grid[row][col] {
+                    // remember walkable nodes
+                    let node_index = walkable_nodes.len();
+                    walkable_nodes.push(pos);
+                    coords_to_node.insert(pos, node_index);
+                    // quick lookup for whether a node is walkable in a given direction
+                    valid_actions.push([
+                        true,
+                        !grid[row - 1][col],
+                        !grid[row][col - 1],
+                        !grid[row + 1][col],
+                        !grid[row][col + 1],
+                    ]);
+                }
+            }
+        }
+
+        // initialize distance matrix
+        for _ in 0..walkable_nodes.len() {
+            distance_matrix.push(vec![None; walkable_nodes.len()]);
+        }
+
+        for (a, first) in walkable_nodes.iter().enumerate() {
+            for (b, second) in walkable_nodes.iter().enumerate() {
+                if !grid[first.x as usize][first.y as usize]
+                    && !grid[second.x as usize][second.y as usize]
+                {
+                    distance_matrix[a][b] =
+                        Some(((first.x - second.x).abs() + (first.y - second.y).abs()) as u8)
+                }
+            }
+        }
+
+        // initialize ComputedGrid
+        ComputedGrid {
+            grid,
+            standard_grid: Some(StandardGrid::Open),
+            walkable_nodes,
+            coords_to_node,
+            valid_actions,
+            distance_matrix,
+            walls: vec![
+                Wall {
+                    top_left: Point2::new(-1, -1),
+                    bottom_right: Point2::new(32, 0),
+                },
+                Wall {
+                    top_left: Point2::new(-1, 0),
+                    bottom_right: Point2::new(0, 32),
+                },
+                Wall {
+                    top_left: Point2::new(0, 31),
+                    bottom_right: Point2::new(32, 32),
+                },
+                Wall {
+                    top_left: Point2::new(31, 0),
+                    bottom_right: Point2::new(32, 31),
+                },
+            ],
+        }
     }
 }
 

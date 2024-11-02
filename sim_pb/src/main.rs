@@ -83,7 +83,11 @@ fn robot_position_to_game_state(
     for (_, t, robot) in &robots {
         if robot.0 == app.selected_robot {
             if let Some(pos) = app.grid.node_nearest(t.translation.x, t.translation.y) {
-                if network.game_state.pacman_loc.get_coords() != (pos.x, pos.y) {
+                if !network
+                    .game_state
+                    .wall_at(network.game_state.pacman_loc.get_coords())
+                    && network.game_state.pacman_loc.get_coords() != (pos.x, pos.y)
+                {
                     network.game_state.set_pacman_location((pos.x, pos.y))
                 }
             }
