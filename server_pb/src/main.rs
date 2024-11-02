@@ -20,9 +20,9 @@ use core_pb::messages::{
 };
 use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
 use core_pb::pacbot_rs::location::Direction;
-use core_pb::util::stopwatch::Stopwatch;
-use core_pb::util::utilization::UtilizationMonitor;
-use core_pb::util::StdInstant;
+use core_pb::stopwatch::Stopwatch;
+use core_pb::utilization::UtilizationMonitor;
+use core_pb::StdInstant;
 use env_logger::Builder;
 use log::{info, LevelFilter};
 use nalgebra::Point2;
@@ -298,8 +298,7 @@ impl App {
                             .grid
                             .walkable_nodes()
                             .iter()
-                            .map(|p| self.grid.bfs_path(cv_loc, *p))
-                            .flatten()
+                            .flat_map(|p| self.grid.bfs_path(cv_loc, *p))
                             .choose(&mut thread_rng())
                         {
                             self.status.target_path = path.into_iter().skip(1).collect();

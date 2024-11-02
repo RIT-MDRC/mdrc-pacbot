@@ -1,3 +1,5 @@
+//! Code that enables shared motor behavior between the simulator and physical robots
+
 use crate::drive_system::DriveSystem;
 use crate::driving::RobotInterTaskMessage;
 use crate::driving::RobotTaskMessenger;
@@ -19,9 +21,10 @@ use pid::Pid;
 
 /// Functionality that robots with motors must support
 pub trait RobotMotorsBehavior {
+    /// Errors that motor functions might generate
     type Error: Debug;
-
-    type Instant: CrossPlatformInstant + Default;
+    /// Instant functionality that may be implemented differently on different platforms
+    type Instant: CrossPlatformInstant;
 
     /// Set PWM for the given pin
     ///
@@ -29,6 +32,7 @@ pub trait RobotMotorsBehavior {
     /// - 0 <= to <= [`robot_definition.pwm_max`]
     async fn set_pwm(&mut self, pin: usize, to: u16);
 
+    /// Get the current estimated speed of a motor in rad/s
     async fn get_motor_speed(&mut self, motor: usize) -> f32;
 }
 
@@ -84,12 +88,12 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
 
     let mut sensors: Option<SensorData> = None;
 
-    let task_start = T::Instant::default();
+    let task_start = T::Instant::now();
 
-    let mut last_motor_control_status = T::Instant::default();
+    let mut last_motor_control_status = T::Instant::now();
     let run_pid_every = Duration::from_millis(30);
 
-    let mut last_command = T::Instant::default();
+    let mut last_command = T::Instant::now();
 
     let mut utilization_monitor: UtilizationMonitor<50, T::Instant> =
         UtilizationMonitor::new(0.0, 0.0);
@@ -209,7 +213,7 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
                     ),
                     Task::Wifi,
                 );
-                last_motor_control_status = T::Instant::default();
+                last_motor_control_status = T::Instant::now();
                 run_pid_every
                     .checked_sub(last_motor_control_status.elapsed())
                     .unwrap()
@@ -223,7 +227,7 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
 
         match event {
             Some(RobotInterTaskMessage::FrequentServerToRobot(msg)) => {
-                last_command = T::Instant::default();
+                last_command = T::Instant::now();
                 data.config = msg;
                 for m in 0..3 {
                     data.pid_controllers[m]

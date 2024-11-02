@@ -1,3 +1,5 @@
+//! Constants
+
 /// The default port where `server_pb` should expect to find the game server
 pub const GAME_SERVER_PORT: u16 = 3002;
 /// The default port where `gui_pb` should expect to connect to `server_pb`
@@ -15,7 +17,7 @@ pub const MAX_ROBOT_PATH_LENGTH: usize = 10;
 pub const ROBOT_DISPLAY_WIDTH: usize = 128;
 /// The size of the OLED display on the robot
 pub const ROBOT_DISPLAY_HEIGHT: usize = 64;
-
+/// The amount of bytes the robot will buffer for logs before dropping them
 pub const ROBOT_LOGS_BUFFER: usize = 4096;
 
 /// Millimeters per inch

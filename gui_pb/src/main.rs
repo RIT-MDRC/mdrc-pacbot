@@ -27,12 +27,12 @@ pub use core_pb::log;
 use core_pb::messages::{
     GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToGuiMessage, VelocityControl,
 };
+use core_pb::stopwatch::Stopwatch;
 use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
-use core_pb::util::stopwatch::Stopwatch;
-#[cfg(not(target_arch = "wasm32"))]
-use core_pb::util::StdInstant;
 #[cfg(target_arch = "wasm32")]
 use core_pb::util::WebTimeInstant as StdInstant;
+#[cfg(not(target_arch = "wasm32"))]
+use core_pb::StdInstant;
 use gilrs::Gilrs;
 use std::collections::HashMap;
 use std::time::Duration;

@@ -1,3 +1,5 @@
+//! Code that enables shared network behavior between the simulator and physical robots
+
 use crate::driving::{error, info, RobotInterTaskMessage, RobotTaskMessenger, Task};
 use crate::messages::{NetworkStatus, RobotToServerMessage, ServerToRobotMessage};
 use crate::names::RobotName;
@@ -9,21 +11,30 @@ use embedded_io_async::{Read, Write};
 use futures::future::{select, Either};
 use heapless::Vec;
 
+/// The network that the robot will try to join on startup
+///
+/// Password can be set via the optional environment variable WIFI_PASSWORD
 pub const DEFAULT_NETWORK: &str = "MdrcPacbot";
 
+/// Information gathered about nearby networks that might be used for display UI
 #[derive(Copy, Clone)]
 pub struct NetworkScanInfo {
+    /// Network SSID
     pub ssid: [u8; 32],
+    /// Whether the network is 5G
     pub is_5g: bool,
 }
 
 /// Functionality that robots with networking must support
 pub trait RobotNetworkBehavior {
+    /// Errors that network functions might generate
     type Error: Debug;
+    /// The type that 'tcp accept' calls should return to communicate with the server
     type Socket<'a>: Read + Write
     where
         Self: 'a;
-    type Instant: CrossPlatformInstant + Default;
+    /// Instant functionality that may be implemented differently on different platforms
+    type Instant: CrossPlatformInstant;
 
     /// Get the device's mac address
     async fn mac_address(&mut self) -> [u8; 6];
@@ -60,6 +71,7 @@ pub trait RobotNetworkBehavior {
     /// Dispose of the current socket
     async fn tcp_close<'a>(&mut self, socket: Self::Socket<'a>);
 
+    /// No required functionality - indicates that an update is about to begin
     async fn prepare_firmware_update(&mut self);
 
     /// See https://docs.embassy.dev/embassy-boot/git/default/struct.FirmwareUpdater.html#method.write_firmware
@@ -140,7 +152,7 @@ impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
     }
 
     async fn send_bytes(&mut self, socket: &mut T::Socket<'_>, bytes: &[u8]) {
-        if write_bytes(socket, &bytes, true).await.is_err() {
+        if write_bytes(socket, bytes, true).await.is_err() {
             self.socket_failed = true;
             // don't print here because that might cause infinite printing as it fails to send
         }
@@ -185,7 +197,7 @@ pub async fn network_task<T: RobotNetworkBehavior + 'static, M: RobotTaskMesseng
             .await
         {
             Ok(mut socket) => {
-                let mut socket_ok_time = T::Instant::default();
+                let mut socket_ok_time = T::Instant::now();
 
                 let s = &mut socket;
                 info!("{} client connected", name);
@@ -204,7 +216,7 @@ pub async fn network_task<T: RobotNetworkBehavior + 'static, M: RobotTaskMesseng
                         break;
                     }
                     if !net.socket_failed {
-                        socket_ok_time = T::Instant::default();
+                        socket_ok_time = T::Instant::now();
                     }
 
                     utilization_monitor.stop();
@@ -388,5 +400,5 @@ async fn write_bytes<T: Write>(
         socket.write_all(&[255]).await?;
     }
     // then write the message
-    socket.write_all(&buf).await
+    socket.write_all(buf).await
 }

@@ -1,3 +1,5 @@
+//! A small collection of pre-made grids. Most parts of the workspace require grids to be standard.
+
 #[cfg(feature = "std")]
 use crate::grid::computed_grid::ComputedGrid;
 use crate::grid::Grid;
@@ -10,13 +12,19 @@ use nalgebra::{Isometry2, Vector2};
 use pacbot_rs::variables::PACMAN_SPAWN_LOC;
 use serde::{Deserialize, Serialize};
 
+/// A small collection of pre-made grids. Most parts of the workspace require grids to be standard.
 #[derive(Copy, Clone, Debug, Default, PartialOrd, PartialEq, Ord, Eq, Serialize, Deserialize)]
 pub enum StandardGrid {
+    /// The grid used by the Pacbot competition
     #[default]
     Pacman,
+    /// A grid with small shapes to test movement
     Playground,
+    /// A grid with only one empty cell
     Blank,
+    /// A grid with one outer loop
     Outer,
+    /// A grid with no interior walls
     Open,
 }
 

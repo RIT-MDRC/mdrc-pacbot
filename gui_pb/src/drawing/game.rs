@@ -7,7 +7,7 @@ use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::ghost_state::GhostColor;
 use core_pb::robot_definition::RobotDefinition;
-use core_pb::util::TRANSLUCENT_YELLOW_COLOR;
+use core_pb::TRANSLUCENT_YELLOW_COLOR;
 use eframe::egui::{Color32, Painter, Pos2, Rect, Rounding, Stroke};
 use nalgebra::{Point2, Rotation2};
 

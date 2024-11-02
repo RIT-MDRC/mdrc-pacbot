@@ -3,7 +3,7 @@ use bevy::log::error;
 use core_pb::constants::{ROBOT_DISPLAY_HEIGHT, ROBOT_DISPLAY_WIDTH};
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::messages::RobotButton;
-use core_pb::util::StdInstant;
+use core_pb::StdInstant;
 use embedded_graphics::draw_target::DrawTarget;
 use embedded_graphics::geometry::{OriginDimensions, Size};
 use embedded_graphics::pixelcolor::BinaryColor;

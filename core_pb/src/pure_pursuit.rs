@@ -1,3 +1,5 @@
+//! Implementation of [`pure_pursuit`]
+
 use crate::messages::SensorData;
 use crate::{constants::MAX_ROBOT_PATH_LENGTH, localization};
 use localization::get_dist;
@@ -9,6 +11,7 @@ const SPEED: f32 = 1.5;
 const LOCAL_MAX_PATH_LENGTH: usize = MAX_ROBOT_PATH_LENGTH + 1;
 const DIST_TOWARDS_CENTER: f32 = 0.3;
 
+/// Implementation of pure pursuit, specialized for Pacbot
 pub fn pure_pursuit(
     sensors: &SensorData,
     path: &heapless::Vec<Point2<i8>, MAX_ROBOT_PATH_LENGTH>,

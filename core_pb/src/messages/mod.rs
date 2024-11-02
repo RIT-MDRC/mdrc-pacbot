@@ -1,3 +1,5 @@
+//! Messages passed between members of the workspace
+
 use crate::constants::MAX_ROBOT_PATH_LENGTH;
 use crate::grid::standard_grid::StandardGrid;
 #[cfg(feature = "std")]
@@ -37,8 +39,6 @@ pub enum GuiToServerMessage {
     GameServerCommand(GameServerCommand),
     /// Send a message to the simulation
     SimulationCommand(ServerToSimulationMessage),
-    /// Set a robot's target velocity (for WASD movement)
-    RobotVelocity(RobotName, VelocityControl),
     /// Send a message to a robot
     RobotCommand(RobotName, ServerToRobotMessage),
     /// Initiate an Over the Air Programming update for a robot

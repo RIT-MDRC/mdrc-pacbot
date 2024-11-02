@@ -18,20 +18,20 @@ pub struct UtilizationMonitor<const C: usize, I> {
     start_to_start_durations: MovingAverage<Duration, C>,
 }
 
-impl<const C: usize, I: CrossPlatformInstant + Default> Default for UtilizationMonitor<C, I> {
+impl<const C: usize, I: CrossPlatformInstant> Default for UtilizationMonitor<C, I> {
     fn default() -> Self {
         Self::new(0.8, 0.9)
     }
 }
 
-impl<const C: usize, I: CrossPlatformInstant + Default> UtilizationMonitor<C, I> {
+impl<const C: usize, I: CrossPlatformInstant> UtilizationMonitor<C, I> {
     pub fn new(warn_amount: f32, error_amount: f32) -> Self {
         Self {
             warn_amount,
             error_amount,
 
-            last_start: I::default(),
-            last_stop: I::default(),
+            last_start: I::now(),
+            last_stop: I::now(),
             active_durations: MovingAverage::new(),
             inactive_durations: MovingAverage::new(),
             start_to_start_durations: MovingAverage::new(),
@@ -39,7 +39,7 @@ impl<const C: usize, I: CrossPlatformInstant + Default> UtilizationMonitor<C, I>
     }
 
     pub fn start(&mut self) {
-        let now = I::default();
+        let now = I::now();
         if let Some(t) = now.checked_duration_since(self.last_stop) {
             self.inactive_durations.add(t)
         }
@@ -50,7 +50,7 @@ impl<const C: usize, I: CrossPlatformInstant + Default> UtilizationMonitor<C, I>
     }
 
     pub fn stop(&mut self) {
-        let now = I::default();
+        let now = I::now();
         if let Some(t) = now.checked_duration_since(self.last_start) {
             self.active_durations.add(t)
         }
@@ -58,8 +58,8 @@ impl<const C: usize, I: CrossPlatformInstant + Default> UtilizationMonitor<C, I>
     }
 
     pub fn reset(&mut self) {
-        self.last_start = I::default();
-        self.last_stop = I::default();
+        self.last_start = I::now();
+        self.last_stop = I::now();
         self.active_durations = MovingAverage::new();
         self.inactive_durations = MovingAverage::new();
         self.start_to_start_durations = MovingAverage::new();

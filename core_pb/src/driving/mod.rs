@@ -1,3 +1,7 @@
+//! Code that enables shared behavior between the simulator and physical robots
+
+#![allow(async_fn_in_trait)]
+
 pub mod motors;
 pub mod network;
 pub mod peripherals;
@@ -14,11 +18,17 @@ pub(crate) use log::*;
 /// Messages passed between the various tasks
 #[derive(Clone)]
 pub enum RobotInterTaskMessage {
+    /// Frequent information that comes from the server, velocities, cv location, some settings
     FrequentServerToRobot(FrequentServerToRobot),
+    /// Send a message to the server
     ToServer(RobotToServerMessage),
+    /// Sensor readings
     Sensors(SensorData),
+    /// Status of the network
     NetworkStatus(NetworkStatus, Option<[u8; 4]>),
+    /// Performance of this task, as a usage percentage of available time
     Utilization(f32, Task),
+    /// Set the current angle as angle 0, East
     ResetAngle,
 }
 

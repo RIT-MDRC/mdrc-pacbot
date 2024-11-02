@@ -1,3 +1,5 @@
+//! Functionality to operate the interactive display system
+
 mod menu;
 
 use crate::constants::{ROBOT_DISPLAY_HEIGHT, ROBOT_DISPLAY_WIDTH};
@@ -15,7 +17,7 @@ use embedded_graphics::text::Text;
 use embedded_graphics::Drawable;
 use pacbot_rs::game_state::GameState;
 
-pub struct DisplayManager<I: CrossPlatformInstant + Default> {
+pub struct DisplayManager<I: CrossPlatformInstant> {
     name: RobotName,
     initial_time: I,
 
@@ -35,7 +37,7 @@ pub struct DisplayManager<I: CrossPlatformInstant + Default> {
     pub joystick: (f32, f32),
 }
 
-impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
+impl<I: CrossPlatformInstant> DisplayManager<I> {
     pub fn new(name: RobotName) -> Self {
         let mut ssid = [0; 32];
         for (i, ch) in DEFAULT_NETWORK.as_bytes().iter().enumerate().take(32) {
@@ -46,13 +48,13 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
         game_state.step();
         Self {
             name,
-            initial_time: I::default(),
+            initial_time: I::now(),
 
-            animation_timer: I::default(),
+            animation_timer: I::now(),
             page: Page::Main,
             submenu_index: 0,
             game_state,
-            last_game_state_step: I::default(),
+            last_game_state_step: I::now(),
 
             typing_tests: [TextInput::new(); 3],
 

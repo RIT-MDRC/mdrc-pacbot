@@ -1,6 +1,6 @@
 use crate::App;
 use core_pb::messages::{NetworkStatus, Task};
-use core_pb::util::ColoredStatus;
+use core_pb::ColoredStatus;
 use eframe::egui;
 use eframe::egui::{RichText, Ui};
 

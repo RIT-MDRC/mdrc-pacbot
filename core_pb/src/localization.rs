@@ -1,3 +1,6 @@
+//! [`estimate_location`] is a specialized algorithm to find the location of the robot in a grid
+//! given sensor values.
+
 use crate::grid::{Grid, GRID_SIZE};
 use crate::messages::MAX_SENSOR_ERR_LEN;
 use crate::{grid::standard_grid::StandardGrid, robot_definition::RobotDefinition};
@@ -15,6 +18,8 @@ const VECTORS: [Vector2<f32>; 4] = [
     Vector2::new(0.0, -1.0),
 ];
 
+/// A specialized algorithm to find the location of the robot in a grid
+/// given sensor values.
 pub fn estimate_location(
     grid: StandardGrid,
     cv_location: Option<Point2<i8>>,

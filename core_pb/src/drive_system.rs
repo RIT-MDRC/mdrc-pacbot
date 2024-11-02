@@ -14,9 +14,14 @@ pub enum DriveSystem<const WHEELS: usize> {
     /// A drive system with any number of omniwheels that can freely move perpendicularly to their
     /// primary direction using rollers
     Omniwheel {
+        /// The radius of a wheel in gu
         wheel_radius: f32,
+        /// The radius of the robot in gu (distance from robot center to wheel center)
         robot_radius: f32,
+        /// For each wheel, the direction it is 'facing', i.e. the direction the wheel would
+        /// travel if it turned clockwise when disconnected from the robot
         radius_angles_rad: [Rotation2<f32>; WHEELS],
+        /// For each wheel, whether a positive velocity results in the wheel turning clockwise
         forwards_is_clockwise: [bool; WHEELS],
     },
 }

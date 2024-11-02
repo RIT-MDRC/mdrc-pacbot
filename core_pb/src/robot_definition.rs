@@ -1,3 +1,5 @@
+//! All the information that may vary from robot to robot
+
 use crate::constants::{GU_PER_INCH, GU_PER_M};
 use crate::drive_system::DriveSystem;
 use crate::names::RobotName;

@@ -217,17 +217,15 @@ impl DerefMut for EmbassyInstant {
 }
 
 impl CrossPlatformInstant for EmbassyInstant {
+    fn now() -> Self {
+        EmbassyInstant(Instant::now())
+    }
+
     fn elapsed(&self) -> core::time::Duration {
         Instant::elapsed(self).into()
     }
 
     fn checked_duration_since(&self, other: Self) -> Option<core::time::Duration> {
         Instant::checked_duration_since(self, other.0).map(|x| x.into())
-    }
-}
-
-impl Default for EmbassyInstant {
-    fn default() -> Self {
-        Self(Instant::now())
     }
 }

@@ -5,7 +5,7 @@ use async_std::task::sleep;
 use bevy::prelude::{error, info};
 use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
 use core_pb::names::RobotName;
-use core_pb::util::StdInstant;
+use core_pb::StdInstant;
 use embedded_io_async::{ErrorType, Read, ReadExactError, Write};
 use std::io;
 use std::io::ErrorKind;

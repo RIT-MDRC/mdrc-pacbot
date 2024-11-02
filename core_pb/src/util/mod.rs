@@ -1,6 +1,9 @@
+//! Some utility enums and functions
+
 use core::time::Duration;
 #[cfg(feature = "std")]
 use ecolor::Color32;
+use serde::de::DeserializeOwned;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
@@ -74,7 +77,10 @@ impl ColoredStatus {
     }
 }
 
+/// Instant functionality that may be implemented differently on different platforms
 pub trait CrossPlatformInstant: Copy {
+    fn now() -> Self;
+
     fn elapsed(&self) -> Duration;
 
     fn checked_duration_since(&self, other: Self) -> Option<Duration>;
@@ -85,14 +91,11 @@ pub trait CrossPlatformInstant: Copy {
 pub struct StdInstant(std::time::Instant);
 
 #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
-impl Default for StdInstant {
-    fn default() -> Self {
+impl CrossPlatformInstant for StdInstant {
+    fn now() -> Self {
         Self(std::time::Instant::now())
     }
-}
 
-#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
-impl CrossPlatformInstant for StdInstant {
     fn elapsed(&self) -> Duration {
         self.0.elapsed()
     }
@@ -107,14 +110,11 @@ impl CrossPlatformInstant for StdInstant {
 pub struct WebTimeInstant(web_time::Instant);
 
 #[cfg(target_arch = "wasm32")]
-impl Default for WebTimeInstant {
-    fn default() -> Self {
+impl CrossPlatformInstant for WebTimeInstant {
+    fn now() -> Self {
         Self(web_time::Instant::now())
     }
-}
 
-#[cfg(target_arch = "wasm32")]
-impl CrossPlatformInstant for WebTimeInstant {
     fn elapsed(&self) -> Duration {
         self.0.elapsed()
     }
@@ -122,4 +122,49 @@ impl CrossPlatformInstant for WebTimeInstant {
     fn checked_duration_since(&self, other: Self) -> Option<Duration> {
         self.0.checked_duration_since(other.0)
     }
+}
+#[cfg(target_arch = "wasm32")]
+#[macro_export]
+/// for WASM, prints the message to the javascript developer console, otherwise uses [`log::info!`]
+macro_rules! console_log {
+    ($($t:tt)*) => (crate::log(&format_args!($($t)*).to_string()))
+}
+
+#[cfg(target_arch = "wasm32")]
+#[macro_export]
+/// for WASM, prints the message to the javascript developer console, otherwise uses [`log::error!`]
+macro_rules! console_error {
+    ($($t:tt)*) => (crate::log(&format_args!($($t)*).to_string()))
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_namespace = console)]
+    pub fn log(s: &str);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[macro_export]
+/// for WASM, prints the message to the javascript developer console, otherwise uses `log::info!`
+macro_rules! console_log {
+    ($($t:tt)*) => (log::info!($($t)*))
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[macro_export]
+/// for WASM, prints the message to the javascript developer console, otherwise uses `log::error!`
+macro_rules! console_error {
+    ($($t:tt)*) => (log::error!($($t)*))
+}
+
+/// [`bincode::serde::encode_to_vec`] with [`bincode::config::standard`]
+#[cfg(feature = "std")]
+pub fn bin_encode<T: Serialize>(x: T) -> Result<Vec<u8>, bincode::error::EncodeError> {
+    bincode::serde::encode_to_vec(x, bincode::config::standard())
+}
+
+/// [`bincode::serde::decode_from_slice`] with [`bincode::config::standard`]
+pub fn bin_decode<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, bincode::error::DecodeError> {
+    bincode::serde::decode_from_slice(bytes, bincode::config::standard()).map(|x| x.0)
 }

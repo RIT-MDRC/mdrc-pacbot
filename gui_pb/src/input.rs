@@ -7,7 +7,6 @@ use core_pb::messages::{
 };
 use core_pb::pacbot_rs::location::Direction;
 use core_pb::robot_definition::RobotDefinition;
-use core_pb::threaded_websocket::TextOrT;
 use eframe::egui;
 use eframe::egui::{Event, Key, PointerButton};
 use gilrs::{Axis, Button, EventType};
@@ -18,12 +17,9 @@ impl App {
     pub fn set_target_vel(&mut self, target_vel: VelocityControl) {
         if target_vel != self.target_vel {
             self.target_vel = target_vel;
-            self.network
-                .0
-                .send(TextOrT::T(GuiToServerMessage::RobotVelocity(
-                    self.ui_settings.selected_robot,
-                    self.target_vel,
-                )))
+            self.settings.robots[self.ui_settings.selected_robot as usize]
+                .config
+                .target_velocity = target_vel;
         }
     }
 

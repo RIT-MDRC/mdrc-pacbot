@@ -2,7 +2,7 @@ use crate::RwLock;
 use crate::SimRobot;
 use core_pb::driving::motors::RobotMotorsBehavior;
 use core_pb::names::RobotName;
-use core_pb::util::StdInstant;
+use core_pb::StdInstant;
 use std::sync::Arc;
 
 pub struct SimMotors {

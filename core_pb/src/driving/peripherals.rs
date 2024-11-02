@@ -1,3 +1,5 @@
+//! Code that enables shared peripheral behavior between the simulator and physical robots
+
 use crate::driving::{RobotInterTaskMessage, RobotTaskMessenger, Task};
 use crate::grid::standard_grid::StandardGrid;
 use crate::localization::estimate_location;
@@ -15,9 +17,12 @@ use nalgebra::Point2;
 
 /// Functionality that robots with peripherals must support
 pub trait RobotPeripheralsBehavior {
-    type Display: DrawTarget<Color = BinaryColor>;
-    type Instant: CrossPlatformInstant + Default;
+    /// Errors that peripheral functions might generate
     type Error: Debug;
+    /// The screen on the robot
+    type Display: DrawTarget<Color = BinaryColor>;
+    /// Instant functionality that may be implemented differently on different platforms
+    type Instant: CrossPlatformInstant;
 
     async fn draw_display<F>(&mut self, draw: F)
     where
@@ -60,11 +65,11 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior, M: RobotTaskMessenger
         UtilizationMonitor::new(0.0, 0.0);
     utilization_monitor.start();
 
-    let mut last_send_time = T::Instant::default();
+    let mut last_send_time = T::Instant::now();
 
     loop {
         if last_send_time.elapsed() > Duration::from_millis(30) {
-            last_send_time = T::Instant::default();
+            last_send_time = T::Instant::now();
             while let Some((button, pressed)) = peripherals.read_button_event().await {
                 display_manager.button_event(button, pressed);
             }

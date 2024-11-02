@@ -2,20 +2,20 @@ use crate::util::moving_average::MovingAverage;
 use crate::util::CrossPlatformInstant;
 
 #[derive(Copy, Clone)]
-pub struct AverageRate<const C: usize, I: CrossPlatformInstant + Default> {
+pub struct AverageRate<const C: usize, I: CrossPlatformInstant> {
     last_instant: Option<I>,
     average: MovingAverage<u128, C>,
     forward: bool,
 }
 
-impl<const C: usize, I: CrossPlatformInstant + Default> Default for AverageRate<C, I> {
+impl<const C: usize, I: CrossPlatformInstant> Default for AverageRate<C, I> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[allow(dead_code)]
-impl<const C: usize, I: CrossPlatformInstant + Default> AverageRate<C, I> {
+impl<const C: usize, I: CrossPlatformInstant> AverageRate<C, I> {
     pub fn new() -> Self {
         Self {
             last_instant: None,
@@ -31,7 +31,7 @@ impl<const C: usize, I: CrossPlatformInstant + Default> AverageRate<C, I> {
     }
 
     pub fn tick(&mut self, forward: bool) {
-        let now = I::default();
+        let now = I::now();
 
         if self.forward != forward {
             self.reset();
@@ -54,7 +54,7 @@ impl<const C: usize, I: CrossPlatformInstant + Default> AverageRate<C, I> {
         } else {
             let mut avg = self.average.average();
             // if the time since the last tick is larger than the average, incorporate it
-            if let Some(elapsed) = I::default().checked_duration_since(self.last_instant.unwrap()) {
+            if let Some(elapsed) = I::now().checked_duration_since(self.last_instant.unwrap()) {
                 let elapsed = elapsed.as_micros();
                 if elapsed > avg {
                     avg = ((avg * count) + elapsed) / (count + 1);

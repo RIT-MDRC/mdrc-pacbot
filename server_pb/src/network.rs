@@ -145,9 +145,6 @@ impl App {
                         }
                     }
                 },
-                GuiToServerMessage::RobotVelocity(robot, vel) => {
-                    self.settings.robots[robot as usize].config.target_velocity = vel;
-                }
                 GuiToServerMessage::TargetLocation(loc) => {
                     if !self.grid.wall_at(&loc) {
                         if let Some(cv_loc) = self.status.cv_location {

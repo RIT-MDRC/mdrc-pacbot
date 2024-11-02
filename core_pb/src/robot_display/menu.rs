@@ -60,7 +60,7 @@ impl Page {
         }
     }
 
-    fn text_edit<'a, I: CrossPlatformInstant + Default>(
+    fn text_edit<'a, I: CrossPlatformInstant>(
         &self,
         dm: &'a mut DisplayManager<I>,
     ) -> Option<&'a mut TextInput<32>> {
@@ -71,7 +71,7 @@ impl Page {
     }
 }
 
-impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
+impl<I: CrossPlatformInstant> DisplayManager<I> {
     pub fn draw_content<D: DrawTarget<Color = BinaryColor>>(
         &mut self,
         page: Page,
@@ -148,7 +148,7 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
             }
         }
         if self.page != old_page {
-            self.animation_timer = I::default();
+            self.animation_timer = I::now();
             if !self.page.submenu().is_empty() {
                 self.submenu_index %= self.page.submenu().len();
             }
@@ -183,7 +183,7 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
         let base_x = 60;
         let base_y = 4;
         if self.last_game_state_step.elapsed().as_millis() > (1000 / 24) {
-            self.last_game_state_step = I::default();
+            self.last_game_state_step = I::now();
             self.game_state.step();
         }
         // walls/pellets

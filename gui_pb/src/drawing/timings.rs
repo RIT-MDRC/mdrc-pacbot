@@ -1,10 +1,10 @@
 use crate::App;
-use core_pb::util::stopwatch::Stopwatch;
-use core_pb::util::CrossPlatformInstant;
+use core_pb::stopwatch::Stopwatch;
+use core_pb::CrossPlatformInstant;
 use eframe::egui;
 use eframe::egui::Ui;
 
-fn draw_stopwatch<const SEGMENTS: usize, const WINDOW: usize, I: CrossPlatformInstant + Default>(
+fn draw_stopwatch<const SEGMENTS: usize, const WINDOW: usize, I: CrossPlatformInstant>(
     stopwatch: &Stopwatch<SEGMENTS, WINDOW, I>,
     ui: &mut Ui,
     id: String,

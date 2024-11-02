@@ -20,7 +20,7 @@ pub struct Stopwatch<const SEGMENTS: usize, const WINDOW: usize, I> {
     error_time: Duration,
 }
 
-impl<const SEGMENTS: usize, const WINDOW: usize, I: CrossPlatformInstant + Default>
+impl<const SEGMENTS: usize, const WINDOW: usize, I: CrossPlatformInstant>
     Stopwatch<SEGMENTS, WINDOW, I>
 {
     pub fn new(
@@ -32,8 +32,8 @@ impl<const SEGMENTS: usize, const WINDOW: usize, I: CrossPlatformInstant + Defau
     ) -> Self {
         Self {
             name,
-            start_time: I::default(),
-            last: I::default(),
+            start_time: I::now(),
+            last: I::now(),
             segments: [(None, MovingAverage::new()); SEGMENTS],
             idx: 0,
 
@@ -46,13 +46,13 @@ impl<const SEGMENTS: usize, const WINDOW: usize, I: CrossPlatformInstant + Defau
 
     pub fn start(&mut self) {
         self.idx = 0;
-        self.start_time = I::default();
-        self.last = I::default();
+        self.start_time = I::now();
+        self.last = I::now();
         self.utilization_monitor.start();
     }
 
     pub fn mark_completed(&mut self, segment: &'static str) -> Result<(), &'static str> {
-        let now = I::default();
+        let now = I::now();
         let last = self.last;
         self.last = now;
         if let Some(duration) = now.checked_duration_since(last) {
