@@ -273,6 +273,39 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         },
     );
     ui.end_row();
+
+    num(
+        "lookahead_distance".to_string(),
+        ui,
+        fields,
+        &mut app.settings.target_speed,
+        "Lookahead distance",
+    );
+
+    num(
+        "robot_speed".to_string(),
+        ui,
+        fields,
+        &mut app.settings.target_speed,
+        "Robot speed",
+    );
+
+    num(
+        "snapping_distance".to_string(),
+        ui,
+        fields,
+        &mut app.settings.target_speed,
+        "Snapping distance",
+    );
+
+    num(
+        "cv_error".to_string(),
+        ui,
+        fields,
+        &mut app.settings.target_speed,
+        "CV error",
+    );
+
     ui.end_row();
 
     ui.separator();
