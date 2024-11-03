@@ -1,4 +1,4 @@
-use crate::devices::bno08x::{ImuError, PacbotIMU};
+use crate::devices::bno08x::ImuError;
 use crate::devices::ssd1306::{PacbotDisplay, PacbotDisplayWrapper};
 use crate::devices::vl53l4cd::PacbotDistanceSensor;
 use crate::{EmbassyInstant, PacbotI2cBus};
@@ -124,10 +124,10 @@ pub async fn manage_pico_i2c(bus: &'static PacbotI2cBus, xshut: [AnyPin; NUM_DIS
             DIST_SENSOR_ADDRESSES[i - 1],
         )
     });
-    let mut imu = PacbotIMU::new(bus);
+    // let mut imu = PacbotIMU::new(bus);
 
     let mut distances = DIST_SENSOR_ADDRESSES.map(|_| Err(PeripheralsError::Uninitialized));
-    let mut angle = Err(PeripheralsError::Uninitialized);
+    let angle = Err(PeripheralsError::Uninitialized);
 
     loop {
         // fetch new values
@@ -139,10 +139,10 @@ pub async fn manage_pico_i2c(bus: &'static PacbotI2cBus, xshut: [AnyPin; NUM_DIS
                 changed = true;
             }
         }
-        if imu.update().await {
-            angle = imu.get_result();
-            changed = true;
-        }
+        // if imu.update().await {
+        //     angle = imu.get_result();
+        //     changed = true;
+        // }
 
         if changed {
             // convert errors to () and distances to f32
