@@ -119,7 +119,7 @@ async fn main() {
 
 impl App {
     async fn run_forever(&mut self) {
-        let mut periodic_interval = interval(Duration::from_millis(100));
+        let mut periodic_interval = interval(Duration::from_millis(20));
         let mut move_interval = interval(Duration::from_secs_f32(1.0 / self.settings.target_speed));
         let mut previous_settings = self.settings.clone();
 
