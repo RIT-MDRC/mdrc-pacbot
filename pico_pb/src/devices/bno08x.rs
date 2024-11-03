@@ -14,7 +14,7 @@ pub type ImuError =
     bno08x_async::wrapper::WrapperError<bno08x_async::Error<I2cDeviceError<i2c::Error>, ()>>;
 
 pub struct PacbotIMU {
-    enabled: AtomicBool,
+    enabled: &'static AtomicBool,
     results: &'static Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>>,
 
     sensor: bno08x_async::wrapper::BNO080<bno08x_async::interface::I2cInterface<PacbotI2cDevice>>,
@@ -24,7 +24,7 @@ pub struct PacbotIMU {
 impl PacbotIMU {
     pub fn new(
         bus: &'static PacbotI2cBus,
-        enabled: AtomicBool,
+        enabled: &'static AtomicBool,
         results: &'static Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>>,
     ) -> Self {
         Self {
@@ -49,7 +49,7 @@ impl PacbotIMU {
         }
     }
 
-    pub async fn get_measurement(&mut self) -> Result<f32, PeripheralsError> {
+    async fn get_measurement(&mut self) -> Result<f32, PeripheralsError> {
         match self.sensor.rotation_quaternion() {
             Err(e) => {
                 self.initialized = false;
