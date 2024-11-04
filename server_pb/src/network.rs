@@ -16,6 +16,11 @@ use log::{error, info};
 impl App {
     pub async fn handle_message(&mut self, from: Destination, message: Incoming) {
         match (from, message) {
+            (Robot(name), Bytes(data)) => {
+                if let Some(loggers) = &mut self.robot_loggers {
+                    loggers.feed_robot_logs(name, &data)
+                }
+            }
             (dest, Bytes(data)) => error!(
                 "Unexpectedly received {} raw bytes from {dest:?}",
                 data.len()
@@ -110,11 +115,6 @@ impl App {
             (Robot(name), FromRobot(RobotToServerMessage::Pong)) => {
                 if let Some(t) = self.robot_ping_timers[name as usize] {
                     self.status.robots[name as usize].ping = Some(t.elapsed())
-                }
-            }
-            (Robot(name), FromRobot(RobotToServerMessage::LogBytes(bytes))) => {
-                if let Some(loggers) = &mut self.robot_loggers {
-                    loggers.feed_robot_logs(name, &bytes)
                 }
             }
             (Robot(name), FromRobot(RobotToServerMessage::Rebooting)) => {

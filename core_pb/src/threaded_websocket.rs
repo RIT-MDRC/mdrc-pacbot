@@ -193,9 +193,9 @@ impl<
     /// See [`ThreadedSocket`] for full usage example
     pub fn new<
         SocketType: ThreadableSocket<SendType, ReceiveType> + 'static,
-        Serializer: Fn(SendType) -> Result<Vec<u8>, SerializeResult> + Send + 'static,
+        Serializer: FnMut(SendType) -> Result<Vec<u8>, SerializeResult> + Send + 'static,
         SerializeResult: Debug + 'static,
-        Deserializer: Fn(&[u8]) -> Result<ReceiveType, DeserializeResult> + Send + 'static,
+        Deserializer: FnMut(&[u8]) -> Result<Vec<TextOrT<ReceiveType>>, DeserializeResult> + Send + 'static,
         DeserializeResult: Debug + 'static,
     >(
         name: String,
@@ -312,9 +312,9 @@ async fn run_socket_forever<
     OutgoingType: Serialize + Debug,
     IncomingType: DeserializeOwned + Debug,
     SocketType: ThreadableSocket<OutgoingType, IncomingType>,
-    Serializer: Fn(OutgoingType) -> Result<Vec<u8>, SerializeResult>,
+    Serializer: FnMut(OutgoingType) -> Result<Vec<u8>, SerializeResult>,
     SerializeResult: Debug,
-    Deserializer: Fn(&[u8]) -> Result<IncomingType, DeserializeResult>,
+    Deserializer: FnMut(&[u8]) -> Result<Vec<TextOrT<IncomingType>>, DeserializeResult>,
     DeserializeResult: Debug,
 >(
     name: String,
@@ -322,8 +322,8 @@ async fn run_socket_forever<
     data_outgoing: Receiver<TextOrT<OutgoingType>>,
     statuses: Sender<NetworkStatus>,
     data_incoming: Sender<TextOrT<IncomingType>>,
-    serializer: Serializer,
-    deserializer: Deserializer,
+    mut serializer: Serializer,
+    mut deserializer: Deserializer,
 ) -> Result<(), ()> {
     let mut addr: Option<Address> = None;
     let mut socket: Option<SocketType> = None;
@@ -380,12 +380,16 @@ async fn run_socket_forever<
                 if let Ok(incoming_data) = incoming_data {
                     // console_log!("[{name}] Received data from {addr:?}");
                     let incoming_data = match incoming_data {
-                        TextOrT::T(data) => match deserializer(&data) {
-                            Ok(data) => Some(TextOrT::T(data)),
-                            Err(e) => {
-                                console_log!("[{name}] Error deserializing data: {e:?}");
-                                None
+                        TextOrT::T(data) => {
+                            match deserializer(&data) {
+                                Ok(data) => for d in data {
+                                    data_incoming.send(d).await.map_err(|_| ())?;
+                                },
+                                Err(e) => {
+                                    console_log!("[{name}] Error deserializing data: {e:?}");
+                                }
                             }
+                            None
                         },
                         TextOrT::Text(text) => Some(TextOrT::Text(text)),
                         TextOrT::Bytes(data) => Some(TextOrT::Bytes(data))
@@ -628,13 +632,6 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
 
     async fn my_send(&mut self, data: TextOrT<Vec<u8>>) {
         if let TextOrT::T(bytes) | TextOrT::Bytes(bytes) = data {
-            // first send the length
-            let len = bytes.len() as u32;
-            if let Err(e) = self.stream.write_all(&len.to_be_bytes()).await {
-                console_error!("[TcpStreamThreadableSocket] Error sending length: {e:?}");
-                return;
-            }
-            // then send the data
             if let Err(e) = self.stream.write_all(&bytes).await {
                 console_error!("[TcpStreamThreadableSocket] Error sending data: {e:?}");
             }
@@ -644,22 +641,11 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
     }
 
     async fn my_read(&mut self) -> Result<TextOrT<Vec<u8>>, ()> {
-        // first read the length
-        let mut len_buf = [0; 4];
-        if let Err(e) = self.stream.read_exact(&mut len_buf).await {
-            console_error!("[TcpStreamThreadableSocket] Error reading length: {e:?}");
-            return Err(());
+        let mut buf = [0; 1024];
+        match self.stream.read(&mut buf).await {
+            Err(_) => Err(()),
+            Ok(len) => Ok(TextOrT::T(buf[..len].to_vec())),
         }
-        let len = u32::from_be_bytes(len_buf) as usize;
-
-        // then read the data
-        let mut received = vec![0; len];
-        if let Err(e) = self.stream.read_exact(&mut received).await {
-            console_error!("[TcpStreamThreadableSocket] Error reading data: {e:?}");
-            return Err(());
-        }
-
-        Ok(TextOrT::T(received))
     }
 
     async fn my_close(mut self) {

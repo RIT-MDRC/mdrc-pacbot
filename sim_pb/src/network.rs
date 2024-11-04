@@ -8,7 +8,7 @@ use core_pb::messages::{GameServerCommand, ServerToSimulationMessage, Simulation
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
 use core_pb::pacbot_rs::location::Direction::*;
-use core_pb::{bin_decode, bin_encode};
+use core_pb::{bin_decode_single, bin_encode};
 use simple_websockets::{Event, EventHub, Message, Responder};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -156,47 +156,48 @@ impl PacbotNetworkSimulation {
                     self.simulation_clients.insert(id, responder);
                 }
                 Event::Message(_, message) => match message {
-                    Message::Binary(bytes) => match bin_decode::<ServerToSimulationMessage>(&bytes)
-                    {
-                        Ok(msg) => match msg {
-                            ServerToSimulationMessage::Spawn(name) => {
-                                app.spawn_robot(&mut commands, name);
-                            }
-                            ServerToSimulationMessage::Delete(name) => {
-                                app.despawn_robot(name, &mut commands);
-                            }
-                            ServerToSimulationMessage::SetPacman(name) => {
-                                app.selected_robot = name;
-                            }
-                            ServerToSimulationMessage::SetStandardGrid(grid) => {
-                                app.standard_grid = grid;
-                                app.grid = app.standard_grid.compute_grid();
-                                app.reset_grid(&walls, &mut robots, &mut commands)
-                            }
-                            ServerToSimulationMessage::Teleport(name, loc) => {
-                                if !app.grid.wall_at(&loc) {
-                                    if let Some((_, mut transforms, ..)) = robots
-                                        .iter_mut()
-                                        .find(|(_, _, _, _, robot)| robot.0 == name)
-                                    {
-                                        transforms.translation.x = loc.x as f32;
-                                        transforms.translation.y = loc.y as f32;
+                    Message::Binary(bytes) => {
+                        match bin_decode_single::<ServerToSimulationMessage>(&bytes) {
+                            Ok(msg) => match msg {
+                                ServerToSimulationMessage::Spawn(name) => {
+                                    app.spawn_robot(&mut commands, name);
+                                }
+                                ServerToSimulationMessage::Delete(name) => {
+                                    app.despawn_robot(name, &mut commands);
+                                }
+                                ServerToSimulationMessage::SetPacman(name) => {
+                                    app.selected_robot = name;
+                                }
+                                ServerToSimulationMessage::SetStandardGrid(grid) => {
+                                    app.standard_grid = grid;
+                                    app.grid = app.standard_grid.compute_grid();
+                                    app.reset_grid(&walls, &mut robots, &mut commands)
+                                }
+                                ServerToSimulationMessage::Teleport(name, loc) => {
+                                    if !app.grid.wall_at(&loc) {
+                                        if let Some((_, mut transforms, ..)) = robots
+                                            .iter_mut()
+                                            .find(|(_, _, _, _, robot)| robot.0 == name)
+                                        {
+                                            transforms.translation.x = loc.x as f32;
+                                            transforms.translation.y = loc.y as f32;
+                                        }
                                     }
                                 }
-                            }
-                            ServerToSimulationMessage::RobotButton(name, event) => {
-                                if let Some((_, sim_robot)) = &app.robots[name as usize] {
-                                    sim_robot.write().unwrap().button_events.push_back(event)
+                                ServerToSimulationMessage::RobotButton(name, event) => {
+                                    if let Some((_, sim_robot)) = &app.robots[name as usize] {
+                                        sim_robot.write().unwrap().button_events.push_back(event)
+                                    }
                                 }
-                            }
-                            ServerToSimulationMessage::RobotJoystick(name, values) => {
-                                if let Some((_, sim_robot)) = &app.robots[name as usize] {
-                                    sim_robot.write().unwrap().joystick = Some(values)
+                                ServerToSimulationMessage::RobotJoystick(name, values) => {
+                                    if let Some((_, sim_robot)) = &app.robots[name as usize] {
+                                        sim_robot.write().unwrap().joystick = Some(values)
+                                    }
                                 }
-                            }
-                        },
-                        Err(e) => error!("Error decoding simulation message: {e:?}"),
-                    },
+                            },
+                            Err(e) => error!("Error decoding simulation message: {e:?}"),
+                        }
+                    }
                     Message::Text(text) => error!("Unexpected simulation message: {text}"),
                 },
                 Event::Disconnect(id) => {

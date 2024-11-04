@@ -159,7 +159,7 @@ impl RobotNetworkBehavior for Network {
         matches!(self.updater.get_state(), Ok(State::Swap))
     }
 
-    async fn reboot(self) {
+    async fn reboot(&mut self) {
         Timer::after_secs(3).await;
         cortex_m::peripheral::SCB::sys_reset();
     }

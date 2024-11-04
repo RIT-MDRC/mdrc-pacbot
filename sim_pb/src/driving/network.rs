@@ -144,7 +144,7 @@ impl RobotNetworkBehavior for SimNetwork {
         self.firmware_swapped
     }
 
-    async fn reboot(self) {
+    async fn reboot(&mut self) {
         self.sim_robot.write().unwrap().reboot = true;
         sleep(Duration::from_secs(99999)).await
     }

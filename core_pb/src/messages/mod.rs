@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
 pub mod ota;
+pub mod robot_tcp;
 #[cfg(feature = "std")]
 pub mod server_status;
 #[cfg(feature = "std")]
@@ -195,10 +196,7 @@ pub struct MotorControlStatus {
 #[repr(usize)]
 pub enum RobotToServerMessage {
     ReadyToStartUpdate = 0,
-    ConfirmFirmwarePart {
-        offset: usize,
-        len: usize,
-    } = 1,
+    ConfirmFirmwarePart { offset: usize, len: usize } = 1,
     MarkedFirmwareUpdated = 2,
     FirmwareHash([u8; 32]) = 3,
     Rebooting = 4,
@@ -209,10 +207,6 @@ pub enum RobotToServerMessage {
     Utilization([f32; 3]) = 9,
     Sensors(SensorData) = 10,
     Pong = 11,
-    #[cfg(feature = "std")]
-    LogBytes(Vec<u8>) = 12,
-    /// 255 is reserved for raw bytes for logs
-    Never = 255,
 }
 
 /// The different async tasks that run on the robot
