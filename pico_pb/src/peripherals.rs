@@ -6,9 +6,10 @@ use core::sync::atomic::AtomicBool;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::driving::RobotInterTaskMessage;
 use core_pb::messages::RobotButton;
-use defmt::{unwrap, Format};
+use defmt::Format;
 use display_interface::DisplayError;
-use embassy_executor::{task, Spawner};
+use embassy_executor::task;
+use embassy_futures::join::join5;
 use embassy_rp::gpio::{AnyPin, Level, Output};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
@@ -23,7 +24,6 @@ pub const DIST_SENSOR_ADDRESSES: [u8; NUM_DIST_SENSORS] = [0x31, 0x32, 0x33, 0x3
 static IMU_ENABLED: AtomicBool = AtomicBool::new(true);
 static IMU_SIGNAL: Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>> = Signal::new();
 
-#[task]
 pub async fn run_imu(enabled: &'static AtomicBool, bus: &'static PacbotI2cBus) -> ! {
     PacbotIMU::new(bus, enabled, &IMU_SIGNAL)
         .run_forever()
@@ -34,7 +34,6 @@ static DIST_ENABLED: AtomicBool = AtomicBool::new(true);
 static DIST_SIGNALS: [Signal<ThreadModeRawMutex, Result<Option<u16>, PeripheralsError>>;
     NUM_DIST_SENSORS] = [Signal::new(), Signal::new(), Signal::new(), Signal::new()];
 
-#[task]
 pub async fn run_dist(
     enabled: &'static AtomicBool,
     bus: &'static PacbotI2cBus,
@@ -64,17 +63,7 @@ pub struct RobotPeripherals {
 }
 
 impl RobotPeripherals {
-    pub fn new(
-        bus: &'static PacbotI2cBus,
-        xshut: [AnyPin; NUM_DIST_SENSORS],
-        spawner: Spawner,
-    ) -> Self {
-        unwrap!(spawner.spawn(run_imu(&IMU_ENABLED, bus)));
-
-        for (i, xshut) in xshut.into_iter().enumerate() {
-            unwrap!(spawner.spawn(run_dist(&DIST_ENABLED, bus, i, xshut)));
-        }
-
+    pub fn new(bus: &'static PacbotI2cBus) -> Self {
         Self {
             display: PacbotDisplayWrapper::new(bus),
 
@@ -138,4 +127,17 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
     async fn read_joystick(&mut self) -> Option<(f32, f32)> {
         None
     }
+}
+
+#[task]
+pub async fn manage_pico_i2c(bus: &'static PacbotI2cBus, xshut: [AnyPin; NUM_DIST_SENSORS]) {
+    let [a, b, c, d] = xshut;
+    join5(
+        run_imu(&IMU_ENABLED, bus),
+        run_dist(&DIST_ENABLED, bus, 0, a),
+        run_dist(&DIST_ENABLED, bus, 1, b),
+        run_dist(&DIST_ENABLED, bus, 2, c),
+        run_dist(&DIST_ENABLED, bus, 3, d),
+    )
+    .await;
 }

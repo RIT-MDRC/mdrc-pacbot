@@ -126,7 +126,7 @@ impl RobotNetworkBehavior for SimNetwork {
         Err(SimNetworkError::TcpAcceptFailed)
     }
 
-    async fn tcp_close<'a>(&mut self, socket: &Self::Socket<'a>) {
+    async fn tcp_close<'a>(&mut self, socket: &mut Self::Socket<'a>) {
         socket.0.shutdown(Shutdown::Both).unwrap()
     }
 
