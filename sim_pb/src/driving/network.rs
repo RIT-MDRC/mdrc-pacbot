@@ -9,6 +9,7 @@ use core_pb::util::StdInstant;
 use embedded_io_async::{ErrorType, Read, ReadExactError, Write};
 use std::io;
 use std::io::ErrorKind;
+use std::net::Shutdown;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
@@ -99,12 +100,14 @@ impl RobotNetworkBehavior for SimNetwork {
     async fn tcp_accept<'a>(
         &mut self,
         port: u16,
-        _tx: &'a mut [u8; 5000],
-        _rx: &'a mut [u8; 5000],
+        _tx: &'a mut [u8; 5192],
+        _rx: &'a mut [u8; 5192],
     ) -> Result<Self::Socket<'a>, <Self as RobotNetworkBehavior>::Error>
     where
         Self: 'a,
     {
+        // simulate robot delay
+        sleep(Duration::from_secs(1)).await;
         info!("{} listening on {port}!", self.name);
         match TcpListener::bind(format!("0.0.0.0:{port}")).await {
             Ok(listener) => match listener.accept().await {
@@ -123,7 +126,9 @@ impl RobotNetworkBehavior for SimNetwork {
         Err(SimNetworkError::TcpAcceptFailed)
     }
 
-    async fn tcp_close<'a>(&mut self, _socket: Self::Socket<'a>) {}
+    async fn tcp_close<'a>(&mut self, socket: &Self::Socket<'a>) {
+        socket.0.shutdown(Shutdown::Both).unwrap()
+    }
 
     async fn prepare_firmware_update(&mut self) {}
 

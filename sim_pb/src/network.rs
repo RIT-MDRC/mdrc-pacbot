@@ -8,6 +8,7 @@ use core_pb::messages::{GameServerCommand, ServerToSimulationMessage, Simulation
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::game_state::GameState;
 use core_pb::pacbot_rs::location::Direction::*;
+use core_pb::threaded_websocket::TextOrT;
 use core_pb::{bin_decode_single, bin_encode};
 use simple_websockets::{Event, EventHub, Message, Responder};
 use std::collections::HashMap;
@@ -209,33 +210,36 @@ impl PacbotNetworkSimulation {
         // send status to simulation clients
         for client in self.simulation_clients.values_mut() {
             client.send(Message::Binary(
-                bin_encode(SimulationToServerMessage::RobotPositions(
-                    RobotName::get_all().map(|name| {
-                        if !name.is_simulated() {
-                            None
-                        } else {
-                            app.robots[name as usize]
-                                .iter()
-                                .next()
-                                .and_then(|(_, _)| {
-                                    robots
-                                        .iter_mut()
-                                        .find(|(_, _, _, _, robot)| robot.0 == name)
-                                })
-                                .map(|(_, t, ..)| t)
-                                .map(|t| {
-                                    (
-                                        Point2::new(t.translation.x, t.translation.y),
-                                        // feels weird, but this does work
-                                        Rotation2::new(
-                                            2.0 * t.rotation.normalize().w.acos()
-                                                * t.rotation.z.signum(),
-                                        ),
-                                    )
-                                })
-                        }
-                    }),
-                ))
+                bin_encode(
+                    false,
+                    TextOrT::T(SimulationToServerMessage::RobotPositions(
+                        RobotName::get_all().map(|name| {
+                            if !name.is_simulated() {
+                                None
+                            } else {
+                                app.robots[name as usize]
+                                    .iter()
+                                    .next()
+                                    .and_then(|(_, _)| {
+                                        robots
+                                            .iter_mut()
+                                            .find(|(_, _, _, _, robot)| robot.0 == name)
+                                    })
+                                    .map(|(_, t, ..)| t)
+                                    .map(|t| {
+                                        (
+                                            Point2::new(t.translation.x, t.translation.y),
+                                            // feels weird, but this does work
+                                            Rotation2::new(
+                                                2.0 * t.rotation.normalize().w.acos()
+                                                    * t.rotation.z.signum(),
+                                            ),
+                                        )
+                                    })
+                            }
+                        }),
+                    )),
+                )
                 .unwrap(),
             ));
         }
@@ -265,10 +269,13 @@ impl PacbotNetworkSimulation {
                         .collect();
                     for client in self.simulation_clients.values_mut() {
                         client.send(Message::Binary(
-                            bin_encode(SimulationToServerMessage::RobotDisplay(
-                                name,
-                                updated_display.clone(),
-                            ))
+                            bin_encode(
+                                false,
+                                TextOrT::T(SimulationToServerMessage::RobotDisplay(
+                                    name,
+                                    updated_display.clone(),
+                                )),
+                            )
                             .unwrap(),
                         ));
                     }

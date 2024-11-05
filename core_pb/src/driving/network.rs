@@ -52,14 +52,14 @@ pub trait RobotNetworkBehavior {
     async fn tcp_accept<'a>(
         &mut self,
         port: u16,
-        tx_buffer: &'a mut [u8; 5000],
-        rx_buffer: &'a mut [u8; 5000],
+        tx_buffer: &'a mut [u8; 5192],
+        rx_buffer: &'a mut [u8; 5192],
     ) -> Result<Self::Socket<'a>, Self::Error>
     where
         Self: 'a;
 
     /// Dispose of the current socket
-    async fn tcp_close<'a>(&mut self, socket: Self::Socket<'a>);
+    async fn tcp_close<'a>(&mut self, socket: &Self::Socket<'a>);
 
     async fn prepare_firmware_update(&mut self);
 
@@ -245,6 +245,7 @@ impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
             }
             ServerToRobotMessage::Reboot => {
                 self.send(s, RobotToServerMessage::Rebooting).await;
+                self.network.tcp_close(&s).await;
                 self.network.reboot().await;
                 unreachable!("o7")
             }
@@ -291,7 +292,10 @@ impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
             }
 
             match event {
-                Either::Left(Err(_)) => break,
+                Either::Left(Err(e)) => {
+                    error!("Socket failed with error: {:?}", e);
+                    break;
+                }
                 Either::Right(m) => self.handle_inter_task_message(s, m).await,
                 Either::Left(Ok(m)) => self.handle_server_message(s, &m).await,
             }
@@ -326,8 +330,8 @@ pub async fn network_task<T: RobotNetworkBehavior + 'static, M: RobotTaskMesseng
 
     net.utilization_monitor.start();
 
-    let mut tx_buffer = [0; 5000];
-    let mut rx_buffer = [0; 5000];
+    let mut tx_buffer = [0; 5192];
+    let mut rx_buffer = [0; 5192];
 
     loop {
         net.connect_wifi().await;

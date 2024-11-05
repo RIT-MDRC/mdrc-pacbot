@@ -166,22 +166,23 @@ impl FrequentServerToRobot {
 
 /// Firmware related items MUST remain first, or OTA programming will break
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[repr(usize)]
 pub enum ServerToRobotMessage {
-    ReadyToStartUpdate,
+    ReadyToStartUpdate = 0,
     FirmwareWritePart {
         offset: usize,
         len: usize,
-    },
-    CalculateFirmwareHash(u32),
-    MarkFirmwareUpdated,
-    IsFirmwareSwapped,
-    Reboot,
-    MarkFirmwareBooted,
-    CancelFirmwareUpdate,
+    } = 1,
+    CalculateFirmwareHash(u32) = 2,
+    MarkFirmwareUpdated = 3,
+    IsFirmwareSwapped = 4,
+    Reboot = 5,
+    MarkFirmwareBooted = 6,
+    CancelFirmwareUpdate = 7,
     /// See [`FrequentServerToRobot`]
-    FrequentRobotItems(FrequentServerToRobot),
-    Ping,
-    ResetAngle,
+    FrequentRobotItems(FrequentServerToRobot) = 8,
+    Ping = 9,
+    ResetAngle = 10,
 }
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]

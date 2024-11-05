@@ -193,9 +193,9 @@ impl<
     /// See [`ThreadedSocket`] for full usage example
     pub fn new<
         SocketType: ThreadableSocket<SendType, ReceiveType> + 'static,
-        Serializer: FnMut(SendType) -> Result<Vec<u8>, SerializeResult> + Send + 'static,
+        Serializer: FnMut(bool, TextOrT<SendType>) -> Result<Vec<u8>, SerializeResult> + Send + 'static,
         SerializeResult: Debug + 'static,
-        Deserializer: FnMut(&[u8]) -> Result<Vec<TextOrT<ReceiveType>>, DeserializeResult> + Send + 'static,
+        Deserializer: FnMut(bool, &[u8]) -> Result<Vec<TextOrT<ReceiveType>>, DeserializeResult> + Send + 'static,
         DeserializeResult: Debug + 'static,
     >(
         name: String,
@@ -312,9 +312,9 @@ async fn run_socket_forever<
     OutgoingType: Serialize + Debug,
     IncomingType: DeserializeOwned + Debug,
     SocketType: ThreadableSocket<OutgoingType, IncomingType>,
-    Serializer: FnMut(OutgoingType) -> Result<Vec<u8>, SerializeResult>,
+    Serializer: FnMut(bool, TextOrT<OutgoingType>) -> Result<Vec<u8>, SerializeResult>,
     SerializeResult: Debug,
-    Deserializer: FnMut(&[u8]) -> Result<Vec<TextOrT<IncomingType>>, DeserializeResult>,
+    Deserializer: FnMut(bool, &[u8]) -> Result<Vec<TextOrT<IncomingType>>, DeserializeResult>,
     DeserializeResult: Debug,
 >(
     name: String,
@@ -327,6 +327,8 @@ async fn run_socket_forever<
 ) -> Result<(), ()> {
     let mut addr: Option<Address> = None;
     let mut socket: Option<SocketType> = None;
+    let mut sent_first_message = false;
+    let mut received_first_message = false;
 
     loop {
         if socket.is_none() {
@@ -369,6 +371,8 @@ async fn run_socket_forever<
                 if addr != new_addr.unwrap() {
                     console_log!("[{name}] Address changed from {addr:?} to {new_addr:?}");
                     statuses.send(NetworkStatus::NotConnected).await.map_err(|_| ())?;
+                    sent_first_message = false;
+                    received_first_message = false;
                     if let Some(socket) = socket.take() {
                         console_log!("[{name}] Closing socket to {addr:?}");
                         socket.my_close().await
@@ -381,8 +385,9 @@ async fn run_socket_forever<
                     // console_log!("[{name}] Received data from {addr:?}");
                     let incoming_data = match incoming_data {
                         TextOrT::T(data) => {
-                            match deserializer(&data) {
+                            match deserializer(received_first_message, &data) {
                                 Ok(data) => for d in data {
+                                    received_first_message = true;
                                     data_incoming.send(d).await.map_err(|_| ())?;
                                 },
                                 Err(e) => {
@@ -399,6 +404,8 @@ async fn run_socket_forever<
                     }
                 } else {
                     console_log!("[{name}] Connection closed to {addr:?} due to error reading");
+                    sent_first_message = false;
+                    received_first_message = false;
                     statuses.send(NetworkStatus::ConnectionFailed).await.map_err(|_| ())?;
                     if let Some(socket) = socket.take() {
                         console_log!("[{name}] Closing socket to {addr:?}");
@@ -410,10 +417,10 @@ async fn run_socket_forever<
                 if let Some(socket) = &mut socket {
                     // console_log!("[{name}] Sending data to {addr:?}");
                     let outgoing_data = match outgoing_data.map_err(|_| ())? {
-                        TextOrT::T(data) => TextOrT::T(serializer(data).expect("failed to serialize data")),
                         TextOrT::Text(text) => TextOrT::Text(text),
-                        TextOrT::Bytes(data) => TextOrT::Bytes(data)
+                        t => TextOrT::Bytes(serializer(sent_first_message, t).expect("failed to serialize data")),
                     };
+                    sent_first_message = true;
                     socket.my_send(outgoing_data).await
                 }
             }

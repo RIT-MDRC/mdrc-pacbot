@@ -1,3 +1,4 @@
+use crate::driving::error;
 use embedded_io_async::{Read, ReadReady};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -24,8 +25,11 @@ pub enum TcpError {
     DecodeError(bincode::error::DecodeError),
     Deserialization,
     InsufficientSpace,
+    InvalidMessageSize,
     SocketError,
     WouldBlock,
+    MessageMissing,
+    Eof,
 }
 
 pub fn write_tcp<'a, T: Serialize>(
@@ -51,7 +55,10 @@ pub fn write_tcp<'a, T: Serialize>(
             false
         }
         BytesOrT::Bytes(bytes) => {
-            buf[msg_size..].copy_from_slice(bytes);
+            if msg_size + bytes.len() > buf.len() {
+                return Err(TcpError::InsufficientSpace);
+            }
+            buf[msg_size..msg_size + bytes.len()].copy_from_slice(bytes);
             msg_size += bytes.len();
             true
         }
@@ -69,7 +76,7 @@ pub fn write_tcp<'a, T: Serialize>(
 }
 
 pub struct StatefulTcpReader {
-    buf: [u8; 4096],
+    buf: [u8; 5192],
     buf_len: usize,
     used_len: usize,
 }
@@ -77,10 +84,15 @@ pub struct StatefulTcpReader {
 impl StatefulTcpReader {
     pub fn new() -> Self {
         Self {
-            buf: [0; 4096],
+            buf: [0; 5192],
             buf_len: 0,
             used_len: 0,
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.buf_len = 0;
+        self.used_len = 0;
     }
 
     pub async fn try_read_socket<'a, T: DeserializeOwned>(
@@ -89,7 +101,7 @@ impl StatefulTcpReader {
     ) -> Result<TcpMessage<'a, T>, TcpError> {
         if socket.read_ready().map_err(|_| TcpError::SocketError)? {
             self.buf_len += socket
-                .read(&mut self.buf)
+                .read(&mut self.buf[self.buf_len..])
                 .await
                 .map_err(|_| TcpError::SocketError)?;
         }
@@ -104,15 +116,19 @@ impl StatefulTcpReader {
         socket: &mut impl Read,
     ) -> Result<TcpMessage<'a, T>, TcpError> {
         loop {
-            self.buf_len += socket
-                .read(&mut self.buf)
-                .await
-                .map_err(|_| TcpError::SocketError)?;
             if self.has_message() {
                 break;
             }
+            let new_len = socket
+                .read(&mut self.buf[self.buf_len..])
+                .await
+                .map_err(|_| TcpError::SocketError)?;
+            if new_len == 0 {
+                return Err(TcpError::Eof);
+            }
+            self.buf_len += new_len;
         }
-        self.fetch_message()?.ok_or(TcpError::WouldBlock)
+        self.fetch_message()?.ok_or(TcpError::MessageMissing)
     }
 
     #[cfg(feature = "std")]
@@ -120,14 +136,14 @@ impl StatefulTcpReader {
         &'a mut self,
         buf: &mut &[u8],
     ) -> Result<TcpMessage<'a, T>, TcpError> {
-        self.buf_len +=
-            std::io::Read::read(buf, &mut self.buf).map_err(|_| TcpError::SocketError)?;
+        self.buf_len += std::io::Read::read(buf, &mut self.buf[self.buf_len..])
+            .map_err(|_| TcpError::SocketError)?;
         self.fetch_message()?.ok_or(TcpError::WouldBlock)
     }
 
     fn clear_used(&mut self) {
         if self.used_len > 0 {
-            self.buf.copy_within(0..self.used_len, 0);
+            self.buf.copy_within(self.used_len..self.buf_len, 0);
             self.buf_len -= self.used_len;
             self.used_len = 0;
         }
@@ -148,15 +164,18 @@ impl StatefulTcpReader {
     }
 
     fn fetch_message<T: DeserializeOwned>(&mut self) -> Result<Option<TcpMessage<T>>, TcpError> {
-        if self.used_len > 0 {
-            self.buf.copy_within(0..self.used_len, 0);
-            self.buf_len -= self.used_len;
-            self.used_len = 0;
-        }
+        self.clear_used();
         // do we have a message?
         if self.buf_len >= 9 {
             // do we have the whole message?
             let msg_size = u32::from_be_bytes(self.buf[0..4].try_into().unwrap()) as usize;
+            if msg_size < 9 {
+                error!("Received invalid message size {}", msg_size);
+                // this is impossible... reset internal buffers in hopes of recovery
+                self.used_len = 0;
+                self.buf_len = 0;
+                return Err(TcpError::InvalidMessageSize);
+            }
             if self.buf_len >= msg_size {
                 // we do have the whole message
                 // we can't remove the bytes from the buffer because we might have to return

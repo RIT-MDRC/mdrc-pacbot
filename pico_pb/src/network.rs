@@ -114,8 +114,8 @@ impl RobotNetworkBehavior for Network {
     async fn tcp_accept<'a>(
         &mut self,
         port: u16,
-        tx_buffer: &'a mut [u8; 5000],
-        rx_buffer: &'a mut [u8; 5000],
+        tx_buffer: &'a mut [u8; 5192],
+        rx_buffer: &'a mut [u8; 5192],
     ) -> Result<Self::Socket<'a>, <Self as RobotNetworkBehavior>::Error>
     where
         Self: 'a,
