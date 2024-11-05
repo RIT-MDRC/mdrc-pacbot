@@ -59,7 +59,7 @@ pub trait RobotNetworkBehavior {
         Self: 'a;
 
     /// Dispose of the current socket
-    async fn tcp_close<'a>(&mut self, socket: &Self::Socket<'a>);
+    async fn tcp_close<'a>(&mut self, socket: &mut Self::Socket<'a>);
 
     async fn prepare_firmware_update(&mut self);
 
@@ -245,7 +245,7 @@ impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
             }
             ServerToRobotMessage::Reboot => {
                 self.send(s, RobotToServerMessage::Rebooting).await;
-                self.network.tcp_close(&s).await;
+                self.network.tcp_close(s).await;
                 self.network.reboot().await;
                 unreachable!("o7")
             }
@@ -292,8 +292,8 @@ impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
             }
 
             match event {
-                Either::Left(Err(e)) => {
-                    error!("Socket failed with error: {:?}", e);
+                Either::Left(Err(_e)) => {
+                    // error!("Socket failed with error: {:?}", e);
                     break;
                 }
                 Either::Right(m) => self.handle_inter_task_message(s, m).await,

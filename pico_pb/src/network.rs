@@ -133,7 +133,7 @@ impl RobotNetworkBehavior for Network {
         Ok(socket)
     }
 
-    async fn tcp_close<'a>(&mut self, mut socket: Self::Socket<'a>) {
+    async fn tcp_close<'a>(&mut self, socket: &mut Self::Socket<'a>) {
         socket.close()
     }
 
