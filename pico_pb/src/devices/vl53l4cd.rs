@@ -24,12 +24,6 @@ impl From<vl53l4cd::Error<I2cDeviceError<i2c::Error>>> for PeripheralsError {
     }
 }
 
-impl From<I2cDeviceError<i2c::Error>> for PeripheralsError {
-    fn from(_value: I2cDeviceError<i2c::Error>) -> Self {
-        Self::DistanceSensorError(None)
-    }
-}
-
 pub struct PacbotDistanceSensor {
     enabled: &'static AtomicBool,
     results: &'static Signal<ThreadModeRawMutex, Result<Option<u16>, PeripheralsError>>,

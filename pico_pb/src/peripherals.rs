@@ -1,4 +1,5 @@
 use crate::devices::bno08x::{ImuError, PacbotIMU};
+use crate::devices::ltc2943::Ltc2943;
 use crate::devices::ssd1306::{PacbotDisplay, PacbotDisplayWrapper};
 use crate::devices::vl53l4cd::PacbotDistanceSensor;
 use crate::{EmbassyInstant, PacbotI2cBus};
@@ -8,12 +9,15 @@ use core_pb::driving::RobotInterTaskMessage;
 use core_pb::messages::RobotButton;
 use defmt::Format;
 use display_interface::DisplayError;
+use embassy_embedded_hal::shared_bus::I2cDeviceError;
 use embassy_executor::task;
-use embassy_futures::join::join5;
+use embassy_futures::join::join3;
 use embassy_rp::gpio::{AnyPin, Level, Output};
+use embassy_rp::i2c;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_sync::signal::Signal;
+use futures::future::join4;
 use vl53l4cd::Status;
 
 /// number of distance sensors on the robot
@@ -52,6 +56,16 @@ pub async fn run_dist(
     .await
 }
 
+static BATTERY_MONITOR_ENABLED: AtomicBool = AtomicBool::new(false);
+static BATTERY_MONITOR_SIGNAL: Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>> =
+    Signal::new();
+
+pub async fn run_battery_monitor(enabled: &'static AtomicBool, bus: &'static PacbotI2cBus) {
+    Ltc2943::new(bus, enabled, &BATTERY_MONITOR_SIGNAL)
+        .run_forever()
+        .await
+}
+
 pub static PERIPHERALS_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64> =
     Channel::new();
 
@@ -83,7 +97,15 @@ pub enum PeripheralsError {
     DisplayError(DisplayError),
     DistanceSensorError(Option<Status>),
     ImuError(ImuError),
+    I2cError,
+    BatteryMonitorError,
     Unimplemented,
+}
+
+impl From<I2cDeviceError<i2c::Error>> for PeripheralsError {
+    fn from(_value: I2cDeviceError<i2c::Error>) -> Self {
+        Self::I2cError
+    }
 }
 
 impl RobotPeripheralsBehavior for RobotPeripherals {
@@ -132,12 +154,15 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
 #[task]
 pub async fn manage_pico_i2c(bus: &'static PacbotI2cBus, xshut: [AnyPin; NUM_DIST_SENSORS]) {
     let [a, b, c, d] = xshut;
-    join5(
+    join3(
         run_imu(&IMU_ENABLED, bus),
-        run_dist(&DIST_ENABLED, bus, 0, a),
-        run_dist(&DIST_ENABLED, bus, 1, b),
-        run_dist(&DIST_ENABLED, bus, 2, c),
-        run_dist(&DIST_ENABLED, bus, 3, d),
+        join4(
+            run_dist(&DIST_ENABLED, bus, 0, a),
+            run_dist(&DIST_ENABLED, bus, 1, b),
+            run_dist(&DIST_ENABLED, bus, 2, c),
+            run_dist(&DIST_ENABLED, bus, 3, d),
+        ),
+        run_battery_monitor(&BATTERY_MONITOR_ENABLED, bus),
     )
     .await;
 }
