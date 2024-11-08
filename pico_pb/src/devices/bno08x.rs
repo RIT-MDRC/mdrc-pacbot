@@ -40,11 +40,16 @@ impl PacbotIMU {
 
     pub async fn run_forever(mut self) -> ! {
         loop {
-            if self.initialize().await.is_ok() {
-                self.sensor.handle_one_message(&mut Delay, 10).await;
-                self.results.signal(self.get_measurement().await)
-            } else {
-                Timer::after_millis(300).await;
+            match self.initialize().await {
+                Ok(()) => {
+                    self.sensor.handle_one_message(&mut Delay, 10).await;
+                    self.results.signal(self.get_measurement().await);
+                    Timer::after_millis(20).await;
+                }
+                Err(e) => {
+                    self.results.signal(Err(e));
+                    Timer::after_millis(300).await;
+                }
             }
         }
     }
@@ -85,12 +90,13 @@ impl PacbotIMU {
         self.sensor
             .init(&mut Delay)
             .await
-            .map_err(PeripheralsError::ImuError)?;
+            .map_err(PeripheralsError::ImuInitErr)?;
         self.sensor
             .enable_rotation_vector(10)
             .await
-            .map_err(PeripheralsError::ImuError)?;
+            .map_err(PeripheralsError::ImuInitErr)?;
 
+        self.initialized = true;
         Ok(())
     }
 }

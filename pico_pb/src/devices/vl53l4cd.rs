@@ -78,9 +78,12 @@ impl PacbotDistanceSensor {
                     }
                     Ok(m) => self.results.signal(Ok(m)),
                 }
+                Timer::after_millis(20).await;
             } else {
                 // set XSHUT low to turn the sensor off
                 self.xshut.set_low();
+                self.results
+                    .signal(Err(PeripheralsError::DistanceSensorError(None)));
                 Timer::after_millis(300).await;
                 self.initialized = false;
             }
@@ -136,6 +139,7 @@ impl PacbotDistanceSensor {
         self.sensor.init().await?;
         self.sensor.start_ranging().await?;
 
+        self.initialized = true;
         Ok(())
     }
 }

@@ -102,7 +102,7 @@ struct NetworkData<T: RobotNetworkBehavior, M: RobotTaskMessenger> {
     utilizations: [f32; 3],
 
     socket_failed: bool,
-    serialization_buf: [u8; 512],
+    serialization_buf: [u8; 1024],
 }
 
 impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
@@ -288,6 +288,9 @@ impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
 
             // emit logs if we can find any
             while let Some(count) = T::read_logging_bytes(&mut logs_buffer) {
+                if count == 0 {
+                    break;
+                }
                 self.send_bytes(s, &logs_buffer[..count]).await;
             }
 
@@ -325,7 +328,7 @@ pub async fn network_task<T: RobotNetworkBehavior + 'static, M: RobotTaskMesseng
         utilizations: [0.0; 3],
 
         socket_failed: false,
-        serialization_buf: [0; 512],
+        serialization_buf: [0; 1024],
     };
 
     net.utilization_monitor.start();

@@ -4,6 +4,7 @@ use crate::devices::ssd1306::{PacbotDisplay, PacbotDisplayWrapper};
 use crate::devices::vl53l4cd::PacbotDistanceSensor;
 use crate::{EmbassyInstant, PacbotI2cBus};
 use core::sync::atomic::AtomicBool;
+use core_pb::constants::MM_PER_GU;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::driving::RobotInterTaskMessage;
 use core_pb::messages::RobotButton;
@@ -96,6 +97,7 @@ pub enum PeripheralsError {
     AwaitingMeasurement,
     DisplayError(DisplayError),
     DistanceSensorError(Option<Status>),
+    ImuInitErr(ImuError),
     ImuError(ImuError),
     I2cError,
     BatteryMonitorError,
@@ -133,7 +135,7 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
 
     async fn distance_sensor(&mut self, index: usize) -> Result<Option<f32>, Self::Error> {
         if let Some(dist) = DIST_SIGNALS[index].try_take() {
-            self.distances[index] = dist.map(|x| x.map(|y| y as f32));
+            self.distances[index] = dist.map(|x| x.map(|y| y as f32 / MM_PER_GU));
         }
         self.distances[index].clone()
     }
