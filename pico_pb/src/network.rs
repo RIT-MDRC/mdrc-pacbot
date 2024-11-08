@@ -114,8 +114,8 @@ impl RobotNetworkBehavior for Network {
     async fn tcp_accept<'a>(
         &mut self,
         port: u16,
-        tx_buffer: &'a mut [u8; 5000],
-        rx_buffer: &'a mut [u8; 5000],
+        tx_buffer: &'a mut [u8; 5192],
+        rx_buffer: &'a mut [u8; 5192],
     ) -> Result<Self::Socket<'a>, <Self as RobotNetworkBehavior>::Error>
     where
         Self: 'a,
@@ -133,7 +133,7 @@ impl RobotNetworkBehavior for Network {
         Ok(socket)
     }
 
-    async fn tcp_close<'a>(&mut self, mut socket: Self::Socket<'a>) {
+    async fn tcp_close<'a>(&mut self, socket: &mut Self::Socket<'a>) {
         socket.close()
     }
 
@@ -159,7 +159,7 @@ impl RobotNetworkBehavior for Network {
         matches!(self.updater.get_state(), Ok(State::Swap))
     }
 
-    async fn reboot(self) {
+    async fn reboot(&mut self) {
         Timer::after_secs(3).await;
         cortex_m::peripheral::SCB::sys_reset();
     }

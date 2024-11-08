@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
 pub mod ota;
+pub mod robot_tcp;
 #[cfg(feature = "std")]
 pub mod server_status;
 #[cfg(feature = "std")]
@@ -165,22 +166,23 @@ impl FrequentServerToRobot {
 
 /// Firmware related items MUST remain first, or OTA programming will break
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[repr(usize)]
 pub enum ServerToRobotMessage {
-    ReadyToStartUpdate,
+    ReadyToStartUpdate = 0,
     FirmwareWritePart {
         offset: usize,
         len: usize,
-    },
-    CalculateFirmwareHash(u32),
-    MarkFirmwareUpdated,
-    IsFirmwareSwapped,
-    Reboot,
-    MarkFirmwareBooted,
-    CancelFirmwareUpdate,
+    } = 1,
+    CalculateFirmwareHash(u32) = 2,
+    MarkFirmwareUpdated = 3,
+    IsFirmwareSwapped = 4,
+    Reboot = 5,
+    MarkFirmwareBooted = 6,
+    CancelFirmwareUpdate = 7,
     /// See [`FrequentServerToRobot`]
-    FrequentRobotItems(FrequentServerToRobot),
-    Ping,
-    ResetAngle,
+    FrequentRobotItems(FrequentServerToRobot) = 8,
+    Ping = 9,
+    ResetAngle = 10,
 }
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
@@ -195,10 +197,7 @@ pub struct MotorControlStatus {
 #[repr(usize)]
 pub enum RobotToServerMessage {
     ReadyToStartUpdate = 0,
-    ConfirmFirmwarePart {
-        offset: usize,
-        len: usize,
-    } = 1,
+    ConfirmFirmwarePart { offset: usize, len: usize } = 1,
     MarkedFirmwareUpdated = 2,
     FirmwareHash([u8; 32]) = 3,
     Rebooting = 4,
@@ -209,10 +208,6 @@ pub enum RobotToServerMessage {
     Utilization([f32; 3]) = 9,
     Sensors(SensorData) = 10,
     Pong = 11,
-    #[cfg(feature = "std")]
-    LogBytes(Vec<u8>) = 12,
-    /// 255 is reserved for raw bytes for logs
-    Never = 255,
 }
 
 /// The different async tasks that run on the robot

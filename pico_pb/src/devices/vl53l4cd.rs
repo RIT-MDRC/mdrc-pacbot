@@ -1,5 +1,6 @@
 use crate::peripherals::PeripheralsError;
 use crate::{PacbotI2cBus, PacbotI2cDevice};
+use core::sync::atomic::{AtomicBool, Ordering};
 use defmt::info;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;
@@ -7,8 +8,9 @@ use embassy_rp::gpio::Output;
 use embassy_rp::i2c;
 use embassy_rp::i2c::Async;
 use embassy_rp::peripherals::I2C1;
-use embassy_sync::blocking_mutex::raw::NoopRawMutex;
-use embassy_time::{Delay, Instant, Timer};
+use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
+use embassy_sync::signal::Signal;
+use embassy_time::{Delay, Timer};
 use embedded_hal_async::i2c::I2c;
 use vl53l4cd::wait::Poll;
 use vl53l4cd::{Status, Vl53l4cd};
@@ -22,28 +24,18 @@ impl From<vl53l4cd::Error<I2cDeviceError<i2c::Error>>> for PeripheralsError {
     }
 }
 
-impl From<I2cDeviceError<i2c::Error>> for PeripheralsError {
-    fn from(_value: I2cDeviceError<i2c::Error>) -> Self {
-        Self::DistanceSensorError(None)
-    }
-}
-
 pub struct PacbotDistanceSensor {
-    enabled: bool,
+    enabled: &'static AtomicBool,
+    results: &'static Signal<ThreadModeRawMutex, Result<Option<u16>, PeripheralsError>>,
 
     index: usize,
     addr: u8,
 
-    last_measurement: Result<Option<u16>, PeripheralsError>,
-    last_measurement_time: Instant,
-    has_update: bool,
-
-    last_init_time: Instant,
     default_sensor: PacbotDistanceSensorType,
     i2c_device: PacbotI2cDevice,
     sensor: PacbotDistanceSensorType,
-
     xshut: Output<'static>,
+    initialized: bool,
 }
 
 impl PacbotDistanceSensor {
@@ -52,123 +44,102 @@ impl PacbotDistanceSensor {
         mut xshut: Output<'static>,
         index: usize,
         addr: u8,
+        enabled: &'static AtomicBool,
+        results: &'static Signal<ThreadModeRawMutex, Result<Option<u16>, PeripheralsError>>,
     ) -> Self {
         // set XSHUT low to turn the sensor off
         xshut.set_low();
 
         Self {
-            enabled: true,
+            enabled,
+            results,
 
             index,
             addr,
 
-            last_measurement: Err(PeripheralsError::Uninitialized),
-            last_measurement_time: Instant::now(),
-            has_update: true,
-
-            last_init_time: Instant::now(),
             default_sensor: Vl53l4cd::new(I2cDevice::new(bus), Delay, Poll),
             i2c_device: I2cDevice::new(bus),
             sensor: Vl53l4cd::with_addr(I2cDevice::new(bus), addr, Delay, Poll),
-
             xshut,
+            initialized: false,
         }
     }
 
-    #[allow(dead_code)]
-    pub fn set_enabled(&mut self, new_enabled: bool) {
-        self.enabled = new_enabled;
-        if !new_enabled {
-            self.xshut.set_low();
-            self.last_measurement = Err(PeripheralsError::Disabled)
-        }
-    }
-
-    pub fn get_result(&mut self) -> Result<Option<u16>, PeripheralsError> {
-        self.has_update = false;
-        self.last_measurement.clone()
-    }
-
-    pub async fn update(&mut self) -> bool {
-        if self.initialize().await.is_ok() {
-            if let Err(e) = self.fetch_measurement().await {
-                self.has_update = true;
-                self.last_measurement = Err(e)
+    pub async fn run_forever(mut self) -> ! {
+        loop {
+            if self.initialize().await.is_ok() {
+                match self.fetch_measurement().await {
+                    Err(PeripheralsError::AwaitingMeasurement) => Timer::after_millis(10).await,
+                    Err(e) => {
+                        // set XSHUT low to turn the sensor off
+                        self.xshut.set_low();
+                        self.results.signal(Err(e));
+                        self.initialized = false;
+                    }
+                    Ok(m) => self.results.signal(Ok(m)),
+                }
+                Timer::after_millis(20).await;
+            } else {
+                // set XSHUT low to turn the sensor off
+                self.xshut.set_low();
+                self.results
+                    .signal(Err(PeripheralsError::DistanceSensorError(None)));
+                Timer::after_millis(300).await;
+                self.initialized = false;
             }
         }
-        self.has_update
     }
 
-    async fn fetch_measurement(&mut self) -> Result<(), PeripheralsError> {
+    async fn fetch_measurement(&mut self) -> Result<Option<u16>, PeripheralsError> {
         if self.sensor.has_measurement().await? {
             let measurement = self.sensor.read_measurement().await?;
-            self.has_update = true;
-            self.last_measurement_time = Instant::now();
-            self.last_measurement = match measurement.status {
+            let measurement = match measurement.status {
                 Status::Valid => Ok(Some(measurement.distance)),
                 Status::DistanceBelowDetectionThreshold => Ok(Some(0)),
                 Status::SignalTooWeak => Ok(None),
                 status => Err(PeripheralsError::DistanceSensorError(Some(status))),
             };
             self.sensor.clear_interrupt().await?;
-        }
-        if self.last_measurement_time.elapsed().as_secs() >= 1 {
-            Err(PeripheralsError::Timeout)
+            measurement
         } else {
-            Ok(())
+            Err(PeripheralsError::AwaitingMeasurement)
         }
     }
 
-    pub async fn initialize(&mut self) -> Result<(), PeripheralsError> {
+    async fn initialize(&mut self) -> Result<(), PeripheralsError> {
         // do nothing if disabled
-        if !self.enabled {
+        if !self.enabled.load(Ordering::Relaxed) {
+            self.initialized = false;
             return Err(PeripheralsError::Disabled);
         }
 
-        // do nothing if the display is OK, or if initialization has been attempted recently
-        if self.last_measurement.is_ok() || self.last_init_time.elapsed().as_millis() < 500 {
-            return self.last_measurement.clone().map(|_| ());
+        // do nothing if the sensor is OK
+        if self.initialized {
+            return Ok(());
         }
-
-        self.last_init_time = Instant::now();
 
         info!(
             "Attempting to initialize vl53l4cd distance sensor {}",
             self.index
         );
 
-        self.has_update = true;
+        // set XSHUT high to turn the sensor on
+        self.xshut.set_high();
+        Timer::after_millis(300).await;
 
-        async fn init(sensor: &mut PacbotDistanceSensor) -> Result<Option<u16>, PeripheralsError> {
-            // set XSHUT high to turn the sensor on
-            sensor.xshut.set_high();
-            Timer::after_millis(300).await;
+        // initialize sensor with default address
+        self.default_sensor.init().await?;
+        // change address
+        // https://github.com/adafruit/Adafruit_CircuitPython_VL53L4CD/blob/main/adafruit_vl53l4cd.py
+        self.i2c_device
+            .write(vl53l4cd::PERIPHERAL_ADDR, &[0x00, 0x01, self.addr])
+            .await?;
+        Timer::after_millis(300).await;
+        // initialize sensor with new address
+        self.sensor.init().await?;
+        self.sensor.start_ranging().await?;
 
-            // initialize sensor with default address
-            sensor.default_sensor.init().await?;
-            // change address
-            // https://github.com/adafruit/Adafruit_CircuitPython_VL53L4CD/blob/main/adafruit_vl53l4cd.py
-            sensor
-                .i2c_device
-                .write(vl53l4cd::PERIPHERAL_ADDR, &[0x00, 0x01, sensor.addr])
-                .await?;
-            Timer::after_millis(300).await;
-            // initialize sensor with new address
-            sensor.sensor.init().await?;
-            sensor.sensor.start_ranging().await?;
-
-            Ok(None)
-        }
-
-        self.last_measurement = init(self).await;
-        if self.last_measurement.is_err() {
-            // set XSHUT low to turn the sensor off
-            self.xshut.set_low();
-            Timer::after_millis(50).await;
-        } else {
-            self.last_measurement_time = Instant::now();
-        }
-
-        self.last_measurement.clone().map(|_| ())
+        self.initialized = true;
+        Ok(())
     }
 }

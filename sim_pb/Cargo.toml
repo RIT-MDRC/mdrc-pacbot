@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-core_pb = { path = "../core_pb", features = ["std", "robot", "log"] }
+core_pb = { path = "../core_pb", features = ["std", "log"] }
 serde = { version = "1.0.198", features = ["derive", "std"] }
 tungstenite = "0.21.0"
 bincode = { version = "2.0.0-rc.3", features = ["serde"] }

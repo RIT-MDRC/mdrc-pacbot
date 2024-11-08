@@ -3,7 +3,8 @@ pub mod network;
 pub mod peripherals;
 
 use crate::messages::{
-    FrequentServerToRobot, NetworkStatus, RobotToServerMessage, SensorData, Task,
+    FrequentServerToRobot, NetworkStatus, RobotToServerMessage, SensorData, ServerToRobotMessage,
+    Task,
 };
 use core::time::Duration;
 #[cfg(feature = "defmt")]
@@ -16,6 +17,7 @@ pub(crate) use log::*;
 pub enum RobotInterTaskMessage {
     FrequentServerToRobot(FrequentServerToRobot),
     ToServer(RobotToServerMessage),
+    FromServer(ServerToRobotMessage),
     Sensors(SensorData),
     NetworkStatus(NetworkStatus, Option<[u8; 4]>),
     Utilization(f32, Task),

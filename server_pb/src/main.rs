@@ -20,6 +20,7 @@ use core_pb::messages::{
 };
 use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
 use core_pb::pacbot_rs::location::Direction;
+use core_pb::threaded_websocket::TextOrT;
 use core_pb::util::stopwatch::Stopwatch;
 use core_pb::util::utilization::UtilizationMonitor;
 use core_pb::util::StdInstant;
@@ -143,8 +144,8 @@ impl App {
 
                     if self.settings.safe_mode {
                         if let FromRobot(msg) = &msg.1 {
-                            let encoded = bin_encode(msg.clone()).unwrap();
-                            if encoded[0] > 7 {
+                            let encoded = bin_encode(false, TextOrT::T(msg.clone())).unwrap();
+                            if encoded.get(9).map(|x| *x > 7).unwrap_or(false) {
                                 continue;
                             }
                         }
@@ -248,8 +249,8 @@ impl App {
     async fn send(&mut self, destination: Destination, outgoing: Outgoing) {
         if self.settings.safe_mode {
             if let ToRobot(msg) = &outgoing {
-                let encoded = bin_encode(msg.clone()).unwrap();
-                if encoded[0] > 7 {
+                let encoded = bin_encode(false, TextOrT::T(msg.clone())).unwrap();
+                if encoded.get(9).map(|x| *x > 7).unwrap_or(false) {
                     return;
                 }
             }
