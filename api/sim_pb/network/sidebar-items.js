@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["GAME_FPS"],"fn":["update_network"],"struct":["PacbotNetworkSimulation"]};
