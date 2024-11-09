@@ -310,6 +310,52 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         },
     );
     ui.end_row();
+
+    num(
+        "lookahead_distance".to_string(),
+        ui,
+        fields,
+        &mut app.settings.robots[app.settings.pacman as usize]
+            .config
+            .lookahead_dist,
+        "Lookahead distance",
+        true,
+    );
+
+    num(
+        "robot_speed".to_string(),
+        ui,
+        fields,
+        &mut app.settings.robots[app.settings.pacman as usize]
+            .config
+            .robot_speed,
+        "Robot speed",
+        true,
+    );
+
+    num(
+        "snapping_distance".to_string(),
+        ui,
+        fields,
+        &mut app.settings.robots[app.settings.pacman as usize]
+            .config
+            .snapping_dist,
+        "Snapping distance",
+        true,
+    );
+
+    num(
+        "cv_error".to_string(),
+        ui,
+        fields,
+        &mut app.settings.robots[app.settings.pacman as usize]
+            .config
+            .cv_error,
+        "CV error",
+        true,
+    );
+
+    ui.end_row();
     dropdown(
         ui,
         "angle behavior".to_string(),

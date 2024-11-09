@@ -145,6 +145,10 @@ pub struct FrequentServerToRobot {
     pub target_path: heapless::Vec<Point2<i8>, MAX_ROBOT_PATH_LENGTH>,
     /// Whether the robot should try to follow the target path (including maintaining heading 0)
     pub follow_target_path: bool,
+    pub lookahead_dist: f32,
+    pub robot_speed: f32,
+    pub snapping_dist: f32,
+    pub cv_error: f32,
 }
 
 impl FrequentServerToRobot {
@@ -161,6 +165,10 @@ impl FrequentServerToRobot {
             cv_location: None,
             target_path: heapless::Vec::new(),
             follow_target_path: false,
+            lookahead_dist: 0.5,
+            robot_speed: 1.5,
+            snapping_dist: 0.3,
+            cv_error: 1.5,
         }
     }
 }
