@@ -243,6 +243,16 @@ impl App {
                 ToRobot(ServerToRobotMessage::FrequentRobotItems(data)),
             )
             .await;
+
+            if self.settings.robots[name as usize].extra_opts_enabled {
+                self.send(
+                    Robot(name),
+                    ToRobot(ServerToRobotMessage::ExtraOpts(
+                        self.settings.robots[name as usize].extra_opts,
+                    )),
+                )
+                .await;
+            }
         }
     }
 
@@ -299,8 +309,7 @@ impl App {
                             .grid
                             .walkable_nodes()
                             .iter()
-                            .map(|p| self.grid.bfs_path(cv_loc, *p))
-                            .flatten()
+                            .flat_map(|p| self.grid.bfs_path(cv_loc, *p))
                             .choose(&mut thread_rng())
                         {
                             self.status.target_path = path.into_iter().skip(1).collect();

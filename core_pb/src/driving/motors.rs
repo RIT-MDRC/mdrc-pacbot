@@ -111,11 +111,13 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
         }
 
         // clamp if within tol rads
-        angle_diff = if angle_diff.abs() < tol { 0.0 } else { angle_diff };
+        angle_diff = if angle_diff.abs() < tol {
+            0.0
+        } else {
+            angle_diff
+        };
 
-        let correction = angle_diff * p;
-
-        correction
+        angle_diff * p
     }
 
     loop {
