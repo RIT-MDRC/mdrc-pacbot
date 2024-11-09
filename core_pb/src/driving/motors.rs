@@ -13,7 +13,7 @@ use crate::util::CrossPlatformInstant;
 use core::fmt::Debug;
 use core::time::Duration;
 #[cfg(not(feature = "std"))]
-use nalgebra::ComplexField;
+use micromath::F32Ext;
 use nalgebra::{Rotation2, Vector2};
 use pid::Pid;
 
@@ -159,7 +159,7 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
                 data.set_points = [0.0; 3];
                 data.pwm = [[0; 2]; 3];
                 if let Some((lin, ang)) = match data.config.target_velocity {
-                    VelocityControl::None => None,
+                    VelocityControl::None | VelocityControl::AssistedDriving(_) => None,
                     VelocityControl::Stop => Some((Vector2::new(0.0, 0.0), 0.0)),
                     VelocityControl::LinVelAngVel(lin, ang) => Some((lin, ang)),
                     VelocityControl::LinVelFixedAng(lin, set_ang) => sensors
@@ -169,7 +169,21 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
                     VelocityControl::LinVelFaceForward(lin) => sensors
                         .as_ref()
                         .and_then(|s| s.angle.clone().ok())
-                        .map(|cur_ang| (lin, adjust_ang_vel(cur_ang, 0.0, angle_p, angle_tol))),
+                        .map(|cur_ang| {
+                            (
+                                lin,
+                                if lin.magnitude() < 0.01 {
+                                    0.0
+                                } else {
+                                    adjust_ang_vel(
+                                        cur_ang,
+                                        f32::atan2(lin.y, lin.x),
+                                        angle_p,
+                                        angle_tol,
+                                    )
+                                },
+                            )
+                        }),
                 } {
                     data.set_points = data.drive_system.get_motor_speed_omni(lin, ang);
                 }

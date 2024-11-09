@@ -64,6 +64,7 @@ pub enum VelocityControl {
     LinVelAngVel(Vector2<f32>, f32),
     LinVelFixedAng(Vector2<f32>, f32),
     LinVelFaceForward(Vector2<f32>),
+    AssistedDriving(Vector2<f32>),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
