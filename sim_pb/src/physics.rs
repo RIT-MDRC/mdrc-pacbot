@@ -96,6 +96,7 @@ impl MyApp {
             sim_robot.ang_velocity = v.angvel;
 
             let mut distance_sensors: [Result<Option<f32>, ()>; 4] = [Err(()); 4];
+            let mut rng = thread_rng();
 
             for (i, _) in distance_sensors.into_iter().enumerate() {
                 let ray_pos = Vec2::new(
@@ -118,7 +119,9 @@ impl MyApp {
                     rapier_context.cast_ray_and_get_normal(ray_pos, ray_dir, max_toi, solid, filter)
                 {
                     let hit_point = intersection.point;
-                    let distance = ray_pos.distance(hit_point);
+                    let noise_range: f32 = 0.1;
+                    let dist_noise: f32 = 1.0 + rng.gen_range(-noise_range..noise_range);
+                    let distance = ray_pos.distance(hit_point) * dist_noise;
 
                     distance_sensors[i] = Ok(Some(distance));
                 } else {
@@ -128,7 +131,7 @@ impl MyApp {
 
             sim_robot.distance_sensors = distance_sensors;
 
-            let mut rng = thread_rng();
+            
             let noise_rng: f32 = 0.08;
             let mut motor_speeds = sim_robot
                 .wasd_motor_speeds
