@@ -12,6 +12,7 @@ use core_pb::threaded_websocket::TextOrT;
 use eframe::egui;
 use eframe::egui::{Align, Color32, Layout, TextEdit, Ui, WidgetText};
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::str::FromStr;
@@ -28,8 +29,7 @@ pub struct UiSettings {
     pub robots_collapsed: [bool; NUM_ROBOT_NAMES],
     pub graph_lines: [[bool; 4]; 3],
 
-    pub do_lock_angle: bool,
-    pub locked_angle: Option<f32>,
+    pub angle_behavior: VelocityControlAngleBehavior,
 
     pub record_motor_data: bool,
 }
@@ -52,12 +52,19 @@ impl Default for UiSettings {
             robots_collapsed: [true; NUM_ROBOT_NAMES],
             graph_lines: [[true; 4]; 3],
 
-            do_lock_angle: false,
-            locked_angle: None,
+            angle_behavior: VelocityControlAngleBehavior::Free,
 
             record_motor_data: false,
         }
     }
+}
+
+#[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub enum VelocityControlAngleBehavior {
+    Free,
+    Locked(f32),
+    FaceForward,
+    AssistedDriving,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -303,18 +310,24 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         },
     );
     ui.end_row();
-    ui.checkbox(&mut app.ui_settings.do_lock_angle, "Lock angle");
-    if app.ui_settings.do_lock_angle && app.ui_settings.locked_angle.is_none() {
-        if let Ok(angle) =
-            app.server_status.robots[app.ui_settings.selected_robot as usize].imu_angle
-        {
-            app.ui_settings.locked_angle = Some(angle);
-        }
-    }
-    if !app.ui_settings.do_lock_angle {
-        app.ui_settings.locked_angle = None;
-    }
-    ui.end_row();
+    dropdown(
+        ui,
+        "angle behavior".to_string(),
+        "Manual Angle Behavior",
+        &mut app.ui_settings.angle_behavior,
+        &[
+            VelocityControlAngleBehavior::Free,
+            VelocityControlAngleBehavior::Locked(
+                app.server_status.robots[app.ui_settings.selected_robot as usize]
+                    .clone()
+                    .imu_angle
+                    .unwrap_or(0.0),
+            ),
+            VelocityControlAngleBehavior::FaceForward,
+            VelocityControlAngleBehavior::AssistedDriving,
+            VelocityControlAngleBehavior::Locked(0.0),
+        ],
+    );
     ui.end_row();
 
     ui.separator();
