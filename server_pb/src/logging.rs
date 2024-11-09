@@ -20,7 +20,6 @@ struct RobotLoggersBadBox {
 
 impl RobotLoggers {
     pub fn generate() -> Result<Self, ()> {
-        return Err(());
         let elf = std::fs::read("pico_pb/target/thumbv6m-none-eabi/release/mdrc-pacbot-pico")
             .map_err(|_| ())?;
 
@@ -37,7 +36,6 @@ impl RobotLoggers {
     }
 
     pub fn feed_robot_logs(&mut self, name: RobotName, bytes: &[u8]) {
-        return;
         self.bad_box.with_decoders_mut(|d| {
             d[name as usize].received(bytes);
             loop {

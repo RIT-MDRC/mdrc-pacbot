@@ -163,10 +163,10 @@ impl FrequentServerToRobot {
             cv_location: None,
             target_path: heapless::Vec::new(),
             follow_target_path: false,
-            lookahead_dist: 0.0,
-            robot_speed: 0.0,
-            snapping_dist: 0.0,
-            cv_error: 0.0,
+            lookahead_dist: 0.5,
+            robot_speed: 1.5,
+            snapping_dist: 0.3,
+            cv_error: 1.5,
         }
     }
 }

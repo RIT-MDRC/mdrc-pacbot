@@ -6,7 +6,7 @@ use nalgebra::ComplexField;
 use nalgebra::{Point2, Vector2};
 use ordered_float::NotNan;
 
-const CV_ERROR: f32 = 1.5;
+// const CV_ERROR: f32 = 1.5;
 
 const VECTORS: [Vector2<f32>; 4] = [
     Vector2::new(1.0, 0.0),
@@ -20,6 +20,7 @@ pub fn estimate_location(
     cv_location: Option<Point2<i8>>,
     distance_sensors: &[Result<Option<f32>, heapless::String<MAX_SENSOR_ERR_LEN>>; 4],
     robot: &RobotDefinition<3>,
+    cv_error: f32,
 ) -> Option<Point2<f32>> {
     let cv_location_int = cv_location?;
     let cv_location_f32 = cv_location_int.map(|x| x as f32);
@@ -28,7 +29,7 @@ pub fn estimate_location(
     let mut poses = get_estimated_poses(&grid, cv_location_int, distance_sensors, robot.radius);
 
     if [poses[0], poses[2]].iter().all(|x| {
-        x.map(|pos| get_dist(pos, cv_location_f32) > CV_ERROR)
+        x.map(|pos| get_dist(pos, cv_location_f32) > cv_error)
             .unwrap_or(true)
     }) {
         let mut new_location = cv_location_int;
@@ -43,7 +44,7 @@ pub fn estimate_location(
     }
 
     if [poses[1], poses[3]].iter().all(|x| {
-        x.map(|pos| get_dist(pos, cv_location_f32) > CV_ERROR)
+        x.map(|pos| get_dist(pos, cv_location_f32) > cv_error)
             .unwrap_or(true)
     }) {
         let mut new_location = cv_location_int;

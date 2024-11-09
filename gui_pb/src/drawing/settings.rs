@@ -292,7 +292,9 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         "lookahead_distance".to_string(),
         ui,
         fields,
-        &mut app.settings.target_speed,
+        &mut app.settings.robots[app.settings.pacman as usize]
+            .config
+            .lookahead_dist,
         "Lookahead distance",
     );
 
@@ -300,7 +302,9 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         "robot_speed".to_string(),
         ui,
         fields,
-        &mut app.settings.target_speed,
+        &mut app.settings.robots[app.settings.pacman as usize]
+            .config
+            .robot_speed,
         "Robot speed",
     );
 
@@ -308,7 +312,9 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         "snapping_distance".to_string(),
         ui,
         fields,
-        &mut app.settings.target_speed,
+        &mut app.settings.robots[app.settings.pacman as usize]
+            .config
+            .snapping_dist,
         "Snapping distance",
     );
 
@@ -316,7 +322,9 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         "cv_error".to_string(),
         ui,
         fields,
-        &mut app.settings.target_speed,
+        &mut app.settings.robots[app.settings.pacman as usize]
+            .config
+            .cv_error,
         "CV error",
     );
 
