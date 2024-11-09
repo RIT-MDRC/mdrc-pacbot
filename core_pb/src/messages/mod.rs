@@ -183,6 +183,15 @@ pub enum ServerToRobotMessage {
     FrequentRobotItems(FrequentServerToRobot) = 8,
     Ping = 9,
     ResetAngle = 10,
+    ExtraOpts(ExtraOptsTypes) = 11,
+}
+
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize, PartialOrd, PartialEq)]
+pub struct ExtraOptsTypes {
+    pub opts_bool: [bool; 8],
+    pub opts_f32: [f32; 4],
+    pub opts_i8: [i8; 4],
+    pub opts_i32: [i32; 4],
 }
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
@@ -208,6 +217,7 @@ pub enum RobotToServerMessage {
     Utilization([f32; 3]) = 9,
     Sensors(SensorData) = 10,
     Pong = 11,
+    ReceivedExtraOpts(ExtraOptsTypes) = 12,
 }
 
 /// The different async tasks that run on the robot

@@ -1,3 +1,4 @@
+pub mod extra_opts;
 pub mod game;
 pub mod motors;
 pub mod over_the_air;

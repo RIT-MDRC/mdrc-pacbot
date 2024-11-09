@@ -1,6 +1,6 @@
 use crate::constants::{GAME_SERVER_PORT, SIMULATION_LISTENER_PORT};
 use crate::grid::standard_grid::StandardGrid;
-use crate::messages::FrequentServerToRobot;
+use crate::messages::{ExtraOptsTypes, FrequentServerToRobot};
 use crate::names::{RobotName, NUM_ROBOT_NAMES};
 use nalgebra::Point2;
 use serde::{Deserialize, Serialize};
@@ -139,6 +139,11 @@ pub struct RobotSettings {
     pub connection: ConnectionSettings,
     /// Configuration; see [`FrequentServerToRobot`]
     pub config: FrequentServerToRobot,
+
+    /// Whether to send extra_opts to robot
+    pub extra_opts_enabled: bool,
+    /// A collection of variables available in any context in robot code, for temporary testing
+    pub extra_opts: ExtraOptsTypes,
 }
 
 impl RobotSettings {
@@ -151,6 +156,9 @@ impl RobotSettings {
                 port: name.port(),
             },
             config: FrequentServerToRobot::new(name),
+
+            extra_opts_enabled: false,
+            extra_opts: ExtraOptsTypes::default(),
         }
     }
 }

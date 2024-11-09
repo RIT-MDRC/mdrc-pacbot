@@ -1,3 +1,4 @@
+use crate::drawing::extra_opts::draw_extra_opts;
 use crate::drawing::game::{draw_game, draw_grid};
 use crate::drawing::motors::draw_motors;
 use crate::drawing::over_the_air::draw_over_the_air;
@@ -30,6 +31,8 @@ pub enum Tab {
     RobotDisplay,
     /// Simulated robot controls
     RobotButtonPanel,
+    /// Extra options for temporary testing
+    ExtraOpts,
 }
 
 impl TabViewer for App {
@@ -46,6 +49,7 @@ impl TabViewer for App {
             Tab::OverTheAirProgramming => "OTA Programming",
             Tab::RobotDisplay => "Robot Display",
             Tab::RobotButtonPanel => "Robot Button Panel",
+            Tab::ExtraOpts => "Extra Opts",
             Tab::Unknown => "?",
         }
         .into()
@@ -219,6 +223,9 @@ impl TabViewer for App {
                 // ui.label("[space] Pause/unpause");
                 // ui.label("[right] Next frame");
                 // ui.label("[shift + right] Go to end");
+            }
+            Tab::ExtraOpts => {
+                draw_extra_opts(self, ui);
             }
             _ => {
                 ui.label(self.title(tab));

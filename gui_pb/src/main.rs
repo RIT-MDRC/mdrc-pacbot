@@ -164,8 +164,13 @@ impl App {
 
         cc.egui_ctx.set_fonts(fonts);
 
-        let mut dock_state =
-            DockState::new(vec![Tab::Grid, Tab::Motors, Tab::Robot, Tab::Stopwatch]);
+        let mut dock_state = DockState::new(vec![
+            Tab::Grid,
+            Tab::Motors,
+            Tab::Robot,
+            Tab::Stopwatch,
+            Tab::ExtraOpts,
+        ]);
         let surface = dock_state.main_surface_mut();
         surface.split_right(NodeIndex::root(), 0.75, vec![Tab::Settings]);
         let [_, left] = surface.split_left(

@@ -17,6 +17,7 @@ std = [
     "futures/executor",
     "futures/async-await",
     "ecolor",
+    "portable-atomic/std"
 ]
 wasm = ["pacbot-rs/wasm"]
 
@@ -42,6 +43,7 @@ pid = "4.0.0"
 ecolor = { version = "0.27.2", optional = true }
 egui-phosphor = { version = "0.5.0", optional = true }
 format_no_std = { version = "1.2.0" }
+portable-atomic = { version = "1.9.0", features = ["float"] }
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

@@ -129,6 +129,9 @@ impl App {
                 )
                 .await;
             }
+            (Robot(name), FromRobot(RobotToServerMessage::ReceivedExtraOpts(opts))) => {
+                self.status.robots[name as usize].received_extra_opts = Some(opts);
+            }
             (Robot(name), FromRobot(msg)) => info!("Message received from {name}: {msg:?}"),
             (Robot(_), _) => {}
             (_, FromRobot(_)) => {}

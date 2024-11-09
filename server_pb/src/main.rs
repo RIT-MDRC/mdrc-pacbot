@@ -243,6 +243,16 @@ impl App {
                 ToRobot(ServerToRobotMessage::FrequentRobotItems(data)),
             )
             .await;
+
+            if self.settings.robots[name as usize].extra_opts_enabled {
+                self.send(
+                    Robot(name),
+                    ToRobot(ServerToRobotMessage::ExtraOpts(
+                        self.settings.robots[name as usize].extra_opts,
+                    )),
+                )
+                .await;
+            }
         }
     }
 

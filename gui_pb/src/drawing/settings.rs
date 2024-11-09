@@ -60,7 +60,7 @@ impl Default for UiSettings {
     }
 }
 
-fn validated<T: PartialEq>(
+fn validated<T: PartialEq + Debug>(
     id: String,
     ui: &mut Ui,
     fields: &mut HashMap<String, (String, String)>,
@@ -88,7 +88,8 @@ fn validated<T: PartialEq>(
             if !field.has_focus() && t != *value {
                 let str = to_str(value);
                 last_valid.clone_from(&str);
-                *last_valid = str;
+                *last_valid = str.clone();
+                *last_typed = str;
             } else {
                 *value = t;
             }
@@ -100,7 +101,7 @@ fn validated<T: PartialEq>(
     ui.end_row();
 }
 
-pub fn num<T: FromStr + ToString + PartialEq>(
+pub fn num<T: FromStr + ToString + PartialEq + Debug>(
     id: String,
     ui: &mut Ui,
     fields: &mut HashMap<String, (String, String)>,
