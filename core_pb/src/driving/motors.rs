@@ -13,7 +13,7 @@ use crate::util::CrossPlatformInstant;
 use core::fmt::Debug;
 use core::time::Duration;
 #[cfg(not(feature = "std"))]
-use nalgebra::ComplexField;
+use micromath::F32Ext;
 use nalgebra::{Rotation2, Vector2};
 use pid::Pid;
 
@@ -67,6 +67,10 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
         pid_controller
     });
 
+    // TODO: make this a tunable param
+    let angle_p = 6.0;
+    let angle_tol = 0.03; // rad
+
     let drive_system = robot.drive_system;
 
     let mut data = MotorsData {
@@ -95,16 +99,25 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
         UtilizationMonitor::new(0.0, 0.0);
     utilization_monitor.start();
 
-    fn adjust_ang_vel(curr_ang: f32, desired_ang: f32) -> f32 {
+    fn adjust_ang_vel(curr_ang: f32, desired_ang: f32, p: f32, tol: f32) -> f32 {
         // Calculate the difference between desired angle and current angle
         let mut angle_diff = desired_ang - curr_ang;
 
-        // Normalize the angle to be within -PI to PI
-        angle_diff = (angle_diff + core::f32::consts::PI) % (2.0 * core::f32::consts::PI)
-            - core::f32::consts::PI;
+        // account for angles that cross discontinuity
+        if angle_diff > core::f32::consts::PI {
+            angle_diff -= 2.0 * core::f32::consts::PI;
+        } else if angle_diff < -core::f32::consts::PI {
+            angle_diff += 2.0 * core::f32::consts::PI;
+        }
 
-        // Calculate the angular velocity
-        angle_diff
+        // clamp if within tol rads
+        angle_diff = if angle_diff.abs() < tol {
+            0.0
+        } else {
+            angle_diff
+        };
+
+        angle_diff * p
     }
 
     loop {
@@ -113,7 +126,7 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
                 let mut target_velocity = (Vector2::new(0.0, 0.0), 0.0);
                 // maintain heading 0
                 if let Ok(angle) = sensors.angle {
-                    target_velocity.1 = adjust_ang_vel(angle, 0.0);
+                    target_velocity.1 = adjust_ang_vel(angle, 0.0, angle_p, angle_tol);
                     let angle = Rotation2::new(angle).angle();
                     if angle.abs() < 5.0_f32.to_radians() {
                         // now that we've made sure we're facing the right way, try to follow the path
@@ -152,17 +165,31 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
                 data.set_points = [0.0; 3];
                 data.pwm = [[0; 2]; 3];
                 if let Some((lin, ang)) = match data.config.target_velocity {
-                    VelocityControl::None => None,
+                    VelocityControl::None | VelocityControl::AssistedDriving(_) => None,
                     VelocityControl::Stop => Some((Vector2::new(0.0, 0.0), 0.0)),
                     VelocityControl::LinVelAngVel(lin, ang) => Some((lin, ang)),
                     VelocityControl::LinVelFixedAng(lin, set_ang) => sensors
                         .as_ref()
                         .and_then(|s| s.angle.clone().ok())
-                        .map(|cur_ang| (lin, adjust_ang_vel(cur_ang, set_ang))),
+                        .map(|cur_ang| (lin, adjust_ang_vel(cur_ang, set_ang, angle_p, angle_tol))),
                     VelocityControl::LinVelFaceForward(lin) => sensors
                         .as_ref()
                         .and_then(|s| s.angle.clone().ok())
-                        .map(|cur_ang| (lin, adjust_ang_vel(cur_ang, 0.0))),
+                        .map(|cur_ang| {
+                            (
+                                lin,
+                                if lin.magnitude() < 0.01 {
+                                    0.0
+                                } else {
+                                    adjust_ang_vel(
+                                        cur_ang,
+                                        f32::atan2(lin.y, lin.x),
+                                        angle_p,
+                                        angle_tol,
+                                    )
+                                },
+                            )
+                        }),
                 } {
                     data.set_points = data.drive_system.get_motor_speed_omni(lin, ang);
                 }

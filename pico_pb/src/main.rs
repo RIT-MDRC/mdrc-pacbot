@@ -14,8 +14,7 @@ mod peripherals;
 use crate::encoders::{run_encoders, PioEncoder};
 use crate::motors::{Motors, MOTORS_CHANNEL};
 use crate::network::{initialize_network, Network, NETWORK_CHANNEL};
-use crate::peripherals::manage_pico_i2c;
-use crate::peripherals::{RobotPeripherals, PERIPHERALS_CHANNEL};
+use crate::peripherals::{manage_pico_i2c, RobotPeripherals, PERIPHERALS_CHANNEL};
 use core::ops::{Deref, DerefMut};
 use core_pb::driving::motors::motors_task;
 use core_pb::driving::network::{network_task, RobotNetworkBehavior};
@@ -126,7 +125,6 @@ async fn main(spawner: Spawner) {
         Irqs,
         embassy_rp::i2c::Config::default(),
     )));
-
     unwrap!(spawner.spawn(do_i2c(name, RobotPeripherals::new(i2c_bus))));
     unwrap!(spawner.spawn(manage_pico_i2c(i2c_bus, xshut)));
 

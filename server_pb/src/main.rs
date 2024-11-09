@@ -20,6 +20,7 @@ use core_pb::messages::{
 };
 use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
 use core_pb::pacbot_rs::location::Direction;
+use core_pb::threaded_websocket::TextOrT;
 use core_pb::util::stopwatch::Stopwatch;
 use core_pb::util::utilization::UtilizationMonitor;
 use core_pb::util::StdInstant;
@@ -119,7 +120,7 @@ async fn main() {
 
 impl App {
     async fn run_forever(&mut self) {
-        let mut periodic_interval = interval(Duration::from_millis(100));
+        let mut periodic_interval = interval(Duration::from_millis(20));
         let mut move_interval = interval(Duration::from_secs_f32(1.0 / self.settings.target_speed));
         let mut previous_settings = self.settings.clone();
 
@@ -143,8 +144,8 @@ impl App {
 
                     if self.settings.safe_mode {
                         if let FromRobot(msg) = &msg.1 {
-                            let encoded = bin_encode(msg.clone()).unwrap();
-                            if encoded[0] > 7 {
+                            let encoded = bin_encode(false, TextOrT::T(msg.clone())).unwrap();
+                            if encoded.get(9).map(|x| *x > 7).unwrap_or(false) {
                                 continue;
                             }
                         }
@@ -242,14 +243,24 @@ impl App {
                 ToRobot(ServerToRobotMessage::FrequentRobotItems(data)),
             )
             .await;
+
+            if self.settings.robots[name as usize].extra_opts_enabled {
+                self.send(
+                    Robot(name),
+                    ToRobot(ServerToRobotMessage::ExtraOpts(
+                        self.settings.robots[name as usize].extra_opts,
+                    )),
+                )
+                .await;
+            }
         }
     }
 
     async fn send(&mut self, destination: Destination, outgoing: Outgoing) {
         if self.settings.safe_mode {
             if let ToRobot(msg) = &outgoing {
-                let encoded = bin_encode(msg.clone()).unwrap();
-                if encoded[0] > 7 {
+                let encoded = bin_encode(false, TextOrT::T(msg.clone())).unwrap();
+                if encoded.get(9).map(|x| *x > 7).unwrap_or(false) {
                     return;
                 }
             }
@@ -298,8 +309,7 @@ impl App {
                             .grid
                             .walkable_nodes()
                             .iter()
-                            .map(|p| self.grid.bfs_path(cv_loc, *p))
-                            .flatten()
+                            .flat_map(|p| self.grid.bfs_path(cv_loc, *p))
                             .choose(&mut thread_rng())
                         {
                             self.status.target_path = path.into_iter().skip(1).collect();

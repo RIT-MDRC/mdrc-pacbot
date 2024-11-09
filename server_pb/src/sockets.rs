@@ -17,13 +17,14 @@ use tokio::select;
 use tokio::time::sleep;
 
 use core_pb::constants::GUI_LISTENER_PORT;
+use core_pb::messages::robot_tcp::{write_tcp, BytesOrT, StatefulTcpReader, TcpError};
 use core_pb::messages::{
     GameServerCommand, GuiToServerMessage, NetworkStatus, RobotToServerMessage, ServerToGuiMessage,
     ServerToRobotMessage, ServerToSimulationMessage, SimulationToServerMessage,
 };
 use core_pb::names::RobotName;
 use core_pb::threaded_websocket::{Address, TcpStreamThreadableSocket, TextOrT, ThreadedSocket};
-use core_pb::{bin_decode, bin_encode};
+use core_pb::{bin_decode_single, bin_encode};
 use Destination::*;
 
 use crate::sockets::Incoming::{GuiConnected, GuiDisconnected};
@@ -95,7 +96,7 @@ async fn receive_outgoing(
             "server[game_server]".to_string(),
             None,
             bin_encode,
-            |bytes| Ok::<_, ()>(bytes.to_vec()),
+            |_first, bytes| Ok::<_, ()>(vec![TextOrT::T(bytes.to_vec())]),
         ),
         gs_rx,
         incoming_tx.clone(),
@@ -112,25 +113,45 @@ async fn receive_outgoing(
         Incoming::FromSimulation,
     ));
 
-    fn robot_decoder(bytes: &[u8]) -> Result<RobotToServerMessage, bincode::error::DecodeError> {
-        if !bytes.is_empty() && bytes[0] == 255 {
-            Ok(RobotToServerMessage::LogBytes(bytes[1..].to_vec()))
-        } else {
-            bin_decode(bytes)
-        }
-    }
-
     // robots
     let robots = RobotName::get_all().map(|name| {
         let incoming_tx = incoming_tx.clone();
         let (robot_tx, robot_rx) = unbounded();
+        let mut seq = 0;
+        let mut stateful_tcp_reader = StatefulTcpReader::new();
         let _ = tokio::spawn(manage_threaded_socket(
             Robot(name),
             ThreadedSocket::new::<TcpStreamThreadableSocket, _, _, _, _>(
                 format!("server[{name}]"),
                 None,
-                bin_encode,
-                robot_decoder,
+                move |first, msg: TextOrT<ServerToRobotMessage>| {
+                    let mut buf = [0; 5192];
+                    if first {
+                        seq = 0;
+                    }
+                    let msg2 = match &msg {
+                        TextOrT::T(t) => BytesOrT::T(t.clone()),
+                        TextOrT::Bytes(b) => BytesOrT::Bytes(b),
+                        TextOrT::Text(_) => unimplemented!(),
+                    };
+                    let size = write_tcp::<ServerToRobotMessage>(&mut seq, msg2, &mut buf)?;
+                    Ok::<Vec<u8>, TcpError>(buf[..size].to_vec())
+                },
+                move |first, bytes| {
+                    let bytes_vec = bytes.to_vec();
+                    if first {
+                        stateful_tcp_reader.clear();
+                    }
+                    let mut bytes: &[u8] = &bytes_vec;
+                    let mut msgs = vec![];
+                    while let Ok(msg) = stateful_tcp_reader.read_u8_ref(&mut bytes) {
+                        msgs.push(match msg.msg {
+                            BytesOrT::T(t) => TextOrT::T(t),
+                            BytesOrT::Bytes(bytes) => TextOrT::Bytes(bytes.to_vec()),
+                        });
+                    }
+                    Ok::<_, ()>(msgs)
+                },
             ),
             robot_rx,
             incoming_tx,
@@ -259,7 +280,7 @@ async fn manage_gui_clients(
     loop {
         select! {
             outgoing = rx.recv() => {
-                let msg = Message::Binary(bin_encode(outgoing.map_err(|_| ())?).unwrap());
+                let msg = Message::Binary(bin_encode(false, TextOrT::T(outgoing.map_err(|_| ())?)).unwrap());
                 for r in responders.values_mut() {
                     r.send(msg.clone());
                 }
@@ -275,7 +296,7 @@ async fn manage_gui_clients(
                         tx.send((GuiClients, GuiDisconnected(id))).await.map_err(|_| ())?;
                     }
                     Event::Message(id, msg) => match msg {
-                        Message::Binary(bytes) => match bin_decode(&bytes) {
+                        Message::Binary(bytes) => match bin_decode_single(&bytes) {
                             Ok(msg) => tx.send((GuiClients, Incoming::FromGui(msg))).await.map_err(|_| ())?,
                             Err(e) => error!(
                                 "Failed to decode bytes from gui client {id} ({} bytes): {e:?}",

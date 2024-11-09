@@ -17,12 +17,12 @@ std = [
     "futures/executor",
     "futures/async-await",
     "ecolor",
+    "portable-atomic/std"
 ]
 wasm = ["pacbot-rs/wasm"]
-robot = ["embedded-graphics", "nalgebra/libm-force", "format_no_std"]
 
 [dependencies]
-nalgebra = { version = "0.32.5", default-features = false, features = ["serde-serialize-no-std"] }
+nalgebra = { version = "0.32.5", default-features = false, features = ["serde-serialize-no-std", "libm-force"] }
 ordered-float = { version = "4.2.0", default-features = false }
 pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "423622afedc0b0c33c42497cb4e1f2b73641e747", default-features = false }
 serde = { version = "1.0.201", default-features = false, features = ["derive"] }
@@ -30,7 +30,7 @@ bincode = { version = "2.0.0-rc.3", default-features = false, features = ["serde
 defmt = { version = "0.3.8", optional = true }
 heapless = { version = "0.8.0", features = ["serde"] }
 log = { version = "0.4.22", optional = true }
-embedded-graphics = { version = "0.8.1", optional = true }
+embedded-graphics = { version = "0.8.1" }
 async-channel = { version = "2.3.1", optional = true }
 futures = { version = "0.3.30", default-features = false }
 async-std = { version = "1.12.0", optional = true }
@@ -42,7 +42,8 @@ static_cell = "2"
 pid = "4.0.0"
 ecolor = { version = "0.27.2", optional = true }
 egui-phosphor = { version = "0.5.0", optional = true }
-format_no_std = { version = "1.2.0", optional = true }
+format_no_std = { version = "1.2.0" }
+portable-atomic = { version = "1.9.0", features = ["float"] }
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

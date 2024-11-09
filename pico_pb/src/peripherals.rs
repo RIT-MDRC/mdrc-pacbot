@@ -1,31 +1,71 @@
 use crate::devices::bno08x::{ImuError, PacbotIMU};
+use crate::devices::ltc2943::Ltc2943;
 use crate::devices::ssd1306::{PacbotDisplay, PacbotDisplayWrapper};
 use crate::devices::vl53l4cd::PacbotDistanceSensor;
 use crate::{EmbassyInstant, PacbotI2cBus};
+use core::sync::atomic::AtomicBool;
+use core_pb::constants::MM_PER_GU;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::driving::RobotInterTaskMessage;
 use core_pb::messages::RobotButton;
 use defmt::Format;
 use display_interface::DisplayError;
+use embassy_embedded_hal::shared_bus::I2cDeviceError;
+use embassy_executor::task;
+use embassy_futures::join::join3;
 use embassy_rp::gpio::{AnyPin, Level, Output};
+use embassy_rp::i2c;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_sync::signal::Signal;
-use embassy_time::Timer;
+use futures::future::join4;
 use vl53l4cd::Status;
 
-/// numbr of distance sensors on the robot
+/// number of distance sensors on the robot
 pub const NUM_DIST_SENSORS: usize = 4;
 /// what I2C addresses to reassign each distance sensor to
 pub const DIST_SENSOR_ADDRESSES: [u8; NUM_DIST_SENSORS] = [0x31, 0x32, 0x33, 0x34];
 
-static PERIPHERALS_SIGNAL: Signal<
-    ThreadModeRawMutex,
-    (
-        [Result<Option<f32>, PeripheralsError>; NUM_DIST_SENSORS],
-        Result<f32, PeripheralsError>,
-    ),
-> = Signal::new();
+static IMU_ENABLED: AtomicBool = AtomicBool::new(true);
+static IMU_SIGNAL: Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>> = Signal::new();
+
+pub async fn run_imu(enabled: &'static AtomicBool, bus: &'static PacbotI2cBus) -> ! {
+    PacbotIMU::new(bus, enabled, &IMU_SIGNAL)
+        .run_forever()
+        .await
+}
+
+static DIST_ENABLED: AtomicBool = AtomicBool::new(true);
+static DIST_SIGNALS: [Signal<ThreadModeRawMutex, Result<Option<u16>, PeripheralsError>>;
+    NUM_DIST_SENSORS] = [Signal::new(), Signal::new(), Signal::new(), Signal::new()];
+
+pub async fn run_dist(
+    enabled: &'static AtomicBool,
+    bus: &'static PacbotI2cBus,
+    index: usize,
+    xshut: AnyPin,
+) -> ! {
+    PacbotDistanceSensor::new(
+        bus,
+        Output::new(xshut, Level::Low),
+        index,
+        DIST_SENSOR_ADDRESSES[index],
+        enabled,
+        &DIST_SIGNALS[index],
+    )
+    .run_forever()
+    .await
+}
+
+static BATTERY_MONITOR_ENABLED: AtomicBool = AtomicBool::new(false);
+static BATTERY_MONITOR_SIGNAL: Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>> =
+    Signal::new();
+
+pub async fn run_battery_monitor(enabled: &'static AtomicBool, bus: &'static PacbotI2cBus) {
+    Ltc2943::new(bus, enabled, &BATTERY_MONITOR_SIGNAL)
+        .run_forever()
+        .await
+}
 
 pub static PERIPHERALS_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64> =
     Channel::new();
@@ -35,7 +75,6 @@ pub struct RobotPeripherals {
 
     distances: [Result<Option<f32>, PeripheralsError>; NUM_DIST_SENSORS],
     angle: Result<f32, PeripheralsError>,
-    battery: Result<f32, PeripheralsError>,
 }
 
 impl RobotPeripherals {
@@ -45,21 +84,30 @@ impl RobotPeripherals {
 
             distances: DIST_SENSOR_ADDRESSES.map(|_| Err(PeripheralsError::Uninitialized)),
             angle: Err(PeripheralsError::Uninitialized),
-            battery: Err(PeripheralsError::Uninitialized),
         }
     }
 }
 
 #[derive(Clone, Debug, Format)]
+#[allow(dead_code)]
 pub enum PeripheralsError {
     Uninitialized,
     Disabled,
     Timeout,
+    AwaitingMeasurement,
     DisplayError(DisplayError),
     DistanceSensorError(Option<Status>),
+    ImuInitErr(ImuError),
     ImuError(ImuError),
-    #[allow(dead_code)]
+    I2cError,
+    BatteryMonitorError,
     Unimplemented,
+}
+
+impl From<I2cDeviceError<i2c::Error>> for PeripheralsError {
+    fn from(_value: I2cDeviceError<i2c::Error>) -> Self {
+        Self::I2cError
+    }
 }
 
 impl RobotPeripheralsBehavior for RobotPeripherals {
@@ -79,18 +127,21 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
     }
 
     async fn absolute_rotation(&mut self) -> Result<f32, Self::Error> {
-        self.fetch_sensor_signal().await;
+        if let Some(rot) = IMU_SIGNAL.try_take() {
+            self.angle = rot;
+        }
         self.angle.clone()
     }
 
     async fn distance_sensor(&mut self, index: usize) -> Result<Option<f32>, Self::Error> {
-        self.fetch_sensor_signal().await;
+        if let Some(dist) = DIST_SIGNALS[index].try_take() {
+            self.distances[index] = dist.map(|x| x.map(|y| y as f32 / MM_PER_GU));
+        }
         self.distances[index].clone()
     }
 
     async fn battery_level(&mut self) -> Result<f32, Self::Error> {
-        self.fetch_sensor_signal().await;
-        self.battery.clone()
+        Err(PeripheralsError::Unimplemented)
     }
 
     async fn read_button_event(&mut self) -> Option<(RobotButton, bool)> {
@@ -102,55 +153,18 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
     }
 }
 
-impl RobotPeripherals {
-    async fn fetch_sensor_signal(&mut self) {
-        if let Some((dist, ang)) = PERIPHERALS_SIGNAL.try_take() {
-            self.distances = dist;
-            self.angle = ang;
-        }
-    }
-}
-
-#[embassy_executor::task]
+#[task]
 pub async fn manage_pico_i2c(bus: &'static PacbotI2cBus, xshut: [AnyPin; NUM_DIST_SENSORS]) {
-    let mut i = 0;
-    let mut dist_sensors = xshut.map(|pin| {
-        i += 1;
-        PacbotDistanceSensor::new(
-            bus,
-            // initialize xshut pins with low output to disable sensors
-            Output::new(pin, Level::Low),
-            i - 1,
-            DIST_SENSOR_ADDRESSES[i - 1],
-        )
-    });
-    let mut imu = PacbotIMU::new(bus);
-
-    let mut distances = DIST_SENSOR_ADDRESSES.map(|_| Err(PeripheralsError::Uninitialized));
-    let mut angle = Err(PeripheralsError::Uninitialized);
-
-    loop {
-        // fetch new values
-        let mut changed = false;
-
-        for (i, sensor) in dist_sensors.iter_mut().enumerate() {
-            if sensor.update().await {
-                distances[i] = sensor.get_result();
-                changed = true;
-            }
-        }
-        if imu.update().await {
-            angle = imu.get_result();
-            changed = true;
-        }
-
-        if changed {
-            // convert errors to () and distances to f32
-            PERIPHERALS_SIGNAL.signal((
-                distances.clone().map(|d| d.map(|x| x.map(|x| x as f32))),
-                angle.clone(),
-            ))
-        }
-        Timer::after_millis(1).await;
-    }
+    let [a, b, c, d] = xshut;
+    join3(
+        run_imu(&IMU_ENABLED, bus),
+        join4(
+            run_dist(&DIST_ENABLED, bus, 0, a),
+            run_dist(&DIST_ENABLED, bus, 1, b),
+            run_dist(&DIST_ENABLED, bus, 2, c),
+            run_dist(&DIST_ENABLED, bus, 3, d),
+        ),
+        run_battery_monitor(&BATTERY_MONITOR_ENABLED, bus),
+    )
+    .await;
 }
