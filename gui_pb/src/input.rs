@@ -36,7 +36,13 @@ impl App {
 
         ctx.input(|i| {
             let mut target_vel = (Vector2::new(0.0, 0.0), 0.0);
-            let scale = self.settings.target_speed;
+            let mut scale = self.settings.target_speed;
+            if i.modifiers.shift {
+                scale *= 1.5;
+            }
+            if i.modifiers.ctrl || i.modifiers.command {
+                scale /= 3.0;
+            }
             for (key, (lin, ang)) in [
                 (Key::W, (Vector2::new(0.0, scale), 0.0)),
                 (Key::A, (Vector2::new(-scale, 0.0), 0.0)),
@@ -67,6 +73,16 @@ impl App {
                 }
             }
             if let Some((_, gp)) = self.gilrs.gamepads().next() {
+                if let Some(t) = gp.button_data(Button::LeftTrigger2) {
+                    if t.is_pressed() {
+                        scale /= 3.0;
+                    }
+                }
+                if let Some(t) = gp.button_data(Button::RightTrigger2) {
+                    if t.is_pressed() {
+                        scale *= 1.5;
+                    }
+                }
                 if let Some(left_x) = gp.axis_data(Axis::LeftStickX) {
                     if left_x.value() != 0.0 {
                         target_vel.0 += Vector2::new(left_x.value() * scale, 0.0);
@@ -77,21 +93,36 @@ impl App {
                         target_vel.0 += Vector2::new(0.0, left_y.value() * scale);
                     }
                 }
+                if let Some(right_x) = gp.axis_data(Axis::RightStickX) {
+                    if right_x.value() != 0.0 {
+                        target_vel.1 += -right_x.value() * scale
+                    }
+                }
             }
-            self.set_target_vel(
+            let v =
                 if target_vel == (Vector2::new(0.0, 0.0), 0.0) && !self.ui_settings.do_lock_angle {
                     VelocityControl::None
                 } else {
                     if target_vel.0.magnitude() > 0.01 {
                         target_vel.0 = target_vel.0.normalize() * scale;
                     }
-                    if let Some(angle) = self.ui_settings.locked_angle {
-                        VelocityControl::LinVelFixedAng(target_vel.0, angle)
+                    if let Some(angle) = self.ui_settings.locked_angle.clone() {
+                        if target_vel.1.abs() < 0.01 {
+                            VelocityControl::LinVelFixedAng(target_vel.0, angle)
+                        } else {
+                            if let Ok(angle) = self.server_status.robots
+                                [self.ui_settings.selected_robot as usize]
+                                .imu_angle
+                            {
+                                self.ui_settings.locked_angle = Some(angle);
+                            }
+                            VelocityControl::LinVelAngVel(target_vel.0, target_vel.1)
+                        }
                     } else {
                         VelocityControl::LinVelAngVel(target_vel.0, target_vel.1)
                     }
-                },
-            );
+                };
+            self.set_target_vel(v);
 
             // if the currently selected robot isn't connected, but the game server is, then
             // interpret WASD presses as an attempt to manually play Pacman
