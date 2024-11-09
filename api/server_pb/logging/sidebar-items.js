@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["location_info"],"mod":["ouroboros_impl_robot_loggers_bad_box"],"struct":["RobotLoggers"],"type":["LocationInfo"]};
