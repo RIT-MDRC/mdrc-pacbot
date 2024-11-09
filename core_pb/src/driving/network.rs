@@ -1,6 +1,6 @@
 use crate::driving::{error, info, RobotInterTaskMessage, RobotTaskMessenger, Task};
 use crate::messages::robot_tcp::{write_tcp, BytesOrT, StatefulTcpReader, TcpError, TcpMessage};
-use crate::messages::{NetworkStatus, RobotToServerMessage, ServerToRobotMessage};
+use crate::messages::{ExtraOptsTypes, NetworkStatus, RobotToServerMessage, ServerToRobotMessage};
 use crate::names::RobotName;
 use crate::util::utilization::UtilizationMonitor;
 use crate::util::CrossPlatformInstant;
@@ -263,7 +263,9 @@ impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
             #[allow(deprecated)]
             ServerToRobotMessage::ExtraOpts(opts) => {
                 use crate::driving::{
-                    EXTRA_OPTS_BOOL, EXTRA_OPTS_F32, EXTRA_OPTS_I32, EXTRA_OPTS_I8,
+                    EXTRA_INDICATOR_BOOL, EXTRA_INDICATOR_F32, EXTRA_INDICATOR_I32,
+                    EXTRA_INDICATOR_I8, EXTRA_OPTS_BOOL, EXTRA_OPTS_F32, EXTRA_OPTS_I32,
+                    EXTRA_OPTS_I8,
                 };
                 EXTRA_OPTS_BOOL
                     .iter()
@@ -280,7 +282,27 @@ impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
                 EXTRA_OPTS_I32.iter().zip(opts.opts_i32).for_each(|(b, x)| {
                     b.store(x, Ordering::Relaxed);
                 });
+                // construct extra indicators
+                let mut indicators = ExtraOptsTypes::default();
+                EXTRA_INDICATOR_BOOL
+                    .iter()
+                    .zip(&mut indicators.opts_bool)
+                    .for_each(|(b, x)| *x = b.load(Ordering::Relaxed));
+                EXTRA_INDICATOR_F32
+                    .iter()
+                    .zip(&mut indicators.opts_f32)
+                    .for_each(|(b, x)| *x = b.load(Ordering::Relaxed));
+                EXTRA_INDICATOR_I8
+                    .iter()
+                    .zip(&mut indicators.opts_i8)
+                    .for_each(|(b, x)| *x = b.load(Ordering::Relaxed));
+                EXTRA_INDICATOR_I32
+                    .iter()
+                    .zip(&mut indicators.opts_i32)
+                    .for_each(|(b, x)| *x = b.load(Ordering::Relaxed));
                 self.send(s, RobotToServerMessage::ReceivedExtraOpts(opts))
+                    .await;
+                self.send(s, RobotToServerMessage::ExtraIndicators(indicators))
                     .await;
             }
         }

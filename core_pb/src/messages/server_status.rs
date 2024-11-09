@@ -68,6 +68,7 @@ pub struct RobotStatus {
     pub display: Option<Vec<u128>>,
 
     pub received_extra_opts: Option<ExtraOptsTypes>,
+    pub extra_indicators: Option<ExtraOptsTypes>,
 }
 
 impl RobotStatus {
@@ -93,6 +94,7 @@ impl RobotStatus {
             display: None,
 
             received_extra_opts: None,
+            extra_indicators: None,
         }
     }
 }

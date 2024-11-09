@@ -60,6 +60,7 @@ impl Default for UiSettings {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn validated<T: PartialEq + Debug>(
     id: String,
     ui: &mut Ui,
@@ -68,6 +69,7 @@ fn validated<T: PartialEq + Debug>(
     text: impl Into<WidgetText>,
     validation: fn(&str) -> Option<T>,
     to_str: fn(&T) -> String,
+    end_row: bool,
 ) {
     let text = text.into();
 
@@ -98,7 +100,9 @@ fn validated<T: PartialEq + Debug>(
             last_typed.clone_from(last_valid);
         }
     });
-    ui.end_row();
+    if end_row {
+        ui.end_row();
+    }
 }
 
 pub fn num<T: FromStr + ToString + PartialEq + Debug>(
@@ -107,6 +111,7 @@ pub fn num<T: FromStr + ToString + PartialEq + Debug>(
     fields: &mut HashMap<String, (String, String)>,
     value: &mut T,
     text: impl Into<WidgetText>,
+    end_row: bool,
 ) {
     validated(
         id,
@@ -116,6 +121,7 @@ pub fn num<T: FromStr + ToString + PartialEq + Debug>(
         text,
         |x| x.parse().ok(),
         T::to_string,
+        end_row,
     )
 }
 
@@ -146,6 +152,7 @@ fn ipv4(
             }
         },
         |x| format!("{}.{}.{}.{}", x[0], x[1], x[2], x[3]),
+        true,
     )
 }
 
@@ -222,7 +229,14 @@ pub fn generic_server(
         },
         |ui| {
             ipv4(ip_name, ui, fields, &mut connection_settings.ipv4, "IP");
-            num(port_name, ui, fields, &mut connection_settings.port, "Port");
+            num(
+                port_name,
+                ui,
+                fields,
+                &mut connection_settings.port,
+                "Port",
+                true,
+            );
         },
         tooltip,
     );
@@ -274,6 +288,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         fields,
         &mut app.settings.target_speed,
         "Target speed",
+        true,
     );
     ui.add_enabled_ui(
         app.server_status.robots[app.ui_settings.selected_robot as usize].connection

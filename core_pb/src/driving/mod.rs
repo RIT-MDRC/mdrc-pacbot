@@ -83,3 +83,39 @@ pub static EXTRA_OPTS_I8: [AtomicI8; 4] = [
     AtomicI8::new(0),
     AtomicI8::new(0),
 ];
+
+#[deprecated = "Extra options should only be used for temporary testing"]
+pub static EXTRA_INDICATOR_BOOL: [AtomicBool; 8] = [
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+];
+
+#[deprecated = "Extra options should only be used for temporary testing"]
+pub static EXTRA_INDICATOR_F32: [AtomicF32; 4] = [
+    AtomicF32::new(0.0),
+    AtomicF32::new(0.0),
+    AtomicF32::new(0.0),
+    AtomicF32::new(0.0),
+];
+
+#[deprecated = "Extra options should only be used for temporary testing"]
+pub static EXTRA_INDICATOR_I32: [AtomicI32; 4] = [
+    AtomicI32::new(0),
+    AtomicI32::new(0),
+    AtomicI32::new(0),
+    AtomicI32::new(0),
+];
+
+#[deprecated = "Extra options should only be used for temporary testing"]
+pub static EXTRA_INDICATOR_I8: [AtomicI8; 4] = [
+    AtomicI8::new(0),
+    AtomicI8::new(0),
+    AtomicI8::new(0),
+    AtomicI8::new(0),
+];

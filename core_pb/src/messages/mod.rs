@@ -218,6 +218,7 @@ pub enum RobotToServerMessage {
     Sensors(SensorData) = 10,
     Pong = 11,
     ReceivedExtraOpts(ExtraOptsTypes) = 12,
+    ExtraIndicators(ExtraOptsTypes) = 13,
 }
 
 /// The different async tasks that run on the robot
