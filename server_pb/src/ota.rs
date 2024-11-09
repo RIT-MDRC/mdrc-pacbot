@@ -131,21 +131,21 @@ impl OverTheAirProgramming {
     }
 
     async fn send_firmware_part(&mut self, to: RobotName, offset: usize) {
-        self.tx
-            .send((
-                Destination::Robot(to),
-                Outgoing::ToRobot(ServerToRobotMessage::FirmwareWritePart {
-                    offset,
-                    len: PACKET_SIZE,
-                }),
-            ))
-            .await
-            .unwrap();
         let next_packet_len = if offset + PACKET_SIZE > self.binary.len() {
             self.binary.len() - offset
         } else {
             PACKET_SIZE
         };
+        self.tx
+            .send((
+                Destination::Robot(to),
+                Outgoing::ToRobot(ServerToRobotMessage::FirmwareWritePart {
+                    offset,
+                    len: next_packet_len,
+                }),
+            ))
+            .await
+            .unwrap();
         self.tx
             .send((
                 Destination::Robot(to),

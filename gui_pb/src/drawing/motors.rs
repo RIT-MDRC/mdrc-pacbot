@@ -59,6 +59,7 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                 .config
                 .pid[0],
             "P",
+            true,
         );
         num(
             "motor_i".to_string(),
@@ -68,6 +69,7 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                 .config
                 .pid[1],
             "I",
+            true,
         );
         num(
             "motor_d".to_string(),
@@ -77,6 +79,7 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                 .config
                 .pid[2],
             "D",
+            true,
         );
     });
     ui.separator();

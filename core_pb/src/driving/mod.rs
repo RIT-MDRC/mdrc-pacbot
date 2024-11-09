@@ -3,9 +3,12 @@ pub mod network;
 pub mod peripherals;
 
 use crate::messages::{
-    FrequentServerToRobot, NetworkStatus, RobotToServerMessage, SensorData, Task,
+    FrequentServerToRobot, NetworkStatus, RobotToServerMessage, SensorData, ServerToRobotMessage,
+    Task,
 };
 use core::time::Duration;
+use portable_atomic::{AtomicBool, AtomicF32, AtomicI32, AtomicI8};
+
 #[cfg(feature = "defmt")]
 pub(crate) use defmt::*;
 #[cfg(feature = "log")]
@@ -16,6 +19,7 @@ pub(crate) use log::*;
 pub enum RobotInterTaskMessage {
     FrequentServerToRobot(FrequentServerToRobot),
     ToServer(RobotToServerMessage),
+    FromServer(ServerToRobotMessage),
     Sensors(SensorData),
     NetworkStatus(NetworkStatus, Option<[u8; 4]>),
     Utilization(f32, Task),
@@ -43,3 +47,75 @@ pub trait RobotTaskMessenger {
     async fn receive_message_timeout(&mut self, timeout: Duration)
         -> Option<RobotInterTaskMessage>;
 }
+
+#[deprecated = "Extra options should only be used for temporary testing"]
+pub static EXTRA_OPTS_BOOL: [AtomicBool; 8] = [
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+];
+
+#[deprecated = "Extra options should only be used for temporary testing"]
+pub static EXTRA_OPTS_F32: [AtomicF32; 4] = [
+    AtomicF32::new(0.0),
+    AtomicF32::new(0.0),
+    AtomicF32::new(0.0),
+    AtomicF32::new(0.0),
+];
+
+#[deprecated = "Extra options should only be used for temporary testing"]
+pub static EXTRA_OPTS_I32: [AtomicI32; 4] = [
+    AtomicI32::new(0),
+    AtomicI32::new(0),
+    AtomicI32::new(0),
+    AtomicI32::new(0),
+];
+
+#[deprecated = "Extra options should only be used for temporary testing"]
+pub static EXTRA_OPTS_I8: [AtomicI8; 4] = [
+    AtomicI8::new(0),
+    AtomicI8::new(0),
+    AtomicI8::new(0),
+    AtomicI8::new(0),
+];
+
+#[deprecated = "Extra options should only be used for temporary testing"]
+pub static EXTRA_INDICATOR_BOOL: [AtomicBool; 8] = [
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+    AtomicBool::new(false),
+];
+
+#[deprecated = "Extra options should only be used for temporary testing"]
+pub static EXTRA_INDICATOR_F32: [AtomicF32; 4] = [
+    AtomicF32::new(0.0),
+    AtomicF32::new(0.0),
+    AtomicF32::new(0.0),
+    AtomicF32::new(0.0),
+];
+
+#[deprecated = "Extra options should only be used for temporary testing"]
+pub static EXTRA_INDICATOR_I32: [AtomicI32; 4] = [
+    AtomicI32::new(0),
+    AtomicI32::new(0),
+    AtomicI32::new(0),
+    AtomicI32::new(0),
+];
+
+#[deprecated = "Extra options should only be used for temporary testing"]
+pub static EXTRA_INDICATOR_I8: [AtomicI8; 4] = [
+    AtomicI8::new(0),
+    AtomicI8::new(0),
+    AtomicI8::new(0),
+    AtomicI8::new(0),
+];

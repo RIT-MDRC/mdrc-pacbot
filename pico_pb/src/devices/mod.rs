@@ -1,6 +1,7 @@
 use embedded_hal_async::i2c::I2c;
 
 pub mod bno08x;
+pub mod ltc2943;
 pub mod ssd1306;
 pub mod vl53l1x;
 pub mod vl53l4cd;
