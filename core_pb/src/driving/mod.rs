@@ -49,7 +49,7 @@ pub trait RobotTaskMessenger {
 }
 
 #[deprecated = "Extra options should only be used for temporary testing"]
-pub const EXTRA_OPTS_BOOL: [AtomicBool; 8] = [
+pub static EXTRA_OPTS_BOOL: [AtomicBool; 8] = [
     AtomicBool::new(false),
     AtomicBool::new(false),
     AtomicBool::new(false),
@@ -61,7 +61,7 @@ pub const EXTRA_OPTS_BOOL: [AtomicBool; 8] = [
 ];
 
 #[deprecated = "Extra options should only be used for temporary testing"]
-pub const EXTRA_OPTS_F32: [AtomicF32; 4] = [
+pub static EXTRA_OPTS_F32: [AtomicF32; 4] = [
     AtomicF32::new(0.0),
     AtomicF32::new(0.0),
     AtomicF32::new(0.0),
@@ -69,7 +69,7 @@ pub const EXTRA_OPTS_F32: [AtomicF32; 4] = [
 ];
 
 #[deprecated = "Extra options should only be used for temporary testing"]
-pub const EXTRA_OPTS_I32: [AtomicI32; 4] = [
+pub static EXTRA_OPTS_I32: [AtomicI32; 4] = [
     AtomicI32::new(0),
     AtomicI32::new(0),
     AtomicI32::new(0),
@@ -77,7 +77,7 @@ pub const EXTRA_OPTS_I32: [AtomicI32; 4] = [
 ];
 
 #[deprecated = "Extra options should only be used for temporary testing"]
-pub const EXTRA_OPTS_I8: [AtomicI8; 4] = [
+pub static EXTRA_OPTS_I8: [AtomicI8; 4] = [
     AtomicI8::new(0),
     AtomicI8::new(0),
     AtomicI8::new(0),

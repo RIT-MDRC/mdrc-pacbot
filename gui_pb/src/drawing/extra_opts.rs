@@ -19,7 +19,7 @@ pub fn draw_extra_opts(app: &mut App, ui: &mut Ui) {
             draw_one_opts_set(
                 ui,
                 &mut app.settings.robots[app.ui_settings.selected_robot as usize].extra_opts,
-                &mut app.settings_fields.as_mut().unwrap(),
+                app.settings_fields.as_mut().unwrap(),
                 0,
             );
         });
@@ -27,7 +27,7 @@ pub fn draw_extra_opts(app: &mut App, ui: &mut Ui) {
             ui.label("Robot received options");
             draw_disabled_opts_set(
                 ui,
-                &mut app.server_status.robots[app.ui_settings.selected_robot as usize]
+                app.server_status.robots[app.ui_settings.selected_robot as usize]
                     .received_extra_opts
                     .as_mut()
                     .unwrap_or(&mut ExtraOptsTypes::default()),
@@ -43,7 +43,7 @@ fn draw_one_opts_set(
     fields: &mut HashMap<String, (String, String)>,
     unique_id: usize,
 ) {
-    egui::Grid::new(&format!("opts grid {unique_id}"))
+    egui::Grid::new(format!("opts grid {unique_id}"))
         .num_columns(1)
         .striped(true)
         .show(ui, |ui| {

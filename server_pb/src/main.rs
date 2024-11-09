@@ -309,8 +309,7 @@ impl App {
                             .grid
                             .walkable_nodes()
                             .iter()
-                            .map(|p| self.grid.bfs_path(cv_loc, *p))
-                            .flatten()
+                            .flat_map(|p| self.grid.bfs_path(cv_loc, *p))
                             .choose(&mut thread_rng())
                         {
                             self.status.target_path = path.into_iter().skip(1).collect();

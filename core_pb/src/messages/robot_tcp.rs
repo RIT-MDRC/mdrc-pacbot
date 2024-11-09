@@ -81,6 +81,12 @@ pub struct StatefulTcpReader {
     used_len: usize,
 }
 
+impl Default for StatefulTcpReader {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StatefulTcpReader {
     pub fn new() -> Self {
         Self {

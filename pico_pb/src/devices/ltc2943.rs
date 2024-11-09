@@ -50,9 +50,7 @@ impl Ltc2943 {
 
     async fn get_result(&mut self) -> Result<f32, PeripheralsError> {
         let mut regs = [0; 2];
-        self.i2c_device
-            .write_read(ADDRESS, &[08], &mut regs)
-            .await?;
+        self.i2c_device.write_read(ADDRESS, &[8], &mut regs).await?;
         // from datasheet
         let reg_value = ((regs[0] as u16) << 8) | (regs[1] as u16);
         let voltage = 23.6 * (reg_value as f32 / 0xFFFF as f32);
@@ -60,6 +58,7 @@ impl Ltc2943 {
     }
 
     async fn initialize(&mut self) -> Result<(), PeripheralsError> {
+        #[allow(clippy::unusual_byte_groupings)]
         self.i2c_device
             .write(ADDRESS, &[0x01, 0b10_111_00_0])
             .await

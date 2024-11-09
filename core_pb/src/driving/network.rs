@@ -141,7 +141,11 @@ impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
     ) {
         match write_tcp::<RobotToServerMessage>(&mut self.seq, msg, &mut self.serialization_buf) {
             Ok(len) => {
-                if let Err(_) = socket.write_all(&self.serialization_buf[..len]).await {
+                if socket
+                    .write_all(&self.serialization_buf[..len])
+                    .await
+                    .is_err()
+                {
                     error!("{} failed to send message", self.name);
                     self.socket_failed = true;
                 }
