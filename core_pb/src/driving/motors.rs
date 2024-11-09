@@ -13,7 +13,7 @@ use crate::util::CrossPlatformInstant;
 use core::fmt::Debug;
 use core::time::Duration;
 #[cfg(not(feature = "std"))]
-use nalgebra::ComplexField;
+use micromath::F32Ext;
 use nalgebra::{Rotation2, Vector2};
 use pid::Pid;
 
