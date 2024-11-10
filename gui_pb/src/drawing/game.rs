@@ -45,6 +45,21 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
 
     // sim robot positions
     for name in RobotName::get_all() {
+        // estimated pos
+        if let Some(orig_estimated_location) =
+            app.server_status.robots[name as usize].estimated_location
+        {
+            let estimated_location: Pos2 = wts.map_point(Pos2::new(
+                orig_estimated_location.x,
+                orig_estimated_location.y,
+            ));
+            painter.circle(
+                estimated_location,
+                wts.map_dist(name.robot().radius),
+                Color32::TRANSPARENT,
+                Stroke::new(1.0, Color32::GREEN),
+            );
+        }
         if let Some(pos) = app.server_status.robots[name as usize].sim_position {
             let center = wts.map_point(Pos2::new(pos.0.x, pos.0.y));
             painter.circle_filled(
@@ -77,12 +92,12 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
                     orig_estimated_location.x,
                     orig_estimated_location.y,
                 ));
-                painter.circle(
-                    estimated_location,
-                    wts.map_dist(name.robot().radius),
-                    Color32::TRANSPARENT,
-                    Stroke::new(1.0, Color32::GREEN),
-                );
+                // painter.circle(
+                //     estimated_location,
+                //     wts.map_dist(name.robot().radius),
+                //     Color32::TRANSPARENT,
+                //     Stroke::new(1.0, Color32::GREEN),
+                // );
                 if let Ok(angle) = app.server_status.robots[name as usize].imu_angle {
                     let rot_cos = Rotation2::new(angle).matrix()[(0, 0)];
                     let rot_sin = Rotation2::new(angle).matrix()[(1, 0)];
