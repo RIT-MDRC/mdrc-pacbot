@@ -35,7 +35,7 @@ pub async fn run_imu(enabled: &'static AtomicBool, bus: &'static PacbotI2cBus) -
         .await
 }
 
-static DIST_ENABLED: AtomicBool = AtomicBool::new(true);
+static DIST_ENABLED: AtomicBool = AtomicBool::new(false);
 static DIST_SIGNALS: [Signal<ThreadModeRawMutex, Result<Option<u16>, PeripheralsError>>;
     NUM_DIST_SENSORS] = [Signal::new(), Signal::new(), Signal::new(), Signal::new()];
 

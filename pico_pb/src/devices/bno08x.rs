@@ -91,6 +91,7 @@ impl PacbotIMU {
             .init(&mut Delay)
             .await
             .map_err(PeripheralsError::ImuInitErr)?;
+        info!("init bno08x 2?");
         self.sensor
             .enable_rotation_vector(10)
             .await

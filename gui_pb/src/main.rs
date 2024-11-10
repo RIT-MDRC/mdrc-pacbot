@@ -35,7 +35,9 @@ use core_pb::util::StdInstant;
 use core_pb::util::WebTimeInstant as StdInstant;
 use gilrs::Gilrs;
 use std::collections::HashMap;
-use std::time::Duration;
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
@@ -130,6 +132,8 @@ pub struct App {
     settings_fields: Option<HashMap<String, (String, String)>>,
     pacbot_server_connection_status: NetworkStatus,
     gilrs: Gilrs,
+
+    distance_recording: (bool, usize),
 }
 
 impl eframe::App for App {
@@ -227,6 +231,8 @@ impl App {
             settings_fields: Some(HashMap::new()),
             pacbot_server_connection_status: NetworkStatus::NotConnected,
             gilrs: Gilrs::new().unwrap(),
+
+            distance_recording: (false, 0),
         }
     }
 
@@ -267,7 +273,41 @@ impl App {
                     }
                     self.old_settings = settings
                 }
-                ServerToGuiMessage::Status(status) => self.server_status = status,
+                ServerToGuiMessage::Status(status) => {
+                    self.server_status = status;
+                    // append to file
+                    // if self.distance_recording.0 {
+                    //     let mut file = OpenOptions::new()
+                    //         .write(true)
+                    //         .append(true)
+                    //         .open("recording.csv")
+                    //         .unwrap();
+                    //
+                    //     let line = format!(
+                    //         "{},{},{},{},{}",
+                    //         SystemTime::now()
+                    //             .duration_since(UNIX_EPOCH)
+                    //             .unwrap()
+                    //             .as_millis(),
+                    //         self.distance_recording.1,
+                    //         self.settings.robots[self.ui_settings.selected_robot as usize]
+                    //             .extra_opts
+                    //             .opts_i8[0],
+                    //         self.server_status.robots[self.ui_settings.selected_robot as usize]
+                    //             .extra_indicators
+                    //             .unwrap()
+                    //             .opts_i32[0],
+                    //         self.server_status.robots[self.ui_settings.selected_robot as usize]
+                    //             .extra_indicators
+                    //             .unwrap()
+                    //             .opts_i32[1],
+                    //     );
+                    //
+                    //     if let Err(e) = writeln!(file, "{}", line) {
+                    //         eprintln!("Couldn't write to file: {}", e);
+                    //     }
+                    // }
+                }
             }
         }
         self.pacbot_server_connection_status = self.network.0.status();
