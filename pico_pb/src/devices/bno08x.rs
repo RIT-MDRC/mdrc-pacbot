@@ -1,6 +1,7 @@
 use crate::peripherals::PeripheralsError;
 use crate::{PacbotI2cBus, PacbotI2cDevice};
 use core::sync::atomic::{AtomicBool, Ordering};
+use core_pb::driving::EXTRA_INDICATOR_F32;
 use defmt::info;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;
@@ -55,6 +56,8 @@ impl PacbotIMU {
     }
 
     async fn get_measurement(&mut self) -> Result<f32, PeripheralsError> {
+        let acc = self.sensor.heading_accuracy();
+        EXTRA_INDICATOR_F32[0].store(acc, Ordering::Relaxed);
         match self.sensor.rotation_quaternion() {
             Err(e) => {
                 self.initialized = false;
@@ -92,6 +95,7 @@ impl PacbotIMU {
             .await
             .map_err(PeripheralsError::ImuInitErr)?;
         info!("init bno08x 2?");
+        // self.sensor.
         self.sensor
             .enable_rotation_vector(10)
             .await

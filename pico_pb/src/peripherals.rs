@@ -35,7 +35,7 @@ pub async fn run_imu(enabled: &'static AtomicBool, bus: &'static PacbotI2cBus) -
         .await
 }
 
-static DIST_ENABLED: AtomicBool = AtomicBool::new(false);
+static DIST_ENABLED: AtomicBool = AtomicBool::new(true);
 static DIST_SIGNALS: [Signal<ThreadModeRawMutex, Result<Option<u16>, PeripheralsError>>;
     NUM_DIST_SENSORS] = [Signal::new(), Signal::new(), Signal::new(), Signal::new()];
 
@@ -135,7 +135,14 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
 
     async fn distance_sensor(&mut self, index: usize) -> Result<Option<f32>, Self::Error> {
         if let Some(dist) = DIST_SIGNALS[index].try_take() {
-            self.distances[index] = dist.map(|x| x.map(|y| y as f32 / MM_PER_GU));
+            self.distances[index] = dist.map(|x| {
+                x.map(|y| {
+                    // found via linear regression
+                    let mut float_mm = y as f32 * 1.164826877 + -37.19636185;
+                    float_mm = f32::max(float_mm, 0.0);
+                    float_mm / MM_PER_GU
+                })
+            });
         }
         self.distances[index].clone()
     }

@@ -14,6 +14,8 @@ pub mod robot_display;
 #[cfg(feature = "std")]
 pub mod threaded_websocket;
 pub mod util;
+mod region_localization;
+
 use core::fmt::Debug;
 
 pub use pacbot_rs;

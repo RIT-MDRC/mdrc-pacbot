@@ -276,37 +276,37 @@ impl App {
                 ServerToGuiMessage::Status(status) => {
                     self.server_status = status;
                     // append to file
-                    // if self.distance_recording.0 {
-                    //     let mut file = OpenOptions::new()
-                    //         .write(true)
-                    //         .append(true)
-                    //         .open("recording.csv")
-                    //         .unwrap();
-                    //
-                    //     let line = format!(
-                    //         "{},{},{},{},{}",
-                    //         SystemTime::now()
-                    //             .duration_since(UNIX_EPOCH)
-                    //             .unwrap()
-                    //             .as_millis(),
-                    //         self.distance_recording.1,
-                    //         self.settings.robots[self.ui_settings.selected_robot as usize]
-                    //             .extra_opts
-                    //             .opts_i8[0],
-                    //         self.server_status.robots[self.ui_settings.selected_robot as usize]
-                    //             .extra_indicators
-                    //             .unwrap()
-                    //             .opts_i32[0],
-                    //         self.server_status.robots[self.ui_settings.selected_robot as usize]
-                    //             .extra_indicators
-                    //             .unwrap()
-                    //             .opts_i32[1],
-                    //     );
-                    //
-                    //     if let Err(e) = writeln!(file, "{}", line) {
-                    //         eprintln!("Couldn't write to file: {}", e);
-                    //     }
-                    // }
+                    if self.distance_recording.0 {
+                        let mut file = OpenOptions::new()
+                            .write(true)
+                            .append(true)
+                            .open("recording.csv")
+                            .unwrap();
+
+                        let line = format!(
+                            "{},{},{},{},{}",
+                            SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_millis(),
+                            self.distance_recording.1,
+                            self.settings.robots[self.ui_settings.selected_robot as usize]
+                                .extra_opts
+                                .opts_i8[0],
+                            self.server_status.robots[self.ui_settings.selected_robot as usize]
+                                .extra_indicators
+                                .unwrap()
+                                .opts_i32[0],
+                            self.server_status.robots[self.ui_settings.selected_robot as usize]
+                                .extra_indicators
+                                .unwrap()
+                                .opts_i32[1],
+                        );
+
+                        if let Err(e) = writeln!(file, "{}", line) {
+                            eprintln!("Couldn't write to file: {}", e);
+                        }
+                    }
                 }
             }
         }
