@@ -6,6 +6,7 @@ use core_pb::constants::GU_PER_M;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::ghost_state::GhostColor;
+use core_pb::region_localization::{get_all_regions, get_possible_regions};
 use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::TRANSLUCENT_YELLOW_COLOR;
 use eframe::egui::{Color32, Painter, Pos2, Rect, Rounding, Stroke};
@@ -202,7 +203,32 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
         );
     }
 
-    // draw region boundaries
+    // draw possible region boundaries
+    for region in get_possible_regions(
+        *app.grid.grid(),
+        app.server_status.robots[app.ui_settings.selected_robot as usize]
+            .distance_sensors
+            .clone()
+            .map(|x| {
+                x.map_err(|_| ()).map(|x| {
+                    x.unwrap_or(
+                        RobotDefinition::new(app.ui_settings.selected_robot).sensor_distance,
+                    )
+                })
+            }),
+        RobotDefinition::new(app.ui_settings.selected_robot).sensor_distance,
+        RobotDefinition::new(app.ui_settings.selected_robot).radius,
+    ) {
+        painter.rect(
+            Rect::from_two_pos(
+                wts.map_point2(region.low_xy.map(|x| x as f32)),
+                wts.map_point2(region.high_xy.map(|x| x as f32)),
+            ),
+            Rounding::ZERO,
+            Color32::from_rgba_unmultiplied(100, 0, 0, 25),
+            Stroke::new(1.0, Color32::DARK_GRAY),
+        );
+    }
 
     if app.settings.standard_grid != StandardGrid::Pacman {
         return;
