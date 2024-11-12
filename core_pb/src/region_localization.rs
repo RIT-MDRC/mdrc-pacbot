@@ -3,6 +3,8 @@ use crate::grid::standard_grid::StandardGrid;
 use crate::grid::{Grid, GRID_SIZE};
 use crate::messages::MAX_SENSOR_ERR_LEN;
 use crate::robot_definition::RobotDefinition;
+#[cfg(not(feature = "std"))]
+use micromath::F32Ext;
 use nalgebra::{Point2, Vector2};
 use ordered_float::NotNan;
 
@@ -308,7 +310,7 @@ pub fn estimate_location_2(
     }
     estimate_location(
         grid.get_grid(),
-        cv_location?,
+        cv_location,
         dists,
         robot.radius,
         robot.sensor_distance * GU_PER_M,
@@ -318,7 +320,7 @@ pub fn estimate_location_2(
 #[allow(unused)]
 pub fn estimate_location(
     grid: Grid,
-    cv_location: Point2<i8>,
+    cv_location: Option<Point2<i8>>,
     distance_sensors: [Result<Option<f32>, ()>; 4],
     robot_radius: f32,
     max_toi: f32,
@@ -332,9 +334,11 @@ pub fn estimate_location(
                 if let Some((score, pos)) =
                     get_region_score(distance_sensors, robot_radius, max_toi, region)
                 {
-                    let score = score
-                        - (pos.x - cv_location.x as f32).abs()
-                        - (pos.y - cv_location.y as f32).abs();
+                    if let Some(cv_location) = cv_location {
+                        let score = score
+                            - (pos.x - cv_location.x as f32).abs()
+                            - (pos.y - cv_location.y as f32).abs();
+                    }
                     if score > best_score {
                         best_score = score;
                         best_p = Some(pos);

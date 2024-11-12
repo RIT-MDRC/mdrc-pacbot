@@ -6,7 +6,7 @@ use core_pb::constants::GU_PER_M;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::ghost_state::GhostColor;
-use core_pb::region_localization::{get_all_regions, get_possible_regions};
+use core_pb::region_localization::get_possible_regions;
 use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::TRANSLUCENT_YELLOW_COLOR;
 use eframe::egui::{Color32, Painter, Pos2, Rect, Rounding, Stroke};

@@ -57,7 +57,7 @@ impl PacbotIMU {
 
     async fn get_measurement(&mut self) -> Result<f32, PeripheralsError> {
         let acc = self.sensor.heading_accuracy();
-        EXTRA_INDICATOR_F32[0].store(acc, Ordering::Relaxed);
+        EXTRA_INDICATOR_F32[3].store(acc, Ordering::Relaxed);
         match self.sensor.rotation_quaternion() {
             Err(e) => {
                 self.initialized = false;

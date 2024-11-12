@@ -1,7 +1,7 @@
 use crate::peripherals::PeripheralsError;
 use crate::{PacbotI2cBus, PacbotI2cDevice};
 use core::sync::atomic::{AtomicBool, Ordering};
-use core_pb::driving::{EXTRA_INDICATOR_I32, EXTRA_OPTS_I32, EXTRA_OPTS_I8};
+use core_pb::driving::{EXTRA_INDICATOR_I32, EXTRA_OPTS_I8};
 use defmt::info;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;
