@@ -64,6 +64,18 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
                 Color32::TRANSPARENT,
                 Stroke::new(1.0, Color32::GREEN),
             );
+            let rot_cos = Rotation2::new(angle).matrix()[(0, 0)];
+            let rot_sin = Rotation2::new(angle).matrix()[(1, 0)];
+            painter.line_segment(
+                [
+                    estimated_location,
+                    wts.map_point(Pos2::new(
+                        orig_estimated_location.x + rot_cos * name.robot().radius,
+                        orig_estimated_location.y + rot_sin * name.robot().radius,
+                    )),
+                ],
+                Stroke::new(1.0, Color32::GREEN),
+            );
             for (i, sensor) in app.server_status.robots[name as usize]
                 .distance_sensors
                 .iter()
@@ -142,34 +154,6 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
                 ],
                 Stroke::new(1.0, Color32::BLACK),
             );
-
-            let estimated_location = app.server_status.robots[name as usize].estimated_location;
-            if let Some(orig_estimated_location) = estimated_location {
-                let estimated_location: Pos2 = wts.map_point(Pos2::new(
-                    orig_estimated_location.x,
-                    orig_estimated_location.y,
-                ));
-                // painter.circle(
-                //     estimated_location,
-                //     wts.map_dist(name.robot().radius),
-                //     Color32::TRANSPARENT,
-                //     Stroke::new(1.0, Color32::GREEN),
-                // );
-                if let Ok(angle) = app.server_status.robots[name as usize].imu_angle {
-                    let rot_cos = Rotation2::new(angle).matrix()[(0, 0)];
-                    let rot_sin = Rotation2::new(angle).matrix()[(1, 0)];
-                    painter.line_segment(
-                        [
-                            estimated_location,
-                            wts.map_point(Pos2::new(
-                                orig_estimated_location.x + rot_cos * name.robot().radius,
-                                orig_estimated_location.y + rot_sin * name.robot().radius,
-                            )),
-                        ],
-                        Stroke::new(1.0, Color32::GREEN),
-                    );
-                }
-            }
         }
     }
 
@@ -204,19 +188,13 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
     }
 
     // draw possible region boundaries
-    for region in get_possible_regions(
+    for (region, point) in get_possible_regions(
         *app.grid.grid(),
         app.server_status.robots[app.ui_settings.selected_robot as usize]
             .distance_sensors
             .clone()
-            .map(|x| {
-                x.map_err(|_| ()).map(|x| {
-                    x.unwrap_or(
-                        RobotDefinition::new(app.ui_settings.selected_robot).sensor_distance,
-                    )
-                })
-            }),
-        RobotDefinition::new(app.ui_settings.selected_robot).sensor_distance,
+            .map(|x| x.map_err(|_| ())),
+        RobotDefinition::new(app.ui_settings.selected_robot).sensor_distance * GU_PER_M,
         RobotDefinition::new(app.ui_settings.selected_robot).radius,
     ) {
         painter.rect(
@@ -228,6 +206,7 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
             Color32::from_rgba_unmultiplied(100, 0, 0, 25),
             Stroke::new(1.0, Color32::DARK_GRAY),
         );
+        painter.circle_filled(wts.map_point2(point), 2.0, Color32::RED);
     }
 
     if app.settings.standard_grid != StandardGrid::Pacman {

@@ -309,6 +309,7 @@ impl App {
                             .grid
                             .walkable_nodes()
                             .iter()
+                            .filter(|x| **x != cv_loc)
                             .flat_map(|p| self.grid.bfs_path(cv_loc, *p))
                             .choose(&mut thread_rng())
                         {
