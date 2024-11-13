@@ -189,7 +189,7 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
 
     // draw possible region boundaries
     for (region, point) in get_possible_regions(
-        *app.grid.grid(),
+        app.grid.standard_grid().unwrap(),
         app.server_status.robots[app.ui_settings.selected_robot as usize]
             .distance_sensors
             .clone()
