@@ -1,5 +1,5 @@
 use crate::messages::ota::{OverTheAirStep, OverTheAirStepCompletion};
-use crate::messages::{ExtraOptsTypes, MotorControlStatus, NetworkStatus};
+use crate::messages::{ExtraImuData, ExtraOptsTypes, MotorControlStatus, NetworkStatus};
 use crate::names::{RobotName, NUM_ROBOT_NAMES};
 use crate::util::ColoredStatus;
 use nalgebra::{Point2, Rotation2};
@@ -69,6 +69,7 @@ pub struct RobotStatus {
 
     pub received_extra_opts: Option<ExtraOptsTypes>,
     pub extra_indicators: Option<ExtraOptsTypes>,
+    pub extra_imu_data: Option<ExtraImuData>,
 }
 
 impl RobotStatus {
@@ -95,6 +96,7 @@ impl RobotStatus {
 
             received_extra_opts: None,
             extra_indicators: None,
+            extra_imu_data: None,
         }
     }
 }

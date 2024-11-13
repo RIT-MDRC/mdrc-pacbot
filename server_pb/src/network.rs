@@ -135,6 +135,9 @@ impl App {
             (Robot(name), FromRobot(RobotToServerMessage::ExtraIndicators(opts))) => {
                 self.status.robots[name as usize].extra_indicators = Some(opts);
             }
+            (Robot(name), FromRobot(RobotToServerMessage::ExtraImuData(data))) => {
+                self.status.robots[name as usize].extra_imu_data = Some(data);
+            }
             (Robot(name), FromRobot(msg)) => info!("Message received from {name}: {msg:?}"),
             (Robot(_), _) => {}
             (_, FromRobot(_)) => {}

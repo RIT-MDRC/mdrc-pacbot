@@ -7,7 +7,7 @@ use core::sync::atomic::AtomicBool;
 use core_pb::constants::MM_PER_GU;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::driving::RobotInterTaskMessage;
-use core_pb::messages::RobotButton;
+use core_pb::messages::{ExtraImuData, RobotButton};
 use defmt::Format;
 use display_interface::DisplayError;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;
@@ -28,6 +28,7 @@ pub const DIST_SENSOR_ADDRESSES: [u8; NUM_DIST_SENSORS] = [0x31, 0x32, 0x33, 0x3
 
 static IMU_ENABLED: AtomicBool = AtomicBool::new(true);
 static IMU_SIGNAL: Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>> = Signal::new();
+pub static EXTRA_IMU_DATA_SIGNAL: Signal<ThreadModeRawMutex, ExtraImuData> = Signal::new();
 
 pub async fn run_imu(enabled: &'static AtomicBool, bus: &'static PacbotI2cBus) -> ! {
     PacbotIMU::new(bus, enabled, &IMU_SIGNAL)
@@ -75,6 +76,7 @@ pub struct RobotPeripherals {
 
     distances: [Result<Option<f32>, PeripheralsError>; NUM_DIST_SENSORS],
     angle: Result<f32, PeripheralsError>,
+    extra_imu_data: Option<ExtraImuData>,
 }
 
 impl RobotPeripherals {
@@ -84,6 +86,7 @@ impl RobotPeripherals {
 
             distances: DIST_SENSOR_ADDRESSES.map(|_| Err(PeripheralsError::Uninitialized)),
             angle: Err(PeripheralsError::Uninitialized),
+            extra_imu_data: None,
         }
     }
 }
@@ -131,6 +134,13 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
             self.angle = rot;
         }
         self.angle.clone()
+    }
+
+    async fn extra_imu_data(&mut self) -> Option<ExtraImuData> {
+        if let Some(data) = EXTRA_IMU_DATA_SIGNAL.try_take() {
+            self.extra_imu_data = Some(data);
+        }
+        self.extra_imu_data
     }
 
     async fn distance_sensor(&mut self, index: usize) -> Result<Option<f32>, Self::Error> {

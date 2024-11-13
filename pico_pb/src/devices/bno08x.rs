@@ -1,10 +1,11 @@
-use crate::peripherals::PeripheralsError;
+use crate::peripherals::{PeripheralsError, EXTRA_IMU_DATA_SIGNAL};
 use crate::{PacbotI2cBus, PacbotI2cDevice};
 use bno08x_async::constants::{
     SENSOR_REPORTID_ACCELEROMETER, SENSOR_REPORTID_GYROSCOPE, SENSOR_REPORTID_MAGNETIC_FIELD,
     SENSOR_REPORTID_ROTATION_VECTOR,
 };
 use core::sync::atomic::{AtomicBool, Ordering};
+use core_pb::messages::ExtraImuData;
 use defmt::info;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;
@@ -52,6 +53,12 @@ impl PacbotIMU {
                         }
                     }
                     self.results.signal(Ok(self.get_measurement().await));
+                    EXTRA_IMU_DATA_SIGNAL.signal(ExtraImuData {
+                        accel: self.sensor.accel,
+                        gyro: self.sensor.gyro,
+                        mag: self.sensor.mag,
+                        rotation_vector: self.sensor.rotation_vector,
+                    });
                     Timer::after_millis(20).await;
                 }
                 Err(e) => {
