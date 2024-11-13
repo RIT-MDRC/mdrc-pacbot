@@ -1,7 +1,6 @@
 use crate::peripherals::PeripheralsError;
 use crate::{PacbotI2cBus, PacbotI2cDevice};
 use core::sync::atomic::{AtomicBool, Ordering};
-use core_pb::driving::{EXTRA_INDICATOR_I32, EXTRA_OPTS_I8};
 use defmt::info;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;
@@ -100,13 +99,6 @@ impl PacbotDistanceSensor {
                 Status::SignalTooWeak => Ok(None),
                 status => Err(PeripheralsError::DistanceSensorError(Some(status))),
             };
-            if let Ok(Some(_)) = &measurement {
-                let curr_sensor = EXTRA_OPTS_I8[0].load(Ordering::Relaxed);
-                if curr_sensor as usize == self.index {
-                    EXTRA_INDICATOR_I32[0].store(measurement2.distance as i32, Ordering::Relaxed);
-                    EXTRA_INDICATOR_I32[1].store(measurement2.sigma as i32, Ordering::Relaxed);
-                }
-            }
             self.sensor.clear_interrupt().await?;
             measurement
         } else {

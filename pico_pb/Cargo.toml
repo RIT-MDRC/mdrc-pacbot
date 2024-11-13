@@ -58,7 +58,7 @@ smoltcp = { version = "0.11.0", default-features = false, features = ["defmt"] }
 format_no_std = "1.2.0"
 display-interface = { version = "0.5.0", features = ["defmt-03"] }
 vl53l4cd = { version = "0.4.0", default-features = false, features = ["defmt-03"] }
-bno08x-async = { version = "0.2.0", git = "https://github.com/MJE10/bno080", features = ["defmt"], rev = "3baf5648bcd331ec135e66fd9e464e55f616a010" }
+bno08x-async = { version = "0.2.0", git = "https://github.com/MJE10/bno080", features = ["defmt"], rev = "ae419c2d278c8609721b4a41bfaddd1c6620aefe" }
 micromath = "2.1.0"
 critical-section = "1.1"
 

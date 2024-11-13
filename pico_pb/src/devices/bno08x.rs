@@ -1,7 +1,10 @@
 use crate::peripherals::PeripheralsError;
 use crate::{PacbotI2cBus, PacbotI2cDevice};
+use bno08x_async::constants::{
+    SENSOR_REPORTID_ACCELEROMETER, SENSOR_REPORTID_GYROSCOPE, SENSOR_REPORTID_MAGNETIC_FIELD,
+    SENSOR_REPORTID_ROTATION_VECTOR,
+};
 use core::sync::atomic::{AtomicBool, Ordering};
-use core_pb::driving::EXTRA_INDICATOR_F32;
 use defmt::info;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;
@@ -43,8 +46,12 @@ impl PacbotIMU {
         loop {
             match self.initialize().await {
                 Ok(()) => {
-                    self.sensor.handle_one_message(&mut Delay, 10).await;
-                    self.results.signal(self.get_measurement().await);
+                    for _ in 0..10 {
+                        if self.sensor.handle_one_message(&mut Delay, 10).await == 0 {
+                            break;
+                        }
+                    }
+                    self.results.signal(Ok(self.get_measurement().await));
                     Timer::after_millis(20).await;
                 }
                 Err(e) => {
@@ -55,24 +62,27 @@ impl PacbotIMU {
         }
     }
 
-    async fn get_measurement(&mut self) -> Result<f32, PeripheralsError> {
-        let acc = self.sensor.heading_accuracy();
-        EXTRA_INDICATOR_F32[3].store(acc, Ordering::Relaxed);
-        match self.sensor.rotation_quaternion() {
-            Err(e) => {
-                self.initialized = false;
-                Err(PeripheralsError::ImuError(e))
-            }
-            Ok(quat) => {
-                // convert quat to angle (yaw)
-                // https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
-                let siny_cosp = 2.0 * (quat[3] * quat[2] + quat[0] * quat[1]);
-                let cosy_cosp = 1.0 - 2.0 * (quat[1] * quat[1] + quat[2] * quat[2]);
-                let yaw = f32::atan2(siny_cosp, cosy_cosp);
-                defmt::debug!("IMU yaw reading: {}", yaw);
-                Ok(yaw)
-            }
-        }
+    async fn get_measurement(&mut self) -> f32 {
+        let [i, j, k, real] = self.sensor.rotation_vector.0;
+        // convert quat to angle (yaw)
+        // https://github.com/sparkfun/SparkFun_BNO080_Arduino_Library/blob/main/src/SparkFun_BNO080_Arduino_Library.cpp#L493
+        let mut dqw = real;
+        let mut dqx = i;
+        let mut dqy = j;
+        let mut dqz = k;
+
+        let norm = (dqw * dqw + dqx * dqx + dqy * dqy + dqz * dqz).sqrt();
+        dqw = dqw / norm;
+        dqx = dqx / norm;
+        dqy = dqy / norm;
+        dqz = dqz / norm;
+
+        let ysq = dqy * dqy;
+
+        let t3 = 2.0 * (dqw * dqz + dqx * dqy);
+        let t4 = 1.0 - 2.0 * (ysq + dqz * dqz);
+        let yaw = f32::atan2(t3, t4);
+        yaw
     }
 
     async fn initialize(&mut self) -> Result<(), PeripheralsError> {
@@ -94,10 +104,20 @@ impl PacbotIMU {
             .init(&mut Delay)
             .await
             .map_err(PeripheralsError::ImuInitErr)?;
-        info!("init bno08x 2?");
-        // self.sensor.
         self.sensor
-            .enable_rotation_vector(10)
+            .enable_report(SENSOR_REPORTID_ROTATION_VECTOR, 20)
+            .await
+            .map_err(PeripheralsError::ImuInitErr)?;
+        self.sensor
+            .enable_report(SENSOR_REPORTID_ACCELEROMETER, 20)
+            .await
+            .map_err(PeripheralsError::ImuInitErr)?;
+        self.sensor
+            .enable_report(SENSOR_REPORTID_GYROSCOPE, 20)
+            .await
+            .map_err(PeripheralsError::ImuInitErr)?;
+        self.sensor
+            .enable_report(SENSOR_REPORTID_MAGNETIC_FIELD, 20)
             .await
             .map_err(PeripheralsError::ImuInitErr)?;
 
