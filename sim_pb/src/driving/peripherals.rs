@@ -61,7 +61,7 @@ impl RobotPeripheralsBehavior for SimPeripherals {
     }
 
     async fn battery_level(&mut self) -> Result<f32, Self::Error> {
-        Ok(1.0)
+        Ok(8.4)
     }
 
     async fn read_button_event(&mut self) -> Option<(RobotButton, bool)> {

@@ -37,12 +37,12 @@ impl Ltc2943 {
             match self.initialize().await {
                 Ok(()) => {
                     self.results.signal(self.get_result().await);
-                    Timer::after_secs(10).await;
+                    Timer::after_secs(3000).await;
                 }
                 Err(e) => {
                     self.initialized = false;
                     self.results.signal(Err(e));
-                    Timer::after_millis(300).await;
+                    Timer::after_millis(3000).await;
                 }
             }
         }

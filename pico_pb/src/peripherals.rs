@@ -77,6 +77,7 @@ pub struct RobotPeripherals {
     distances: [Result<Option<f32>, PeripheralsError>; NUM_DIST_SENSORS],
     angle: Result<f32, PeripheralsError>,
     extra_imu_data: Option<ExtraImuData>,
+    battery: Result<f32, PeripheralsError>,
 }
 
 impl RobotPeripherals {
@@ -87,6 +88,7 @@ impl RobotPeripherals {
             distances: DIST_SENSOR_ADDRESSES.map(|_| Err(PeripheralsError::Uninitialized)),
             angle: Err(PeripheralsError::Uninitialized),
             extra_imu_data: None,
+            battery: Err(PeripheralsError::Uninitialized),
         }
     }
 }
@@ -158,7 +160,10 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
     }
 
     async fn battery_level(&mut self) -> Result<f32, Self::Error> {
-        Err(PeripheralsError::Unimplemented)
+        if let Some(bat) = BATTERY_MONITOR_SIGNAL.try_take() {
+            self.battery = bat;
+        }
+        self.battery.clone()
     }
 
     async fn read_button_event(&mut self) -> Option<(RobotButton, bool)> {
