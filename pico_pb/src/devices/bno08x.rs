@@ -61,7 +61,7 @@ impl PacbotIMU {
                     Timer::after_millis(20).await;
                 }
                 Err(e) => {
-                    self.results.signal(Err(e));
+                    // self.results.signal(Err(e));
                     Timer::after_millis(300).await;
                 }
             }

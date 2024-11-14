@@ -1,5 +1,6 @@
 use crate::constants::GU_PER_M;
 use crate::grid::standard_grid::{get_grid_regions, StandardGrid};
+use crate::grid::Grid;
 use crate::messages::MAX_SENSOR_ERR_LEN;
 use crate::robot_definition::RobotDefinition;
 #[cfg(not(feature = "std"))]
@@ -25,6 +26,7 @@ pub struct Region {
 }
 
 fn get_region_score(
+    grid: StandardGrid,
     dists: [Result<Option<f32>, ()>; 4],
     robot_radius: f32,
     max_toi: f32,
@@ -97,7 +99,31 @@ fn get_region_score(
             score += d - max_possible_dist;
         }
     }
+    // look at the four grid locations surrounding this point
+    let rounded_loc = (p.x.floor() as i8, p.y.floor() as i8);
+    for grid_loc in [
+        rounded_loc,
+        (rounded_loc.0 + 1, rounded_loc.1),
+        (rounded_loc.0, rounded_loc.1 + 1),
+        (rounded_loc.0 + 1, rounded_loc.1 + 1),
+    ] {
+        // strongly discourage estimating our location inside a wall
+        if get_at(grid.get_grid(), Vector2::new(grid_loc.0, grid_loc.1))
+            && (grid_loc.0 as f32 - p.x).powi(2) + (grid_loc.1 as f32 - p.y).powi(2)
+                < robot_radius.powi(2)
+        {
+            score += 2.0;
+        }
+    }
     Some((-score, Point2::new(p.x, p.y)))
+}
+
+fn get_at(grid: Grid, at: Vector2<i8>) -> bool {
+    if at.x < 0 || at.y < 0 || at.x as usize >= grid.len() || at.y as usize >= grid[0].len() {
+        false
+    } else {
+        grid[at.x as usize][at.y as usize]
+    }
 }
 
 pub fn estimate_location_2(
@@ -136,7 +162,7 @@ pub fn estimate_location(
 
     for region in get_grid_regions(grid) {
         if let Some((mut score, pos)) =
-            get_region_score(distance_sensors, robot_radius, max_toi, region)
+            get_region_score(grid, distance_sensors, robot_radius, max_toi, region)
         {
             if let Some(cv_location) = cv_location {
                 score = score
@@ -164,7 +190,7 @@ pub fn get_possible_regions(
 
     for region in get_grid_regions(grid) {
         if let Some((score, pos)) =
-            get_region_score(distance_sensors, robot_radius, max_toi, region)
+            get_region_score(grid, distance_sensors, robot_radius, max_toi, region)
         {
             if score == 0.0 {
                 regions.push((*region, pos))

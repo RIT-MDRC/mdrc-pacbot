@@ -2,8 +2,9 @@ use crate::devices::bno08x::{ImuError, PacbotIMU};
 use crate::devices::ltc2943::Ltc2943;
 use crate::devices::ssd1306::{PacbotDisplay, PacbotDisplayWrapper};
 use crate::devices::vl53l4cd::PacbotDistanceSensor;
+use crate::encoders::ENCODER_ANGLE;
 use crate::{EmbassyInstant, PacbotI2cBus};
-use core::sync::atomic::AtomicBool;
+use core::sync::atomic::{AtomicBool, Ordering};
 use core_pb::constants::MM_PER_GU;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::driving::RobotInterTaskMessage;
@@ -132,10 +133,11 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
     }
 
     async fn absolute_rotation(&mut self) -> Result<f32, Self::Error> {
-        if let Some(rot) = IMU_SIGNAL.try_take() {
-            self.angle = rot;
-        }
-        self.angle.clone()
+        // if let Some(rot) = IMU_SIGNAL.try_take() {
+        //     self.angle = rot;
+        // }
+        // self.angle.clone()
+        Ok(ENCODER_ANGLE.load(Ordering::Relaxed))
     }
 
     async fn extra_imu_data(&mut self) -> Option<ExtraImuData> {

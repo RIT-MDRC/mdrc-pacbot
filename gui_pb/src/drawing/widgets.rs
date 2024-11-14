@@ -64,7 +64,7 @@ impl PacbotWidget {
                     .battery
                     .unwrap_or(0.0);
                 // battery is a voltage between 7.0 and 8.35
-                let battery = f32::max(1.0, (battery - 7.0).min(0.0) / (8.35 - 7.0));
+                let battery = f32::min(1.0, (battery - 7.0).max(0.0) / (8.35 - 7.0));
                 RichText::new(if battery > 0.75 {
                     egui_phosphor::regular::BATTERY_FULL
                 } else if battery > 0.5 {
