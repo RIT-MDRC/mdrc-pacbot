@@ -166,6 +166,38 @@ impl DriveSystem<3> {
             }
         }
     }
+
+    /// Given signed motor speeds, find the angular velocity of the robot
+    ///
+    /// # Arguments
+    ///
+    /// - motor_speeds: the signed speeds of the motors, in rad/s
+    pub fn get_actual_rotational_vel_omni(&self, motor_speeds: [f32; 3]) -> f32 {
+        match self {
+            DriveSystem::Omniwheel {
+                wheel_radius,
+                robot_radius,
+                forwards_is_clockwise,
+                ..
+            } => {
+                // rotational to linear
+                let rot_to_lin = |v: f32, fic: bool| {
+                    if fic {
+                        v * *wheel_radius
+                    } else {
+                        -v * *wheel_radius
+                    }
+                };
+                let v_a = rot_to_lin(motor_speeds[0], forwards_is_clockwise[0]);
+                let v_b = rot_to_lin(motor_speeds[1], forwards_is_clockwise[1]);
+                let v_c = rot_to_lin(motor_speeds[2], forwards_is_clockwise[2]);
+
+                let w = (v_a + v_b + v_c) / 3.0;
+
+                w / robot_radius
+            }
+        }
+    }
 }
 
 #[cfg(test)]

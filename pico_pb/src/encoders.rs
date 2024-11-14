@@ -1,4 +1,7 @@
+use crate::peripherals::IMU_SIGNAL;
 use crate::EmbassyInstant;
+use core_pb::names::RobotName;
+use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::average_rate::AverageRate;
 use embassy_futures::select::{select3, Either3};
 use embassy_rp::gpio::Pull;
@@ -14,6 +17,7 @@ pub static ENCODER_VELOCITIES: Signal<CriticalSectionRawMutex, ([f32; 3], Instan
 
 #[embassy_executor::task]
 pub async fn run_encoders(
+    name: RobotName,
     mut encoders: (
         PioEncoder<'static, PIO1, 0>,
         PioEncoder<'static, PIO1, 1>,
@@ -22,6 +26,11 @@ pub async fn run_encoders(
 ) {
     let mut ticks = [0; 3];
     let mut velocities = [0.0; 3];
+
+    let drive_system = RobotDefinition::new(name).drive_system;
+    let mut last_tick = Instant::now();
+    let mut angle = 0.0;
+
     loop {
         let (i, tick, velocity) =
             match select3(encoders.0.read(), encoders.1.read(), encoders.2.read()).await {
@@ -32,6 +41,15 @@ pub async fn run_encoders(
         ticks[i] = tick;
         velocities[i] = velocity / 12.0 / 2.0;
         ENCODER_VELOCITIES.signal((velocities, Instant::now()));
+
+        let elapsed = last_tick.elapsed();
+        if elapsed.as_micros() > 100 {
+            last_tick = Instant::now();
+            let rotational_velocity = drive_system.get_actual_rotational_vel_omni(velocities);
+            let s = elapsed.as_micros() as f32 * 1_000_000.0;
+            angle += rotational_velocity * s;
+            IMU_SIGNAL.signal(Ok(angle));
+        }
     }
 }
 
