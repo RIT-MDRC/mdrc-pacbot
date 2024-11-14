@@ -5,6 +5,7 @@ use bno08x_async::constants::{
     SENSOR_REPORTID_ROTATION_VECTOR,
 };
 use core::sync::atomic::{AtomicBool, Ordering};
+use core_pb::driving::EXTRA_OPTS_BOOL;
 use core_pb::messages::ExtraImuData;
 use defmt::info;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
@@ -20,6 +21,7 @@ pub type ImuError =
 
 pub struct PacbotIMU {
     enabled: &'static AtomicBool,
+    extra_reports: bool,
     results: &'static Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>>,
 
     sensor: bno08x_async::wrapper::BNO080<bno08x_async::interface::I2cInterface<PacbotI2cDevice>>,
@@ -34,6 +36,7 @@ impl PacbotIMU {
     ) -> Self {
         Self {
             enabled,
+            extra_reports: false,
             results,
 
             initialized: false,
@@ -47,11 +50,7 @@ impl PacbotIMU {
         loop {
             match self.initialize().await {
                 Ok(()) => {
-                    for _ in 0..10 {
-                        if self.sensor.handle_one_message(&mut Delay, 10).await == 0 {
-                            break;
-                        }
-                    }
+                    self.sensor.handle_one_message(&mut Delay, 10).await;
                     self.results.signal(Ok(self.get_measurement().await));
                     EXTRA_IMU_DATA_SIGNAL.signal(ExtraImuData {
                         accel: self.sensor.accel,
@@ -101,7 +100,32 @@ impl PacbotIMU {
 
         // do nothing if the sensor is OK
         if self.initialized {
-            return Ok(());
+            // should we enable reports?
+            let should_do_extra_reports = EXTRA_OPTS_BOOL[7].load(Ordering::Relaxed);
+            if !self.extra_reports && should_do_extra_reports {
+                self.sensor
+                    .enable_report(SENSOR_REPORTID_ACCELEROMETER, 1000)
+                    .await
+                    .map_err(PeripheralsError::ImuInitErr)?;
+                self.sensor
+                    .enable_report(SENSOR_REPORTID_GYROSCOPE, 1000)
+                    .await
+                    .map_err(PeripheralsError::ImuInitErr)?;
+                self.sensor
+                    .enable_report(SENSOR_REPORTID_MAGNETIC_FIELD, 1000)
+                    .await
+                    .map_err(PeripheralsError::ImuInitErr)?;
+                self.extra_reports = true;
+                return Ok(());
+            }
+            // should we disable reports?
+            else if self.extra_reports && !should_do_extra_reports {
+                // reset sensor
+                self.extra_reports = false;
+                self.initialized = false;
+            } else {
+                return Ok(());
+            }
         }
 
         info!("Attempting to initialize bno08x IMU");
@@ -113,18 +137,6 @@ impl PacbotIMU {
             .map_err(PeripheralsError::ImuInitErr)?;
         self.sensor
             .enable_report(SENSOR_REPORTID_ROTATION_VECTOR, 20)
-            .await
-            .map_err(PeripheralsError::ImuInitErr)?;
-        self.sensor
-            .enable_report(SENSOR_REPORTID_ACCELEROMETER, 20)
-            .await
-            .map_err(PeripheralsError::ImuInitErr)?;
-        self.sensor
-            .enable_report(SENSOR_REPORTID_GYROSCOPE, 20)
-            .await
-            .map_err(PeripheralsError::ImuInitErr)?;
-        self.sensor
-            .enable_report(SENSOR_REPORTID_MAGNETIC_FIELD, 20)
             .await
             .map_err(PeripheralsError::ImuInitErr)?;
 

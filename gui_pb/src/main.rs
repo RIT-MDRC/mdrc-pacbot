@@ -174,6 +174,7 @@ impl App {
             Tab::Robot,
             Tab::Stopwatch,
             Tab::ExtraOpts,
+            Tab::Imu,
         ]);
         let surface = dock_state.main_surface_mut();
         surface.split_right(NodeIndex::root(), 0.75, vec![Tab::Settings]);

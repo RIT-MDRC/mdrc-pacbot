@@ -3,10 +3,10 @@ use crate::devices::ltc2943::Ltc2943;
 use crate::devices::ssd1306::{PacbotDisplay, PacbotDisplayWrapper};
 use crate::devices::vl53l4cd::PacbotDistanceSensor;
 use crate::{EmbassyInstant, PacbotI2cBus};
-use core::sync::atomic::AtomicBool;
+use core::sync::atomic::{AtomicBool, Ordering};
 use core_pb::constants::MM_PER_GU;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
-use core_pb::driving::RobotInterTaskMessage;
+use core_pb::driving::{RobotInterTaskMessage, EXTRA_OPTS_BOOL};
 use core_pb::messages::{ExtraImuData, RobotButton};
 use defmt::Format;
 use display_interface::DisplayError;
@@ -26,7 +26,7 @@ pub const NUM_DIST_SENSORS: usize = 4;
 /// what I2C addresses to reassign each distance sensor to
 pub const DIST_SENSOR_ADDRESSES: [u8; NUM_DIST_SENSORS] = [0x31, 0x32, 0x33, 0x34];
 
-static IMU_ENABLED: AtomicBool = AtomicBool::new(true);
+static IMU_ENABLED: AtomicBool = AtomicBool::new(false);
 static IMU_SIGNAL: Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>> = Signal::new();
 pub static EXTRA_IMU_DATA_SIGNAL: Signal<ThreadModeRawMutex, ExtraImuData> = Signal::new();
 
@@ -130,10 +130,11 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
     }
 
     async fn absolute_rotation(&mut self) -> Result<f32, Self::Error> {
-        if let Some(rot) = IMU_SIGNAL.try_take() {
-            self.angle = rot;
-        }
-        self.angle.clone()
+        // if let Some(rot) = IMU_SIGNAL.try_take() {
+        //     self.angle = rot;
+        // }
+        // self.angle.clone()
+        Ok(0.0)
     }
 
     async fn extra_imu_data(&mut self) -> Option<ExtraImuData> {
@@ -148,7 +149,7 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
             self.distances[index] = dist.map(|x| {
                 x.map(|y| {
                     // found via linear regression
-                    let mut float_mm = y as f32 * 1.164826877 + -37.19636185;
+                    let mut float_mm = y as f32 * 1.164826877 + -30.0;
                     float_mm = f32::max(float_mm, 0.0);
                     float_mm / MM_PER_GU
                 })
