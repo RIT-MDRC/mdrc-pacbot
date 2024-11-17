@@ -10,6 +10,7 @@ use crate::names::NUM_ROBOT_NAMES;
 use crate::robot_definition::RobotDefinition;
 #[cfg(feature = "std")]
 use crate::util::ColoredStatus;
+use bytemuck::NoUninit;
 use core::time::Duration;
 use nalgebra::Point2;
 #[cfg(feature = "std")]
@@ -17,6 +18,7 @@ use nalgebra::Rotation2;
 use nalgebra::Vector2;
 use pacbot_rs::game_state::GameState;
 use pacbot_rs::location::Direction;
+use portable_atomic::{AtomicBool, AtomicF32, AtomicI32, AtomicI8};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
@@ -145,6 +147,8 @@ pub struct FrequentServerToRobot {
     pub target_path: heapless::Vec<Point2<i8>, MAX_ROBOT_PATH_LENGTH>,
     /// Whether the robot should try to follow the target path (including maintaining heading 0)
     pub follow_target_path: bool,
+    /// This angle should be considered angle 0
+    pub angle_offset: f32,
 }
 
 impl FrequentServerToRobot {
@@ -161,6 +165,7 @@ impl FrequentServerToRobot {
             cv_location: None,
             target_path: heapless::Vec::new(),
             follow_target_path: false,
+            angle_offset: 0.0,
         }
     }
 }
@@ -194,6 +199,13 @@ pub struct ExtraOptsTypes {
     pub opts_i8: [i8; 4],
     pub opts_i32: [i32; 4],
 }
+
+pub type ExtraOptsAtomicTypes = (
+    [AtomicBool; 8],
+    [AtomicF32; 8],
+    [AtomicI8; 8],
+    [AtomicI32; 8],
+);
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MotorControlStatus {

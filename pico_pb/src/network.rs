@@ -3,7 +3,7 @@ use crate::{EmbassyInstant, Irqs};
 use core::cell::RefCell;
 use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
 use core_pb::driving::RobotInterTaskMessage;
-use cyw43::{Control, NetDriver};
+use cyw43::{Control, JoinOptions};
 use cyw43_pio::PioSpi;
 use defmt::{info, unwrap, Format};
 use embassy_boot_rp::{AlignedBuffer, BlockingFirmwareUpdater, FirmwareUpdaterConfig, State};
@@ -29,7 +29,7 @@ pub static NETWORK_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 6
 #[allow(clippy::type_complexity)]
 pub struct Network {
     control: Control<'static>,
-    stack: &'static Stack<NetDriver<'static>>,
+    stack: Stack<'static>,
     updater: BlockingFirmwareUpdater<
         'static,
         BlockingPartition<'static, NoopRawMutex, Flash<'static, FLASH, Blocking, 2097152>>,
@@ -54,7 +54,7 @@ impl RobotNetworkBehavior for Network {
     }
 
     async fn wifi_is_connected(&self) -> Option<[u8; 4]> {
-        self.stack.config_v4().map(|x| x.address.address().0)
+        self.stack.config_v4().map(|x| x.address.address().octets())
     }
 
     async fn list_networks<const C: usize>(&mut self) -> Vec<NetworkScanInfo, C> {
@@ -85,9 +85,11 @@ impl RobotNetworkBehavior for Network {
         if let Some(password) = password {
             // let x = self.control.scan(cyw43::ScanOptions::default()).await.next().await.unwrap();
             // x.
-            self.control.join_wpa2(network, password).await
+            self.control
+                .join(network, JoinOptions::new(password.as_bytes()))
+                .await
         } else {
-            self.control.join_open(network).await
+            self.control.join(network, JoinOptions::new_open()).await
         }
         .map_err(|e| NetworkError::Connection(e.status))?;
 
@@ -174,14 +176,14 @@ impl RobotNetworkBehavior for Network {
 }
 
 #[embassy_executor::task]
-async fn net_task(stack: &'static Stack<cyw43::NetDriver<'static>>) -> ! {
-    stack.run().await
+async fn cyw43_task(
+    runner: cyw43::Runner<'static, Output<'static>, PioSpi<'static, PIO0, 0, DMA_CH0>>,
+) -> ! {
+    runner.run().await
 }
 
 #[embassy_executor::task]
-async fn wifi_task(
-    runner: cyw43::Runner<'static, Output<'static>, PioSpi<'static, PIO0, 0, DMA_CH0>>,
-) -> ! {
+async fn net_task(mut runner: embassy_net::Runner<'static, cyw43::NetDriver<'static>>) -> ! {
     runner.run().await
 }
 
@@ -216,7 +218,7 @@ pub async fn initialize_network(
     static STATE: StaticCell<cyw43::State> = StaticCell::new();
     let state = STATE.init(cyw43::State::new());
     let (net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
-    unwrap!(spawner.spawn(wifi_task(runner)));
+    unwrap!(spawner.spawn(cyw43_task(runner)));
 
     control.init(clm).await;
     control
@@ -238,16 +240,15 @@ pub async fn initialize_network(
     let seed = 0xab9a_dd1a_3b2b_715a; // chosen by fair dice roll
 
     // Init network stack
-    static STACK: StaticCell<Stack<NetDriver<'static>>> = StaticCell::new();
     static RESOURCES: StaticCell<StackResources<6>> = StaticCell::new();
-    let stack = &*STACK.init(Stack::new(
+    let (stack, runner) = embassy_net::new(
         net_device,
         config,
-        RESOURCES.init(StackResources::<6>::new()),
+        RESOURCES.init(StackResources::new()),
         seed,
-    ));
+    );
 
-    unwrap!(spawner.spawn(net_task(stack)));
+    unwrap!(spawner.spawn(net_task(runner)));
 
     info!("Network stack initialized");
 
