@@ -3,25 +3,21 @@ pub mod motors;
 pub mod network;
 pub mod peripherals;
 
-#[cfg(feature = "defmt")]
-pub(crate) use defmt::*;
-#[cfg(feature = "log")]
-pub(crate) use log::*;
-
+use crate::driving::data::SharedRobotData;
 use crate::driving::motors::RobotMotorsBehavior;
 use crate::driving::network::RobotNetworkBehavior;
 use crate::driving::peripherals::RobotPeripheralsBehavior;
 use crate::util::CrossPlatformInstant;
 use core::fmt::Debug;
+use core::ops::{Deref, DerefMut};
 use embassy_time::Instant;
-use std::ops::{Deref, DerefMut};
 
-pub trait RobotBehavior {
-    type PeripheralsError: Debug;
-
+pub trait RobotBehavior: 'static {
     type Motors: RobotMotorsBehavior;
     type Network: RobotNetworkBehavior;
     type Peripherals: RobotPeripheralsBehavior;
+
+    fn get() -> &'static SharedRobotData<Self>;
 }
 
 #[derive(Copy, Clone)]

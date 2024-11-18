@@ -24,14 +24,15 @@ std = [
 ]
 wasm = ["pacbot-rs/wasm"]
 
-log = ["dep:log", "embassy-sync/log", "async-std/log", "embassy-time/log"]
-defmt = ["dep:defmt", "embassy-sync/defmt", "embedded-graphics/defmt", "embedded-io-async/defmt-03", "heapless/defmt-03"]
+log = ["dep:log", "defmt-or-log/log", "embassy-sync/log", "async-std/log", "embassy-time/log"]
+defmt = ["dep:defmt", "defmt-or-log/defmt", "embassy-sync/defmt", "embedded-graphics/defmt", "embedded-io-async/defmt-03", "heapless/defmt-03"]
 
 [dependencies]
 # Pacbot
 pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "423622afedc0b0c33c42497cb4e1f2b73641e747", default-features = false }
 
 # Logging
+defmt-or-log = "0.2.1"
 defmt = { version = "0.3.8", optional = true }
 log = { version = "0.4.22", optional = true }
 

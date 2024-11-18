@@ -1,11 +1,12 @@
 use crate::peripherals::{PeripheralsError, EXTRA_IMU_DATA_SIGNAL};
-use crate::{PacbotI2cBus, PacbotI2cDevice};
+use crate::{PacbotI2cBus, PacbotI2cDevice, PicoRobotBehavior, SHARED_DATA};
 use bno08x_async::constants::{
     SENSOR_REPORTID_ACCELEROMETER, SENSOR_REPORTID_GYROSCOPE, SENSOR_REPORTID_MAGNETIC_FIELD,
     SENSOR_REPORTID_ROTATION_VECTOR,
 };
 use core::sync::atomic::{AtomicBool, Ordering};
-use core_pb::driving::EXTRA_OPTS_BOOL;
+use core_pb::driving::data::SharedRobotData;
+use core_pb::driving::RobotBehavior;
 use core_pb::messages::ExtraImuData;
 use defmt::info;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
@@ -101,7 +102,9 @@ impl PacbotIMU {
         // do nothing if the sensor is OK
         if self.initialized {
             // should we enable reports?
-            let should_do_extra_reports = EXTRA_OPTS_BOOL[7].load(Ordering::Relaxed);
+            let should_do_extra_reports = PicoRobotBehavior::get()
+                .get_extra_bool_opt(7)
+                .unwrap_or(false);
             if !self.extra_reports && should_do_extra_reports {
                 self.sensor
                     .enable_report(SENSOR_REPORTID_ACCELEROMETER, 1000)

@@ -213,6 +213,7 @@ dependencies = [
  "bincode",
  "bytemuck",
  "defmt",
+ "defmt-or-log",
  "embassy-sync 0.6.0 (git+https://github.com/embassy-rs/embassy.git)",
  "embassy-time",
  "embedded-graphics",
@@ -390,6 +391,27 @@ checksum = "e3a9f309eff1f79b3ebdf252954d90ae440599c26c2c553fe87a2d17195f2dcb"
 dependencies = [
  "defmt-parser",
  "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
+]
+
+[[package]]
+name = "defmt-or-log"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8370630b4dee85ab47d9087813771c5c7fe88d24fdd48649bbdfe6089da4c53a"
+dependencies = [
+ "defmt",
+ "defmt-or-log-macros",
+]
+
+[[package]]
+name = "defmt-or-log-macros"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d675dd299edbb7c8e01d4e9f520a0d8f22a8fe4af812c211c3fad5e9dcf41763"
+dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.87",
@@ -1252,6 +1274,7 @@ dependencies = [
  "maybe-async-cfg",
  "micromath",
  "num-traits",
+ "once_cell",
  "panic-probe",
  "pid",
  "pio",
@@ -1376,6 +1399,10 @@ name = "once_cell"
 version = "1.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
+dependencies = [
+ "critical-section",
+ "portable-atomic",
+]
 
 [[package]]
 name = "ordered-float"

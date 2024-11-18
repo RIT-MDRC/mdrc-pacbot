@@ -1,4 +1,4 @@
-use crate::driving::data::RobotInterTaskData;
+use crate::driving::data::SharedRobotData;
 use crate::driving::{EmbassyInstant, RobotBehavior};
 use crate::grid::standard_grid::StandardGrid;
 use crate::messages::{RobotButton, RobotToServerMessage, SensorData, Task, MAX_SENSOR_ERR_LEN};
@@ -9,17 +9,16 @@ use crate::robot_display::DisplayManager;
 use crate::util::utilization::UtilizationMonitor;
 use crate::util::CrossPlatformInstant;
 use core::fmt::Debug;
+use core::sync::atomic::Ordering;
 use core::time::Duration;
 use embassy_time::Timer;
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::DrawTarget;
 use nalgebra::Point2;
-use std::sync::atomic::Ordering;
 
 /// Functionality that robots with peripherals must support
 pub trait RobotPeripheralsBehavior {
     type Display: DrawTarget<Color = BinaryColor>;
-    type Instant: CrossPlatformInstant + Default;
     type Error: Debug;
 
     async fn draw_display<F>(&mut self, draw: F)
@@ -34,10 +33,9 @@ pub trait RobotPeripheralsBehavior {
 }
 
 /// The "main" method for the peripherals task
-pub async fn peripherals_task<T: RobotBehavior>(
-    data: &'static RobotInterTaskData<3, T>,
-    mut peripherals: T::Peripherals,
-) {
+pub async fn peripherals_task<R: RobotBehavior>(mut peripherals: R::Peripherals) {
+    let data = R::get();
+
     let name = data.name;
     let sensors_sender = data.sensors.sender();
     let mut config_watch = data.config.receiver().unwrap();

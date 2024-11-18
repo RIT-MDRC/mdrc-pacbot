@@ -1,5 +1,5 @@
 use crate::drive_system::DriveSystem;
-use crate::driving::data::RobotInterTaskData;
+use crate::driving::data::SharedRobotData;
 use crate::driving::{EmbassyInstant, RobotBehavior};
 use crate::messages::{
     FrequentServerToRobot, MotorControlStatus, RobotToServerMessage, SensorData, Task,
@@ -11,13 +11,13 @@ use crate::robot_definition::RobotDefinition;
 use crate::util::utilization::UtilizationMonitor;
 use crate::util::CrossPlatformInstant;
 use core::fmt::Debug;
+use core::sync::atomic::Ordering;
 use core::time::Duration;
 use embassy_time::{Instant, Timer};
 #[cfg(not(feature = "std"))]
 use micromath::F32Ext;
 use nalgebra::{Rotation2, Vector2};
 use pid::Pid;
-use std::sync::atomic::Ordering;
 
 /// Functionality that robots with motors must support
 pub trait RobotMotorsBehavior {
@@ -47,10 +47,9 @@ struct MotorsData<const WHEELS: usize, M: RobotMotorsBehavior> {
 }
 
 /// The "main" method for the motors task
-pub async fn motors_task<T: RobotBehavior>(
-    data: &'static RobotInterTaskData<3, T>,
-    motors: T::Motors,
-) -> ! {
+pub async fn motors_task<R: RobotBehavior>(motors: R::Motors) -> ! {
+    let data = R::get();
+
     let name = data.name;
     let mut sensors_watch = data.sensors.receiver().unwrap();
     let mut config_watch = data.config.receiver().unwrap();

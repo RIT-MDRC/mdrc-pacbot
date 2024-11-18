@@ -1,5 +1,5 @@
-use crate::driving::data::RobotInterTaskData;
-use crate::driving::{error, info, EmbassyInstant, RobotBehavior};
+use crate::driving::data::SharedRobotData;
+use crate::driving::{EmbassyInstant, RobotBehavior};
 use crate::messages::robot_tcp::{write_tcp, BytesOrT, StatefulTcpReader, TcpError, TcpMessage};
 use crate::messages::{ExtraOptsTypes, NetworkStatus, RobotToServerMessage, ServerToRobotMessage};
 use crate::names::RobotName;
@@ -26,7 +26,6 @@ pub trait RobotNetworkBehavior {
     type Socket<'a>: Read + Write
     where
         Self: 'a;
-    type Instant: CrossPlatformInstant + Default;
 
     /// Get the device's mac address
     async fn mac_address(&mut self) -> [u8; 6];
@@ -89,10 +88,10 @@ struct ExpectedFirmwarePart {
     len: usize,
 }
 
-struct NetworkData<T: RobotBehavior + 'static> {
+struct NetworkData<R: RobotBehavior + 'static> {
     name: RobotName,
-    network: T::Network,
-    data: &'static RobotInterTaskData<3, T>,
+    network: R::Network,
+    data: &'static SharedRobotData<R>,
     seq: u32,
 
     expected_firmware_part: Option<ExpectedFirmwarePart>,
@@ -351,10 +350,7 @@ impl<T: RobotBehavior> NetworkData<T> {
 }
 
 /// The "main" method for the network task
-pub async fn network_task<T: RobotBehavior>(
-    mut network: T::Network,
-    data: &'static RobotInterTaskData<3, T>,
-) {
+pub async fn network_task<R: RobotBehavior>(mut network: R::Network) {
     // info!("mac address: {:?}", network.mac_address().await);
     // let name = RobotName::from_mac_address(&network.mac_address().await)
     //     .expect("Unrecognized mac address");

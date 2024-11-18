@@ -1,10 +1,12 @@
 use crate::constants::ROBOT_LOGS_BUFFER;
+use crate::driving::peripherals::RobotPeripheralsBehavior;
 use crate::driving::{EmbassyInstant, RobotBehavior};
 use crate::messages::{
     ExtraImuData, ExtraOptsAtomicTypes, FrequentServerToRobot, NetworkStatus, RobotToServerMessage,
     SensorData,
 };
 use crate::names::RobotName;
+use crate::robot_definition::RobotDefinition;
 use array_init::array_init;
 use atomic::Atomic;
 use core::sync::atomic::Ordering;
@@ -17,9 +19,11 @@ use portable_atomic::{AtomicBool, AtomicF32, AtomicI32, AtomicI8};
 
 /// Each robot should have exactly one. Some fields are managed by core_pb, but (when noted)
 /// implementations are responsible for updating values
-pub struct RobotInterTaskData<const WHEELS: usize, Implementation: RobotBehavior> {
+pub struct SharedRobotData<R: RobotBehavior + ?Sized> {
     /// Robot's name, to distinguish it from other robots, is provided on startup
     pub name: RobotName,
+    /// The robot's physical characteristics
+    pub robot_definition: RobotDefinition<3>,
     /// An instant representing the time the shared struct was created
     pub created_at: EmbassyInstant,
 
@@ -46,11 +50,14 @@ pub struct RobotInterTaskData<const WHEELS: usize, Implementation: RobotBehavior
     /// Estimated motor speeds
     ///
     /// It is the responsibility of the implementation to update this field.
-    pub sig_motor_speeds: Signal<CriticalSectionRawMutex, [f32; WHEELS]>,
+    pub sig_motor_speeds: Signal<CriticalSectionRawMutex, [f32; 3]>,
     /// An estimation of the absolute orientation of the robot
     ///
     /// It is the responsibility of the implementation to update this field.
-    pub sig_angle: Signal<CriticalSectionRawMutex, Result<f32, Implementation::PeripheralsError>>,
+    pub sig_angle: Signal<
+        CriticalSectionRawMutex,
+        Result<f32, <R::Peripherals as RobotPeripheralsBehavior>::Error>,
+    >,
     /// Individual IMU sensor information
     ///
     /// It is the responsibility of the implementation to update this field.
@@ -62,12 +69,17 @@ pub struct RobotInterTaskData<const WHEELS: usize, Implementation: RobotBehavior
     /// - Err(_) indicates that something is wrong with the sensor and the reading can't be trusted
     /// - Ok(None) indicates that the sensor is working, but didn't detect any object in its range
     /// - Ok(x) indicates an object x grid units in front of the sensor
-    pub sig_distances:
-        [Signal<CriticalSectionRawMutex, Result<Option<f32>, Implementation::PeripheralsError>>; 4],
+    pub sig_distances: [Signal<
+        CriticalSectionRawMutex,
+        Result<Option<f32>, <R::Peripherals as RobotPeripheralsBehavior>::Error>,
+    >; 4],
     /// The battery level of the robot, in volts
     ///
     /// It is the responsibility of the implementation to update this field.
-    pub sig_battery: Signal<CriticalSectionRawMutex, Result<f32, Implementation::PeripheralsError>>,
+    pub sig_battery: Signal<
+        CriticalSectionRawMutex,
+        Result<f32, <R::Peripherals as RobotPeripheralsBehavior>::Error>,
+    >,
     /// Logging bytes from defmt
     ///
     /// It is the responsibility of the implementation to update this field.
@@ -89,10 +101,11 @@ fn make_extra_atomic_types() -> ExtraOptsAtomicTypes {
     )
 }
 
-impl<const W: usize, PE: RobotBehavior> RobotInterTaskData<W, PE> {
+impl<R: RobotBehavior> SharedRobotData<R> {
     pub fn new(name: RobotName) -> Self {
         Self {
             name,
+            robot_definition: RobotDefinition::new(name),
             created_at: EmbassyInstant::default(),
 
             server_outgoing_queue: Channel::new(),

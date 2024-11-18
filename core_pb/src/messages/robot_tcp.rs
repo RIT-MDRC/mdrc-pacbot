@@ -1,4 +1,4 @@
-use crate::driving::error;
+use defmt_or_log::error;
 use embedded_io_async::{Read, ReadReady};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
