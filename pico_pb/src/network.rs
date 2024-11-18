@@ -1,4 +1,3 @@
-use crate::logging::LOGS_PIPE;
 use crate::Irqs;
 use core::cell::RefCell;
 use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
@@ -165,10 +164,6 @@ impl RobotNetworkBehavior for Network {
     async fn mark_firmware_booted(&mut self) {
         let _ = self.updater.mark_booted();
     }
-
-    // fn read_logging_bytes(buf: &mut [u8]) -> Option<usize> {
-    //     LOGS_PIPE.try_read(buf).ok()
-    // }
 }
 
 #[embassy_executor::task]

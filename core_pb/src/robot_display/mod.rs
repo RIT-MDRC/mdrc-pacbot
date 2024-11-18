@@ -2,7 +2,7 @@ mod menu;
 
 use crate::constants::{ROBOT_DISPLAY_HEIGHT, ROBOT_DISPLAY_WIDTH};
 use crate::driving::network::DEFAULT_NETWORK;
-use crate::messages::MAX_SENSOR_ERR_LEN;
+use crate::messages::SensorData;
 use crate::messages::{NetworkStatus, RobotButton};
 use crate::names::RobotName;
 use crate::robot_display::menu::Page;
@@ -30,13 +30,12 @@ pub struct DisplayManager<I: CrossPlatformInstant + Default> {
     pub network_status: NetworkStatus,
     pub ip: Option<[u8; 4]>,
     pub ssid: Option<([u8; 32], usize)>,
-    pub distances: [Result<Option<f32>, heapless::String<MAX_SENSOR_ERR_LEN>>; 4],
-    pub imu_angle: Result<f32, heapless::String<MAX_SENSOR_ERR_LEN>>,
+    pub sensors: SensorData,
     pub joystick: (f32, f32),
 }
 
 impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
-    pub fn new(name: RobotName) -> Self {
+    pub fn new(name: RobotName, sensors: SensorData) -> Self {
         let mut ssid = [0; 32];
         for (i, ch) in DEFAULT_NETWORK.as_bytes().iter().enumerate().take(32) {
             ssid[i] = *ch;
@@ -59,8 +58,7 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
             network_status: NetworkStatus::NotConnected,
             ssid: Some((ssid, DEFAULT_NETWORK.len().min(32))),
             ip: None,
-            distances: [const { Err(heapless::String::new()) }; 4],
-            imu_angle: Err(heapless::String::new()),
+            sensors,
             joystick: (0.0, 0.0),
         }
     }
@@ -216,7 +214,7 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
             d,
         )?;
         for i in 0..4 {
-            let s = match self.distances[i] {
+            let s = match self.sensors.distances[i] {
                 Err(_) => " ERR",
                 Ok(None) => "NONE",
                 Ok(Some(d)) => {
@@ -235,7 +233,7 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
             Point::new(3, ROBOT_DISPLAY_HEIGHT as i32 - 4 - 7),
             d,
         )?;
-        let s = match self.imu_angle {
+        let s = match self.sensors.angle {
             Err(_) => " ERR",
             Ok(a) => format_no_std::show(&mut buf, format_args!("{:>4}", a.to_degrees() as i32))
                 .unwrap_or("?"),

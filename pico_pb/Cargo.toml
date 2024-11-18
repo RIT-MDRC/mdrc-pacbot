@@ -66,6 +66,7 @@ critical-section = "1.1"
 
 [profile.release]
 debug = 2
+lto = true
 opt-level = "z"
 
 [profile.dev]

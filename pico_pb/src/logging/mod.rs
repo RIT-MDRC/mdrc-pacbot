@@ -35,16 +35,15 @@ mod channel;
 mod consts;
 
 use crate::logging::{channel::Channel, consts::BUF_SIZE};
+use crate::PicoRobotBehavior;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use core_pb::constants::ROBOT_LOGS_BUFFER;
+use core_pb::driving::RobotBehavior;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::pipe::Pipe;
 
 #[defmt::global_logger]
 struct Logger;
-
-/// Added by RIT: allows writing logs to TCP
-pub static LOGS_PIPE: Pipe<CriticalSectionRawMutex, ROBOT_LOGS_BUFFER> = Pipe::new();
 
 /// Global logger lock.
 static TAKEN: AtomicBool = AtomicBool::new(false);
@@ -98,7 +97,7 @@ unsafe impl defmt::Logger for Logger {
 
 fn do_write(bytes: &[u8]) {
     // added by RIT
-    let _ = LOGS_PIPE.try_write(bytes);
+    let _ = PicoRobotBehavior::get().defmt_logs.try_write(bytes);
 
     unsafe { handle().write_all(bytes) }
 }

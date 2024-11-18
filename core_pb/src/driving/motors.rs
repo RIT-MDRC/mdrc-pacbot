@@ -1,5 +1,4 @@
 use crate::drive_system::DriveSystem;
-use crate::driving::data::SharedRobotData;
 use crate::driving::{EmbassyInstant, RobotBehavior};
 use crate::messages::{
     FrequentServerToRobot, MotorControlStatus, RobotToServerMessage, SensorData, Task,
@@ -10,10 +9,9 @@ use crate::pure_pursuit::pure_pursuit;
 use crate::robot_definition::RobotDefinition;
 use crate::util::utilization::UtilizationMonitor;
 use crate::util::CrossPlatformInstant;
-use core::fmt::Debug;
 use core::sync::atomic::Ordering;
 use core::time::Duration;
-use embassy_time::{Instant, Timer};
+use embassy_time::Timer;
 #[cfg(not(feature = "std"))]
 use micromath::F32Ext;
 use nalgebra::{Rotation2, Vector2};
@@ -54,7 +52,7 @@ pub async fn motors_task<R: RobotBehavior>(motors: R::Motors) -> ! {
     let mut sensors_watch = data.sensors.receiver().unwrap();
     let mut config_watch = data.config.receiver().unwrap();
 
-    let robot = name.robot();
+    let robot = data.robot_definition;
     let config = FrequentServerToRobot::new(name);
     let pid = config.pid;
 

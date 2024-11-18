@@ -1,4 +1,4 @@
-use crate::peripherals::{PeripheralsError, EXTRA_IMU_DATA_SIGNAL};
+use crate::peripherals::PeripheralsError;
 use crate::{PacbotI2cBus, PacbotI2cDevice, PicoRobotBehavior, SHARED_DATA};
 use bno08x_async::constants::{
     SENSOR_REPORTID_ACCELEROMETER, SENSOR_REPORTID_GYROSCOPE, SENSOR_REPORTID_MAGNETIC_FIELD,
@@ -12,7 +12,7 @@ use defmt::info;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;
 use embassy_rp::i2c;
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
 use embassy_time::{Delay, Timer};
 use micromath::F32Ext;
@@ -23,7 +23,7 @@ pub type ImuError =
 pub struct PacbotIMU {
     enabled: &'static AtomicBool,
     extra_reports: bool,
-    results: &'static Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>>,
+    results: &'static Signal<CriticalSectionRawMutex, Result<f32, PeripheralsError>>,
 
     sensor: bno08x_async::wrapper::BNO080<bno08x_async::interface::I2cInterface<PacbotI2cDevice>>,
     initialized: bool,
@@ -33,7 +33,7 @@ impl PacbotIMU {
     pub fn new(
         bus: &'static PacbotI2cBus,
         enabled: &'static AtomicBool,
-        results: &'static Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>>,
+        results: &'static Signal<CriticalSectionRawMutex, Result<f32, PeripheralsError>>,
     ) -> Self {
         Self {
             enabled,
@@ -53,12 +53,14 @@ impl PacbotIMU {
                 Ok(()) => {
                     self.sensor.handle_one_message(&mut Delay, 10).await;
                     self.results.signal(Ok(self.get_measurement().await));
-                    EXTRA_IMU_DATA_SIGNAL.signal(ExtraImuData {
-                        accel: self.sensor.accel,
-                        gyro: self.sensor.gyro,
-                        mag: self.sensor.mag,
-                        rotation_vector: self.sensor.rotation_vector,
-                    });
+                    PicoRobotBehavior::get()
+                        .sig_extra_imu_data
+                        .signal(ExtraImuData {
+                            accel: self.sensor.accel,
+                            gyro: self.sensor.gyro,
+                            mag: self.sensor.mag,
+                            rotation_vector: self.sensor.rotation_vector,
+                        });
                     Timer::after_millis(20).await;
                 }
                 Err(e) => {

@@ -8,7 +8,7 @@ use embassy_rp::gpio::Output;
 use embassy_rp::i2c;
 use embassy_rp::i2c::Async;
 use embassy_rp::peripherals::I2C1;
-use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
+use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex};
 use embassy_sync::signal::Signal;
 use embassy_time::{Delay, Timer};
 use embedded_hal_async::i2c::I2c;
@@ -26,7 +26,7 @@ impl From<vl53l4cd::Error<I2cDeviceError<i2c::Error>>> for PeripheralsError {
 
 pub struct PacbotDistanceSensor {
     enabled: &'static AtomicBool,
-    results: &'static Signal<ThreadModeRawMutex, Result<Option<u16>, PeripheralsError>>,
+    results: &'static Signal<CriticalSectionRawMutex, Result<Option<f32>, PeripheralsError>>,
 
     index: usize,
     addr: u8,
@@ -45,7 +45,7 @@ impl PacbotDistanceSensor {
         index: usize,
         addr: u8,
         enabled: &'static AtomicBool,
-        results: &'static Signal<ThreadModeRawMutex, Result<Option<u16>, PeripheralsError>>,
+        results: &'static Signal<CriticalSectionRawMutex, Result<Option<f32>, PeripheralsError>>,
     ) -> Self {
         // set XSHUT low to turn the sensor off
         xshut.set_low();
@@ -76,7 +76,7 @@ impl PacbotDistanceSensor {
                         self.results.signal(Err(e));
                         self.initialized = false;
                     }
-                    Ok(m) => self.results.signal(Ok(m)),
+                    Ok(m) => self.results.signal(Ok(m.map(|x| x as f32))),
                 }
                 Timer::after_millis(20).await;
             } else {

@@ -2,10 +2,10 @@ use crate::devices::bno08x::{ImuError, PacbotIMU};
 use crate::devices::ltc2943::Ltc2943;
 use crate::devices::ssd1306::{PacbotDisplay, PacbotDisplayWrapper};
 use crate::devices::vl53l4cd::PacbotDistanceSensor;
-use crate::PacbotI2cBus;
-use core::sync::atomic::{AtomicBool, Ordering};
-use core_pb::constants::MM_PER_GU;
+use crate::{PacbotI2cBus, PicoRobotBehavior};
+use core::sync::atomic::AtomicBool;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
+use core_pb::driving::RobotBehavior;
 use core_pb::messages::{ExtraImuData, RobotButton};
 use defmt::Format;
 use display_interface::DisplayError;
@@ -26,18 +26,14 @@ pub const NUM_DIST_SENSORS: usize = 4;
 pub const DIST_SENSOR_ADDRESSES: [u8; NUM_DIST_SENSORS] = [0x31, 0x32, 0x33, 0x34];
 
 static IMU_ENABLED: AtomicBool = AtomicBool::new(false);
-pub static IMU_SIGNAL: Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>> = Signal::new();
-pub static EXTRA_IMU_DATA_SIGNAL: Signal<ThreadModeRawMutex, ExtraImuData> = Signal::new();
 
 pub async fn run_imu(enabled: &'static AtomicBool, bus: &'static PacbotI2cBus) -> ! {
-    PacbotIMU::new(bus, enabled, &IMU_SIGNAL)
+    PacbotIMU::new(bus, enabled, &PicoRobotBehavior::get().sig_angle)
         .run_forever()
         .await
 }
 
 static DIST_ENABLED: AtomicBool = AtomicBool::new(true);
-static DIST_SIGNALS: [Signal<ThreadModeRawMutex, Result<Option<u16>, PeripheralsError>>;
-    NUM_DIST_SENSORS] = [Signal::new(), Signal::new(), Signal::new(), Signal::new()];
 
 pub async fn run_dist(
     enabled: &'static AtomicBool,
@@ -51,18 +47,16 @@ pub async fn run_dist(
         index,
         DIST_SENSOR_ADDRESSES[index],
         enabled,
-        &DIST_SIGNALS[index],
+        &PicoRobotBehavior::get().sig_distances[index],
     )
     .run_forever()
     .await
 }
 
 static BATTERY_MONITOR_ENABLED: AtomicBool = AtomicBool::new(false);
-static BATTERY_MONITOR_SIGNAL: Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>> =
-    Signal::new();
 
 pub async fn run_battery_monitor(enabled: &'static AtomicBool, bus: &'static PacbotI2cBus) {
-    Ltc2943::new(bus, enabled, &BATTERY_MONITOR_SIGNAL)
+    Ltc2943::new(bus, enabled, &PicoRobotBehavior::get().sig_battery)
         .run_forever()
         .await
 }

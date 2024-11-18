@@ -10,7 +10,6 @@ use crate::names::NUM_ROBOT_NAMES;
 use crate::robot_definition::RobotDefinition;
 #[cfg(feature = "std")]
 use crate::util::ColoredStatus;
-use bytemuck::NoUninit;
 use core::time::Duration;
 use nalgebra::Point2;
 #[cfg(feature = "std")]
@@ -188,7 +187,6 @@ pub enum ServerToRobotMessage {
     /// See [`FrequentServerToRobot`]
     FrequentRobotItems(FrequentServerToRobot) = 8,
     Ping = 9,
-    ResetAngle = 10,
     ExtraOpts(ExtraOptsTypes) = 11,
 }
 
@@ -274,7 +272,7 @@ pub struct SensorData {
     /// The best guess location of the robot
     pub location: Option<Point2<f32>>,
     /// The battery level of the robot
-    pub battery: Result<f32, ()>,
+    pub battery: Result<f32, heapless::String<MAX_SENSOR_ERR_LEN>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

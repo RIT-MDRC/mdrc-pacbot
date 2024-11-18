@@ -2,13 +2,12 @@ use crate::constants::ROBOT_LOGS_BUFFER;
 use crate::driving::peripherals::RobotPeripheralsBehavior;
 use crate::driving::{EmbassyInstant, RobotBehavior};
 use crate::messages::{
-    ExtraImuData, ExtraOptsAtomicTypes, FrequentServerToRobot, NetworkStatus, RobotToServerMessage,
-    SensorData,
+    ExtraImuData, ExtraOptsAtomicTypes, ExtraOptsTypes, FrequentServerToRobot, NetworkStatus,
+    RobotToServerMessage, SensorData,
 };
 use crate::names::RobotName;
 use crate::robot_definition::RobotDefinition;
 use array_init::array_init;
-use atomic::Atomic;
 use core::sync::atomic::Ordering;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
@@ -33,7 +32,7 @@ pub struct SharedRobotData<R: RobotBehavior + ?Sized> {
     /// Tasks may use this channel to queue messages to be sent back to the server
     ///
     /// If no active connection is available, the channel may fill up and remain full
-    pub server_outgoing_queue: Channel<CriticalSectionRawMutex, RobotToServerMessage, 64>,
+    pub server_outgoing_queue: Channel<CriticalSectionRawMutex, RobotToServerMessage, 16>,
 
     /// Information gathered by the peripherals task will be posted here for network and motors
     pub sensors: Watch<CriticalSectionRawMutex, SensorData, 2>,
@@ -88,8 +87,8 @@ pub struct SharedRobotData<R: RobotBehavior + ?Sized> {
     //
     // ------------------- EXTRA -------------------
     //
-    extra_opts: ExtraOptsAtomicTypes,
-    extra_indicators: ExtraOptsAtomicTypes,
+    pub extra_opts: ExtraOptsAtomicTypes,
+    pub extra_indicators: ExtraOptsAtomicTypes,
 }
 
 fn make_extra_atomic_types() -> ExtraOptsAtomicTypes {
@@ -99,6 +98,40 @@ fn make_extra_atomic_types() -> ExtraOptsAtomicTypes {
         array_init(|_| AtomicI8::new(0)),
         array_init(|_| AtomicI32::new(0)),
     )
+}
+
+impl ExtraOptsTypes {
+    pub fn store_into(&self, atomics: &ExtraOptsAtomicTypes) {
+        for (i, x) in self.opts_bool.iter().enumerate() {
+            atomics.0[i].store(*x, Ordering::Relaxed);
+        }
+        for (i, x) in self.opts_f32.iter().enumerate() {
+            atomics.1[i].store(*x, Ordering::Relaxed);
+        }
+        for (i, x) in self.opts_i8.iter().enumerate() {
+            atomics.2[i].store(*x, Ordering::Relaxed);
+        }
+        for (i, x) in self.opts_i32.iter().enumerate() {
+            atomics.3[i].store(*x, Ordering::Relaxed);
+        }
+    }
+
+    pub fn load_from(atomics: &ExtraOptsAtomicTypes) -> Self {
+        let mut s = Self::default();
+        for (i, x) in s.opts_bool.iter_mut().enumerate() {
+            *x = atomics.0[i].load(Ordering::Relaxed);
+        }
+        for (i, x) in s.opts_f32.iter_mut().enumerate() {
+            *x = atomics.1[i].load(Ordering::Relaxed);
+        }
+        for (i, x) in s.opts_i8.iter_mut().enumerate() {
+            *x = atomics.2[i].load(Ordering::Relaxed);
+        }
+        for (i, x) in s.opts_i32.iter_mut().enumerate() {
+            *x = atomics.3[i].load(Ordering::Relaxed);
+        }
+        s
+    }
 }
 
 impl<R: RobotBehavior> SharedRobotData<R> {
