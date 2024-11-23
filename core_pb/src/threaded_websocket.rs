@@ -18,7 +18,7 @@ use std::any::TypeId;
 use std::fmt::Debug;
 use std::future;
 use std::pin::pin;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 #[cfg(not(target_arch = "wasm32"))]
 use {
     async_std::net::TcpStream,
@@ -365,8 +365,24 @@ async fn run_socket_forever<
                 }
             }
         }
+        let mut disconnect_time : Option<Instant> = None;
         select! {
-            _ = sleep(Duration::from_secs(1)).fuse() => {}
+            _ = sleep(Duration::from_secs(1)).fuse() => {
+                if let Some(time) = disconnect_time{
+                    let time_elapsed = time.elapsed().as_secs();
+                    if time_elapsed >= 5{
+                        console_log!("[{name}] Reattempting connection to {addr:?}");
+                        statuses.send(NetworkStatus::NotConnected).await.map_err(|_| ())?;
+                        sent_first_message = false;
+                        received_first_message = false;
+                        if let Some(socket) = socket.take() {
+                            console_log!("[{name}] Closing socket to {addr:?}");
+                            disconnect_time = Some(Instant::now());
+                            socket.my_close().await
+                        }
+                    }
+                }
+            }
             new_addr = addresses.recv().fuse() => {
                 if addr != new_addr.unwrap() {
                     console_log!("[{name}] Address changed from {addr:?} to {new_addr:?}");
@@ -381,6 +397,7 @@ async fn run_socket_forever<
                 }
             }
             incoming_data = socket_read_fut(&mut socket).fuse() => {
+                disconnect_time = Some(Instant::now());
                 if let Ok(incoming_data) = incoming_data {
                     // console_log!("[{name}] Received data from {addr:?}");
                     let incoming_data = match incoming_data {
