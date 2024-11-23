@@ -38,8 +38,8 @@ pub async fn run_encoders(
         let (i, tick, velocity) =
             match select3(encoders.0.read(), encoders.1.read(), encoders.2.read()).await {
                 Either3::First(_) => (2, encoders.0.ticks(), -encoders.0.average_rate()),
-                Either3::Second(_) => (1, encoders.1.ticks(), -encoders.1.average_rate()),
-                Either3::Third(_) => (0, encoders.2.ticks(), -encoders.2.average_rate()),
+                Either3::Second(_) => (0, encoders.1.ticks(), -encoders.1.average_rate()),
+                Either3::Third(_) => (1, encoders.2.ticks(), -encoders.2.average_rate()),
             };
         ticks[i] = tick;
         velocities[i] = velocity / 12.0 / 2.0;

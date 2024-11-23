@@ -71,6 +71,7 @@ impl StandardGrid {
     pub fn get_soft_boundaries(&self) -> (Point2<f32>, Point2<f32>) {
         match self {
             Self::Pacman => (Point2::new(-1.0, -1.0), Point2::new(31.0, 28.0)),
+            Self::Playground => (Point2::new(25.0, 22.0), Point2::new(32.0, 32.0)),
             _ => (Point2::new(-1.0, -1.0), Point2::new(32.0, 32.0)),
         }
     }
@@ -82,6 +83,10 @@ impl StandardGrid {
             Self::Pacman => vec![
                 (Point2::new(-1.0, 28.0), Point2::new(32.1, 32.1)),
                 (Point2::new(31.0, -1.0), Point2::new(32.1, 32.1)),
+            ],
+            Self::Playground => vec![
+                (Point2::new(-1.0, -1.0), Point2::new(25.0, 32.1)),
+                (Point2::new(-1.0, -1.0), Point2::new(32.1, 22.0)),
             ],
             _ => vec![],
         }

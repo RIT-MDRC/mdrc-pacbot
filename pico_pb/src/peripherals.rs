@@ -7,7 +7,7 @@ use crate::{EmbassyInstant, PacbotI2cBus};
 use core::sync::atomic::{AtomicBool, Ordering};
 use core_pb::constants::MM_PER_GU;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
-use core_pb::driving::RobotInterTaskMessage;
+use core_pb::driving::{RobotInterTaskMessage, EXTRA_OPTS_F32};
 use core_pb::messages::{ExtraImuData, RobotButton};
 use defmt::Format;
 use display_interface::DisplayError;
@@ -137,7 +137,7 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
         //     self.angle = rot;
         // }
         // self.angle.clone()
-        Ok(ENCODER_ANGLE.load(Ordering::Relaxed))
+        Ok(ENCODER_ANGLE.load(Ordering::Relaxed) + EXTRA_OPTS_F32[0].load(Ordering::Relaxed))
     }
 
     async fn extra_imu_data(&mut self) -> Option<ExtraImuData> {
