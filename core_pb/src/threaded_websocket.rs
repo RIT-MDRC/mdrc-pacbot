@@ -3,7 +3,9 @@
 //! See [`ThreadedSocket`], a simple poll-based wrapper around a socket (websocket or TCP) connection
 //! that runs in a separate thread
 
+use crate::constants::SOCKET_TIMEOUT;
 use crate::messages::NetworkStatus;
+use crate::util::CrossPlatformInstant;
 #[allow(unused)]
 use crate::{bin_decode, bin_encode, console_error, console_log};
 use async_channel::{unbounded, Receiver, Sender};
@@ -21,6 +23,7 @@ use std::pin::pin;
 use std::time::Duration;
 #[cfg(not(target_arch = "wasm32"))]
 use {
+    crate::util::StdInstant,
     async_std::net::TcpStream,
     async_tungstenite::async_std::ConnectStream,
     async_tungstenite::tungstenite::Message,
@@ -31,6 +34,7 @@ use {
 };
 #[cfg(target_arch = "wasm32")]
 use {
+    crate::util::WebTimeInstant,
     futures::FutureExt,
     wasm_bindgen_futures::spawn_local,
     web_sys::wasm_bindgen::closure::Closure,
@@ -215,7 +219,7 @@ impl<
         let name2 = name.clone();
         #[cfg(target_arch = "wasm32")]
         spawn_local(async {
-            run_socket_forever::<_, _, SocketType, _, _, _, _>(
+            run_socket_forever::<_, _, SocketType, _, _, _, _, WebTimeInstant>(
                 name2,
                 addr_rx,
                 sender_rx,
@@ -229,15 +233,17 @@ impl<
         });
         #[cfg(not(target_arch = "wasm32"))]
         std::thread::spawn(|| {
-            block_on(run_socket_forever::<_, _, SocketType, _, _, _, _>(
-                name2,
-                addr_rx,
-                sender_rx,
-                status_tx,
-                receiver_tx,
-                serializer,
-                deserializer,
-            ))
+            block_on(
+                run_socket_forever::<_, _, SocketType, _, _, _, _, StdInstant>(
+                    name2,
+                    addr_rx,
+                    sender_rx,
+                    status_tx,
+                    receiver_tx,
+                    serializer,
+                    deserializer,
+                ),
+            )
         });
 
         Self {
@@ -316,6 +322,7 @@ async fn run_socket_forever<
     SerializeResult: Debug,
     Deserializer: FnMut(bool, &[u8]) -> Result<Vec<TextOrT<IncomingType>>, DeserializeResult>,
     DeserializeResult: Debug,
+    Instant: CrossPlatformInstant + Default,
 >(
     name: String,
     addresses: Receiver<Option<Address>>,
@@ -329,7 +336,7 @@ async fn run_socket_forever<
     let mut socket: Option<SocketType> = None;
     let mut sent_first_message = false;
     let mut received_first_message = false;
-
+    let mut disconnect_time: Option<Instant> = None;
     loop {
         if socket.is_none() {
             if let Some(address) = addr {
@@ -366,7 +373,22 @@ async fn run_socket_forever<
             }
         }
         select! {
-            _ = sleep(Duration::from_secs(1)).fuse() => {}
+            _ = sleep(Duration::from_secs(1)).fuse() => {
+                if let Some(time) = disconnect_time{
+                    let time_elapsed = time.elapsed().as_secs();
+                    if time_elapsed >= SOCKET_TIMEOUT{
+                        console_log!("[{name}] Reattempting connection to {addr:?}");
+                        statuses.send(NetworkStatus::NotConnected).await.map_err(|_| ())?;
+                        sent_first_message = false;
+                        received_first_message = false;
+                        if let Some(socket) = socket.take() {
+                            console_log!("[{name}] Closing socket to {addr:?}");
+                            disconnect_time = Some(Instant::default());
+                            socket.my_close().await
+                        }
+                    }
+                }
+            }
             new_addr = addresses.recv().fuse() => {
                 if addr != new_addr.unwrap() {
                     console_log!("[{name}] Address changed from {addr:?} to {new_addr:?}");
@@ -381,8 +403,9 @@ async fn run_socket_forever<
                 }
             }
             incoming_data = socket_read_fut(&mut socket).fuse() => {
+                disconnect_time = Some(Instant::default());
                 if let Ok(incoming_data) = incoming_data {
-                    // console_log!("[{name}] Received data from {addr:?}");
+                    //console_log!("[{name}] Received data from {addr:?}");
                     let incoming_data = match incoming_data {
                         TextOrT::T(data) => {
                             match deserializer(received_first_message, &data) {

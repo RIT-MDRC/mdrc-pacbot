@@ -4,6 +4,8 @@ pub const GAME_SERVER_PORT: u16 = 3002;
 pub const GUI_LISTENER_PORT: u16 = 20010;
 /// The default port where `server_pb` should expect to find the simulation controls
 pub const SIMULATION_LISTENER_PORT: u16 = 20014;
+/// The default timeout period in seconds between socket messages after which a socket attempts to reconnect
+pub const SOCKET_TIMEOUT: u64 = 5;
 
 /// this message lets game server clients know that a game server supports
 /// extra messages like pause, reset, custom game state
