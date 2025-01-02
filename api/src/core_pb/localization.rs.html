@@ -124,7 +124,8 @@
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::grid::{Grid, GRID_SIZE};
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::grid::{Grid, GRID_SIZE};
 <span class="kw">use </span><span class="kw">crate</span>::messages::MAX_SENSOR_ERR_LEN;
 <span class="kw">use crate</span>::{grid::standard_grid::StandardGrid, robot_definition::RobotDefinition};
 <span class="attr">#[cfg(not(feature = <span class="string">"std"</span>))]
@@ -132,9 +133,9 @@
 <span class="kw">use </span>nalgebra::{Point2, Vector2};
 <span class="kw">use </span>ordered_float::NotNan;
 
-<span class="kw">const </span>CV_ERROR: f32 = <span class="number">1.5</span>;
+<span class="comment">// const CV_ERROR: f32 = 1.5;
 
-<span class="kw">const </span>VECTORS: [Vector2&lt;f32&gt;; <span class="number">4</span>] = [
+</span><span class="kw">const </span>VECTORS: [Vector2&lt;f32&gt;; <span class="number">4</span>] = [
     Vector2::new(<span class="number">1.0</span>, <span class="number">0.0</span>),
     Vector2::new(<span class="number">0.0</span>, <span class="number">1.0</span>),
     Vector2::new(-<span class="number">1.0</span>, <span class="number">0.0</span>),
@@ -146,6 +147,7 @@
     cv_location: <span class="prelude-ty">Option</span>&lt;Point2&lt;i8&gt;&gt;,
     distance_sensors: <span class="kw-2">&amp;</span>[<span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;f32&gt;, heapless::String&lt;MAX_SENSOR_ERR_LEN&gt;&gt;; <span class="number">4</span>],
     robot: <span class="kw-2">&amp;</span>RobotDefinition&lt;<span class="number">3</span>&gt;,
+    cv_error: f32,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;Point2&lt;f32&gt;&gt; {
     <span class="kw">let </span>cv_location_int = cv_location<span class="question-mark">?</span>;
     <span class="kw">let </span>cv_location_f32 = cv_location_int.map(|x| x <span class="kw">as </span>f32);
@@ -154,7 +156,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>poses = get_estimated_poses(<span class="kw-2">&amp;</span>grid, cv_location_int, distance_sensors, robot.radius);
 
     <span class="kw">if </span>[poses[<span class="number">0</span>], poses[<span class="number">2</span>]].iter().all(|x| {
-        x.map(|pos| get_dist(pos, cv_location_f32) &gt; CV_ERROR)
+        x.map(|pos| get_dist(pos, cv_location_f32) &gt; cv_error)
             .unwrap_or(<span class="bool-val">true</span>)
     }) {
         <span class="kw">let </span><span class="kw-2">mut </span>new_location = cv_location_int;
@@ -169,7 +171,7 @@
     }
 
     <span class="kw">if </span>[poses[<span class="number">1</span>], poses[<span class="number">3</span>]].iter().all(|x| {
-        x.map(|pos| get_dist(pos, cv_location_f32) &gt; CV_ERROR)
+        x.map(|pos| get_dist(pos, cv_location_f32) &gt; cv_error)
             .unwrap_or(<span class="bool-val">true</span>)
     }) {
         <span class="kw">let </span><span class="kw-2">mut </span>new_location = cv_location_int;

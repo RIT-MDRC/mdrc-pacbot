@@ -229,28 +229,37 @@
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
 <a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::messages::SensorData;
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::messages::SensorData;
 <span class="kw">use crate</span>::{constants::MAX_ROBOT_PATH_LENGTH, localization};
 <span class="kw">use </span>localization::get_dist;
 <span class="attr">#[allow(unused_imports)]
 </span><span class="kw">use </span>micromath::F32Ext;
 <span class="kw">use </span>nalgebra::{Point2, Vector2};
 
-<span class="kw">const </span>SPEED: f32 = <span class="number">1.5</span>;
-<span class="kw">const </span>LOCAL_MAX_PATH_LENGTH: usize = MAX_ROBOT_PATH_LENGTH + <span class="number">1</span>;
-<span class="kw">const </span>DIST_TOWARDS_CENTER: f32 = <span class="number">0.3</span>;
+<span class="comment">// const SPEED: f32 = 1.5;
+</span><span class="kw">const </span>LOCAL_MAX_PATH_LENGTH: usize = MAX_ROBOT_PATH_LENGTH + <span class="number">1</span>;
+<span class="comment">// const SNAPPING_DISTANCE: f32 = 0.3;
 
-<span class="kw">pub fn </span>pure_pursuit(
+</span><span class="kw">pub fn </span>pure_pursuit(
     sensors: <span class="kw-2">&amp;</span>SensorData,
     path: <span class="kw-2">&amp;</span>heapless::Vec&lt;Point2&lt;i8&gt;, MAX_ROBOT_PATH_LENGTH&gt;,
     lookahead: f32,
+    speed: f32,
+    snapping_dist: f32,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;Vector2&lt;f32&gt;&gt; {
     <span class="kw">let </span>loc = sensors.location<span class="question-mark">?</span>;
 
     <span class="kw">if </span>path.is_empty() {
         <span class="kw">let </span>r = round_point(loc);
-        <span class="kw">if </span>get_dist(loc, r) &gt; DIST_TOWARDS_CENTER {
-            <span class="kw">return </span><span class="prelude-val">Some</span>(get_vec(loc, r, <span class="bool-val">false</span>));
+        <span class="kw">if </span>get_dist(loc, r) &gt; snapping_dist {
+            <span class="kw">return </span><span class="prelude-val">Some</span>(get_vec(loc, r, <span class="bool-val">false</span>, speed));
         } <span class="kw">else </span>{
             <span class="kw">return </span><span class="prelude-val">None</span>;
         }
@@ -270,17 +279,22 @@
     };
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(pursuit_point) = get_pursuit_point(<span class="kw-2">&amp;</span>closest_point, <span class="kw-2">&amp;</span>path_f32, lookahead) {
-        <span class="kw">return </span><span class="prelude-val">Some</span>(get_vec(loc, pursuit_point, <span class="bool-val">true</span>));
+        <span class="kw">return </span><span class="prelude-val">Some</span>(get_vec(loc, pursuit_point, <span class="bool-val">true</span>, speed));
     }
 
     <span class="prelude-val">None
 </span>}
 
-<span class="kw">fn </span>get_vec(loc: Point2&lt;f32&gt;, pursuit_point: Point2&lt;f32&gt;, normalize: bool) -&gt; Vector2&lt;f32&gt; {
+<span class="kw">fn </span>get_vec(
+    loc: Point2&lt;f32&gt;,
+    pursuit_point: Point2&lt;f32&gt;,
+    normalize: bool,
+    speed: f32,
+) -&gt; Vector2&lt;f32&gt; {
     <span class="kw">let </span>x = pursuit_point.x - loc.x;
     <span class="kw">let </span>y = pursuit_point.y - loc.y;
     <span class="kw">let </span>mag = (x * x + y * y).sqrt(); <span class="comment">// could potentially do math here to ease acceleration as to not overshoot endpoint
-    </span><span class="kw">let </span>mult = <span class="kw">if </span>normalize { SPEED / mag } <span class="kw">else </span>{ <span class="number">1.0 </span>};
+    </span><span class="kw">let </span>mult = <span class="kw">if </span>normalize { speed / mag } <span class="kw">else </span>{ <span class="number">1.0 </span>};
     Vector2::new(x * mult, y * mult)
 }
 

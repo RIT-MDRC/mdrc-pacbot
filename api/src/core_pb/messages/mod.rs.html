@@ -312,7 +312,15 @@
 <a href="#311" id="311">311</a>
 <a href="#312" id="312">312</a>
 <a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::constants::MAX_ROBOT_PATH_LENGTH;
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::constants::MAX_ROBOT_PATH_LENGTH;
 <span class="kw">use </span><span class="kw">crate</span>::grid::standard_grid::StandardGrid;
 <span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::messages::server_status::ServerStatus;
@@ -459,6 +467,10 @@
     </span><span class="kw">pub </span>target_path: heapless::Vec&lt;Point2&lt;i8&gt;, MAX_ROBOT_PATH_LENGTH&gt;,
     <span class="doccomment">/// Whether the robot should try to follow the target path (including maintaining heading 0)
     </span><span class="kw">pub </span>follow_target_path: bool,
+    <span class="kw">pub </span>lookahead_dist: f32,
+    <span class="kw">pub </span>robot_speed: f32,
+    <span class="kw">pub </span>snapping_dist: f32,
+    <span class="kw">pub </span>cv_error: f32,
 }
 
 <span class="kw">impl </span>FrequentServerToRobot {
@@ -475,6 +487,10 @@
             cv_location: <span class="prelude-val">None</span>,
             target_path: heapless::Vec::new(),
             follow_target_path: <span class="bool-val">false</span>,
+            lookahead_dist: <span class="number">0.5</span>,
+            robot_speed: <span class="number">1.5</span>,
+            snapping_dist: <span class="number">0.3</span>,
+            cv_error: <span class="number">1.5</span>,
         }
     }
 }

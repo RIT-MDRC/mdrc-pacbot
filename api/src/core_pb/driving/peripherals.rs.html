@@ -146,10 +146,12 @@
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::driving::{RobotInterTaskMessage, RobotTaskMessenger, Task};
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::driving::{RobotInterTaskMessage, RobotTaskMessenger, Task};
 <span class="kw">use </span><span class="kw">crate</span>::grid::standard_grid::StandardGrid;
 <span class="kw">use </span><span class="kw">crate</span>::localization::estimate_location;
-<span class="kw">use </span><span class="kw">crate</span>::messages::{RobotButton, SensorData, MAX_SENSOR_ERR_LEN};
+<span class="kw">use </span><span class="kw">crate</span>::messages::{FrequentServerToRobot, RobotButton, SensorData, MAX_SENSOR_ERR_LEN};
 <span class="kw">use </span><span class="kw">crate</span>::names::RobotName;
 <span class="kw">use </span><span class="kw">crate</span>::robot_definition::RobotDefinition;
 <span class="kw">use </span><span class="kw">crate</span>::robot_display::DisplayManager;
@@ -252,7 +254,9 @@
             <span class="kw">for </span>(i, sensor) <span class="kw">in </span>distances.iter_mut().enumerate() {
                 <span class="kw-2">*</span>sensor = handle_err(peripherals.distance_sensor(i).<span class="kw">await</span>);
             }
-            <span class="kw">let </span>location = estimate_location(grid, cv_location, <span class="kw-2">&amp;</span>distances, <span class="kw-2">&amp;</span>robot);
+            <span class="kw">let </span>config = FrequentServerToRobot::new(name);
+            <span class="kw">let </span>location =
+                estimate_location(grid, cv_location, <span class="kw-2">&amp;</span>distances, <span class="kw-2">&amp;</span>robot, config.cv_error);
             display_manager.imu_angle = angle.clone();
             display_manager.distances = distances.clone();
             <span class="kw">let </span>sensors = SensorData {
