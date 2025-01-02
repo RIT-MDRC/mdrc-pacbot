@@ -6,6 +6,7 @@ use core_pb::constants::GU_PER_M;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::ghost_state::GhostColor;
+use core_pb::region_localization::get_possible_regions;
 use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::TRANSLUCENT_YELLOW_COLOR;
 use eframe::egui::{Color32, Painter, Pos2, Rect, Rounding, Stroke};
@@ -45,6 +46,89 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
 
     // sim robot positions
     for name in RobotName::get_all() {
+        // estimated pos
+        if let Some(orig_estimated_location) =
+            app.server_status.robots[name as usize].estimated_location
+        {
+            let estimated_location: Pos2 = wts.map_point(Pos2::new(
+                orig_estimated_location.x,
+                orig_estimated_location.y,
+            ));
+            let angle = app.server_status.robots[name as usize]
+                .imu_angle
+                .clone()
+                .unwrap_or(0.0);
+            painter.circle(
+                estimated_location,
+                wts.map_dist(name.robot().radius),
+                Color32::TRANSPARENT,
+                Stroke::new(1.0, Color32::GREEN),
+            );
+            let rot_cos = Rotation2::new(angle).matrix()[(0, 0)];
+            let rot_sin = Rotation2::new(angle).matrix()[(1, 0)];
+            painter.line_segment(
+                [
+                    estimated_location,
+                    wts.map_point(Pos2::new(
+                        orig_estimated_location.x + rot_cos * name.robot().radius,
+                        orig_estimated_location.y + rot_sin * name.robot().radius,
+                    )),
+                ],
+                Stroke::new(1.0, Color32::GREEN),
+            );
+            for (i, sensor) in app.server_status.robots[name as usize]
+                .distance_sensors
+                .iter()
+                .enumerate()
+            {
+                if let Ok(Some(distance)) = sensor {
+                    painter.line_segment(
+                        [
+                            wts.map_point(Pos2::new(
+                                orig_estimated_location.x
+                                    + name.robot().radius
+                                        * f32::cos(angle + (i as f32) * f32::consts::FRAC_PI_2),
+                                orig_estimated_location.y
+                                    + name.robot().radius
+                                        * f32::sin(angle + (i as f32) * f32::consts::FRAC_PI_2),
+                            )),
+                            wts.map_point(Pos2::new(
+                                orig_estimated_location.x
+                                    + (distance + name.robot().radius)
+                                        * f32::cos(angle + (i as f32) * f32::consts::FRAC_PI_2),
+                                orig_estimated_location.y
+                                    + (distance + name.robot().radius)
+                                        * f32::sin(angle + (i as f32) * f32::consts::FRAC_PI_2),
+                            )),
+                        ],
+                        Stroke::new(1.0, Color32::GREEN),
+                    );
+                } else {
+                    let distance = RobotDefinition::new(name).sensor_distance * GU_PER_M;
+                    painter.line_segment(
+                        [
+                            wts.map_point(Pos2::new(
+                                orig_estimated_location.x
+                                    + name.robot().radius
+                                        * f32::cos(angle + (i as f32) * f32::consts::FRAC_PI_2),
+                                orig_estimated_location.y
+                                    + name.robot().radius
+                                        * f32::sin(angle + (i as f32) * f32::consts::FRAC_PI_2),
+                            )),
+                            wts.map_point(Pos2::new(
+                                orig_estimated_location.x
+                                    + (distance + name.robot().radius)
+                                        * f32::cos(angle + (i as f32) * f32::consts::FRAC_PI_2),
+                                orig_estimated_location.y
+                                    + (distance + name.robot().radius)
+                                        * f32::sin(angle + (i as f32) * f32::consts::FRAC_PI_2),
+                            )),
+                        ],
+                        Stroke::new(1.0, Color32::RED),
+                    );
+                }
+            }
+        }
         if let Some(pos) = app.server_status.robots[name as usize].sim_position {
             let center = wts.map_point(Pos2::new(pos.0.x, pos.0.y));
             painter.circle_filled(
@@ -70,103 +154,6 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
                 ],
                 Stroke::new(1.0, Color32::BLACK),
             );
-
-            let estimated_location = app.server_status.robots[name as usize].estimated_location;
-            if let Some(orig_estimated_location) = estimated_location {
-                let estimated_location: Pos2 = wts.map_point(Pos2::new(
-                    orig_estimated_location.x,
-                    orig_estimated_location.y,
-                ));
-                painter.circle(
-                    estimated_location,
-                    wts.map_dist(name.robot().radius),
-                    Color32::TRANSPARENT,
-                    Stroke::new(1.0, Color32::GREEN),
-                );
-                if let Ok(angle) = app.server_status.robots[name as usize].imu_angle {
-                    let rot_cos = Rotation2::new(angle).matrix()[(0, 0)];
-                    let rot_sin = Rotation2::new(angle).matrix()[(1, 0)];
-                    painter.line_segment(
-                        [
-                            estimated_location,
-                            wts.map_point(Pos2::new(
-                                orig_estimated_location.x + rot_cos * name.robot().radius,
-                                orig_estimated_location.y + rot_sin * name.robot().radius,
-                            )),
-                        ],
-                        Stroke::new(1.0, Color32::GREEN),
-                    );
-                }
-            }
-
-            for (i, sensor) in app.server_status.robots[name as usize]
-                .distance_sensors
-                .iter()
-                .enumerate()
-            {
-                if let Ok(Some(distance)) = sensor {
-                    painter.line_segment(
-                        [
-                            wts.map_point(Pos2::new(
-                                pos.0.x
-                                    + name.robot().radius
-                                        * f32::cos(
-                                            pos.1.angle() + (i as f32) * f32::consts::FRAC_PI_2,
-                                        ),
-                                pos.0.y
-                                    + name.robot().radius
-                                        * f32::sin(
-                                            pos.1.angle() + (i as f32) * f32::consts::FRAC_PI_2,
-                                        ),
-                            )),
-                            wts.map_point(Pos2::new(
-                                pos.0.x
-                                    + (distance + name.robot().radius)
-                                        * f32::cos(
-                                            pos.1.angle() + (i as f32) * f32::consts::FRAC_PI_2,
-                                        ),
-                                pos.0.y
-                                    + (distance + name.robot().radius)
-                                        * f32::sin(
-                                            pos.1.angle() + (i as f32) * f32::consts::FRAC_PI_2,
-                                        ),
-                            )),
-                        ],
-                        Stroke::new(1.0, Color32::GREEN),
-                    );
-                } else {
-                    let distance = RobotDefinition::new(name).sensor_distance * GU_PER_M;
-                    painter.line_segment(
-                        [
-                            wts.map_point(Pos2::new(
-                                pos.0.x
-                                    + name.robot().radius
-                                        * f32::cos(
-                                            pos.1.angle() + (i as f32) * f32::consts::FRAC_PI_2,
-                                        ),
-                                pos.0.y
-                                    + name.robot().radius
-                                        * f32::sin(
-                                            pos.1.angle() + (i as f32) * f32::consts::FRAC_PI_2,
-                                        ),
-                            )),
-                            wts.map_point(Pos2::new(
-                                pos.0.x
-                                    + (distance + name.robot().radius)
-                                        * f32::cos(
-                                            pos.1.angle() + (i as f32) * f32::consts::FRAC_PI_2,
-                                        ),
-                                pos.0.y
-                                    + (distance + name.robot().radius)
-                                        * f32::sin(
-                                            pos.1.angle() + (i as f32) * f32::consts::FRAC_PI_2,
-                                        ),
-                            )),
-                        ],
-                        Stroke::new(1.0, Color32::RED),
-                    );
-                }
-            }
         }
     }
 
@@ -198,6 +185,28 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
             [first, second],
             Stroke::new(1.0, PACMAN_AI_TARGET_LOCATION_COLOR),
         );
+    }
+
+    // draw possible region boundaries
+    for (region, point) in get_possible_regions(
+        app.grid.standard_grid().unwrap(),
+        app.server_status.robots[app.ui_settings.selected_robot as usize]
+            .distance_sensors
+            .clone()
+            .map(|x| x.map_err(|_| ())),
+        RobotDefinition::new(app.ui_settings.selected_robot).sensor_distance * GU_PER_M,
+        RobotDefinition::new(app.ui_settings.selected_robot).radius,
+    ) {
+        painter.rect(
+            Rect::from_two_pos(
+                wts.map_point2(region.low_xy.map(|x| x as f32)),
+                wts.map_point2(region.high_xy.map(|x| x as f32)),
+            ),
+            Rounding::ZERO,
+            Color32::from_rgba_unmultiplied(100, 0, 0, 25),
+            Stroke::new(1.0, Color32::DARK_GRAY),
+        );
+        painter.circle_filled(wts.map_point2(point), 2.0, Color32::RED);
     }
 
     if app.settings.standard_grid != StandardGrid::Pacman {

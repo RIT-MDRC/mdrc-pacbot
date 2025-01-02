@@ -1,8 +1,10 @@
 use crate::driving::{RobotInterTaskMessage, RobotTaskMessenger, Task};
 use crate::grid::standard_grid::StandardGrid;
-use crate::localization::estimate_location;
-use crate::messages::{FrequentServerToRobot, RobotButton, SensorData, MAX_SENSOR_ERR_LEN};
+use crate::messages::{
+    ExtraImuData, RobotButton, RobotToServerMessage, SensorData, MAX_SENSOR_ERR_LEN,
+};
 use crate::names::RobotName;
+use crate::region_localization::estimate_location_2;
 use crate::robot_definition::RobotDefinition;
 use crate::robot_display::DisplayManager;
 use crate::util::utilization::UtilizationMonitor;
@@ -26,6 +28,8 @@ pub trait RobotPeripheralsBehavior {
     async fn flip_screen(&mut self);
 
     async fn absolute_rotation(&mut self) -> Result<f32, Self::Error>;
+
+    async fn extra_imu_data(&mut self) -> Option<ExtraImuData>;
 
     async fn distance_sensor(&mut self, index: usize) -> Result<Option<f32>, Self::Error>;
 
@@ -104,9 +108,7 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior, M: RobotTaskMessenger
             for (i, sensor) in distances.iter_mut().enumerate() {
                 *sensor = handle_err(peripherals.distance_sensor(i).await);
             }
-            let config = FrequentServerToRobot::new(name);
-            let location =
-                estimate_location(grid, cv_location, &distances, &robot, config.cv_error);
+            let location = estimate_location_2(grid, cv_location, &distances, &robot);
             display_manager.imu_angle = angle.clone();
             display_manager.distances = distances.clone();
             let sensors = SensorData {
@@ -124,6 +126,12 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior, M: RobotTaskMessenger
                 ),
                 Task::Wifi,
             );
+            if let Some(data) = peripherals.extra_imu_data().await {
+                msgs.send_or_drop(
+                    RobotInterTaskMessage::ToServer(RobotToServerMessage::ExtraImuData(data)),
+                    Task::Wifi,
+                );
+            }
         }
 
         utilization_monitor.stop();

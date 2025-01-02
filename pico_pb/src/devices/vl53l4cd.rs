@@ -92,9 +92,9 @@ impl PacbotDistanceSensor {
 
     async fn fetch_measurement(&mut self) -> Result<Option<u16>, PeripheralsError> {
         if self.sensor.has_measurement().await? {
-            let measurement = self.sensor.read_measurement().await?;
-            let measurement = match measurement.status {
-                Status::Valid => Ok(Some(measurement.distance)),
+            let measurement2 = self.sensor.read_measurement().await?;
+            let measurement = match measurement2.status {
+                Status::Valid => Ok(Some(measurement2.distance)),
                 Status::DistanceBelowDetectionThreshold => Ok(Some(0)),
                 Status::SignalTooWeak => Ok(None),
                 status => Err(PeripheralsError::DistanceSensorError(Some(status))),

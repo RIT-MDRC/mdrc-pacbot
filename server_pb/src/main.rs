@@ -309,6 +309,7 @@ impl App {
                             .grid
                             .walkable_nodes()
                             .iter()
+                            .filter(|x| **x != cv_loc)
                             .flat_map(|p| self.grid.bfs_path(cv_loc, *p))
                             .choose(&mut thread_rng())
                         {
@@ -324,6 +325,7 @@ impl App {
                             .neighbors(&last_loc)
                             .into_iter()
                             .filter(|x| !self.status.target_path.contains(x) && *x != cv_loc)
+                            .filter(|x| *x != Point2::new(28, 27) && *x != Point2::new(29, 27))
                             .choose(&mut thread_rng())
                         {
                             self.status.target_path.push(neighbor);
@@ -349,7 +351,9 @@ impl App {
             CvLocationSource::Constant(p) => p,
             CvLocationSource::Localization => self.status.robots[self.settings.pacman as usize]
                 .estimated_location
-                .map(|p| Point2::new(p.x.round() as i8, p.y.round() as i8)),
+                .map(|p| self.grid.node_nearest(p.x, p.y))
+                .flatten()
+                .or_else(|| old_loc),
         };
 
         if old_loc != self.status.cv_location {

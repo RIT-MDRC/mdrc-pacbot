@@ -1,5 +1,5 @@
 use crate::messages::ota::{OverTheAirStep, OverTheAirStepCompletion};
-use crate::messages::{ExtraOptsTypes, MotorControlStatus, NetworkStatus};
+use crate::messages::{ExtraImuData, ExtraOptsTypes, MotorControlStatus, NetworkStatus};
 use crate::names::{RobotName, NUM_ROBOT_NAMES};
 use crate::util::ColoredStatus;
 use nalgebra::{Point2, Rotation2};
@@ -69,6 +69,7 @@ pub struct RobotStatus {
 
     pub received_extra_opts: Option<ExtraOptsTypes>,
     pub extra_indicators: Option<ExtraOptsTypes>,
+    pub extra_imu_data: Option<ExtraImuData>,
 }
 
 impl RobotStatus {
@@ -95,6 +96,7 @@ impl RobotStatus {
 
             received_extra_opts: None,
             extra_indicators: None,
+            extra_imu_data: None,
         }
     }
 }
@@ -105,10 +107,11 @@ impl RobotStatus {
         if self.connection != NetworkStatus::Connected {
             ColoredStatus::NotApplicable(Some("Not connected".to_string()))
         } else if let Ok(battery) = self.battery {
-            let msg = Some(format!("{:.1}%", battery * 100.0));
-            if battery > 0.5 {
+            let battery_percent = f32::min(1.0, (battery - 7.0).max(0.0) / (8.35 - 7.0));
+            let msg = Some(format!("{:.2}V {:.1}%", battery, battery_percent * 100.0));
+            if battery_percent > 0.5 {
                 ColoredStatus::Ok(msg)
-            } else if battery > 0.25 {
+            } else if battery_percent > 0.25 {
                 ColoredStatus::Warn(msg)
             } else {
                 ColoredStatus::Error(msg)

@@ -68,7 +68,7 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
     });
 
     // TODO: make this a tunable param
-    let angle_p = 6.0;
+    let angle_p = 2.0;
     let angle_tol = 0.03; // rad
 
     let drive_system = robot.drive_system;
@@ -128,7 +128,7 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
                 if let Ok(angle) = sensors.angle {
                     target_velocity.1 = adjust_ang_vel(angle, 0.0, angle_p, angle_tol);
                     let angle = Rotation2::new(angle).angle();
-                    if angle.abs() < 5.0_f32.to_radians() {
+                    if angle.abs() < 20.0_f32.to_radians() {
                         // now that we've made sure we're facing the right way, try to follow the path
                         if let Some(vel) = pure_pursuit(
                             sensors,

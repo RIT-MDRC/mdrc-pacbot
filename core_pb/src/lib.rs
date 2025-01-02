@@ -9,11 +9,13 @@ pub mod localization;
 pub mod messages;
 pub mod names;
 pub mod pure_pursuit;
+pub mod region_localization;
 pub mod robot_definition;
 pub mod robot_display;
 #[cfg(feature = "std")]
 pub mod threaded_websocket;
 pub mod util;
+
 use core::fmt::Debug;
 
 pub use pacbot_rs;

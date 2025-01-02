@@ -1,5 +1,6 @@
 pub mod extra_opts;
 pub mod game;
+pub mod imu;
 pub mod motors;
 pub mod over_the_air;
 pub mod replay_manager;

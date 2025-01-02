@@ -1,4 +1,7 @@
 use crate::EmbassyInstant;
+use core::sync::atomic::Ordering;
+use core_pb::names::RobotName;
+use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::average_rate::AverageRate;
 use embassy_futures::select::{select3, Either3};
 use embassy_rp::gpio::Pull;
@@ -9,11 +12,14 @@ use embassy_sync::signal::Signal;
 use embassy_time::Instant;
 use fixed::traits::ToFixed;
 use pio::{Common, Config, FifoJoin, Instance, PioPin, ShiftDirection, StateMachine};
+use portable_atomic::AtomicF32;
 
 pub static ENCODER_VELOCITIES: Signal<CriticalSectionRawMutex, ([f32; 3], Instant)> = Signal::new();
+pub static ENCODER_ANGLE: AtomicF32 = AtomicF32::new(0.0);
 
 #[embassy_executor::task]
 pub async fn run_encoders(
+    name: RobotName,
     mut encoders: (
         PioEncoder<'static, PIO1, 0>,
         PioEncoder<'static, PIO1, 1>,
@@ -22,16 +28,38 @@ pub async fn run_encoders(
 ) {
     let mut ticks = [0; 3];
     let mut velocities = [0.0; 3];
+    let mut instants = [Instant::now(), Instant::now(), Instant::now()];
+
+    let drive_system = RobotDefinition::new(name).drive_system;
+    let mut last_tick = Instant::now();
+    let mut angle = 0.0;
+
     loop {
         let (i, tick, velocity) =
             match select3(encoders.0.read(), encoders.1.read(), encoders.2.read()).await {
                 Either3::First(_) => (2, encoders.0.ticks(), -encoders.0.average_rate()),
-                Either3::Second(_) => (1, encoders.1.ticks(), -encoders.1.average_rate()),
-                Either3::Third(_) => (0, encoders.2.ticks(), -encoders.2.average_rate()),
+                Either3::Second(_) => (0, encoders.1.ticks(), -encoders.1.average_rate()),
+                Either3::Third(_) => (1, encoders.2.ticks(), -encoders.2.average_rate()),
             };
         ticks[i] = tick;
         velocities[i] = velocity / 12.0 / 2.0;
-        ENCODER_VELOCITIES.signal((velocities, Instant::now()));
+        instants[i] = Instant::now();
+        ENCODER_VELOCITIES.signal((velocities, instants[i]));
+
+        let elapsed = last_tick.elapsed();
+        if elapsed.as_micros() > 100 {
+            last_tick = Instant::now();
+            let mut vs = velocities;
+            for i in 0..3 {
+                if instants[i].elapsed().as_millis() > 80 {
+                    vs[i] = 0.0;
+                }
+            }
+            let rotational_velocity = drive_system.get_actual_rotational_vel_omni(vs);
+            let s = elapsed.as_micros() as f32 / 1_000_000.0;
+            angle += rotational_velocity * s;
+            ENCODER_ANGLE.store(angle, Ordering::Relaxed);
+        }
     }
 }
 

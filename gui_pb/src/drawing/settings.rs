@@ -393,10 +393,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         "gs_robot".to_string(),
         "Pacman",
         &mut app.settings.pacman,
-        &RobotName::get_all()
-            .into_iter()
-            .filter(|name| name.is_simulated())
-            .collect::<Vec<_>>(),
+        &RobotName::get_all().into_iter().collect::<Vec<_>>(),
     );
     ui.end_row();
 

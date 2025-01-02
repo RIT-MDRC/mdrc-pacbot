@@ -81,11 +81,6 @@ async fn main(spawner: Spawner) {
     let encoder_b = PioEncoder::new(&mut common, sm1, p.PIN_8, p.PIN_9);
     let encoder_c = PioEncoder::new(&mut common, sm2, p.PIN_12, p.PIN_13);
 
-    // High-priority executor: SWI_IRQ_1, priority level 2
-    interrupt::SWI_IRQ_1.set_priority(Priority::P2);
-    let int_spawner = EXECUTOR_HIGH.start(interrupt::SWI_IRQ_1);
-    unwrap!(int_spawner.spawn(run_encoders((encoder_a, encoder_b, encoder_c))));
-
     // Initialize network
     let mut network = initialize_network(
         spawner, p.PIN_23, p.PIN_25, p.PIO0, p.PIN_24, p.PIN_29, p.DMA_CH0, p.FLASH,
@@ -97,6 +92,11 @@ async fn main(spawner: Spawner) {
 
     let name = RobotName::from_mac_address(&mac_address).expect("Unrecognized mac address");
     info!("I am {}, mac address {:?}", name, mac_address);
+
+    // High-priority executor: SWI_IRQ_1, priority level 2
+    interrupt::SWI_IRQ_1.set_priority(Priority::P2);
+    let int_spawner = EXECUTOR_HIGH.start(interrupt::SWI_IRQ_1);
+    unwrap!(int_spawner.spawn(run_encoders(name, (encoder_a, encoder_b, encoder_c))));
 
     unwrap!(spawner.spawn(do_wifi(network)));
     unwrap!(spawner.spawn(do_motors(

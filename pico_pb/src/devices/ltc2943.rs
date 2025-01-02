@@ -42,7 +42,7 @@ impl Ltc2943 {
                 Err(e) => {
                     self.initialized = false;
                     self.results.signal(Err(e));
-                    Timer::after_millis(300).await;
+                    Timer::after_millis(3000).await;
                 }
             }
         }

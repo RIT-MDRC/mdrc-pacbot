@@ -210,6 +210,14 @@ pub struct MotorControlStatus {
     pub measured_speeds: [f32; 3],
 }
 
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ExtraImuData {
+    pub accel: ([f32; 3], u8),
+    pub gyro: ([f32; 3], u8),
+    pub mag: ([f32; 3], u8),
+    pub rotation_vector: ([f32; 4], f32, u8),
+}
+
 /// Firmware related items MUST remain first, or OTA programming will break
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[repr(usize)]
@@ -228,6 +236,7 @@ pub enum RobotToServerMessage {
     Pong = 11,
     ReceivedExtraOpts(ExtraOptsTypes) = 12,
     ExtraIndicators(ExtraOptsTypes) = 13,
+    ExtraImuData(ExtraImuData) = 14,
 }
 
 /// The different async tasks that run on the robot

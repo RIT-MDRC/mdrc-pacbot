@@ -34,6 +34,8 @@ impl StandardGrid {
     }
 
     /// Get the [`Grid`] associated with this enum
+    ///
+    /// From generated file
     pub fn get_grid(&self) -> Grid {
         match self {
             Self::Pacman => GRID_PACMAN,
@@ -69,6 +71,7 @@ impl StandardGrid {
     pub fn get_soft_boundaries(&self) -> (Point2<f32>, Point2<f32>) {
         match self {
             Self::Pacman => (Point2::new(-1.0, -1.0), Point2::new(31.0, 28.0)),
+            Self::Playground => (Point2::new(25.0, 22.0), Point2::new(32.0, 32.0)),
             _ => (Point2::new(-1.0, -1.0), Point2::new(32.0, 32.0)),
         }
     }
@@ -81,13 +84,16 @@ impl StandardGrid {
                 (Point2::new(-1.0, 28.0), Point2::new(32.1, 32.1)),
                 (Point2::new(31.0, -1.0), Point2::new(32.1, 32.1)),
             ],
+            Self::Playground => vec![
+                (Point2::new(-1.0, -1.0), Point2::new(25.0, 32.1)),
+                (Point2::new(-1.0, -1.0), Point2::new(32.1, 22.0)),
+            ],
             _ => vec![],
         }
     }
 }
 
-const W: bool = true;
-const O: bool = false;
+include!(concat!(env!("OUT_DIR"), "/generated_grids.rs"));
 
 /// The official Pacbot [`Grid`]
 ///
@@ -102,43 +108,7 @@ const O: bool = false;
 /// let computed_grid: ComputedGrid = grid.try_into().unwrap();
 /// ```
 #[rustfmt::skip]
-pub const GRID_PACMAN: Grid = [
-//  bottom left of pacman board                                           // top left of pacman board
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W], // 0
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, W, W, O, O, O, O, O, O, O, O, O, O, O, O, W, W, W, W, W],
-    [W, O, W, W, W, W, O, W, W, W, W, W, O, W, W, O, W, W, W, W, W, O, W, W, W, W, O, W, W, W, W, W],
-    [W, O, W, W, W, W, O, W, W, W, W, W, O, W, W, O, W, W, W, W, W, O, W, W, W, W, O, W, W, W, W, W],
-    [W, O, W, W, W, W, O, W, W, W, W, W, O, W, W, O, W, W, W, W, W, O, W, W, W, W, O, W, W, W, W, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W, W, W, W, W], // 5
-    [W, O, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, O, W, W, O, W, W, W, W, O, W, W, W, W, W],
-    [W, O, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, O, W, W, O, W, W, W, W, O, W, W, W, W, W],
-    [W, O, O, O, O, O, O, W, W, O, O, O, O, W, W, O, O, O, O, W, W, O, O, O, O, O, O, W, W, W, W, W],
-    [W, W, W, W, W, W, O, W, W, W, W, W, O, W, W, O, W, W, W, W, W, O, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, O, W, W, W, W, W, O, W, W, O, W, W, W, W, W, O, W, W, W, W, W, W, W, W, W, W], // 10
-    [W, W, W, W, W, W, O, W, W, O, O, O, O, O, O, O, O, O, O, W, W, O, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, O, O, O, O, W, W, W, W, W, W, W, W, O, O, O, O, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, W, W], // 15
-    [W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, O, W, W, O, O, O, O, O, O, O, O, O, O, W, W, O, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, W, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, W, W, O, O, O, O, O, O, O, O, O, O, O, O, W, W, W, W, W], // 20
-    [W, O, W, W, W, W, O, W, W, W, W, W, O, W, W, O, W, W, W, W, W, O, W, W, W, W, O, W, W, W, W, W],
-    [W, O, W, W, W, W, O, W, W, W, W, W, O, W, W, O, W, W, W, W, W, O, W, W, W, W, O, W, W, W, W, W],
-    [W, O, O, O, W, W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W, W, O, O, O, W, W, W, W, W],
-    [W, W, W, O, W, W, O, W, W, O, W, W, W, W, W, W, W, W, O, W, W, O, W, W, O, W, W, W, W, W, W, W],
-    [W, W, W, O, W, W, O, W, W, O, W, W, W, W, W, W, W, W, O, W, W, O, W, W, O, W, W, W, W, W, W, W], // 25
-    [W, O, O, O, O, O, O, W, W, O, O, O, O, W, W, O, O, O, O, W, W, O, O, O, O, O, O, W, W, W, W, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, W, W, O, W, W, W, W, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, W, W, O, W, W, W, W, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-//   |              |              |              |              |              |              |   top right of pacman board
-//   0              5              10             15             20             25             30
-];
+pub const GRID_PACMAN: Grid = GENERATED_GRID_PACMAN;
 
 /// A (mostly) blank [`Grid`] - (1, 1) is walkable
 ///
@@ -151,40 +121,7 @@ pub const GRID_PACMAN: Grid = [
 /// let computed_grid: ComputedGrid = grid.try_into().unwrap();
 /// ```
 #[rustfmt::skip]
-pub const GRID_BLANK: Grid = [
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W]
-];
+pub const GRID_BLANK: Grid = GENERATED_GRID_BLANK;
 
 /// A special [`Grid`] with no internal walls
 ///
@@ -197,40 +134,7 @@ pub const GRID_BLANK: Grid = [
 /// let computed_grid: ComputedGrid = grid.try_into().unwrap();
 /// ```
 #[rustfmt::skip]
-pub const GRID_OPEN: Grid = [
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W]
-];
+pub const GRID_OPEN: Grid = GENERATED_GRID_OPEN;
 
 /// A [`Grid`] where the outermost path is empty
 ///
@@ -243,40 +147,7 @@ pub const GRID_OPEN: Grid = [
 /// let computed_grid: ComputedGrid = grid.try_into().unwrap();
 /// ```
 #[rustfmt::skip]
-pub const GRID_OUTER: Grid = [
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W],
-    [W, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, O, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W]
-];
+pub const GRID_OUTER: Grid = GENERATED_GRID_OUTER;
 
 /// A [`Grid`] with many smaller paths to practice maneuvering
 ///
@@ -289,37 +160,4 @@ pub const GRID_OUTER: Grid = [
 /// let computed_grid: ComputedGrid = grid.try_into().unwrap();
 /// ```
 #[rustfmt::skip]
-pub const GRID_PLAYGROUND: Grid = [
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, O, W, W, W, O, O, O, O, O, O, O, O, W, W, W, W, W, W, W, W, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W, W, W, W, W, O, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W, W, W, W, W, O, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W, W, W, W, W, O, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W, W, W, W, W, O, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, O, W, W, W, O, O, O, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, O, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, O, W, W, W, O, W, W, O, W, W, W, W, W, W, W, W, W, W, W, W, O, O, O, O, W, W, W, W, W, W, W],
-    [W, O, W, W, W, O, O, O, O, W, W, W, W, W, W, W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, W, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W, W, O, O, O, O, O, O, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W, W, O, W, W, W, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W, W, W, W, W, O, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, O, W, W, W, W, W, O, W, W, O, W],
-    [W, O, W, W, W, O, O, O, O, O, O, O, W, W, W, W, W, W, W, W, W, O, O, O, O, O, O, O, O, O, O, W],
-    [W, O, W, W, W, W, W, W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, O, W, W, W, W, W, W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, O, W, W, W, W, W, W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, O, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W],
-    [W, O, W, W, W, W, W, W, W, W, W, O, O, O, O, O, O, O, W, W, W, W, W, W, O, O, O, O, O, O, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, O, W, W, W, W, W, W, W, W, W, O, W, W, O, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, O, W, W, W, W, W, W, W, W, W, O, W, W, O, W, W, O, W],
-    [W, O, W, W, W, W, W, W, W, W, W, W, W, W, O, W, W, W, W, W, W, W, W, W, O, O, O, O, O, O, O, W],
-    [W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W]
-];
+pub const GRID_PLAYGROUND: Grid = GENERATED_GRID_PLAYGROUND;

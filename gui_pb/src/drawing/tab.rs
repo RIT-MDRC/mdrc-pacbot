@@ -1,5 +1,6 @@
 use crate::drawing::extra_opts::draw_extra_opts;
 use crate::drawing::game::{draw_game, draw_grid};
+use crate::drawing::imu::draw_imu_data;
 use crate::drawing::motors::draw_motors;
 use crate::drawing::over_the_air::draw_over_the_air;
 use crate::drawing::settings::draw_settings;
@@ -33,6 +34,8 @@ pub enum Tab {
     RobotButtonPanel,
     /// Extra options for temporary testing
     ExtraOpts,
+    /// Data about individual sensors on the IMU
+    Imu,
 }
 
 impl TabViewer for App {
@@ -50,6 +53,7 @@ impl TabViewer for App {
             Tab::RobotDisplay => "Robot Display",
             Tab::RobotButtonPanel => "Robot Button Panel",
             Tab::ExtraOpts => "Extra Opts",
+            Tab::Imu => "Imu",
             Tab::Unknown => "?",
         }
         .into()
@@ -226,6 +230,9 @@ impl TabViewer for App {
             }
             Tab::ExtraOpts => {
                 draw_extra_opts(self, ui);
+            }
+            Tab::Imu => {
+                draw_imu_data(self, ui);
             }
             _ => {
                 ui.label(self.title(tab));
