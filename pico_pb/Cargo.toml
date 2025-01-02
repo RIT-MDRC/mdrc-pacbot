@@ -8,24 +8,24 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-core_pb = { path = "../core_pb", default-features = false, features = ["defmt"] }
+core_pb = { path = "../core_pb", default-features = false, features = ["defmt", "micromath", "embassy-time"] }
 
 embassy-embedded-hal = { version = "0.2.0", git = "https://github.com/embassy-rs/embassy.git", features = ["defmt"] }
-embassy-sync = { version = "0.6.0", git = "https://github.com/embassy-rs/embassy.git", features = ["defmt"] }
-embassy-executor = { version = "0.6.0", git = "https://github.com/embassy-rs/embassy.git", features = ["arch-cortex-m", "executor-thread", "executor-interrupt", "defmt", "integrated-timers", "task-arena-size-65536"] }
-embassy-time = { version = "0.3", git = "https://github.com/embassy-rs/embassy.git", features = ["defmt", "defmt-timestamp-uptime"] }
+embassy-sync = { version = "0.6.1", git = "https://github.com/embassy-rs/embassy.git", features = ["defmt"] }
+embassy-executor = { version = "0.7.0", git = "https://github.com/embassy-rs/embassy.git", features = ["arch-cortex-m", "executor-thread", "executor-interrupt", "defmt", "task-arena-size-65536"] }
+embassy-time = { version = "0.4.0", git = "https://github.com/embassy-rs/embassy.git", features = ["defmt", "defmt-timestamp-uptime"] }
 embassy-rp = { version = "0.2.0", git = "https://github.com/embassy-rs/embassy.git", features = ["defmt", "unstable-pac", "time-driver", "critical-section-impl", "rp2040"] }
-embassy-futures = { version = "0.1.0", git = "https://github.com/embassy-rs/embassy.git" }
+embassy-futures = { version = "0.1.1", git = "https://github.com/embassy-rs/embassy.git" }
 #embassy-usb = { version = "0.2.0", git = "https://github.com/embassy-rs/embassy.git", features = ["defmt"] }
 #embassy-usb-logger = { version = "0.1.0", git = "https://github.com/embassy-rs/embassy.git" }
 #usbd-hid = "0.7.0"
-embassy-net = { version = "0.4.0", git = "https://github.com/embassy-rs/embassy.git", default-features = false, features = ["defmt", "tcp", "udp", "dhcpv4", "medium-ethernet"] }
+embassy-net = { version = "0.5.0", git = "https://github.com/embassy-rs/embassy.git", default-features = false, features = ["defmt", "tcp", "udp", "dhcpv4", "medium-ethernet"] }
 cyw43 = { git = "https://github.com/embassy-rs/embassy.git", features = ["defmt", "firmware-logs"] }
-cyw43-pio = { git = "https://github.com/embassy-rs/embassy.git", features = ["defmt", "overclock"] }
+cyw43-pio = { git = "https://github.com/embassy-rs/embassy.git", features = ["defmt"] }
 embassy-boot-rp = { version = "0.3.0", git = "https://github.com/embassy-rs/embassy.git" }
 
 ssd1306 = { version = "0.9.0", default-features = false, features = ["async", "embedded-graphics-core", "graphics"] }
-maybe-async-cfg = "=0.2.4"
+maybe-async-cfg = { version = "=0.2.4", default-features = false }
 
 defmt = "0.3.6"
 #defmt-rtt = "0.4"
@@ -42,7 +42,7 @@ heapless = "0.8"
 
 embedded-hal-1 = { package = "embedded-hal", version = "1.0.0" }
 embedded-hal-async = "1.0.0-rc.3"
-embedded-hal-bus = { version = "0.1.0-rc.3", features = ["async"] }
+embedded-hal-bus = { version = "0.1", features = ["async"] }
 embedded-io-async = { version = "0.6.1", features = ["defmt-03"] }
 #embedded-storage = { version = "0.3" }
 static_cell = "2"

@@ -1,8 +1,7 @@
-use crate::drawing::motors::MotorStatusGraphFrames;
 use crate::drawing::settings::VelocityControlAngleBehavior;
 use crate::App;
 use core_pb::grid::standard_grid::StandardGrid;
-use core_pb::messages::settings::{CvLocationSource, ShouldDoTargetPath, StrategyChoice};
+use core_pb::messages::settings::{CvLocationSource, StrategyChoice};
 use core_pb::messages::{
     GameServerCommand, GuiToServerMessage, NetworkStatus, RobotButton, ServerToSimulationMessage,
     VelocityControl,

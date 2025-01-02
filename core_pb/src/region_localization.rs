@@ -3,7 +3,7 @@ use crate::grid::standard_grid::{get_grid_regions, StandardGrid};
 use crate::grid::Grid;
 use crate::messages::MAX_SENSOR_ERR_LEN;
 use crate::robot_definition::RobotDefinition;
-#[cfg(not(feature = "std"))]
+#[cfg(feature = "micromath")]
 use micromath::F32Ext;
 use nalgebra::{Point2, Vector2};
 use ordered_float::NotNan;

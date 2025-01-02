@@ -2,6 +2,7 @@
 
 pub mod constants;
 pub mod drive_system;
+#[cfg(feature = "embassy-time")]
 #[allow(async_fn_in_trait)]
 pub mod driving;
 pub mod grid;

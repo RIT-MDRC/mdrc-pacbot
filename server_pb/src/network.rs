@@ -109,7 +109,7 @@ impl App {
                 self.status.robots[name as usize].distance_sensors =
                     sensors.distances.map(|x| x.map_err(|s| s.to_string()));
                 self.status.robots[name as usize].estimated_location = sensors.location;
-                self.status.robots[name as usize].battery = sensors.battery;
+                self.status.robots[name as usize].battery = sensors.battery.map_err(|_| ());
                 self.trigger_cv_location_update();
             }
             (Robot(name), FromRobot(RobotToServerMessage::Pong)) => {

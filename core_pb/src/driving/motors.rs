@@ -12,7 +12,7 @@ use crate::util::CrossPlatformInstant;
 use core::sync::atomic::Ordering;
 use core::time::Duration;
 use embassy_time::Timer;
-#[cfg(not(feature = "std"))]
+#[cfg(feature = "micromath")]
 use micromath::F32Ext;
 use nalgebra::{Rotation2, Vector2};
 use pid::Pid;
@@ -169,7 +169,6 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                     let angle = Rotation2::new(angle).angle();
                     if angle.abs() < 20.0_f32.to_radians() {
                         // now that we've made sure we're facing the right way, try to follow the path
-                        if let Some(vel) = pure_pursuit(sensors, &self.config.target_path, 0.5) {
                         if let Some(vel) = pure_pursuit(
                             sensors,
                             &self.config.target_path,

@@ -1,7 +1,6 @@
 mod menu;
 
-use crate::constants::{ROBOT_DISPLAY_HEIGHT, ROBOT_DISPLAY_WIDTH};
-use crate::driving::network::DEFAULT_NETWORK;
+use crate::constants::{DEFAULT_NETWORK, ROBOT_DISPLAY_HEIGHT, ROBOT_DISPLAY_WIDTH};
 use crate::messages::SensorData;
 use crate::messages::{NetworkStatus, RobotButton};
 use crate::names::RobotName;

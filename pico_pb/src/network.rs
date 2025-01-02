@@ -2,7 +2,7 @@ use crate::Irqs;
 use core::cell::RefCell;
 use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
 use cyw43::{Control, JoinOptions};
-use cyw43_pio::PioSpi;
+use cyw43_pio::{PioSpi, DEFAULT_CLOCK_DIVIDER};
 use defmt::{info, unwrap, Format};
 use embassy_boot_rp::{AlignedBuffer, BlockingFirmwareUpdater, FirmwareUpdaterConfig, State};
 use embassy_embedded_hal::flash::partition::BlockingPartition;
@@ -13,7 +13,7 @@ use embassy_rp::flash::{Blocking, Flash};
 use embassy_rp::gpio::{Level, Output};
 use embassy_rp::peripherals::{DMA_CH0, FLASH, PIN_23, PIN_24, PIN_25, PIN_29, PIO0};
 use embassy_rp::pio::Pio;
-use embassy_sync::blocking_mutex::raw::{NoopRawMutex, ThreadModeRawMutex};
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::blocking_mutex::Mutex;
 use embassy_sync::channel::Channel;
 use embassy_time::{Duration, Timer};
@@ -189,12 +189,21 @@ pub async fn initialize_network(
     dma: DMA_CH0,
     flash: FLASH,
 ) -> Network {
-    info!("Wifi task started");
+    info!("Initializing network");
 
     let pwr = Output::new(pwr, Level::Low);
     let cs = Output::new(cs, Level::High);
     let mut pio = Pio::new(pio, Irqs);
-    let spi = PioSpi::new(&mut pio.common, pio.sm0, pio.irq0, cs, dio, clk, dma);
+    let spi = PioSpi::new(
+        &mut pio.common,
+        pio.sm0,
+        DEFAULT_CLOCK_DIVIDER,
+        pio.irq0,
+        cs,
+        dio,
+        clk,
+        dma,
+    );
 
     let fw = include_bytes!("../cyw43-firmware/43439A0.bin");
     let clm = include_bytes!("../cyw43-firmware/43439A0_clm.bin");

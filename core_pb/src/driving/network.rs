@@ -1,3 +1,4 @@
+use crate::constants::DEFAULT_NETWORK;
 use crate::driving::data::SharedRobotData;
 use crate::driving::{EmbassyInstant, RobotBehavior};
 use crate::messages::robot_tcp::{write_tcp, BytesOrT, StatefulTcpReader, TcpError, TcpMessage};
@@ -16,8 +17,6 @@ use embassy_sync::watch::{Receiver, Sender};
 use embedded_io_async::{Read, Write};
 use futures::future::{select, Either};
 use heapless::Vec;
-
-pub const DEFAULT_NETWORK: &str = "MdrcPacbot";
 
 #[derive(Copy, Clone)]
 pub struct NetworkScanInfo {
@@ -315,7 +314,7 @@ impl<R: RobotBehavior> NetworkData<R> {
                     // error!("Socket failed with error: {:?}", e);
                     break;
                 }
-                Either::Right(m) => {} //self.handle_inter_task_message(s, m).await,
+                Either::Right(_m) => {} //self.handle_inter_task_message(s, m).await,
                 Either::Left(Ok(m)) => self.handle_server_message(s, &m).await,
             }
         }

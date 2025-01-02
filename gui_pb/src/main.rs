@@ -6,34 +6,31 @@ mod replay;
 mod drawing;
 mod transform;
 
+use crate::drawing::motors::MotorStatusGraphFrames;
+use crate::drawing::settings::UiSettings;
 use crate::drawing::tab::Tab;
+use crate::drawing::widgets::draw_widgets;
 use crate::transform::Transform;
 use anyhow::Error;
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::PacbotSettings;
-use core_pb::pacbot_rs::game_state::GameState;
-use eframe::egui;
-use eframe::egui::{Align, Color32, Pos2, Visuals};
-use egui_dock::{DockArea, DockState, NodeIndex, Style};
-// todo use native_dialog::FileDialog;
-use crate::drawing::motors::MotorStatusGraphFrames;
-use crate::drawing::settings::UiSettings;
-use crate::drawing::widgets::draw_widgets;
-use core_pb::console_log;
-#[cfg(target_arch = "wasm32")]
-pub use core_pb::log;
 use core_pb::messages::{
     GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToGuiMessage, VelocityControl,
 };
+use core_pb::pacbot_rs::game_state::GameState;
 use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
 use core_pb::util::stopwatch::Stopwatch;
 #[cfg(not(target_arch = "wasm32"))]
 use core_pb::util::StdInstant;
 #[cfg(target_arch = "wasm32")]
 use core_pb::util::WebTimeInstant as StdInstant;
+use eframe::egui;
+use eframe::egui::{Align, Color32, Pos2, Visuals};
+use egui_dock::{DockArea, DockState, NodeIndex, Style};
 use gilrs::Gilrs;
+use log::info;
 use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -41,66 +38,65 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
-fn main() {
+fn main() -> eframe::Result {
     env_logger::Builder::from_default_env()
         .filter_level(log::LevelFilter::Info)
         .init();
-    console_log!("RIT Pacbot gui starting up");
+
+    info!("RIT Pacbot gui starting up");
+
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
         "RIT Pacbot",
         native_options,
-        Box::new(|cc| {
-            let style = egui::Style {
-                visuals: Visuals::dark(),
-                ..egui::Style::default()
-            };
-            cc.egui_ctx.set_style(style);
-            Box::new(App::new(cc))
-        }),
+        Box::new(|cc| Ok(Box::new(App::new(cc)))),
     )
-    .expect("Failed to start egui app!");
 }
 
 // When compiling to web using trunk:
 #[cfg(target_arch = "wasm32")]
 fn main() {
-    console_log!("WASM gui starting up");
+    use eframe::wasm_bindgen::JsCast as _;
 
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();
 
+    info!("WASM gui starting up");
+
     let web_options = eframe::WebOptions::default();
 
     wasm_bindgen_futures::spawn_local(async {
+        let document = web_sys::window()
+            .expect("No window")
+            .document()
+            .expect("No document");
+
+        let canvas = document
+            .get_element_by_id("the_canvas_id")
+            .expect("Failed to find the_canvas_id")
+            .dyn_into::<web_sys::HtmlCanvasElement>()
+            .expect("the_canvas_id was not a HtmlCanvasElement");
+
         let start_result = eframe::WebRunner::new()
             .start(
-                "the_canvas_id", // hardcode it
+                canvas,
                 web_options,
-                Box::new(|cc| {
-                    let style = egui::Style {
-                        visuals: Visuals::dark(),
-                        ..egui::Style::default()
-                    };
-                    cc.egui_ctx.set_style(style);
-                    Box::new(App::new(cc))
-                }),
+                Box::new(|cc| Ok(Box::new(App::new(cc)))),
             )
             .await;
-        let loading_text = web_sys::window()
-            .and_then(|w| w.document())
-            .and_then(|d| d.get_element_by_id("loading_text"));
-        match start_result {
-            Ok(_) => {
-                loading_text.map(|e| e.remove());
-            }
-            Err(e) => {
-                loading_text.map(|e| {
-                    e.set_inner_html(
+
+        // Remove the loading text and spinner:
+        if let Some(loading_text) = document.get_element_by_id("loading_text") {
+            match start_result {
+                Ok(_) => {
+                    loading_text.remove();
+                }
+                Err(e) => {
+                    loading_text.set_inner_html(
                         "<p> The app has crashed. See the developer console for details. </p>",
-                    )
-                });
-                panic!("failed to start eframe: {e:?}");
+                    );
+                    panic!("Failed to start eframe: {e:?}");
+                }
             }
         }
     });
@@ -163,6 +159,9 @@ impl eframe::App for App {
 
 impl App {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        cc.egui_ctx
+            .style_mut(|style| style.visuals = Visuals::dark());
+
         let mut fonts = egui::FontDefinitions::default();
         egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
 
