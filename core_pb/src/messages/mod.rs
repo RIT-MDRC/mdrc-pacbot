@@ -148,6 +148,10 @@ pub struct FrequentServerToRobot {
     pub follow_target_path: bool,
     /// This angle should be considered angle 0
     pub angle_offset: f32,
+    pub lookahead_dist: f32,
+    pub robot_speed: f32,
+    pub snapping_dist: f32,
+    pub cv_error: f32,
 }
 
 impl FrequentServerToRobot {
@@ -165,6 +169,10 @@ impl FrequentServerToRobot {
             target_path: heapless::Vec::new(),
             follow_target_path: false,
             angle_offset: 0.0,
+            lookahead_dist: 0.5,
+            robot_speed: 1.5,
+            snapping_dist: 0.3,
+            cv_error: 1.5,
         }
     }
 }

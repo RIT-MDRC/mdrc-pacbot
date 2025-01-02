@@ -170,6 +170,13 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                     if angle.abs() < 20.0_f32.to_radians() {
                         // now that we've made sure we're facing the right way, try to follow the path
                         if let Some(vel) = pure_pursuit(sensors, &self.config.target_path, 0.5) {
+                        if let Some(vel) = pure_pursuit(
+                            sensors,
+                            &self.config.target_path,
+                            self.config.lookahead_dist,
+                            self.config.robot_speed,
+                            self.config.snapping_dist,
+                        ) {
                             target_velocity.0 = vel;
                         }
                     }
