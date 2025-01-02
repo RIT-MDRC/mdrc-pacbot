@@ -130,7 +130,13 @@ pub async fn motors_task<T: RobotMotorsBehavior, M: RobotTaskMessenger>(
                     let angle = Rotation2::new(angle).angle();
                     if angle.abs() < 20.0_f32.to_radians() {
                         // now that we've made sure we're facing the right way, try to follow the path
-                        if let Some(vel) = pure_pursuit(sensors, &data.config.target_path, 0.5) {
+                        if let Some(vel) = pure_pursuit(
+                            sensors,
+                            &data.config.target_path,
+                            data.config.lookahead_dist,
+                            data.config.robot_speed,
+                            data.config.snapping_dist,
+                        ) {
                             target_velocity.0 = vel;
                         }
                     }
