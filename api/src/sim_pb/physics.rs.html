@@ -177,7 +177,10 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::driving::SimRobot;
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::driving::SimRobot;
 <span class="kw">use crate</span>::{MyApp, RobotReference, Wall};
 <span class="kw">use </span>bevy::math::Vec3;
 <span class="kw">use </span>bevy::prelude::<span class="kw-2">*</span>;
@@ -275,6 +278,7 @@
             sim_robot.ang_velocity = v.angvel;
 
             <span class="kw">let </span><span class="kw-2">mut </span>distance_sensors: [<span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;f32&gt;, ()&gt;; <span class="number">4</span>] = [<span class="prelude-val">Err</span>(()); <span class="number">4</span>];
+            <span class="kw">let </span><span class="kw-2">mut </span>rng = thread_rng();
 
             <span class="kw">for </span>(i, <span class="kw">_</span>) <span class="kw">in </span>distance_sensors.into_iter().enumerate() {
                 <span class="kw">let </span>ray_pos = Vec2::new(
@@ -297,7 +301,9 @@
                     rapier_context.cast_ray_and_get_normal(ray_pos, ray_dir, max_toi, solid, filter)
                 {
                     <span class="kw">let </span>hit_point = intersection.point;
-                    <span class="kw">let </span>distance = ray_pos.distance(hit_point);
+                    <span class="kw">let </span>noise_range: f32 = <span class="number">0.1</span>;
+                    <span class="kw">let </span>dist_noise: f32 = <span class="number">1.0 </span>+ rng.gen_range(-noise_range..noise_range);
+                    <span class="kw">let </span>distance = ray_pos.distance(hit_point) * dist_noise;
 
                     distance_sensors[i] = <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(distance));
                 } <span class="kw">else </span>{
@@ -307,7 +313,7 @@
 
             sim_robot.distance_sensors = distance_sensors;
 
-            <span class="kw">let </span><span class="kw-2">mut </span>rng = thread_rng();
+            
             <span class="kw">let </span>noise_rng: f32 = <span class="number">0.08</span>;
             <span class="kw">let </span><span class="kw-2">mut </span>motor_speeds = sim_robot
                 .wasd_motor_speeds
