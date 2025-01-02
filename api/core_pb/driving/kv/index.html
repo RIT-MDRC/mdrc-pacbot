@@ -1,0 +1,174 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Structured logging."><title>core_pb::driving::kv - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-b0742ba02757f159.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="core_pb" data-themes="" data-resource-suffix="" data-rustdoc-version="1.83.0 (90b35a623 2024-11-26)" data-channel="1.83.0" data-search-js="search-f0d225181b97f9a4.js" data-settings-js="settings-805db61a62df4bd2.js" ><script src="../../../static.files/storage-1d39b6787ed640ff.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-f070b9041d14864c.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-0111fcff984fae8f.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../core_pb/index.html">core_pb</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module kv</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#structured-logging-in-log" title="Structured logging in `log`">Structured logging in <code>log</code></a><ul><li><a href="#adding-key-values-to-log-records" title="Adding key-values to log records">Adding key-values to log records</a></li><li><a href="#working-with-key-values-on-log-records" title="Working with key-values on log records">Working with key-values on log records</a></li></ul></li></ul><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#traits" title="Traits">Traits</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In core_<wbr>pb::<wbr>driving</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="../../index.html">core_pb</a>::<wbr><a href="../index.html">driving</a></span><h1>Module <span>kv</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="https://docs.rs/log/0.4.22/src/log/lib.rs.html#398">source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Structured logging.</p>
+<p>Add the <code>kv</code> feature to your <code>Cargo.toml</code> to enable
+this module:</p>
+<div class="example-wrap"><pre class="language-toml"><code>[dependencies.log]
+features = [&quot;kv&quot;]</code></pre></div><h2 id="structured-logging-in-log"><a class="doc-anchor" href="#structured-logging-in-log">§</a>Structured logging in <code>log</code></h2>
+<p>Structured logging enhances traditional text-based log records with user-defined
+attributes. Structured logs can be analyzed using a variety of data processing
+techniques, without needing to find and parse attributes from unstructured text first.</p>
+<p>In <code>log</code>, user-defined attributes are part of a <a href="trait.Source.html" title="trait core_pb::driving::kv::Source"><code>Source</code></a> on the log record.
+Each attribute is a key-value; a pair of <a href="struct.Key.html" title="struct core_pb::driving::kv::Key"><code>Key</code></a> and <a href="struct.Value.html" title="struct core_pb::driving::kv::Value"><code>Value</code></a>. Keys are strings
+and values are a datum of any type that can be formatted or serialized. Simple types
+like strings, booleans, and numbers are supported, as well as arbitrarily complex
+structures involving nested objects and sequences.</p>
+<h3 id="adding-key-values-to-log-records"><a class="doc-anchor" href="#adding-key-values-to-log-records">§</a>Adding key-values to log records</h3>
+<p>Key-values appear before the message format in the <code>log!</code> macros:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">info!</span>(a = <span class="number">1</span>; <span class="string">"Something of interest"</span>);</code></pre></div>
+<p>Key-values support the same shorthand identifer syntax as <code>format_args</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>a = <span class="number">1</span>;
+
+<span class="macro">info!</span>(a; <span class="string">"Something of interest"</span>);</code></pre></div>
+<p>Values are capturing using the <a href="trait.ToValue.html" title="trait core_pb::driving::kv::ToValue"><code>ToValue</code></a> trait by default. To capture a value
+using a different trait implementation, use a modifier after its key. Here’s how
+the same example can capture <code>a</code> using its <code>Debug</code> implementation instead:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="macro">info!</span>(a:<span class="question-mark">? </span>= <span class="number">1</span>; <span class="string">"Something of interest"</span>);</code></pre></div>
+<p>The following capturing modifiers are supported:</p>
+<ul>
+<li><code>:?</code> will capture the value using <code>Debug</code>.</li>
+<li><code>:debug</code> will capture the value using <code>Debug</code>.</li>
+<li><code>:%</code> will capture the value using <code>Display</code>.</li>
+<li><code>:display</code> will capture the value using <code>Display</code>.</li>
+<li><code>:err</code> will capture the value using <code>std::error::Error</code> (requires the <code>kv_std</code> feature).</li>
+<li><code>:sval</code> will capture the value using <code>sval::Value</code> (requires the <code>kv_sval</code> feature).</li>
+<li><code>:serde</code> will capture the value using <code>serde::Serialize</code> (requires the <code>kv_serde</code> feature).</li>
+</ul>
+<h3 id="working-with-key-values-on-log-records"><a class="doc-anchor" href="#working-with-key-values-on-log-records">§</a>Working with key-values on log records</h3>
+<p>Use the <a href="../struct.Record.html#method.key_values"><code>Record::key_values</code></a> method to access key-values.</p>
+<p>Individual values can be pulled from the source by their key:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>log::kv::{Source, Key, Value};
+
+<span class="comment">// info!(a = 1; "Something of interest");
+
+</span><span class="kw">let </span>a: Value = record.key_values().get(Key::from(<span class="string">"a"</span>)).unwrap();
+<span class="macro">assert_eq!</span>(<span class="number">1</span>, a.to_i64().unwrap());</code></pre></div>
+<p>All key-values can also be enumerated using a <a href="trait.Visitor.html" title="trait core_pb::driving::kv::Visitor"><code>VisitSource</code></a>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::collections::BTreeMap;
+
+<span class="kw">use </span>log::kv::{<span class="self">self</span>, Source, Key, Value, VisitSource};
+
+<span class="kw">struct </span>Collect&lt;<span class="lifetime">'kvs</span>&gt;(BTreeMap&lt;Key&lt;<span class="lifetime">'kvs</span>&gt;, Value&lt;<span class="lifetime">'kvs</span>&gt;&gt;);
+
+<span class="kw">impl</span>&lt;<span class="lifetime">'kvs</span>&gt; VisitSource&lt;<span class="lifetime">'kvs</span>&gt; <span class="kw">for </span>Collect&lt;<span class="lifetime">'kvs</span>&gt; {
+    <span class="kw">fn </span>visit_pair(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: Key&lt;<span class="lifetime">'kvs</span>&gt;, value: Value&lt;<span class="lifetime">'kvs</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), kv::Error&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.insert(key, value);
+
+        <span class="prelude-val">Ok</span>(())
+    }
+}
+
+<span class="kw">let </span><span class="kw-2">mut </span>visitor = Collect(BTreeMap::new());
+
+<span class="comment">// info!(a = 1, b = 2, c = 3; "Something of interest");
+
+</span>record.key_values().visit(<span class="kw-2">&amp;mut </span>visitor)<span class="question-mark">?</span>;
+
+<span class="kw">let </span>collected = visitor.<span class="number">0</span>;
+
+<span class="macro">assert_eq!</span>(
+    <span class="macro">vec!</span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>],
+    collected
+        .keys()
+        .map(|k| k.as_str())
+        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+);</code></pre></div>
+<p><a href="struct.Value.html" title="struct core_pb::driving::kv::Value"><code>Value</code></a>s have methods for conversions to common types:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>log::kv::{Source, Key};
+
+<span class="comment">// info!(a = 1; "Something of interest");
+
+</span><span class="kw">let </span>a = record.key_values().get(Key::from(<span class="string">"a"</span>)).unwrap();
+
+<span class="macro">assert_eq!</span>(<span class="number">1</span>, a.to_i64().unwrap());</code></pre></div>
+<p>Values also have their own <a href="trait.VisitValue.html" title="trait core_pb::driving::kv::VisitValue"><code>VisitValue</code></a> type. Value visitors are a lightweight
+API for working with primitives types:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>log::kv::{<span class="self">self</span>, Source, Key, VisitValue};
+
+<span class="kw">struct </span>IsNumeric(bool);
+
+<span class="kw">impl</span>&lt;<span class="lifetime">'kvs</span>&gt; VisitValue&lt;<span class="lifetime">'kvs</span>&gt; <span class="kw">for </span>IsNumeric {
+    <span class="kw">fn </span>visit_any(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _value: kv::Value) -&gt; <span class="prelude-ty">Result</span>&lt;(), kv::Error&gt; {
+        <span class="self">self</span>.<span class="number">0 </span>= <span class="bool-val">false</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>visit_u64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _value: u64) -&gt; <span class="prelude-ty">Result</span>&lt;(), kv::Error&gt; {
+        <span class="self">self</span>.<span class="number">0 </span>= <span class="bool-val">true</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>visit_i64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _value: i64) -&gt; <span class="prelude-ty">Result</span>&lt;(), kv::Error&gt; {
+        <span class="self">self</span>.<span class="number">0 </span>= <span class="bool-val">true</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>visit_u128(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _value: u128) -&gt; <span class="prelude-ty">Result</span>&lt;(), kv::Error&gt; {
+        <span class="self">self</span>.<span class="number">0 </span>= <span class="bool-val">true</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>visit_i128(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _value: i128) -&gt; <span class="prelude-ty">Result</span>&lt;(), kv::Error&gt; {
+        <span class="self">self</span>.<span class="number">0 </span>= <span class="bool-val">true</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>visit_f64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _value: f64) -&gt; <span class="prelude-ty">Result</span>&lt;(), kv::Error&gt; {
+        <span class="self">self</span>.<span class="number">0 </span>= <span class="bool-val">true</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
+}
+
+<span class="comment">// info!(a = 1; "Something of interest");
+
+</span><span class="kw">let </span>a = record.key_values().get(Key::from(<span class="string">"a"</span>)).unwrap();
+
+<span class="kw">let </span><span class="kw-2">mut </span>visitor = IsNumeric(<span class="bool-val">false</span>);
+
+a.visit(<span class="kw-2">&amp;mut </span>visitor)<span class="question-mark">?</span>;
+
+<span class="kw">let </span>is_numeric = visitor.<span class="number">0</span>;
+
+<span class="macro">assert!</span>(is_numeric);</code></pre></div>
+<p>To serialize a value to a format like JSON, you can also use either <code>serde</code> or <code>sval</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[derive(serde::Serialize)]
+</span><span class="kw">struct </span>Data {
+    a: i32, b: bool,
+    c: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+}
+
+<span class="kw">let </span>data = Data { a: <span class="number">1</span>, b: <span class="bool-val">true</span>, c: <span class="string">"Some data" </span>};
+
+<span class="comment">// info!(a = data; "Something of interest");
+
+</span><span class="kw">let </span>a = record.key_values().get(Key::from(<span class="string">"a"</span>)).unwrap();
+
+<span class="macro">assert_eq!</span>(<span class="string">"{\"a\":1,\"b\":true,\"c\":\"Some data\"}"</span>, serde_json::to_string(<span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>);</code></pre></div>
+<p>The choice of serialization framework depends on the needs of the consumer.
+If you’re in a no-std environment, you can use <code>sval</code>. In other cases, you can use <code>serde</code>.
+Log producers and log consumers don’t need to agree on the serialization framework.
+A value can be captured using its <code>serde::Serialize</code> implementation and still be serialized
+through <code>sval</code> without losing any structure or data.</p>
+<p>Values can also always be formatted using the standard <code>Debug</code> and <code>Display</code>
+traits:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">struct </span>Data {
+    a: i32,
+    b: bool,
+    c: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+}
+
+<span class="kw">let </span>data = Data { a: <span class="number">1</span>, b: <span class="bool-val">true</span>, c: <span class="string">"Some data" </span>};
+
+<span class="comment">// info!(a = data; "Something of interest");
+
+</span><span class="kw">let </span>a = record.key_values().get(Key::from(<span class="string">"a"</span>)).unwrap();
+
+<span class="macro">assert_eq!</span>(<span class="string">"Data { a: 1, b: true, c: \"Some data\" }"</span>, <span class="macro">format!</span>(<span class="string">"{a:?}"</span>));</code></pre></div>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="source/index.html" title="mod core_pb::driving::kv::source">source</a></div><div class="desc docblock-short">Sources for key-values.</div></li><li><div class="item-name"><a class="mod" href="value/index.html" title="mod core_pb::driving::kv::value">value</a></div><div class="desc docblock-short">Structured values.</div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.Error.html" title="struct core_pb::driving::kv::Error">Error</a></div><div class="desc docblock-short">An error encountered while working with structured data.</div></li><li><div class="item-name"><a class="struct" href="struct.Key.html" title="struct core_pb::driving::kv::Key">Key</a></div><div class="desc docblock-short">A key in a key-value.</div></li><li><div class="item-name"><a class="struct" href="struct.Value.html" title="struct core_pb::driving::kv::Value">Value</a></div><div class="desc docblock-short">A value in a key-value.</div></li></ul><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="trait" href="trait.Source.html" title="trait core_pb::driving::kv::Source">Source</a></div><div class="desc docblock-short">A source of key-values.</div></li><li><div class="item-name"><a class="trait" href="trait.ToKey.html" title="trait core_pb::driving::kv::ToKey">ToKey</a></div><div class="desc docblock-short">A type that can be converted into a <a href="struct.Key.html"><code>Key</code></a>.</div></li><li><div class="item-name"><a class="trait" href="trait.ToValue.html" title="trait core_pb::driving::kv::ToValue">ToValue</a></div><div class="desc docblock-short">A type that can be converted into a <a href="struct.Value.html"><code>Value</code></a>.</div></li><li><div class="item-name"><a class="trait" href="trait.VisitSource.html" title="trait core_pb::driving::kv::VisitSource">Visit<wbr>Source</a></div><div class="desc docblock-short">A visitor for the key-value pairs in a <a href="trait.Source.html"><code>Source</code></a>.</div></li><li><div class="item-name"><a class="trait" href="trait.VisitValue.html" title="trait core_pb::driving::kv::VisitValue">Visit<wbr>Value</a></div><div class="desc docblock-short">A visitor for a <a href="struct.Value.html" title="struct core_pb::driving::kv::Value"><code>Value</code></a>.</div></li><li><div class="item-name"><a class="trait" href="trait.Visitor.html" title="trait core_pb::driving::kv::Visitor">Visitor</a></div><div class="desc docblock-short">A visitor for the key-value pairs in a <a href="trait.Source.html"><code>Source</code></a>.</div></li></ul></section></div></main></body></html>
