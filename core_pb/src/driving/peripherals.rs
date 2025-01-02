@@ -1,7 +1,8 @@
 use crate::driving::{RobotInterTaskMessage, RobotTaskMessenger, Task};
 use crate::grid::standard_grid::StandardGrid;
-use crate::localization::estimate_location;
-use crate::messages::{ExtraImuData, FrequentServerToRobot, RobotButton, RobotToServerMessage, SensorData, MAX_SENSOR_ERR_LEN};
+use crate::messages::{
+    ExtraImuData, RobotButton, RobotToServerMessage, SensorData, MAX_SENSOR_ERR_LEN,
+};
 use crate::names::RobotName;
 use crate::region_localization::estimate_location_2;
 use crate::robot_definition::RobotDefinition;
@@ -107,8 +108,7 @@ pub async fn peripherals_task<T: RobotPeripheralsBehavior, M: RobotTaskMessenger
             for (i, sensor) in distances.iter_mut().enumerate() {
                 *sensor = handle_err(peripherals.distance_sensor(i).await);
             }
-            let config = FrequentServerToRobot::new(name);
-            let location = estimate_location_2(grid, cv_location, &distances, &robot, config.cv_error);
+            let location = estimate_location_2(grid, cv_location, &distances, &robot);
             display_manager.imu_angle = angle.clone();
             display_manager.distances = distances.clone();
             let sensors = SensorData {
