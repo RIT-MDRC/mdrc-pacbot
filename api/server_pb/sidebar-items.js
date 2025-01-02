@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["main"],"mod":["high_level","logging","network","ota","sockets"],"struct":["App"]};
