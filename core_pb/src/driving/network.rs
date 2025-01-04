@@ -1,6 +1,6 @@
 use crate::constants::DEFAULT_NETWORK;
 use crate::driving::data::SharedRobotData;
-use crate::driving::{EmbassyInstant, RobotBehavior};
+use crate::driving::RobotBehavior;
 use crate::messages::robot_tcp::{write_tcp, BytesOrT, StatefulTcpReader, TcpError, TcpMessage};
 use crate::messages::{
     ExtraOptsTypes, FrequentServerToRobot, NetworkStatus, RobotToServerMessage, SensorData,
@@ -105,7 +105,7 @@ struct NetworkData<R: RobotBehavior + 'static> {
 
     expected_firmware_part: Option<ExpectedFirmwarePart>,
 
-    utilization_monitor: UtilizationMonitor<50, EmbassyInstant>,
+    utilization_monitor: UtilizationMonitor<50, R::Instant>,
 
     socket_failed: bool,
     serialization_buf: [u8; 1024],
@@ -274,7 +274,7 @@ impl<R: RobotBehavior> NetworkData<R> {
     ) {
         let mut logs_buffer = [0; 512];
         let mut stateful_tcp_reader = StatefulTcpReader::new();
-        let mut socket_ok_time = EmbassyInstant::default();
+        let mut socket_ok_time = R::Instant::default();
 
         info!("{} client connected", self.name);
 
@@ -292,7 +292,7 @@ impl<R: RobotBehavior> NetworkData<R> {
                 return;
             }
             if !self.socket_failed {
-                socket_ok_time = EmbassyInstant::default();
+                socket_ok_time = R::Instant::default();
             }
 
             self.utilization_monitor.stop();

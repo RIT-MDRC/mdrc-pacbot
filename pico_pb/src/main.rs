@@ -52,6 +52,8 @@ static SHARED_DATA: OnceCell<SharedRobotData<PicoRobotBehavior>> = OnceCell::new
 struct PicoRobotBehavior;
 type SharedPicoRobotData = SharedRobotData<PicoRobotBehavior>;
 impl RobotBehavior for PicoRobotBehavior {
+    type Instant = EmbassyInstant;
+
     type Motors = Motors<3>;
     type Network = Network;
     type Peripherals = Peripherals;
@@ -168,4 +170,27 @@ async fn do_motors(motors: Motors<3>) {
 #[embassy_executor::task]
 async fn do_i2c(peripherals: Peripherals) {
     peripherals_task::<PicoRobotBehavior>(peripherals).await
+}
+
+#[derive(Copy, Clone)]
+pub struct EmbassyInstant(Instant);
+
+impl CrossPlatformInstant for EmbassyInstant {
+    fn elapsed(&self) -> core::time::Duration {
+        Instant::elapsed(&self.0).into()
+    }
+
+    fn checked_duration_since(&self, other: Self) -> Option<core::time::Duration> {
+        Instant::checked_duration_since(&self.0, other.0).map(|x| x.into())
+    }
+
+    async fn sleep(duration: core::time::Duration) {
+        Timer::after(duration.try_into().unwrap()).await
+    }
+}
+
+impl Default for EmbassyInstant {
+    fn default() -> Self {
+        Self(Instant::now())
+    }
 }

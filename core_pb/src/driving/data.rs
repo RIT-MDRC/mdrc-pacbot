@@ -1,6 +1,6 @@
 use crate::constants::ROBOT_LOGS_BUFFER;
 use crate::driving::peripherals::RobotPeripheralsBehavior;
-use crate::driving::{EmbassyInstant, RobotBehavior};
+use crate::driving::RobotBehavior;
 use crate::messages::{
     ExtraImuData, ExtraOptsAtomicTypes, ExtraOptsTypes, FrequentServerToRobot, NetworkStatus,
     RobotToServerMessage, SensorData,
@@ -24,7 +24,7 @@ pub struct SharedRobotData<R: RobotBehavior + ?Sized> {
     /// The robot's physical characteristics
     pub robot_definition: RobotDefinition<3>,
     /// An instant representing the time the shared struct was created
-    pub created_at: EmbassyInstant,
+    pub created_at: R::Instant,
 
     //
     // ------------------- INTER TASK DATA -------------------
@@ -139,7 +139,7 @@ impl<R: RobotBehavior> SharedRobotData<R> {
         Self {
             name,
             robot_definition: RobotDefinition::new(name),
-            created_at: EmbassyInstant::default(),
+            created_at: R::Instant::default(),
 
             server_outgoing_queue: Channel::new(),
 

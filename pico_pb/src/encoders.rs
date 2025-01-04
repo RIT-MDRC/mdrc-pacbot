@@ -1,5 +1,5 @@
+use crate::EmbassyInstant;
 use crate::SharedPicoRobotData;
-use core_pb::driving::EmbassyInstant;
 use core_pb::util::average_rate::AverageRate;
 use embassy_futures::select::{select4, Either4};
 use embassy_rp::gpio::Pull;

@@ -1,4 +1,4 @@
-use crate::driving::{EmbassyInstant, RobotBehavior, Watched};
+use crate::driving::{RobotBehavior, Watched};
 use crate::messages::{RobotButton, SensorData, Task, MAX_SENSOR_ERR_LEN};
 use crate::region_localization::estimate_location_2;
 use crate::robot_display::DisplayManager;
@@ -8,7 +8,6 @@ use array_init::array_init;
 use core::fmt::Debug;
 use core::sync::atomic::Ordering;
 use core::time::Duration;
-use embassy_time::Timer;
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::DrawTarget;
 
@@ -46,14 +45,14 @@ pub async fn peripherals_task<R: RobotBehavior>(mut peripherals: R::Peripherals)
     let mut config = Watched::new_receiver(&data.config).await;
     let mut network_watch = data.network_status.receiver().unwrap();
 
-    let mut display_manager: DisplayManager<EmbassyInstant> =
+    let mut display_manager: DisplayManager<R::Instant> =
         DisplayManager::new(name, sensors.clone());
 
-    let mut utilization_monitor: UtilizationMonitor<50, EmbassyInstant> =
+    let mut utilization_monitor: UtilizationMonitor<50, R::Instant> =
         UtilizationMonitor::new(0.0, 0.0);
     utilization_monitor.start();
 
-    let mut last_display_time = EmbassyInstant::default();
+    let mut last_display_time = R::Instant::default();
 
     loop {
         let mut something_changed = false;
@@ -78,7 +77,7 @@ pub async fn peripherals_task<R: RobotBehavior>(mut peripherals: R::Peripherals)
         }
 
         if last_display_time.elapsed() > Duration::from_millis(30) {
-            last_display_time = EmbassyInstant::default();
+            last_display_time = R::Instant::default();
             while let Some((button, pressed)) = peripherals.read_button_event().await {
                 display_manager.button_event(button, pressed);
             }
@@ -103,7 +102,7 @@ pub async fn peripherals_task<R: RobotBehavior>(mut peripherals: R::Peripherals)
         }
 
         utilization_monitor.stop();
-        Timer::after_millis(10).await;
+        R::Instant::sleep(Duration::from_millis(10)).await;
         utilization_monitor.start();
     }
 }

@@ -1,5 +1,5 @@
 use crate::drive_system::DriveSystem;
-use crate::driving::{EmbassyInstant, RobotBehavior};
+use crate::driving::RobotBehavior;
 use crate::messages::{
     FrequentServerToRobot, MotorControlStatus, RobotToServerMessage, SensorData, Task,
     VelocityControl,
@@ -11,7 +11,6 @@ use crate::util::utilization::UtilizationMonitor;
 use crate::util::CrossPlatformInstant;
 use core::sync::atomic::Ordering;
 use core::time::Duration;
-use embassy_time::Timer;
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
 use nalgebra::{Rotation2, Vector2};
@@ -83,15 +82,15 @@ pub async fn motors_task<R: RobotBehavior>(motors: R::Motors) -> ! {
         pwm: Default::default(),
     };
 
-    let mut last_command = EmbassyInstant::default();
+    let mut last_command = R::Instant::default();
 
-    let mut utilization_monitor: UtilizationMonitor<50, EmbassyInstant> =
+    let mut utilization_monitor: UtilizationMonitor<50, R::Instant> =
         UtilizationMonitor::new(0.0, 0.0);
     utilization_monitor.start();
 
     loop {
         if let Some(config) = config_watch.try_changed() {
-            last_command = EmbassyInstant::default();
+            last_command = R::Instant::default();
             motors_data.config = config;
             for m in 0..3 {
                 motors_data.pid_controllers[m]
@@ -128,7 +127,7 @@ pub async fn motors_task<R: RobotBehavior>(motors: R::Motors) -> ! {
             .store(utilization_monitor.utilization(), Ordering::Relaxed);
 
         utilization_monitor.stop();
-        Timer::after_millis(30).await;
+        R::Instant::sleep(Duration::from_millis(30)).await;
         utilization_monitor.start();
     }
 }

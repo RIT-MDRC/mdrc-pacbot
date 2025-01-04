@@ -43,7 +43,6 @@ portable-atomic = { version = "1.9.0", features = ["float"] }
 async-channel = { version = "2.3.1", optional = true }
 atomic = { version = "0.6.0", default-features = false }
 array-init = "2.1.0"
-embassy-time = { version = "0.4", git = "https://github.com/embassy-rs/embassy.git", optional = true }
 critical-section = "1.2.0"
 
 # Async

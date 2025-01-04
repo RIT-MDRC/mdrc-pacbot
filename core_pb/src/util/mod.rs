@@ -74,10 +74,13 @@ impl ColoredStatus {
     }
 }
 
+#[allow(async_fn_in_trait)]
 pub trait CrossPlatformInstant: Copy {
     fn elapsed(&self) -> Duration;
 
     fn checked_duration_since(&self, other: Self) -> Option<Duration>;
+
+    async fn sleep(duration: Duration);
 }
 
 #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
@@ -99,6 +102,10 @@ impl CrossPlatformInstant for StdInstant {
 
     fn checked_duration_since(&self, other: Self) -> Option<Duration> {
         self.0.checked_duration_since(other.0)
+    }
+
+    async fn sleep(_duration: Duration) {
+        todo!()
     }
 }
 

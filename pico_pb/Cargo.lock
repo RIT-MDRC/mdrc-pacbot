@@ -215,7 +215,6 @@ dependencies = [
  "defmt",
  "defmt-or-log",
  "embassy-sync 0.6.1 (git+https://github.com/embassy-rs/embassy.git)",
- "embassy-time",
  "embedded-graphics",
  "embedded-io-async",
  "format_no_std",
