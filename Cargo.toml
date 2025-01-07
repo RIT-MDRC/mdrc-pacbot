@@ -7,4 +7,5 @@ members = [
     "gui_pb",
     "server_pb",
     "sim_pb",
+    "sim3_pb",
 ]
