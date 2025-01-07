@@ -22,10 +22,7 @@ use core_pb::messages::{
 use core_pb::pacbot_rs::game_state::GameState;
 use core_pb::threaded_websocket::{Address, TextOrT, ThreadedSocket};
 use core_pb::util::stopwatch::Stopwatch;
-#[cfg(not(target_arch = "wasm32"))]
-use core_pb::util::StdInstant;
-#[cfg(target_arch = "wasm32")]
-use core_pb::util::WebTimeInstant as StdInstant;
+use core_pb::util::WebTimeInstant;
 use eframe::egui;
 use eframe::egui::{Align, Color32, Pos2, Visuals};
 use egui_dock::{DockArea, DockState, NodeIndex, Style};
@@ -123,7 +120,7 @@ pub struct App {
     ui_settings: UiSettings,
     target_vel: VelocityControl,
     motor_status_frames: MotorStatusGraphFrames<3>,
-    gui_stopwatch: Stopwatch<5, 30, StdInstant>,
+    gui_stopwatch: Stopwatch<5, 30, WebTimeInstant>,
     rotated_grid: bool,
     settings_fields: Option<HashMap<String, (String, String)>>,
     pacbot_server_connection_status: NetworkStatus,

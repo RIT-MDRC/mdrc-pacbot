@@ -34,9 +34,9 @@ pub async fn run_encoders(
         )
         .await
         {
-            Either4::First(_) => Some((2, encoders.0.ticks(), -encoders.0.average_rate())),
+            Either4::First(_) => Some((0, encoders.0.ticks(), -encoders.0.average_rate())),
             Either4::Second(_) => Some((1, encoders.1.ticks(), -encoders.1.average_rate())),
-            Either4::Third(_) => Some((0, encoders.2.ticks(), -encoders.2.average_rate())),
+            Either4::Third(_) => Some((2, encoders.2.ticks(), -encoders.2.average_rate())),
             _ => None,
         } {
             ticks[i] = tick;

@@ -113,7 +113,8 @@ async fn main(spawner: Spawner) {
     let name = RobotName::from_mac_address(&mac_address).expect("Unrecognized mac address");
     info!("I am {}, mac address {:?}", name, mac_address);
 
-    // set up core's shared data
+    // Set up core's shared data
+    // It is important that this happens before any core tasks begin
     let shared_data = SHARED_DATA.get_or_init(|| SharedRobotData::new(name));
 
     // High-priority executor: SWI_IRQ_1, priority level 2
