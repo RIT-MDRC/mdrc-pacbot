@@ -23,11 +23,11 @@ pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
                 (wall.bottom_right.y as f32 * 1.0 - wall.top_left.y as f32 * 1.0) / 2.0,
             ))
             .insert(CollisionGroups::new(Group::GROUP_1, Group::GROUP_2))
-            .insert(TransformBundle::from(Transform::from_xyz(
+            .insert(Transform::from_xyz(
                 (wall.bottom_right.x as f32 * 1.0 + wall.top_left.x as f32 * 1.0) / 2.0,
                 (wall.bottom_right.y as f32 * 1.0 + wall.top_left.y as f32 * 1.0) / 2.0,
                 0.0,
-            )))
+            ))
             .insert(Wall);
     }
 }
@@ -42,9 +42,7 @@ impl MyApp {
             .spawn(RigidBody::Dynamic)
             .insert(Collider::ball(name.robot().radius))
             .insert(CollisionGroups::new(Group::GROUP_2, Group::GROUP_1))
-            .insert(TransformBundle::from(Transform::from_xyz(
-                pos.x, pos.y, 0.0,
-            )))
+            .insert(Transform::from_xyz(pos.x, pos.y, 0.0))
             .insert(ExternalImpulse::default())
             .insert(Velocity::default())
             .insert(RobotReference(name, sim_robot.clone()))
@@ -83,7 +81,7 @@ impl MyApp {
             &mut ExternalImpulse,
             &RobotReference,
         )>,
-        rapier_context: Res<RapierContext>,
+        rapier_context: ReadDefaultRapierContext,
     ) {
         for (_, t, v, mut imp, robot) in robots {
             // update simulated imu
@@ -131,7 +129,6 @@ impl MyApp {
 
             sim_robot.distance_sensors = distance_sensors;
 
-            
             let noise_rng: f32 = 0.08;
             let mut motor_speeds = sim_robot
                 .wasd_motor_speeds

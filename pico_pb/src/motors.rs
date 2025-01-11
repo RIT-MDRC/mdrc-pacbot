@@ -1,5 +1,7 @@
-use crate::SharedPicoRobotData;
+use crate::{PicoRobotBehavior, SharedPicoRobotData};
+use core_pb::driving::data::SharedRobotData;
 use core_pb::driving::motors::RobotMotorsBehavior;
+use core_pb::driving::RobotBehavior;
 use defmt::Format;
 use embassy_rp::peripherals::*;
 use embassy_rp::pwm;

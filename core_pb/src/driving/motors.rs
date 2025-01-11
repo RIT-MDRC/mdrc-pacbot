@@ -1,4 +1,5 @@
 use crate::drive_system::DriveSystem;
+use crate::driving::data::SharedRobotData;
 use crate::driving::RobotBehavior;
 use crate::messages::{
     FrequentServerToRobot, MotorControlStatus, RobotToServerMessage, SensorData, Task,
@@ -44,9 +45,10 @@ struct MotorsData<const WHEELS: usize, M: RobotMotorsBehavior> {
 }
 
 /// The "main" method for the motors task
-pub async fn motors_task<R: RobotBehavior>(motors: R::Motors) -> ! {
-    let data = R::get();
-
+pub async fn motors_task<R: RobotBehavior>(
+    data: &'static SharedRobotData<R>,
+    motors: R::Motors,
+) -> ! {
     let name = data.name;
     let mut sensors_watch = data.sensors.receiver().unwrap();
     let mut config_watch = data.config.receiver().unwrap();

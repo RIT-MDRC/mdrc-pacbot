@@ -3,7 +3,6 @@ pub mod motors;
 pub mod network;
 pub mod peripherals;
 
-use crate::driving::data::SharedRobotData;
 use crate::driving::motors::RobotMotorsBehavior;
 use crate::driving::network::RobotNetworkBehavior;
 use crate::driving::peripherals::RobotPeripheralsBehavior;
@@ -17,8 +16,6 @@ pub trait RobotBehavior: 'static {
     type Motors: RobotMotorsBehavior;
     type Network: RobotNetworkBehavior;
     type Peripherals: RobotPeripheralsBehavior;
-
-    fn get() -> &'static SharedRobotData<Self>;
 }
 
 pub struct Watched<M: RawMutex + 'static, T: Clone + 'static, const N: usize> {

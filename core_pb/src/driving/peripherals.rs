@@ -1,3 +1,4 @@
+use crate::driving::data::SharedRobotData;
 use crate::driving::{RobotBehavior, Watched};
 use crate::messages::{RobotButton, SensorData, Task, MAX_SENSOR_ERR_LEN};
 use crate::region_localization::estimate_location_2;
@@ -28,9 +29,10 @@ pub trait RobotPeripheralsBehavior {
 }
 
 /// The "main" method for the peripherals task
-pub async fn peripherals_task<R: RobotBehavior>(mut peripherals: R::Peripherals) {
-    let data = R::get();
-
+pub async fn peripherals_task<R: RobotBehavior>(
+    data: &'static SharedRobotData<R>,
+    mut peripherals: R::Peripherals,
+) {
     let name = data.name;
     let robot = data.robot_definition;
 

@@ -322,13 +322,14 @@ impl<R: RobotBehavior> NetworkData<R> {
 }
 
 /// The "main" method for the network task
-pub async fn network_task<R: RobotBehavior>(mut network: R::Network) {
+pub async fn network_task<R: RobotBehavior>(
+    data: &'static SharedRobotData<R>,
+    mut network: R::Network,
+) {
     info!("mac address: {:?}", network.mac_address().await);
     let name = RobotName::from_mac_address(&network.mac_address().await)
         .expect("Unrecognized mac address");
     info!("{} initialized", name);
-
-    let data = R::get();
 
     let mut net = NetworkData {
         name,

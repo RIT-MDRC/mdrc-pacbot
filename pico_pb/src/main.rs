@@ -57,7 +57,9 @@ impl RobotBehavior for PicoRobotBehavior {
     type Motors = Motors<3>;
     type Network = Network;
     type Peripherals = Peripherals;
+}
 
+impl PicoRobotBehavior {
     fn get() -> &'static SharedRobotData<Self> {
         SHARED_DATA
             .get()
@@ -160,17 +162,17 @@ async fn main(spawner: Spawner) {
 
 #[embassy_executor::task]
 async fn do_wifi(network: Network) {
-    network_task::<PicoRobotBehavior>(network).await;
+    network_task::<PicoRobotBehavior>(PicoRobotBehavior::get(), network).await;
 }
 
 #[embassy_executor::task]
 async fn do_motors(motors: Motors<3>) {
-    motors_task::<PicoRobotBehavior>(motors).await
+    motors_task::<PicoRobotBehavior>(PicoRobotBehavior::get(), motors).await
 }
 
 #[embassy_executor::task]
 async fn do_i2c(peripherals: Peripherals) {
-    peripherals_task::<PicoRobotBehavior>(peripherals).await
+    peripherals_task::<PicoRobotBehavior>(PicoRobotBehavior::get(), peripherals).await
 }
 
 #[derive(Copy, Clone)]

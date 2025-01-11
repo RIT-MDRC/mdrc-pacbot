@@ -56,22 +56,10 @@ fn main() {
 }
 
 fn setup_graphics(mut commands: Commands) {
-    // Add a camera so we can see the debug-render.
-    let mut camera = Camera2dBundle::default();
-
-    camera.transform.translation = Vec3::new(15.5, 15.5, 0.0);
-    camera.projection.scale = 0.05;
-
-    commands.spawn(camera);
+    commands.spawn((Camera2d::default(), Transform::from_xyz(15.5, 15.5, 0.0)));
 }
 
-fn setup_physics(
-    app: ResMut<MyApp>,
-    mut commands: Commands,
-    mut rapier_configuration: ResMut<RapierConfiguration>,
-) {
-    rapier_configuration.gravity = Vect::ZERO;
-
+fn setup_physics(app: ResMut<MyApp>, mut commands: Commands) {
     spawn_walls(&mut commands, app.standard_grid);
 }
 
@@ -107,7 +95,7 @@ fn keyboard_input(
         &mut ExternalImpulse,
         &RobotReference,
     )>,
-    rapier_context: Res<RapierContext>,
+    rapier_context: ReadDefaultRapierContext,
 ) {
     if keys.just_pressed(KeyCode::KeyR) {
         if let Some(name) = RobotName::get_all()
