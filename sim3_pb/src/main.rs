@@ -19,16 +19,10 @@ pub struct Wall;
 pub fn main() {
     info!("Simulation starting up");
 
-    let mut rapier_config = RapierConfiguration::new(1.0);
-    println!("{:?}", rapier_config.gravity);
-    rapier_config.gravity = Vect::Z * -9.81;
-    println!("{:?}", rapier_config.gravity);
-
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(RapierDebugRenderPlugin::default())
-        .insert_resource(rapier_config)
         .insert_resource(MyApp {
             standard_grid: StandardGrid::Pacman,
         })
@@ -42,6 +36,10 @@ pub fn main() {
         .run();
 }
 
-fn setup_physics(app: ResMut<MyApp>, mut commands: Commands) {
+fn setup_physics(
+    app: ResMut<MyApp>,
+    mut commands: Commands,
+    mut config: Query<(Entity, &RapierContext, &mut RapierConfiguration)>,
+) {
     spawn_walls(&mut commands, app.standard_grid);
 }
