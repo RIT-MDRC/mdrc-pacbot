@@ -2,15 +2,14 @@ use crate::constants::ROBOT_LOGS_BUFFER;
 use crate::driving::peripherals::RobotPeripheralsBehavior;
 use crate::driving::RobotBehavior;
 use crate::messages::{
-    ExtraImuData, ExtraOptsAtomicTypes, ExtraOptsTypes, FrequentServerToRobot, NetworkStatus,
-    RobotToServerMessage, SensorData,
+    ExtraImuData, ExtraOptsAtomicTypes, ExtraOptsTypes, FrequentServerToRobot, MotorControlStatus,
+    NetworkStatus, SensorData,
 };
 use crate::names::RobotName;
 use crate::robot_definition::RobotDefinition;
 use array_init::array_init;
 use core::sync::atomic::Ordering;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel::Channel;
 use embassy_sync::pipe::Pipe;
 use embassy_sync::signal::Signal;
 use embassy_sync::watch::Watch;
@@ -29,17 +28,14 @@ pub struct SharedRobotData<R: RobotBehavior + ?Sized> {
     //
     // ------------------- INTER TASK DATA -------------------
     //
-    /// Tasks may use this channel to queue messages to be sent back to the server
-    ///
-    /// If no active connection is available, the channel may fill up and remain full
-    pub server_outgoing_queue: Channel<CriticalSectionRawMutex, RobotToServerMessage, 16>,
-
     /// Information gathered by the peripherals task will be posted here for network and motors
     pub sensors: Watch<CriticalSectionRawMutex, SensorData, 2>,
     /// The current network status, updated by network task
     pub network_status: Watch<CriticalSectionRawMutex, (NetworkStatus, Option<[u8; 4]>), 2>,
     /// Configuration from the server that may change frequently, updated by network task
     pub config: Watch<CriticalSectionRawMutex, FrequentServerToRobot, 2>,
+    /// Motor control status, updated by motors task
+    pub motor_control: Watch<CriticalSectionRawMutex, MotorControlStatus, 2>,
     /// Utilization percentage for the three tasks
     pub utilization: [AtomicF32; 3],
 
@@ -141,11 +137,10 @@ impl<R: RobotBehavior> SharedRobotData<R> {
             robot_definition: RobotDefinition::new(name),
             created_at: R::Instant::default(),
 
-            server_outgoing_queue: Channel::new(),
-
             sensors: Watch::new(),
             network_status: Watch::new_with((NetworkStatus::NotConnected, None)),
             config: Watch::new(),
+            motor_control: Watch::new(),
             utilization: array_init(|_| AtomicF32::new(0.0)),
 
             sig_motor_speeds: Default::default(),
