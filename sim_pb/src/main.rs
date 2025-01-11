@@ -56,7 +56,13 @@ fn main() {
 }
 
 fn setup_graphics(mut commands: Commands) {
-    commands.spawn((Camera2d::default(), Transform::from_xyz(15.5, 15.5, 0.0)));
+    let mut proj = OrthographicProjection::default_2d();
+    proj.scale = 0.05;
+    commands.spawn((
+        Camera2d::default(),
+        Transform::from_xyz(15.5, 15.5, 0.0),
+        proj,
+    ));
 }
 
 fn setup_physics(app: ResMut<MyApp>, mut commands: Commands) {

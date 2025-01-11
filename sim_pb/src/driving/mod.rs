@@ -4,18 +4,17 @@ use crate::driving::peripherals::{SimDisplay, SimPeripherals};
 use async_channel::{bounded, Receiver, Sender};
 use bevy::log::info;
 use bevy::tasks::block_on;
-use bevy_rapier2d::na::Vector2;
 use core_pb::driving::data::SharedRobotData;
 use core_pb::driving::motors::motors_task;
 use core_pb::driving::network::network_task;
 use core_pb::driving::peripherals::peripherals_task;
 use core_pb::driving::RobotBehavior;
 use core_pb::messages::RobotButton;
-use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
+use core_pb::names::RobotName;
 use core_pb::util::WebTimeInstant;
 use futures::{select, FutureExt};
 use std::collections::VecDeque;
-use std::sync::{Arc, OnceLock, RwLock};
+use std::sync::{Arc, RwLock};
 use std::thread::spawn;
 
 mod motors;
@@ -26,6 +25,7 @@ pub const CHANNEL_BUFFER_SIZE: usize = 64;
 
 pub struct SimRobot {
     pub name: RobotName,
+    pub data: Arc<SharedRobotData<SimRobot>>,
 
     pub display: SimDisplay,
     pub display_updated: bool,
@@ -34,14 +34,8 @@ pub struct SimRobot {
     pub firmware_updated: bool,
     pub reboot: bool,
 
-    pub imu_angle: Result<f32, ()>,
-    pub velocity: Vector2<f32>,
-    pub ang_velocity: f32,
-    pub distance_sensors: [Result<Option<f32>, ()>; 4],
-
     pub wasd_motor_speeds: Option<[f32; 3]>,
     pub requested_motor_speeds: [f32; 3],
-    pub actual_motor_speeds: [f32; 3],
 
     pub button_events: VecDeque<(RobotButton, bool)>,
     pub joystick: Option<(f32, f32)>,
@@ -49,10 +43,12 @@ pub struct SimRobot {
 
 impl SimRobot {
     pub fn start(name: RobotName, firmware_swapped: bool) -> Arc<RwLock<Self>> {
+        let shared_data = Arc::new(SharedRobotData::new(name));
         let (thread_stopper_tx, thread_stopper_rx) = bounded(CHANNEL_BUFFER_SIZE);
 
         let robot = Arc::new(RwLock::new(Self {
             name,
+            data: shared_data.clone(),
 
             display: SimDisplay::default(),
             display_updated: true,
@@ -61,14 +57,8 @@ impl SimRobot {
             firmware_updated: false,
             reboot: false,
 
-            imu_angle: Err(()),
-            velocity: Vector2::new(0.0, 0.0),
-            ang_velocity: 0.0,
-            distance_sensors: [Err(()); 4],
-
             wasd_motor_speeds: None,
             requested_motor_speeds: [0.0; 3],
-            actual_motor_speeds: [0.0; 3],
 
             button_events: VecDeque::new(),
             joystick: None,
@@ -83,7 +73,7 @@ impl SimRobot {
                 name,
                 motors,
                 network,
-                SimRobot::get(name),
+                shared_data.clone(),
                 peripherals,
                 thread_stopper_rx,
             ))
@@ -101,7 +91,7 @@ impl SimRobot {
         name: RobotName,
         motors: SimMotors,
         network: SimNetwork,
-        data: &'static SharedRobotData<SimRobot>,
+        data: Arc<SharedRobotData<SimRobot>>,
         peripherals: SimPeripherals,
         thread_stopper: Receiver<()>,
     ) {
@@ -109,13 +99,13 @@ impl SimRobot {
             _ = thread_stopper.recv().fuse() => {
                 info!("{name} destroyed");
             }
-            _ = network_task(data, network).fuse() => {
+            _ = network_task(&data, network).fuse() => {
                 info!("{name} network task ended early");
             }
-            _ = motors_task(data, motors).fuse() => {
+            _ = motors_task(&data, motors).fuse() => {
                 info!("{name} motors task ended early");
             }
-            _ = peripherals_task(data, peripherals).fuse() => {
+            _ = peripherals_task(&data, peripherals).fuse() => {
                 info!("{name} peripherals task ended early");
             }
         }
@@ -128,19 +118,4 @@ impl RobotBehavior for SimRobot {
     type Motors = SimMotors;
     type Network = SimNetwork;
     type Peripherals = SimPeripherals;
-}
-
-static ROBOT_DATA: [OnceLock<SharedRobotData<SimRobot>>; NUM_ROBOT_NAMES] = [
-    OnceLock::new(),
-    OnceLock::new(),
-    OnceLock::new(),
-    OnceLock::new(),
-    OnceLock::new(),
-    OnceLock::new(),
-];
-
-impl SimRobot {
-    pub fn get(name: RobotName) -> &'static SharedRobotData<SimRobot> {
-        ROBOT_DATA[name as usize].get_or_init(|| SharedRobotData::new(name))
-    }
 }

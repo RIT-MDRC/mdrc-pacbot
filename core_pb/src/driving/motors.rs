@@ -45,10 +45,7 @@ struct MotorsData<const WHEELS: usize, M: RobotMotorsBehavior> {
 }
 
 /// The "main" method for the motors task
-pub async fn motors_task<R: RobotBehavior>(
-    data: &'static SharedRobotData<R>,
-    motors: R::Motors,
-) -> ! {
+pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R::Motors) -> ! {
     let name = data.name;
     let mut sensors_watch = data.sensors.receiver().unwrap();
     let mut config_watch = data.config.receiver().unwrap();

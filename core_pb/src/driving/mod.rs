@@ -18,13 +18,13 @@ pub trait RobotBehavior: 'static {
     type Peripherals: RobotPeripheralsBehavior;
 }
 
-pub struct Watched<M: RawMutex + 'static, T: Clone + 'static, const N: usize> {
-    receiver: Receiver<'static, M, T, N>,
+pub struct Watched<'a, M: RawMutex + 'static, T: Clone + 'static, const N: usize> {
+    receiver: Receiver<'a, M, T, N>,
     data: T,
 }
 
-impl<M: RawMutex, T: Clone, const N: usize> Watched<M, T, N> {
-    pub async fn new_receiver(watch: &'static Watch<M, T, N>) -> Self {
+impl<'a, M: RawMutex, T: Clone, const N: usize> Watched<'a, M, T, N> {
+    pub async fn new_receiver(watch: &'a Watch<M, T, N>) -> Self {
         let mut receiver = watch.receiver().unwrap();
         let data = receiver.get().await;
         Self { receiver, data }

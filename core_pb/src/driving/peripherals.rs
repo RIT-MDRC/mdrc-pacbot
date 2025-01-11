@@ -30,7 +30,7 @@ pub trait RobotPeripheralsBehavior {
 
 /// The "main" method for the peripherals task
 pub async fn peripherals_task<R: RobotBehavior>(
-    data: &'static SharedRobotData<R>,
+    data: &SharedRobotData<R>,
     mut peripherals: R::Peripherals,
 ) {
     let name = data.name;

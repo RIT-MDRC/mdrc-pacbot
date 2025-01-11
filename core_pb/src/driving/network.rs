@@ -92,16 +92,15 @@ struct ExpectedFirmwarePart {
     len: usize,
 }
 
-struct NetworkData<R: RobotBehavior + 'static> {
+struct NetworkData<'a, R: RobotBehavior + 'a> {
     name: RobotName,
     network: R::Network,
     seq: u32,
 
-    data: &'static SharedRobotData<R>,
-    config_sender: Sender<'static, CriticalSectionRawMutex, FrequentServerToRobot, 2>,
-    network_status_sender:
-        Sender<'static, CriticalSectionRawMutex, (NetworkStatus, Option<[u8; 4]>), 2>,
-    sensors_receiver: Receiver<'static, CriticalSectionRawMutex, SensorData, 2>,
+    data: &'a SharedRobotData<R>,
+    config_sender: Sender<'a, CriticalSectionRawMutex, FrequentServerToRobot, 2>,
+    network_status_sender: Sender<'a, CriticalSectionRawMutex, (NetworkStatus, Option<[u8; 4]>), 2>,
+    sensors_receiver: Receiver<'a, CriticalSectionRawMutex, SensorData, 2>,
 
     expected_firmware_part: Option<ExpectedFirmwarePart>,
 
@@ -111,7 +110,7 @@ struct NetworkData<R: RobotBehavior + 'static> {
     serialization_buf: [u8; 1024],
 }
 
-impl<R: RobotBehavior> NetworkData<R> {
+impl<R: RobotBehavior> NetworkData<'_, R> {
     async fn connect_wifi(&mut self) {
         while self.network.wifi_is_connected().await.is_none() {
             self.status(NetworkStatus::Connecting, None).await;
@@ -322,10 +321,7 @@ impl<R: RobotBehavior> NetworkData<R> {
 }
 
 /// The "main" method for the network task
-pub async fn network_task<R: RobotBehavior>(
-    data: &'static SharedRobotData<R>,
-    mut network: R::Network,
-) {
+pub async fn network_task<R: RobotBehavior>(data: &SharedRobotData<R>, mut network: R::Network) {
     info!("mac address: {:?}", network.mac_address().await);
     let name = RobotName::from_mac_address(&network.mac_address().await)
         .expect("Unrecognized mac address");
@@ -370,11 +366,11 @@ pub async fn network_task<R: RobotBehavior>(
     }
 }
 
-async fn next_event<'a, 'b, T: RobotNetworkBehavior>(
-    sensors: &mut Receiver<'static, CriticalSectionRawMutex, SensorData, 2>,
-    socket: &mut T::Socket<'a>,
-    stateful_tcp_reader: &'b mut StatefulTcpReader,
-) -> Either<Result<TcpMessage<'b, ServerToRobotMessage>, TcpError>, SensorData> {
+async fn next_event<'msg, T: RobotNetworkBehavior>(
+    sensors: &mut Receiver<'_, CriticalSectionRawMutex, SensorData, 2>,
+    socket: &mut T::Socket<'_>,
+    stateful_tcp_reader: &'msg mut StatefulTcpReader,
+) -> Either<Result<TcpMessage<'msg, ServerToRobotMessage>, TcpError>, SensorData> {
     match select(
         pin!(stateful_tcp_reader.read_socket(socket)),
         pin!(sensors.get()),
