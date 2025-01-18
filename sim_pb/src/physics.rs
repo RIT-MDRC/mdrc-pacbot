@@ -43,6 +43,7 @@ impl MyApp {
             .insert(Collider::ball(name.robot().radius))
             .insert(CollisionGroups::new(Group::GROUP_2, Group::GROUP_1))
             .insert(Transform::from_xyz(pos.x, pos.y, 0.0))
+            .insert(GravityScale(0.0))
             .insert(ExternalImpulse::default())
             .insert(Velocity::default())
             .insert(RobotReference(name, sim_robot.clone()))
