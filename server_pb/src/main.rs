@@ -351,9 +351,8 @@ impl App {
             CvLocationSource::Constant(p) => p,
             CvLocationSource::Localization => self.status.robots[self.settings.pacman as usize]
                 .estimated_location
-                .map(|p| self.grid.node_nearest(p.x, p.y))
-                .flatten()
-                .or_else(|| old_loc),
+                .and_then(|p| self.grid.node_nearest(p.x, p.y))
+                .or(old_loc),
         };
 
         if old_loc != self.status.cv_location {

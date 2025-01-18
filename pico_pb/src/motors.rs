@@ -1,7 +1,5 @@
-use crate::{PicoRobotBehavior, SharedPicoRobotData};
-use core_pb::driving::data::SharedRobotData;
+use crate::SharedPicoRobotData;
 use core_pb::driving::motors::RobotMotorsBehavior;
-use core_pb::driving::RobotBehavior;
 use defmt::Format;
 use embassy_rp::peripherals::*;
 use embassy_rp::pwm;
@@ -10,8 +8,6 @@ use fixed::types::extra::U4;
 use fixed::FixedU16;
 
 pub struct Motors<const WHEELS: usize> {
-    shared_data: &'static SharedPicoRobotData,
-
     pwm_pairs: [Pwm<'static>; WHEELS],
     pwm_configs: [pwm::Config; WHEELS],
 }
@@ -35,8 +31,6 @@ impl Motors<3> {
         let pwm_configs = [0; 3].map(|_| pwm_config.clone());
 
         Self {
-            shared_data,
-
             pwm_pairs: pins,
             pwm_configs,
         }

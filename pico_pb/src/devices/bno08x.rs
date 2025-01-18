@@ -1,12 +1,10 @@
 use crate::peripherals::PeripheralsError;
-use crate::{PacbotI2cBus, PacbotI2cDevice, PicoRobotBehavior, SHARED_DATA};
+use crate::{PacbotI2cBus, PacbotI2cDevice, PicoRobotBehavior};
 use bno08x_async::constants::{
     SENSOR_REPORTID_ACCELEROMETER, SENSOR_REPORTID_GYROSCOPE, SENSOR_REPORTID_MAGNETIC_FIELD,
     SENSOR_REPORTID_ROTATION_VECTOR,
 };
 use core::sync::atomic::{AtomicBool, Ordering};
-use core_pb::driving::data::SharedRobotData;
-use core_pb::driving::RobotBehavior;
 use core_pb::messages::ExtraImuData;
 use defmt::info;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
@@ -63,7 +61,7 @@ impl PacbotIMU {
                         });
                     Timer::after_millis(20).await;
                 }
-                Err(e) => {
+                Err(_) => {
                     // self.results.signal(Err(e));
                     Timer::after_millis(300).await;
                 }

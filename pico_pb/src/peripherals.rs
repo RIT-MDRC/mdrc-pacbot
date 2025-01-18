@@ -5,8 +5,7 @@ use crate::devices::vl53l4cd::PacbotDistanceSensor;
 use crate::{PacbotI2cBus, PicoRobotBehavior};
 use core::sync::atomic::AtomicBool;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
-use core_pb::driving::RobotBehavior;
-use core_pb::messages::{ExtraImuData, RobotButton};
+use core_pb::messages::RobotButton;
 use defmt::Format;
 use display_interface::DisplayError;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;
@@ -14,9 +13,6 @@ use embassy_executor::task;
 use embassy_futures::join::join3;
 use embassy_rp::gpio::{AnyPin, Level, Output};
 use embassy_rp::i2c;
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
-use embassy_sync::channel::Channel;
-use embassy_sync::signal::Signal;
 use futures::future::join4;
 use vl53l4cd::Status;
 
@@ -63,22 +59,12 @@ pub async fn run_battery_monitor(enabled: &'static AtomicBool, bus: &'static Pac
 
 pub struct Peripherals {
     display: PacbotDisplayWrapper,
-
-    distances: [Result<Option<f32>, PeripheralsError>; NUM_DIST_SENSORS],
-    angle: Result<f32, PeripheralsError>,
-    extra_imu_data: Option<ExtraImuData>,
-    battery: Result<f32, PeripheralsError>,
 }
 
 impl Peripherals {
     pub fn new(bus: &'static PacbotI2cBus) -> Self {
         Self {
             display: PacbotDisplayWrapper::new(bus),
-
-            distances: DIST_SENSOR_ADDRESSES.map(|_| Err(PeripheralsError::Uninitialized)),
-            angle: Err(PeripheralsError::Uninitialized),
-            extra_imu_data: None,
-            battery: Err(PeripheralsError::Uninitialized),
         }
     }
 }

@@ -17,6 +17,7 @@ use portable_atomic::{AtomicBool, AtomicF32, AtomicI32, AtomicI8};
 
 /// Each robot should have exactly one. Some fields are managed by core_pb, but (when noted)
 /// implementations are responsible for updating values
+#[allow(clippy::type_complexity)]
 pub struct SharedRobotData<R: RobotBehavior + ?Sized> {
     /// Robot's name, to distinguish it from other robots, is provided on startup
     pub name: RobotName,
@@ -189,33 +190,29 @@ impl<R: RobotBehavior> SharedRobotData<R> {
 
     #[deprecated = "Extra indicators should only be used for temporary testing"]
     pub fn set_extra_bool_indicator(&self, index: usize, value: bool) {
-        self.extra_indicators
-            .0
-            .get(index)
-            .map(|b| b.store(value, Ordering::Relaxed));
+        if let Some(b) = self.extra_indicators.0.get(index) {
+            b.store(value, Ordering::Relaxed)
+        }
     }
 
     #[deprecated = "Extra indicators should only be used for temporary testing"]
     pub fn set_extra_f32_indicator(&self, index: usize, value: f32) {
-        self.extra_indicators
-            .1
-            .get(index)
-            .map(|b| b.store(value, Ordering::Relaxed));
+        if let Some(b) = self.extra_indicators.1.get(index) {
+            b.store(value, Ordering::Relaxed)
+        }
     }
 
     #[deprecated = "Extra indicators should only be used for temporary testing"]
     pub fn set_extra_i8_indicator(&self, index: usize, value: i8) {
-        self.extra_indicators
-            .2
-            .get(index)
-            .map(|b| b.store(value, Ordering::Relaxed));
+        if let Some(b) = self.extra_indicators.2.get(index) {
+            b.store(value, Ordering::Relaxed)
+        }
     }
 
     #[deprecated = "Extra indicators should only be used for temporary testing"]
     pub fn set_extra_i32_indicator(&self, index: usize, value: i32) {
-        self.extra_indicators
-            .3
-            .get(index)
-            .map(|b| b.store(value, Ordering::Relaxed));
+        if let Some(b) = self.extra_indicators.3.get(index) {
+            b.store(value, Ordering::Relaxed)
+        }
     }
 }
