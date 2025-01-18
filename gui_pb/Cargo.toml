@@ -6,30 +6,31 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-eframe = "0.27.2"
-egui-phosphor = "0.5.0"
-egui_dock = "0.12.0"
+core_pb = { path = "../core_pb", features = ["wasm", "egui-phosphor", "log"] }
 anyhow = "1.0.82"
 serde = { version = "1.0.199", features = ["derive"] }
-tungstenite = "0.21.0"
 bincode = { version = "2.0.0-rc.3", features = ["serde"] }
-nalgebra = "0.32.5"
-regex = "1.10.4"
 web-time = "1.1.0"
-egui_plot = "0.27.2"
 gilrs = { version = "0.11.0", default-features = false, features = ["xinput"] }
+log = "0.4.21"
+
+# Math
+nalgebra = "0.33.2"
+regex = "1.10.4"
+
+# Egui
+eframe = { version = "0.30.0", features = ["x11"] }
+egui_plot = "0.30.0"
+egui_dock = "0.15.0"
+egui-phosphor = "0.8.0"
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-core_pb = { path = "../core_pb", features = ["wasm", "egui-phosphor", "log"] }
-wasm-bindgen = "0.2.92"
+wasm-bindgen = "0.2.96"
 wasm-bindgen-futures = "0.4"
-log = "0.4.21"
 web-sys = { version = "0.3.69", features = ["WebSocket", "ErrorEvent", "MessageEvent", "FileReader", "ProgressEvent"] }
 js-sys = "0.3.69"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-core_pb = { path = "../core_pb", features = ["wasm", "egui-phosphor", "log"] }
 native-dialog = { version = "0.7.0", features = ["windows_dpi_awareness", "windows_visual_styles"] }
 env_logger = "0.11.5"
-log = "0.4.22"

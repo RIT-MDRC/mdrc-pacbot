@@ -1,7 +1,7 @@
 use crate::grid::{Grid, GRID_SIZE};
 use crate::messages::MAX_SENSOR_ERR_LEN;
 use crate::{grid::standard_grid::StandardGrid, robot_definition::RobotDefinition};
-#[cfg(not(feature = "std"))]
+#[cfg(feature = "micromath")]
 use nalgebra::ComplexField;
 use nalgebra::{Point2, Vector2};
 use ordered_float::NotNan;

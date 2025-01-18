@@ -17,6 +17,7 @@ use nalgebra::Rotation2;
 use nalgebra::Vector2;
 use pacbot_rs::game_state::GameState;
 use pacbot_rs::location::Direction;
+use portable_atomic::{AtomicBool, AtomicF32, AtomicI32, AtomicI8};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
@@ -145,6 +146,8 @@ pub struct FrequentServerToRobot {
     pub target_path: heapless::Vec<Point2<i8>, MAX_ROBOT_PATH_LENGTH>,
     /// Whether the robot should try to follow the target path (including maintaining heading 0)
     pub follow_target_path: bool,
+    /// This angle should be considered angle 0
+    pub angle_offset: f32,
     pub lookahead_dist: f32,
     pub robot_speed: f32,
     pub snapping_dist: f32,
@@ -165,6 +168,7 @@ impl FrequentServerToRobot {
             cv_location: None,
             target_path: heapless::Vec::new(),
             follow_target_path: false,
+            angle_offset: 0.0,
             lookahead_dist: 0.5,
             robot_speed: 1.5,
             snapping_dist: 0.3,
@@ -191,7 +195,6 @@ pub enum ServerToRobotMessage {
     /// See [`FrequentServerToRobot`]
     FrequentRobotItems(FrequentServerToRobot) = 8,
     Ping = 9,
-    ResetAngle = 10,
     ExtraOpts(ExtraOptsTypes) = 11,
 }
 
@@ -202,6 +205,13 @@ pub struct ExtraOptsTypes {
     pub opts_i8: [i8; 4],
     pub opts_i32: [i32; 4],
 }
+
+pub type ExtraOptsAtomicTypes = (
+    [AtomicBool; 8],
+    [AtomicF32; 8],
+    [AtomicI8; 8],
+    [AtomicI32; 8],
+);
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MotorControlStatus {
@@ -270,7 +280,7 @@ pub struct SensorData {
     /// The best guess location of the robot
     pub location: Option<Point2<f32>>,
     /// The battery level of the robot
-    pub battery: Result<f32, ()>,
+    pub battery: Result<f32, heapless::String<MAX_SENSOR_ERR_LEN>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

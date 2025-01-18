@@ -4,7 +4,7 @@
 //! Ensure all lengths are in grid units (gu)
 
 use core::f32::consts::{FRAC_PI_2, FRAC_PI_6, PI};
-#[cfg(not(feature = "std"))]
+#[cfg(feature = "micromath")]
 use micromath::F32Ext;
 use nalgebra::{Rotation2, Vector2};
 

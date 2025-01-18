@@ -12,23 +12,19 @@ mod peripherals;
 
 // todo https://github.com/adafruit/Adafruit_CircuitPython_seesaw/blob/main/adafruit_seesaw/seesaw.py https://crates.io/crates/adafruit-seesaw
 use crate::encoders::{run_encoders, PioEncoder};
-use crate::motors::{Motors, MOTORS_CHANNEL};
-use crate::network::{initialize_network, Network, NETWORK_CHANNEL};
-use crate::peripherals::{manage_pico_i2c, RobotPeripherals, PERIPHERALS_CHANNEL};
-use core::ops::{Deref, DerefMut};
+use crate::motors::Motors;
+use crate::network::{initialize_network, Network};
+use crate::peripherals::{manage_pico_i2c, Peripherals};
+use core_pb::driving::data::SharedRobotData;
 use core_pb::driving::motors::motors_task;
 use core_pb::driving::network::{network_task, RobotNetworkBehavior};
 use core_pb::driving::peripherals::peripherals_task;
-use core_pb::driving::{RobotInterTaskMessage, RobotTaskMessenger};
-use core_pb::messages::Task;
+use core_pb::driving::RobotBehavior;
 use core_pb::names::RobotName;
-use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::CrossPlatformInstant;
 use defmt::{debug, info, unwrap};
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_executor::{InterruptExecutor, Spawner};
-use embassy_futures::select::select;
-use embassy_futures::select::Either;
 use embassy_rp::gpio::Pin;
 use embassy_rp::i2c::{Async, I2c};
 use embassy_rp::interrupt::{InterruptExt, Priority};
@@ -39,11 +35,32 @@ use embassy_rp::{bind_interrupts, interrupt};
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::{Duration, Instant, Timer};
+use once_cell::sync::OnceCell;
 use panic_probe as _;
 use static_cell::StaticCell;
 
 pub type PacbotI2cBus = Mutex<NoopRawMutex, I2c<'static, I2C1, Async>>;
 pub type PacbotI2cDevice = I2cDevice<'static, NoopRawMutex, I2c<'static, I2C1, Async>>;
+
+static SHARED_DATA: OnceCell<SharedRobotData<PicoRobotBehavior>> = OnceCell::new();
+
+struct PicoRobotBehavior;
+type SharedPicoRobotData = SharedRobotData<PicoRobotBehavior>;
+impl RobotBehavior for PicoRobotBehavior {
+    type Instant = EmbassyInstant;
+
+    type Motors = Motors<3>;
+    type Network = Network;
+    type Peripherals = Peripherals;
+}
+
+impl PicoRobotBehavior {
+    fn get() -> &'static SharedRobotData<Self> {
+        SHARED_DATA
+            .get()
+            .expect("RobotBehavior get() called before initialization")
+    }
+}
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
@@ -93,20 +110,21 @@ async fn main(spawner: Spawner) {
     let name = RobotName::from_mac_address(&mac_address).expect("Unrecognized mac address");
     info!("I am {}, mac address {:?}", name, mac_address);
 
+    // Set up core's shared data
+    // It is important that this happens before any core tasks begin
+    let shared_data = SHARED_DATA.get_or_init(|| SharedRobotData::new(name));
+
     // High-priority executor: SWI_IRQ_1, priority level 2
     interrupt::SWI_IRQ_1.set_priority(Priority::P2);
     let int_spawner = EXECUTOR_HIGH.start(interrupt::SWI_IRQ_1);
-    unwrap!(int_spawner.spawn(run_encoders(name, (encoder_a, encoder_b, encoder_c))));
+    unwrap!(int_spawner.spawn(run_encoders(shared_data, (encoder_a, encoder_b, encoder_c))));
 
     unwrap!(spawner.spawn(do_wifi(network)));
-    unwrap!(spawner.spawn(do_motors(
-        name,
-        Motors::new(
-            RobotDefinition::new(name),
-            (p.PIN_2, p.PIN_3, p.PIN_6, p.PIN_7, p.PIN_10, p.PIN_11),
-            (p.PWM_SLICE1, p.PWM_SLICE3, p.PWM_SLICE5),
-        )
-    )));
+    unwrap!(spawner.spawn(do_motors(Motors::new(
+        shared_data,
+        (p.PIN_2, p.PIN_3, p.PIN_6, p.PIN_7, p.PIN_10, p.PIN_11),
+        (p.PWM_SLICE1, p.PWM_SLICE3, p.PWM_SLICE5),
+    ))));
 
     // xshut pins array
     let xshut = [
@@ -125,7 +143,7 @@ async fn main(spawner: Spawner) {
         Irqs,
         embassy_rp::i2c::Config::default(),
     )));
-    unwrap!(spawner.spawn(do_i2c(name, RobotPeripherals::new(i2c_bus))));
+    unwrap!(spawner.spawn(do_i2c(Peripherals::new(i2c_bus))));
     unwrap!(spawner.spawn(manage_pico_i2c(i2c_bus, xshut)));
 
     info!("Finished spawning tasks");
@@ -139,88 +157,33 @@ async fn main(spawner: Spawner) {
 
 #[embassy_executor::task]
 async fn do_wifi(network: Network) {
-    unwrap!(network_task(network, Messenger(Task::Wifi)).await);
+    network_task::<PicoRobotBehavior>(PicoRobotBehavior::get(), network).await;
 }
 
 #[embassy_executor::task]
-async fn do_motors(name: RobotName, motors: Motors<3>) {
-    unwrap!(motors_task(name, motors, Messenger(Task::Motors)).await)
+async fn do_motors(motors: Motors<3>) {
+    motors_task::<PicoRobotBehavior>(PicoRobotBehavior::get(), motors).await
 }
 
 #[embassy_executor::task]
-async fn do_i2c(name: RobotName, i2c: RobotPeripherals) {
-    unwrap!(peripherals_task(name, i2c, Messenger(Task::Peripherals)).await)
-}
-
-pub struct Messenger(Task);
-
-impl RobotTaskMessenger for Messenger {
-    fn send_or_drop(&mut self, message: RobotInterTaskMessage, to: Task) -> bool {
-        match to {
-            Task::Wifi => NETWORK_CHANNEL.try_send(message),
-            Task::Motors => MOTORS_CHANNEL.try_send(message),
-            Task::Peripherals => PERIPHERALS_CHANNEL.try_send(message),
-        }
-        .is_ok()
-    }
-
-    async fn send_blocking(&mut self, message: RobotInterTaskMessage, to: Task) {
-        match to {
-            Task::Wifi => NETWORK_CHANNEL.send(message).await,
-            Task::Motors => MOTORS_CHANNEL.send(message).await,
-            Task::Peripherals => PERIPHERALS_CHANNEL.send(message).await,
-        }
-    }
-
-    async fn receive_message(&mut self) -> RobotInterTaskMessage {
-        let channel = match self.0 {
-            Task::Wifi => &NETWORK_CHANNEL,
-            Task::Motors => &MOTORS_CHANNEL,
-            Task::Peripherals => &PERIPHERALS_CHANNEL,
-        };
-        channel.receive().await
-    }
-
-    async fn receive_message_timeout(
-        &mut self,
-        timeout: core::time::Duration,
-    ) -> Option<RobotInterTaskMessage> {
-        let channel = match self.0 {
-            Task::Wifi => &NETWORK_CHANNEL,
-            Task::Motors => &MOTORS_CHANNEL,
-            Task::Peripherals => &PERIPHERALS_CHANNEL,
-        };
-        match select(channel.receive(), Timer::after(timeout.try_into().unwrap())).await {
-            Either::First(msg) => Some(msg),
-            Either::Second(_) => None,
-        }
-    }
+async fn do_i2c(peripherals: Peripherals) {
+    peripherals_task::<PicoRobotBehavior>(PicoRobotBehavior::get(), peripherals).await
 }
 
 #[derive(Copy, Clone)]
 pub struct EmbassyInstant(Instant);
 
-impl Deref for EmbassyInstant {
-    type Target = Instant;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for EmbassyInstant {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl CrossPlatformInstant for EmbassyInstant {
     fn elapsed(&self) -> core::time::Duration {
-        Instant::elapsed(self).into()
+        Instant::elapsed(&self.0).into()
     }
 
     fn checked_duration_since(&self, other: Self) -> Option<core::time::Duration> {
-        Instant::checked_duration_since(self, other.0).map(|x| x.into())
+        Instant::checked_duration_since(&self.0, other.0).map(|x| x.into())
+    }
+
+    async fn sleep(duration: core::time::Duration) {
+        Timer::after(duration.try_into().unwrap()).await
     }
 }
 

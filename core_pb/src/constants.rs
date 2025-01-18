@@ -18,6 +18,9 @@ pub const ROBOT_DISPLAY_WIDTH: usize = 128;
 /// The size of the OLED display on the robot
 pub const ROBOT_DISPLAY_HEIGHT: usize = 64;
 
+/// The default network the robot tries to connect to
+pub const DEFAULT_NETWORK: &str = "MdrcPacbot";
+
 pub const ROBOT_LOGS_BUFFER: usize = 4096;
 
 /// Millimeters per inch

@@ -24,7 +24,7 @@ fn main() -> io::Result<()> {
         if let Some(file_name) = path.file_name().to_str() {
             let grid_text = String::from_utf8(std::fs::read(grids_path.join(file_name))?).unwrap();
             grids.push((
-                file_name.to_string().split('.').next().unwrap().to_string(),
+                file_name.split('.').next().unwrap().to_string(),
                 grid_text
                     .trim_ascii()
                     .split("\n")
@@ -49,25 +49,25 @@ fn main() -> io::Result<()> {
     for (name, grid) in &grids {
         let grid_str = "[".to_string()
             + &grid
-                .into_iter()
+                .iter()
                 .map(|row| {
                     "\n\t[".to_string()
                         + &row
-                            .into_iter()
+                            .iter()
                             .map(|c| if *c { "T, " } else { "F, " })
                             .collect::<String>()
                         + "],"
                 })
                 .collect::<String>()
             + "\n];\n";
-        write!(
+        writeln!(
             f,
-            "pub const GENERATED_GRID_{}: [[bool; {GRID_SIZE}]; {GRID_SIZE}] = {grid_str}\n",
+            "pub const GENERATED_GRID_{}: [[bool; {GRID_SIZE}]; {GRID_SIZE}] = {grid_str}",
             name.to_uppercase(),
         )?;
     }
 
-    write!(f, "\nuse crate::region_localization::Region;\n\n")?;
+    writeln!(f, "\nuse crate::region_localization::Region;\n")?;
     write!(
         f,
         "pub fn get_grid_regions(grid: StandardGrid) -> &'static [Region] {{\n\tmatch grid {{"
@@ -75,7 +75,7 @@ fn main() -> io::Result<()> {
     for (name, _grid) in &grids {
         write!(
             f,
-            "\n\t\tStandardGrid::{} => &GENERATED_REGIONS_{},",
+            "\n\t\tStandardGrid::{} => GENERATED_REGIONS_{},",
             to_camel_case(name),
             name.to_uppercase()
         )?;
@@ -85,14 +85,13 @@ fn main() -> io::Result<()> {
         let regions = get_all_regions(*grid);
         let region_str = regions
             .into_iter()
-            .map(|(_, r)| format!(
+            .fold(String::new(), |s, (_, r)| s + &format!(
                 "\n\tRegion {{\n\t\tlow_xy: Point2::new({}, {}),\n\t\thigh_xy: Point2::new({}, {}),\n\n\t\tdist_low_xy_to_wall: {:?},\n\t}},",
                 r.low_xy.x, r.low_xy.y, r.high_xy.x, r.high_xy.y, r.dist_low_xy_to_wall
-            ))
-            .collect::<String>();
+            ));
         write!(
             f,
-            "\npub const GENERATED_REGIONS_{}: &'static [Region] = &[{region_str}\n];\n",
+            "\npub const GENERATED_REGIONS_{}: &[Region] = &[{region_str}\n];\n",
             name.to_uppercase()
         )?;
     }
@@ -243,11 +242,11 @@ fn get_empty_for(grid: Grid, mut at: Vector2<i8>, dir: Vector2<i8>) -> i8 {
 ///
 /// - If the point is a wall, returns None
 /// - If the point lies entirely at the bottom left (-x,-y) of a region bounded below (-y) and to
-/// the left (-x) by walls, returns the corresponding region
+///     the left (-x) by walls, returns the corresponding region
 /// - If the point lies on a vertical region boundary, where the n-wide 2-tall region
-/// lies to the right (+x), returns the corresponding region
+///     lies to the right (+x), returns the corresponding region
 /// - If the point lies on a horizontal region boundary, where the 2-wide n-tall region
-/// lies above (+y), returns the corresponding region
+///     lies above (+y), returns the corresponding region
 pub fn get_region_for_unique_p(grid: Grid, at: Point2<i8>) -> Option<Region> {
     let p = Vector2::new(at.x, at.y);
     match get_boundary(grid, p) {

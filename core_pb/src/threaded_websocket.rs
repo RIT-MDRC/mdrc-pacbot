@@ -6,13 +6,16 @@
 use crate::constants::SOCKET_TIMEOUT;
 use crate::messages::NetworkStatus;
 use crate::util::CrossPlatformInstant;
+use crate::util::WebTimeInstant;
 #[allow(unused)]
-use crate::{bin_decode, bin_encode, console_error, console_log};
+use crate::{bin_decode, bin_encode};
 use async_channel::{unbounded, Receiver, Sender};
 use async_std::task::sleep;
 use futures::executor::block_on;
 use futures::future::{select, Either};
 use futures::select;
+#[allow(unused)]
+use log::{error, info};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 #[allow(unused)]
@@ -23,7 +26,6 @@ use std::pin::pin;
 use std::time::Duration;
 #[cfg(not(target_arch = "wasm32"))]
 use {
-    crate::util::StdInstant,
     async_std::net::TcpStream,
     async_tungstenite::async_std::ConnectStream,
     async_tungstenite::tungstenite::Message,
@@ -34,7 +36,6 @@ use {
 };
 #[cfg(target_arch = "wasm32")]
 use {
-    crate::util::WebTimeInstant,
     futures::FutureExt,
     wasm_bindgen_futures::spawn_local,
     web_sys::wasm_bindgen::closure::Closure,
@@ -207,7 +208,7 @@ impl<
         serializer: Serializer,
         deserializer: Deserializer,
     ) -> Self {
-        console_log!("[{name}] Socket created with initial address {addr:?}");
+        info!("[{name}] Socket created with initial address {addr:?}");
 
         let (addr_sender, addr_rx) = unbounded();
         let (sender, sender_rx) = unbounded();
@@ -233,17 +234,24 @@ impl<
         });
         #[cfg(not(target_arch = "wasm32"))]
         std::thread::spawn(|| {
-            block_on(
-                run_socket_forever::<_, _, SocketType, _, _, _, _, StdInstant>(
-                    name2,
-                    addr_rx,
-                    sender_rx,
-                    status_tx,
-                    receiver_tx,
-                    serializer,
-                    deserializer,
-                ),
-            )
+            block_on(run_socket_forever::<
+                _,
+                _,
+                SocketType,
+                _,
+                _,
+                _,
+                _,
+                WebTimeInstant,
+            >(
+                name2,
+                addr_rx,
+                sender_rx,
+                status_tx,
+                receiver_tx,
+                serializer,
+                deserializer,
+            ))
         });
 
         Self {
@@ -340,26 +348,26 @@ async fn run_socket_forever<
     loop {
         if socket.is_none() {
             if let Some(address) = addr {
-                console_log!("[{name}] Connecting to {addr:?}...");
+                info!("[{name}] Connecting to {addr:?}...");
                 statuses
                     .send(NetworkStatus::Connecting)
                     .await
                     .map_err(|_| ())?;
                 select! {
                     new_addr = addresses.recv().fuse() => {
-                        console_log!("[{name}] Address changed from {addr:?} to {new_addr:?}");
+                        info!("[{name}] Address changed from {addr:?} to {new_addr:?}");
                         statuses.send(NetworkStatus::NotConnected).await.map_err(|_| ())?;
                         addr = new_addr.unwrap();
                     }
                     conn = SocketType::my_connect(address).fuse() => {
                         match conn {
                             Ok(s) => {
-                                console_log!("[{name}] Connected to {addr:?}");
+                                info!("[{name}] Connected to {addr:?}");
                                 statuses.send(NetworkStatus::Connected).await.map_err(|_| ())?;
                                 socket = Some(s);
                             }
                             Err(()) => {
-                                console_log!(
+                                info!(
                                     "[{name}] Connection failed to {addr:?}, retrying soon"
                                 );
                                 statuses
@@ -377,12 +385,12 @@ async fn run_socket_forever<
                 if let Some(time) = disconnect_time{
                     let time_elapsed = time.elapsed().as_secs();
                     if time_elapsed >= SOCKET_TIMEOUT{
-                        console_log!("[{name}] Reattempting connection to {addr:?}");
+                        info!("[{name}] Reattempting connection to {addr:?}");
                         statuses.send(NetworkStatus::NotConnected).await.map_err(|_| ())?;
                         sent_first_message = false;
                         received_first_message = false;
                         if let Some(socket) = socket.take() {
-                            console_log!("[{name}] Closing socket to {addr:?}");
+                            info!("[{name}] Closing socket to {addr:?}");
                             disconnect_time = Some(Instant::default());
                             socket.my_close().await
                         }
@@ -391,12 +399,12 @@ async fn run_socket_forever<
             }
             new_addr = addresses.recv().fuse() => {
                 if addr != new_addr.unwrap() {
-                    console_log!("[{name}] Address changed from {addr:?} to {new_addr:?}");
+                    info!("[{name}] Address changed from {addr:?} to {new_addr:?}");
                     statuses.send(NetworkStatus::NotConnected).await.map_err(|_| ())?;
                     sent_first_message = false;
                     received_first_message = false;
                     if let Some(socket) = socket.take() {
-                        console_log!("[{name}] Closing socket to {addr:?}");
+                        info!("[{name}] Closing socket to {addr:?}");
                         socket.my_close().await
                     }
                     addr = new_addr.unwrap();
@@ -405,7 +413,7 @@ async fn run_socket_forever<
             incoming_data = socket_read_fut(&mut socket).fuse() => {
                 disconnect_time = Some(Instant::default());
                 if let Ok(incoming_data) = incoming_data {
-                    //console_log!("[{name}] Received data from {addr:?}");
+                    //info!("[{name}] Received data from {addr:?}");
                     let incoming_data = match incoming_data {
                         TextOrT::T(data) => {
                             match deserializer(received_first_message, &data) {
@@ -414,7 +422,7 @@ async fn run_socket_forever<
                                     data_incoming.send(d).await.map_err(|_| ())?;
                                 },
                                 Err(e) => {
-                                    console_log!("[{name}] Error deserializing data: {e:?}");
+                                    info!("[{name}] Error deserializing data: {e:?}");
                                 }
                             }
                             None
@@ -426,19 +434,19 @@ async fn run_socket_forever<
                         data_incoming.send(data).await.map_err(|_| ())?;
                     }
                 } else {
-                    console_log!("[{name}] Connection closed to {addr:?} due to error reading");
+                    info!("[{name}] Connection closed to {addr:?} due to error reading");
                     sent_first_message = false;
                     received_first_message = false;
                     statuses.send(NetworkStatus::ConnectionFailed).await.map_err(|_| ())?;
                     if let Some(socket) = socket.take() {
-                        console_log!("[{name}] Closing socket to {addr:?}");
+                        info!("[{name}] Closing socket to {addr:?}");
                         socket.my_close().await
                     }
                 }
             }
             outgoing_data = data_outgoing.recv().fuse() => {
                 if let Some(socket) = &mut socket {
-                    // console_log!("[{name}] Sending data to {addr:?}");
+                    // info!("[{name}] Sending data to {addr:?}");
                     let outgoing_data = match outgoing_data.map_err(|_| ())? {
                         TextOrT::Text(text) => TextOrT::Text(text),
                         t => TextOrT::Bytes(serializer(sent_first_message, t).expect("failed to serialize data")),
@@ -464,7 +472,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
         };
         Ok(async_tungstenite::async_std::connect_async(addr)
             .await
-            .map_err(|e| console_error!("[WebSocketStream] Error connecting: {:?}", e))?
+            .map_err(|e| error!("[WebSocketStream] Error connecting: {:?}", e))?
             .0)
     }
 
@@ -473,7 +481,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
             TextOrT::T(data) | TextOrT::Bytes(data) => self.send(Message::Binary(data)).await,
             TextOrT::Text(text) => self.send(Message::Text(text)).await,
         } {
-            console_error!("[WebSocketStream] Error sending data: {:?}", e);
+            error!("[WebSocketStream] Error sending data: {:?}", e);
         }
     }
 
@@ -482,15 +490,15 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
             Some(Ok(Message::Binary(bytes))) => Ok(TextOrT::T(bytes)),
             Some(Ok(Message::Text(text))) => Ok(TextOrT::Text(text)),
             Some(Ok(Message::Close(_))) => {
-                console_error!("[WebSocketStream] Connection closing");
+                error!("[WebSocketStream] Connection closing");
                 Err(())
             }
             Some(Ok(msg)) => {
-                console_error!("[WebSocketStream] Unexpected message type: {:?}", msg);
+                error!("[WebSocketStream] Unexpected message type: {:?}", msg);
                 Err(())
             }
             Some(err) => {
-                console_error!("[WebSocketStream] Error reading message: {:?}", err);
+                error!("[WebSocketStream] Error reading message: {:?}", err);
                 Err(())
             }
             _ => Err(()),
@@ -499,7 +507,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
 
     async fn my_close(mut self) {
         if let Err(e) = self.close(None).await {
-            console_error!("[WebSocketStream] Error closing websocket: {:?}", e);
+            error!("[WebSocketStream] Error closing websocket: {:?}", e);
         }
     }
 }
@@ -530,13 +538,13 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
             // Handle difference Text/Binary,...
             if let Ok(abuf) = e.data().dyn_into::<js_sys::ArrayBuffer>() {
                 let array = js_sys::Uint8Array::new(&abuf);
-                console_log!(
+                info!(
                     "[WasmThreadableWebsocket] message event, received Buf: {} bytes",
                     array.byte_length()
                 );
                 let _ = msg_tx.send(Ok(TextOrT::T(array.to_vec())));
             } else if let Ok(blob) = e.data().dyn_into::<web_sys::Blob>() {
-                // console_log!("message event, received blob: {:?}", blob);
+                // info!("message event, received blob: {:?}", blob);
                 let fr = web_sys::FileReader::new().unwrap();
                 let fr_c = fr.clone();
                 let msg_tx_c = msg_tx.clone();
@@ -545,7 +553,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
                     Closure::<dyn FnMut(_)>::new(move |_e: web_sys::ProgressEvent| {
                         let array = js_sys::Uint8Array::new(&fr_c.result().unwrap());
                         // let len = array.byte_length() as usize;
-                        // console_log!(
+                        // info!(
                         //     "[WasmThreadableWebsocket] message event, received Blob: {} bytes",
                         //     len
                         // );
@@ -556,12 +564,12 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
                     .expect("[WasmThreadableWebsocket] blob not readable");
                 onloadend_cb.forget();
             } else if let Ok(txt) = e.data().dyn_into::<js_sys::JsString>() {
-                console_log!(
+                info!(
                     "[WasmThreadableWebsocket] message event, received Text: {:?}",
                     txt
                 );
             } else {
-                console_log!(
+                info!(
                     "[WasmThreadableWebsocket] message event, received Unknown: {:?}",
                     e.data()
                 );
@@ -574,9 +582,9 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
         onmessage_callback.forget();
 
         let onerror_callback = Closure::<dyn FnMut(_)>::new(move |e: ErrorEvent| {
-            console_log!("[WasmThreadableWebsocket] error event: {:?}", e);
+            info!("[WasmThreadableWebsocket] error event: {:?}", e);
             if let Err(e) = block_on(tx2.send(Err(()))) {
-                console_log!("[WasmThreadableWebsocket] error sending error: {:?}", e);
+                info!("[WasmThreadableWebsocket] error sending error: {:?}", e);
             }
         });
         ws.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
@@ -584,7 +592,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
 
         match msg_rx.recv().await {
             Ok(Ok(msg)) => {
-                console_log!("[WasmThreadableWebsocket] Websocket received first valid message");
+                info!("[WasmThreadableWebsocket] Websocket received first valid message");
                 // send this message around again so that it can be read by callers
                 tx3.send(Ok(msg)).await.unwrap();
                 Ok(Self {
@@ -593,13 +601,13 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
                 })
             }
             Ok(Err(_)) => {
-                console_log!(
+                info!(
                     "[WasmThreadableWebsocket] Websocket had a javascript error, failed to connect"
                 );
                 Err(())
             }
             Err(e) => {
-                console_log!("[WasmThreadableWebsocket] Channel could not receive data: {e:?}");
+                info!("[WasmThreadableWebsocket] Channel could not receive data: {e:?}");
                 Err(())
             }
         }
@@ -611,7 +619,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
             TextOrT::Text(text) => self.ws.send_with_str(&text),
             TextOrT::Bytes(data) => self.ws.send_with_u8_array(&data),
         } {
-            console_log!("[WasmThreadableWebsocket] Error sending data: {e:?}");
+            info!("[WasmThreadableWebsocket] Error sending data: {e:?}");
         }
     }
 
@@ -623,7 +631,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
                 TextOrT::Bytes(data) => Ok(TextOrT::Bytes(data)),
             },
             Ok(Err(_)) => {
-                console_log!("[WasmThreadableWebsocket] Websocket had a javascript error");
+                info!("[WasmThreadableWebsocket] Websocket had a javascript error");
                 Err(())
             }
             Err(e) => {
@@ -634,7 +642,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
 
     async fn my_close(self) {
         if let Err(e) = self.ws.close() {
-            console_log!("[WasmThreadableWebsocket] Error closing websocket: {e:?}");
+            info!("[WasmThreadableWebsocket] Error closing websocket: {e:?}");
         }
     }
 }
@@ -654,7 +662,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
         match TcpStream::connect(format!("{a}.{b}.{c}.{d}:{port}")).await {
             Ok(stream) => Ok(Self { stream }),
             Err(e) => {
-                console_error!("[TcpStreamThreadableSocket] Error connecting: {e:?}");
+                error!("[TcpStreamThreadableSocket] Error connecting: {e:?}");
                 Err(())
             }
         }
@@ -663,10 +671,10 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
     async fn my_send(&mut self, data: TextOrT<Vec<u8>>) {
         if let TextOrT::T(bytes) | TextOrT::Bytes(bytes) = data {
             if let Err(e) = self.stream.write_all(&bytes).await {
-                console_error!("[TcpStreamThreadableSocket] Error sending data: {e:?}");
+                error!("[TcpStreamThreadableSocket] Error sending data: {e:?}");
             }
         } else {
-            console_error!("[TcpStreamThreadableSocket] Cannot send text")
+            error!("[TcpStreamThreadableSocket] Cannot send text")
         }
     }
 
@@ -680,7 +688,7 @@ impl<SendType: Serialize, ReceiveType: DeserializeOwned> ThreadableSocket<SendTy
 
     async fn my_close(mut self) {
         if let Err(e) = self.stream.close().await {
-            console_error!("[TcpStreamThreadableSocket] Error closing stream: {e:?}");
+            error!("[TcpStreamThreadableSocket] Error closing stream: {e:?}");
         }
     }
 }

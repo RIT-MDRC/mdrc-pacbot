@@ -1,121 +1,39 @@
+pub mod data;
 pub mod motors;
 pub mod network;
 pub mod peripherals;
 
-use crate::messages::{
-    FrequentServerToRobot, NetworkStatus, RobotToServerMessage, SensorData, ServerToRobotMessage,
-    Task,
-};
-use core::time::Duration;
-use portable_atomic::{AtomicBool, AtomicF32, AtomicI32, AtomicI8};
+use crate::driving::motors::RobotMotorsBehavior;
+use crate::driving::network::RobotNetworkBehavior;
+use crate::driving::peripherals::RobotPeripheralsBehavior;
+use crate::util::CrossPlatformInstant;
+use embassy_sync::blocking_mutex::raw::RawMutex;
+use embassy_sync::watch::{Receiver, Watch};
 
-#[cfg(feature = "defmt")]
-pub(crate) use defmt::*;
-#[cfg(feature = "log")]
-pub(crate) use log::*;
+pub trait RobotBehavior: 'static {
+    type Instant: CrossPlatformInstant + Default;
 
-/// Messages passed between the various tasks
-#[derive(Clone)]
-pub enum RobotInterTaskMessage {
-    FrequentServerToRobot(FrequentServerToRobot),
-    ToServer(RobotToServerMessage),
-    FromServer(ServerToRobotMessage),
-    Sensors(SensorData),
-    NetworkStatus(NetworkStatus, Option<[u8; 4]>),
-    Utilization(f32, Task),
-    ResetAngle,
+    type Motors: RobotMotorsBehavior;
+    type Network: RobotNetworkBehavior;
+    type Peripherals: RobotPeripheralsBehavior;
 }
 
-/// Functionality that all tasks must support
-pub trait RobotTaskMessenger {
-    /// Send a message to the given task
-    ///
-    /// If the receiver's buffer is full, drops the message and returns false
-    fn send_or_drop(&mut self, message: RobotInterTaskMessage, to: Task) -> bool;
-
-    /// Send a message to the given task
-    ///
-    /// Blocks until the receiver's buffer has space
-    async fn send_blocking(&mut self, message: RobotInterTaskMessage, to: Task);
-
-    /// Receive a message from other tasks; may be cancelled
-    async fn receive_message(&mut self) -> RobotInterTaskMessage;
-
-    /// Receive a message from other tasks
-    ///
-    /// If timeout has passed, return None
-    async fn receive_message_timeout(&mut self, timeout: Duration)
-        -> Option<RobotInterTaskMessage>;
+pub struct Watched<'a, M: RawMutex + 'static, T: Clone + 'static, const N: usize> {
+    receiver: Receiver<'a, M, T, N>,
+    data: T,
 }
 
-#[deprecated = "Extra options should only be used for temporary testing"]
-pub static EXTRA_OPTS_BOOL: [AtomicBool; 8] = [
-    AtomicBool::new(false),
-    AtomicBool::new(false),
-    AtomicBool::new(false),
-    AtomicBool::new(false),
-    AtomicBool::new(false),
-    AtomicBool::new(false),
-    AtomicBool::new(false),
-    AtomicBool::new(false),
-];
+impl<'a, M: RawMutex, T: Clone, const N: usize> Watched<'a, M, T, N> {
+    pub async fn new_receiver(watch: &'a Watch<M, T, N>) -> Self {
+        let mut receiver = watch.receiver().unwrap();
+        let data = receiver.get().await;
+        Self { receiver, data }
+    }
 
-#[deprecated = "Extra options should only be used for temporary testing"]
-pub static EXTRA_OPTS_F32: [AtomicF32; 4] = [
-    AtomicF32::new(0.0),
-    AtomicF32::new(0.0),
-    AtomicF32::new(0.0),
-    AtomicF32::new(0.0),
-];
-
-#[deprecated = "Extra options should only be used for temporary testing"]
-pub static EXTRA_OPTS_I32: [AtomicI32; 4] = [
-    AtomicI32::new(0),
-    AtomicI32::new(0),
-    AtomicI32::new(0),
-    AtomicI32::new(0),
-];
-
-#[deprecated = "Extra options should only be used for temporary testing"]
-pub static EXTRA_OPTS_I8: [AtomicI8; 4] = [
-    AtomicI8::new(0),
-    AtomicI8::new(0),
-    AtomicI8::new(0),
-    AtomicI8::new(0),
-];
-
-#[deprecated = "Extra options should only be used for temporary testing"]
-pub static EXTRA_INDICATOR_BOOL: [AtomicBool; 8] = [
-    AtomicBool::new(false),
-    AtomicBool::new(false),
-    AtomicBool::new(false),
-    AtomicBool::new(false),
-    AtomicBool::new(false),
-    AtomicBool::new(false),
-    AtomicBool::new(false),
-    AtomicBool::new(false),
-];
-
-#[deprecated = "Extra options should only be used for temporary testing"]
-pub static EXTRA_INDICATOR_F32: [AtomicF32; 4] = [
-    AtomicF32::new(0.0),
-    AtomicF32::new(0.0),
-    AtomicF32::new(0.0),
-    AtomicF32::new(0.0),
-];
-
-#[deprecated = "Extra options should only be used for temporary testing"]
-pub static EXTRA_INDICATOR_I32: [AtomicI32; 4] = [
-    AtomicI32::new(0),
-    AtomicI32::new(0),
-    AtomicI32::new(0),
-    AtomicI32::new(0),
-];
-
-#[deprecated = "Extra options should only be used for temporary testing"]
-pub static EXTRA_INDICATOR_I8: [AtomicI8; 4] = [
-    AtomicI8::new(0),
-    AtomicI8::new(0),
-    AtomicI8::new(0),
-    AtomicI8::new(0),
-];
+    pub fn get(&mut self) -> &T {
+        if let Some(t) = self.receiver.try_changed() {
+            self.data = t;
+        }
+        &self.data
+    }
+}

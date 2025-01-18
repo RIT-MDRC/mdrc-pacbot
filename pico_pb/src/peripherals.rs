@@ -2,13 +2,10 @@ use crate::devices::bno08x::{ImuError, PacbotIMU};
 use crate::devices::ltc2943::Ltc2943;
 use crate::devices::ssd1306::{PacbotDisplay, PacbotDisplayWrapper};
 use crate::devices::vl53l4cd::PacbotDistanceSensor;
-use crate::encoders::ENCODER_ANGLE;
-use crate::{EmbassyInstant, PacbotI2cBus};
-use core::sync::atomic::{AtomicBool, Ordering};
-use core_pb::constants::MM_PER_GU;
+use crate::{PacbotI2cBus, PicoRobotBehavior};
+use core::sync::atomic::AtomicBool;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
-use core_pb::driving::{RobotInterTaskMessage, EXTRA_OPTS_F32};
-use core_pb::messages::{ExtraImuData, RobotButton};
+use core_pb::messages::RobotButton;
 use defmt::Format;
 use display_interface::DisplayError;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;
@@ -16,9 +13,6 @@ use embassy_executor::task;
 use embassy_futures::join::join3;
 use embassy_rp::gpio::{AnyPin, Level, Output};
 use embassy_rp::i2c;
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
-use embassy_sync::channel::Channel;
-use embassy_sync::signal::Signal;
 use futures::future::join4;
 use vl53l4cd::Status;
 
@@ -28,18 +22,14 @@ pub const NUM_DIST_SENSORS: usize = 4;
 pub const DIST_SENSOR_ADDRESSES: [u8; NUM_DIST_SENSORS] = [0x31, 0x32, 0x33, 0x34];
 
 static IMU_ENABLED: AtomicBool = AtomicBool::new(false);
-pub static IMU_SIGNAL: Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>> = Signal::new();
-pub static EXTRA_IMU_DATA_SIGNAL: Signal<ThreadModeRawMutex, ExtraImuData> = Signal::new();
 
 pub async fn run_imu(enabled: &'static AtomicBool, bus: &'static PacbotI2cBus) -> ! {
-    PacbotIMU::new(bus, enabled, &IMU_SIGNAL)
+    PacbotIMU::new(bus, enabled, &PicoRobotBehavior::get().sig_angle)
         .run_forever()
         .await
 }
 
 static DIST_ENABLED: AtomicBool = AtomicBool::new(true);
-static DIST_SIGNALS: [Signal<ThreadModeRawMutex, Result<Option<u16>, PeripheralsError>>;
-    NUM_DIST_SENSORS] = [Signal::new(), Signal::new(), Signal::new(), Signal::new()];
 
 pub async fn run_dist(
     enabled: &'static AtomicBool,
@@ -53,43 +43,28 @@ pub async fn run_dist(
         index,
         DIST_SENSOR_ADDRESSES[index],
         enabled,
-        &DIST_SIGNALS[index],
+        &PicoRobotBehavior::get().sig_distances[index],
     )
     .run_forever()
     .await
 }
 
 static BATTERY_MONITOR_ENABLED: AtomicBool = AtomicBool::new(false);
-static BATTERY_MONITOR_SIGNAL: Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>> =
-    Signal::new();
 
 pub async fn run_battery_monitor(enabled: &'static AtomicBool, bus: &'static PacbotI2cBus) {
-    Ltc2943::new(bus, enabled, &BATTERY_MONITOR_SIGNAL)
+    Ltc2943::new(bus, enabled, &PicoRobotBehavior::get().sig_battery)
         .run_forever()
         .await
 }
 
-pub static PERIPHERALS_CHANNEL: Channel<ThreadModeRawMutex, RobotInterTaskMessage, 64> =
-    Channel::new();
-
-pub struct RobotPeripherals {
+pub struct Peripherals {
     display: PacbotDisplayWrapper,
-
-    distances: [Result<Option<f32>, PeripheralsError>; NUM_DIST_SENSORS],
-    angle: Result<f32, PeripheralsError>,
-    extra_imu_data: Option<ExtraImuData>,
-    battery: Result<f32, PeripheralsError>,
 }
 
-impl RobotPeripherals {
+impl Peripherals {
     pub fn new(bus: &'static PacbotI2cBus) -> Self {
         Self {
             display: PacbotDisplayWrapper::new(bus),
-
-            distances: DIST_SENSOR_ADDRESSES.map(|_| Err(PeripheralsError::Uninitialized)),
-            angle: Err(PeripheralsError::Uninitialized),
-            extra_imu_data: None,
-            battery: Err(PeripheralsError::Uninitialized),
         }
     }
 }
@@ -116,9 +91,8 @@ impl From<I2cDeviceError<i2c::Error>> for PeripheralsError {
     }
 }
 
-impl RobotPeripheralsBehavior for RobotPeripherals {
+impl RobotPeripheralsBehavior for Peripherals {
     type Display = PacbotDisplay;
-    type Instant = EmbassyInstant;
     type Error = PeripheralsError;
 
     async fn draw_display<F>(&mut self, draw: F)
@@ -132,41 +106,41 @@ impl RobotPeripheralsBehavior for RobotPeripherals {
         self.display.flush().await;
     }
 
-    async fn absolute_rotation(&mut self) -> Result<f32, Self::Error> {
-        // if let Some(rot) = IMU_SIGNAL.try_take() {
-        //     self.angle = rot;
-        // }
-        // self.angle.clone()
-        Ok(ENCODER_ANGLE.load(Ordering::Relaxed) + EXTRA_OPTS_F32[0].load(Ordering::Relaxed))
-    }
-
-    async fn extra_imu_data(&mut self) -> Option<ExtraImuData> {
-        if let Some(data) = EXTRA_IMU_DATA_SIGNAL.try_take() {
-            self.extra_imu_data = Some(data);
-        }
-        self.extra_imu_data
-    }
-
-    async fn distance_sensor(&mut self, index: usize) -> Result<Option<f32>, Self::Error> {
-        if let Some(dist) = DIST_SIGNALS[index].try_take() {
-            self.distances[index] = dist.map(|x| {
-                x.map(|y| {
-                    // found via linear regression
-                    let mut float_mm = y as f32 * 1.164826877 + -30.0;
-                    float_mm = f32::max(float_mm, 0.0);
-                    float_mm / MM_PER_GU
-                })
-            });
-        }
-        self.distances[index].clone()
-    }
-
-    async fn battery_level(&mut self) -> Result<f32, Self::Error> {
-        if let Some(bat) = BATTERY_MONITOR_SIGNAL.try_take() {
-            self.battery = bat;
-        }
-        self.battery.clone()
-    }
+    // async fn absolute_rotation(&mut self) -> Result<f32, Self::Error> {
+    //     // if let Some(rot) = IMU_SIGNAL.try_take() {
+    //     //     self.angle = rot;
+    //     // }
+    //     // self.angle.clone()
+    //     Ok(ENCODER_ANGLE.load(Ordering::Relaxed))
+    // }
+    //
+    // async fn extra_imu_data(&mut self) -> Option<ExtraImuData> {
+    //     if let Some(data) = EXTRA_IMU_DATA_SIGNAL.try_take() {
+    //         self.extra_imu_data = Some(data);
+    //     }
+    //     self.extra_imu_data
+    // }
+    //
+    // async fn distance_sensor(&mut self, index: usize) -> Result<Option<f32>, Self::Error> {
+    //     if let Some(dist) = DIST_SIGNALS[index].try_take() {
+    //         self.distances[index] = dist.map(|x| {
+    //             x.map(|y| {
+    //                 // found via linear regression
+    //                 let mut float_mm = y as f32 * 1.164826877 + -30.0;
+    //                 float_mm = f32::max(float_mm, 0.0);
+    //                 float_mm / MM_PER_GU
+    //             })
+    //         });
+    //     }
+    //     self.distances[index].clone()
+    // }
+    //
+    // async fn battery_level(&mut self) -> Result<f32, Self::Error> {
+    //     if let Some(bat) = BATTERY_MONITOR_SIGNAL.try_take() {
+    //         self.battery = bat;
+    //     }
+    //     self.battery.clone()
+    // }
 
     async fn read_button_event(&mut self) -> Option<(RobotButton, bool)> {
         None

@@ -23,7 +23,7 @@ use core_pb::pacbot_rs::location::Direction;
 use core_pb::threaded_websocket::TextOrT;
 use core_pb::util::stopwatch::Stopwatch;
 use core_pb::util::utilization::UtilizationMonitor;
-use core_pb::util::StdInstant;
+use core_pb::util::WebTimeInstant;
 use env_logger::Builder;
 use log::{info, LevelFilter};
 use nalgebra::Point2;
@@ -46,8 +46,8 @@ mod sockets;
 pub struct App {
     status: ServerStatus,
     settings: PacbotSettings,
-    utilization_monitor: UtilizationMonitor<100, StdInstant>,
-    inference_timer: Stopwatch<1, 10, StdInstant>,
+    utilization_monitor: UtilizationMonitor<100, WebTimeInstant>,
+    inference_timer: Stopwatch<1, 10, WebTimeInstant>,
 
     client_http_host_process: Option<Child>,
     sim_game_engine_process: Option<Child>,
@@ -351,9 +351,8 @@ impl App {
             CvLocationSource::Constant(p) => p,
             CvLocationSource::Localization => self.status.robots[self.settings.pacman as usize]
                 .estimated_location
-                .map(|p| self.grid.node_nearest(p.x, p.y))
-                .flatten()
-                .or_else(|| old_loc),
+                .and_then(|p| self.grid.node_nearest(p.x, p.y))
+                .or(old_loc),
         };
 
         if old_loc != self.status.cv_location {

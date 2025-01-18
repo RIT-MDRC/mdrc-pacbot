@@ -35,22 +35,18 @@ mod channel;
 mod consts;
 
 use crate::logging::{channel::Channel, consts::BUF_SIZE};
+use crate::PicoRobotBehavior;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use core_pb::constants::ROBOT_LOGS_BUFFER;
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::pipe::Pipe;
 
 #[defmt::global_logger]
 struct Logger;
-
-/// Added by RIT: allows writing logs to TCP
-pub static LOGS_PIPE: Pipe<CriticalSectionRawMutex, ROBOT_LOGS_BUFFER> = Pipe::new();
 
 /// Global logger lock.
 static TAKEN: AtomicBool = AtomicBool::new(false);
 static mut CS_RESTORE: critical_section::RestoreState = critical_section::RestoreState::invalid();
 static mut ENCODER: defmt::Encoder = defmt::Encoder::new();
 
+#[allow(static_mut_refs)]
 unsafe impl defmt::Logger for Logger {
     fn acquire() {
         // safety: Must be paired with corresponding call to release(), see below
@@ -98,7 +94,7 @@ unsafe impl defmt::Logger for Logger {
 
 fn do_write(bytes: &[u8]) {
     // added by RIT
-    let _ = LOGS_PIPE.try_write(bytes);
+    let _ = PicoRobotBehavior::get().defmt_logs.try_write(bytes);
 
     unsafe { handle().write_all(bytes) }
 }
@@ -151,5 +147,6 @@ unsafe fn handle() -> &'static Channel {
     #[link_section = ".data"]
     static NAME: [u8; 6] = *b"defmt\0";
 
+    #[allow(static_mut_refs)]
     &_SEGGER_RTT.up_channel
 }

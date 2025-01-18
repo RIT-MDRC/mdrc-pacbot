@@ -5,7 +5,6 @@ use async_std::task::sleep;
 use bevy::prelude::{error, info};
 use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
 use core_pb::names::RobotName;
-use core_pb::util::StdInstant;
 use embedded_io_async::{ErrorType, Read, ReadExactError, Write};
 use std::io;
 use std::io::ErrorKind;
@@ -64,8 +63,10 @@ impl Write for TcpStreamReadWrite {
 
 impl RobotNetworkBehavior for SimNetwork {
     type Error = SimNetworkError;
-    type Socket<'a> = TcpStreamReadWrite where Self: 'a;
-    type Instant = StdInstant;
+    type Socket<'a>
+        = TcpStreamReadWrite
+    where
+        Self: 'a;
 
     async fn mac_address(&mut self) -> [u8; 6] {
         self.name.mac_address()
@@ -156,9 +157,5 @@ impl RobotNetworkBehavior for SimNetwork {
 
     async fn mark_firmware_booted(&mut self) {
         self.firmware_swapped = false;
-    }
-
-    fn read_logging_bytes(_buf: &mut [u8]) -> Option<usize> {
-        None
     }
 }

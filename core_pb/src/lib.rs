@@ -25,42 +25,6 @@ use crate::threaded_websocket::TextOrT;
 use serde::de::DeserializeOwned;
 #[cfg(feature = "std")]
 use serde::Serialize;
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-
-#[cfg(target_arch = "wasm32")]
-#[macro_export]
-/// for WASM, prints the message to the javascript developer console, otherwise uses `println`
-///
-/// Requires `use crate::log`
-macro_rules! console_log {
-    ($($t:tt)*) => (crate::log(&format_args!($($t)*).to_string()))
-}
-
-#[cfg(target_arch = "wasm32")]
-#[macro_export]
-macro_rules! console_error {
-    ($($t:tt)*) => (crate::log(&format_args!($($t)*).to_string()))
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-#[macro_export]
-macro_rules! console_log {
-    ($($t:tt)*) => (log::info!($($t)*))
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-#[macro_export]
-macro_rules! console_error {
-    ($($t:tt)*) => (log::error!($($t)*))
-}
-
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = console)]
-    pub fn log(s: &str);
-}
 
 /// [`bincode::serde::encode_to_vec`] with [`bincode::config::standard`]
 #[cfg(feature = "std")]

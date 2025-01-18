@@ -8,27 +8,21 @@ default-run = "server_pb"
 
 [dependencies]
 core_pb = { path = "../core_pb", features = ["log"] }
-rl_pb = { git = "https://github.com/qxzcode/pacbot-rl.git", package = "pacbot_rs", rev = "b9ccea85c66a361ca11fc67ca991645c9bd69f47", features = ["candle"] }
-nalgebra = { version = "0.32.5", features = ["serde", "serde-serialize"] }
-num_enum = "0.7.2"
-ordered-float = "4.2.0"
+nalgebra = { version = "0.33.2", features = ["serde", "serde-serialize"] }
 serde = { version = "1.0.198", features = ["derive", "std"] }
-ndarray = "0.15.6"
 rand = "0.8.5"
-rayon = "1.10.0"
-rand_distr = "0.4.3"
-num-traits = "0.2.18"
-array-init = "2.1.0"
-bincode = { version = "2.0.0-rc.3", features = ["serde"] }
 tokio = { version = "1.38.0", features = ["full"] }
 futures-util = { version = "0.3.30", features = ["sink", "std"] }
-futures-channel = "0.3.30"
 simple-websockets = "0.1.6"
 async-tungstenite = "0.26.2"
 futures = "0.3.30"
 async-channel = "2.3.1"
 env_logger = "0.11.5"
 log = "0.4.22"
-defmt-decoder = { version = "0.3.11", features = ["unstable"] }
-defmt-parser = { version = "0.3.4", features = ["unstable"] }
+defmt-decoder = { version = "0.4.0", features = ["unstable"] }
+defmt-parser = { version = "0.4.1", features = ["unstable"] }
 ouroboros = "0.18.4"
+
+# When an IDE tries to load the project with WASM target, it shouldn't run Pyo3 build commands
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rl_pb = { git = "https://github.com/RIT-MDRC/pacbot-rl.git", package = "pacbot_rs", rev = "cbc5844605e85b4928ab56dafea8bd4a5775bc5b", features = ["candle"] }

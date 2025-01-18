@@ -1,17 +1,25 @@
-use crate::driving::{error, info, RobotInterTaskMessage, RobotTaskMessenger, Task};
+use crate::constants::DEFAULT_NETWORK;
+use crate::driving::data::SharedRobotData;
+use crate::driving::RobotBehavior;
 use crate::messages::robot_tcp::{write_tcp, BytesOrT, StatefulTcpReader, TcpError, TcpMessage};
-use crate::messages::{ExtraOptsTypes, NetworkStatus, RobotToServerMessage, ServerToRobotMessage};
+use crate::messages::{
+    ExtraImuData, ExtraOptsTypes, FrequentServerToRobot, MotorControlStatus, NetworkStatus,
+    RobotToServerMessage, SensorData, ServerToRobotMessage,
+};
 use crate::names::RobotName;
 use crate::util::utilization::UtilizationMonitor;
 use crate::util::CrossPlatformInstant;
 use core::fmt::Debug;
 use core::pin::pin;
 use core::sync::atomic::Ordering;
+use core::time::Duration;
+use defmt_or_log::{error, info};
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::signal::Signal;
+use embassy_sync::watch::{Receiver, Sender};
 use embedded_io_async::{Read, Write};
-use futures::future::{select, Either};
+use futures::{select_biased, FutureExt};
 use heapless::Vec;
-
-pub const DEFAULT_NETWORK: &str = "MdrcPacbot";
 
 #[derive(Copy, Clone)]
 pub struct NetworkScanInfo {
@@ -25,7 +33,6 @@ pub trait RobotNetworkBehavior {
     type Socket<'a>: Read + Write
     where
         Self: 'a;
-    type Instant: CrossPlatformInstant + Default;
 
     /// Get the device's mac address
     async fn mac_address(&mut self) -> [u8; 6];
@@ -81,9 +88,6 @@ pub trait RobotNetworkBehavior {
 
     /// See https://docs.embassy.dev/embassy-boot/git/default/struct.FirmwareUpdater.html#method.mark_booted
     async fn mark_firmware_booted(&mut self);
-
-    /// Read (blocking) some bytes emitted by defmt
-    fn read_logging_bytes(buf: &mut [u8]) -> Option<usize>;
 }
 
 struct ExpectedFirmwarePart {
@@ -91,25 +95,31 @@ struct ExpectedFirmwarePart {
     len: usize,
 }
 
-struct NetworkData<T: RobotNetworkBehavior, M: RobotTaskMessenger> {
+struct NetworkData<'a, R: RobotBehavior + 'a> {
     name: RobotName,
-    network: T,
-    msgs: M,
+    network: R::Network,
     seq: u32,
+
+    data: &'a SharedRobotData<R>,
+    config: FrequentServerToRobot,
+    config_sender: Sender<'a, CriticalSectionRawMutex, FrequentServerToRobot, 2>,
+    network_status_sender: Sender<'a, CriticalSectionRawMutex, (NetworkStatus, Option<[u8; 4]>), 2>,
+    sensors_receiver: Receiver<'a, CriticalSectionRawMutex, SensorData, 2>,
+    motors_receiver: Receiver<'a, CriticalSectionRawMutex, MotorControlStatus, 2>,
 
     expected_firmware_part: Option<ExpectedFirmwarePart>,
 
-    utilization_monitor: UtilizationMonitor<50, T::Instant>,
-    utilizations: [f32; 3],
+    utilization_monitor: UtilizationMonitor<50, R::Instant>,
 
     socket_failed: bool,
     serialization_buf: [u8; 1024],
 }
 
-impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
+impl<R: RobotBehavior> NetworkData<'_, R> {
     async fn connect_wifi(&mut self) {
         while self.network.wifi_is_connected().await.is_none() {
-            self.status(NetworkStatus::Connecting, None).await;
+            self.network_status_sender
+                .send((NetworkStatus::Connecting, None));
             loop {
                 if let Ok(()) = self
                     .network
@@ -117,26 +127,36 @@ impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
                     .await
                 {
                     let ip = self.network.wifi_is_connected().await.unwrap_or([0; 4]);
-                    self.status(NetworkStatus::Connected, Some(ip)).await;
+                    self.network_status_sender
+                        .send((NetworkStatus::Connected, Some(ip)));
                     break;
                 }
-                self.status(NetworkStatus::ConnectionFailed, None).await;
+                self.network_status_sender
+                    .send((NetworkStatus::ConnectionFailed, None));
             }
             info!("{} network connected", self.name);
         }
     }
 
-    async fn send(&mut self, socket: &mut T::Socket<'_>, message: RobotToServerMessage) {
+    async fn send(
+        &mut self,
+        socket: &mut <R::Network as RobotNetworkBehavior>::Socket<'_>,
+        message: RobotToServerMessage,
+    ) {
         self.write_tcp(socket, BytesOrT::T(message)).await;
     }
 
-    async fn send_bytes(&mut self, socket: &mut T::Socket<'_>, bytes: &[u8]) {
+    async fn send_bytes(
+        &mut self,
+        socket: &mut <R::Network as RobotNetworkBehavior>::Socket<'_>,
+        bytes: &[u8],
+    ) {
         self.write_tcp(socket, BytesOrT::Bytes(bytes)).await;
     }
 
     async fn write_tcp(
         &mut self,
-        socket: &mut T::Socket<'_>,
+        socket: &mut <R::Network as RobotNetworkBehavior>::Socket<'_>,
         msg: BytesOrT<'_, RobotToServerMessage>,
     ) {
         match write_tcp::<RobotToServerMessage>(&mut self.seq, msg, &mut self.serialization_buf) {
@@ -157,40 +177,31 @@ impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
         }
     }
 
-    async fn status(&mut self, status: NetworkStatus, ip: Option<[u8; 4]>) {
-        self.msgs
-            .send_blocking(
-                RobotInterTaskMessage::NetworkStatus(status, ip),
-                Task::Peripherals,
-            )
-            .await;
-    }
-
-    async fn handle_inter_task_message(
-        &mut self,
-        s: &mut T::Socket<'_>,
-        msg: RobotInterTaskMessage,
-    ) {
-        match msg {
-            RobotInterTaskMessage::Utilization(util, task) => {
-                self.utilizations[task as usize] = util;
-                self.utilizations[Task::Wifi as usize] = self.utilization_monitor.utilization();
-                self.send(s, RobotToServerMessage::Utilization(self.utilizations))
-                    .await;
-            }
-            RobotInterTaskMessage::ToServer(msg) => {
-                self.send(s, msg).await;
-            }
-            RobotInterTaskMessage::Sensors(sensors) => {
-                self.send(s, RobotToServerMessage::Sensors(sensors)).await;
-            }
-            _ => {}
-        }
-    }
+    // async fn handle_inter_task_message(
+    //     &mut self,
+    //     s: &mut R::Network::Socket<'_>,
+    //     msg: RobotInterTaskMessage,
+    // ) {
+    //     match msg {
+    //         RobotInterTaskMessage::Utilization(util, task) => {
+    //             self.utilizations[task as usize] = util;
+    //             self.utilizations[Task::Wifi as usize] = self.utilization_monitor.utilization();
+    //             self.send(s, RobotToServerMessage::Utilization(self.utilizations))
+    //                 .await;
+    //         }
+    //         RobotInterTaskMessage::ToServer(msg) => {
+    //             self.send(s, msg).await;
+    //         }
+    //         RobotInterTaskMessage::Sensors(sensors) => {
+    //             self.send(s, RobotToServerMessage::Sensors(sensors)).await;
+    //         }
+    //         _ => {}
+    //     }
+    // }
 
     async fn handle_server_message(
         &mut self,
-        s: &mut T::Socket<'_>,
+        s: &mut <R::Network as RobotNetworkBehavior>::Socket<'_>,
         msg: &TcpMessage<'_, ServerToRobotMessage>,
     ) {
         let msg = match &msg.msg {
@@ -209,16 +220,16 @@ impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
         match msg {
             ServerToRobotMessage::Ping => {
                 self.send(s, RobotToServerMessage::Pong).await;
+                let util = [
+                    self.data.utilization[0].load(Ordering::Relaxed),
+                    self.data.utilization[1].load(Ordering::Relaxed),
+                    self.data.utilization[2].load(Ordering::Relaxed),
+                ];
+                self.send(s, RobotToServerMessage::Utilization(util)).await;
             }
             ServerToRobotMessage::FrequentRobotItems(msg) => {
-                self.msgs.send_or_drop(
-                    RobotInterTaskMessage::FrequentServerToRobot(msg.clone()),
-                    Task::Motors,
-                );
-                self.msgs.send_or_drop(
-                    RobotInterTaskMessage::FrequentServerToRobot(msg),
-                    Task::Peripherals,
-                );
+                self.config = msg.clone();
+                self.config_sender.send(msg);
             }
             ServerToRobotMessage::FirmwareWritePart { offset, len } => {
                 self.expected_firmware_part = Some(ExpectedFirmwarePart { offset, len });
@@ -255,51 +266,10 @@ impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
                 unreachable!("o7")
             }
             ServerToRobotMessage::CancelFirmwareUpdate => {}
-            ServerToRobotMessage::ResetAngle => {
-                self.msgs
-                    .send_blocking(RobotInterTaskMessage::ResetAngle, Task::Peripherals)
-                    .await;
-            }
             #[allow(deprecated)]
             ServerToRobotMessage::ExtraOpts(opts) => {
-                use crate::driving::{
-                    EXTRA_INDICATOR_BOOL, EXTRA_INDICATOR_F32, EXTRA_INDICATOR_I32,
-                    EXTRA_INDICATOR_I8, EXTRA_OPTS_BOOL, EXTRA_OPTS_F32, EXTRA_OPTS_I32,
-                    EXTRA_OPTS_I8,
-                };
-                EXTRA_OPTS_BOOL
-                    .iter()
-                    .zip(opts.opts_bool)
-                    .for_each(|(b, x)| {
-                        b.store(x, Ordering::Relaxed);
-                    });
-                EXTRA_OPTS_F32.iter().zip(opts.opts_f32).for_each(|(b, x)| {
-                    b.store(x, Ordering::Relaxed);
-                });
-                EXTRA_OPTS_I8.iter().zip(opts.opts_i8).for_each(|(b, x)| {
-                    b.store(x, Ordering::Relaxed);
-                });
-                EXTRA_OPTS_I32.iter().zip(opts.opts_i32).for_each(|(b, x)| {
-                    b.store(x, Ordering::Relaxed);
-                });
-                // construct extra indicators
-                let mut indicators = ExtraOptsTypes::default();
-                EXTRA_INDICATOR_BOOL
-                    .iter()
-                    .zip(&mut indicators.opts_bool)
-                    .for_each(|(b, x)| *x = b.load(Ordering::Relaxed));
-                EXTRA_INDICATOR_F32
-                    .iter()
-                    .zip(&mut indicators.opts_f32)
-                    .for_each(|(b, x)| *x = b.load(Ordering::Relaxed));
-                EXTRA_INDICATOR_I8
-                    .iter()
-                    .zip(&mut indicators.opts_i8)
-                    .for_each(|(b, x)| *x = b.load(Ordering::Relaxed));
-                EXTRA_INDICATOR_I32
-                    .iter()
-                    .zip(&mut indicators.opts_i32)
-                    .for_each(|(b, x)| *x = b.load(Ordering::Relaxed));
+                opts.store_into(&self.data.extra_opts);
+                let indicators = ExtraOptsTypes::load_from(&self.data.extra_indicators);
                 self.send(s, RobotToServerMessage::ReceivedExtraOpts(opts))
                     .await;
                 self.send(s, RobotToServerMessage::ExtraIndicators(indicators))
@@ -308,10 +278,13 @@ impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
         }
     }
 
-    async fn handle_until_broken(&mut self, s: &mut T::Socket<'_>) {
+    async fn handle_until_broken(
+        &mut self,
+        s: &mut <R::Network as RobotNetworkBehavior>::Socket<'_>,
+    ) {
         let mut logs_buffer = [0; 512];
         let mut stateful_tcp_reader = StatefulTcpReader::new();
-        let mut socket_ok_time = T::Instant::default();
+        let mut socket_ok_time = R::Instant::default();
 
         info!("{} client connected", self.name);
 
@@ -329,38 +302,58 @@ impl<T: RobotNetworkBehavior, M: RobotTaskMessenger> NetworkData<T, M> {
                 return;
             }
             if !self.socket_failed {
-                socket_ok_time = T::Instant::default();
+                socket_ok_time = R::Instant::default();
             }
 
-            self.utilization_monitor.stop();
-            let event = next_event::<T, M>(&mut self.msgs, s, &mut stateful_tcp_reader).await;
-            self.utilization_monitor.start();
-
             // emit logs if we can find any
-            while let Some(count) = T::read_logging_bytes(&mut logs_buffer) {
+            while let Ok(count) = self.data.defmt_logs.try_read(&mut logs_buffer) {
                 if count == 0 {
                     break;
                 }
                 self.send_bytes(s, &logs_buffer[..count]).await;
             }
 
+            self.utilization_monitor.stop();
+            let event = next_event::<R::Network, R::Instant>(
+                &mut self.sensors_receiver,
+                &mut self.motors_receiver,
+                &self.data.sig_extra_imu_data,
+                s,
+                &mut stateful_tcp_reader,
+            )
+            .await;
+            self.utilization_monitor.start();
+
             match event {
-                Either::Left(Err(_e)) => {
+                NetworkEvent::TimedOut => {}
+                NetworkEvent::ServerToRobot(Ok(msg)) => self.handle_server_message(s, &msg).await,
+                NetworkEvent::ServerToRobot(Err(_e)) => {
                     // error!("Socket failed with error: {:?}", e);
                     break;
                 }
-                Either::Right(m) => self.handle_inter_task_message(s, m).await,
-                Either::Left(Ok(m)) => self.handle_server_message(s, &m).await,
+                NetworkEvent::SensorData(data) => {
+                    self.send(s, RobotToServerMessage::Sensors(data)).await
+                }
+                NetworkEvent::MotorData(data) => {
+                    self.send(
+                        s,
+                        RobotToServerMessage::MotorControlStatus((
+                            self.data.created_at.elapsed(),
+                            data,
+                        )),
+                    )
+                    .await
+                }
+                NetworkEvent::ExtraImuData(data) => {
+                    self.send(s, RobotToServerMessage::ExtraImuData(data)).await
+                }
             }
         }
     }
 }
 
 /// The "main" method for the network task
-pub async fn network_task<T: RobotNetworkBehavior + 'static, M: RobotTaskMessenger>(
-    mut network: T,
-    msgs: M,
-) -> Result<(), T::Error> {
+pub async fn network_task<R: RobotBehavior>(data: &SharedRobotData<R>, mut network: R::Network) {
     info!("mac address: {:?}", network.mac_address().await);
     let name = RobotName::from_mac_address(&network.mac_address().await)
         .expect("Unrecognized mac address");
@@ -369,13 +362,18 @@ pub async fn network_task<T: RobotNetworkBehavior + 'static, M: RobotTaskMesseng
     let mut net = NetworkData {
         name,
         network,
-        msgs,
+        data,
+        config: FrequentServerToRobot::new(name),
         seq: 0,
 
+        config_sender: data.config.sender(),
+        network_status_sender: data.network_status.sender(),
+
+        sensors_receiver: data.sensors.receiver().unwrap(),
+        motors_receiver: data.motor_control.receiver().unwrap(),
         expected_firmware_part: None,
 
         utilization_monitor: UtilizationMonitor::new(0.0, 0.0),
-        utilizations: [0.0; 3],
 
         socket_failed: false,
         serialization_buf: [0; 1024],
@@ -402,18 +400,30 @@ pub async fn network_task<T: RobotNetworkBehavior + 'static, M: RobotTaskMesseng
     }
 }
 
-async fn next_event<'a, 'b, T: RobotNetworkBehavior, M: RobotTaskMessenger>(
-    msgs: &mut M,
-    socket: &mut T::Socket<'a>,
-    stateful_tcp_reader: &'b mut StatefulTcpReader,
-) -> Either<Result<TcpMessage<'b, ServerToRobotMessage>, TcpError>, RobotInterTaskMessage> {
-    match select(
-        pin!(stateful_tcp_reader.read_socket(socket)),
-        pin!(msgs.receive_message()),
-    )
-    .await
-    {
-        Either::Left((read_result, _)) => Either::Left(read_result),
-        Either::Right((msg, _)) => Either::Right(msg),
+enum NetworkEvent<'reader> {
+    TimedOut,
+    ServerToRobot(Result<TcpMessage<'reader, ServerToRobotMessage>, TcpError>),
+    SensorData(SensorData),
+    MotorData(MotorControlStatus),
+    ExtraImuData(ExtraImuData),
+}
+
+async fn next_event<'reader, R: RobotNetworkBehavior, I: CrossPlatformInstant>(
+    sensors: &mut Receiver<'_, CriticalSectionRawMutex, SensorData, 2>,
+    motors: &mut Receiver<'_, CriticalSectionRawMutex, MotorControlStatus, 2>,
+    imu: &Signal<CriticalSectionRawMutex, ExtraImuData>,
+    socket: &mut R::Socket<'_>,
+    stateful_tcp_reader: &'reader mut StatefulTcpReader,
+) -> NetworkEvent<'reader> {
+    let f1 = pin!(stateful_tcp_reader.read_socket(socket));
+    let f2 = pin!(sensors.changed());
+    let f3 = pin!(motors.changed());
+    let f4 = pin!(imu.wait());
+    select_biased! {
+        msg = f1.fuse() => NetworkEvent::ServerToRobot(msg),
+        data = f2.fuse() => NetworkEvent::SensorData(data),
+        data = f3.fuse() => NetworkEvent::MotorData(data),
+        data = f4.fuse() => NetworkEvent::ExtraImuData(data),
+        _ = I::sleep(Duration::from_millis(1000 / 30)).fuse() => NetworkEvent::TimedOut,
     }
 }

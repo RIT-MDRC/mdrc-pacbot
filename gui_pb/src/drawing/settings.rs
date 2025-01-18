@@ -302,10 +302,10 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
             == NetworkStatus::Connected,
         |ui| {
             if ui.button("Reset angle").clicked() {
-                app.send(GuiToServerMessage::RobotCommand(
-                    app.ui_settings.selected_robot,
-                    ServerToRobotMessage::ResetAngle,
-                ));
+                // app.send(GuiToServerMessage::RobotCommand(
+                //     app.ui_settings.selected_robot,
+                //     ServerToRobotMessage::ResetAngle,
+                // ));
             }
         },
     );

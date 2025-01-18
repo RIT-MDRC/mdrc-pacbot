@@ -13,47 +13,71 @@ std = [
     "bincode/std",
     "async-channel",
     "async-std",
-    "async-tungstenite",
     "futures/executor",
     "futures/async-await",
     "ecolor",
-    "portable-atomic/std"
+    "portable-atomic/std",
+    "embassy-sync/std",
+    "atomic/std",
+    "approx/std",
+    "async-tungstenite",
+    "critical-section/std",
+    "web-time"
 ]
 wasm = ["pacbot-rs/wasm"]
 
+log = ["dep:log", "defmt-or-log/log", "embassy-sync/log", "async-std/log"]
+defmt = ["dep:defmt", "defmt-or-log/defmt", "embassy-sync/defmt", "embedded-graphics/defmt", "embedded-io-async/defmt-03", "heapless/defmt-03"]
+
 [dependencies]
-nalgebra = { version = "0.32.5", default-features = false, features = ["serde-serialize-no-std", "libm-force"] }
-ordered-float = { version = "4.2.0", default-features = false }
-pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "423622afedc0b0c33c42497cb4e1f2b73641e747", default-features = false }
-serde = { version = "1.0.201", default-features = false, features = ["derive"] }
-bincode = { version = "2.0.0-rc.3", default-features = false, features = ["serde"] }
+# Pacbot
+pacbot-rs = { git = "https://github.com/RIT-MDRC/pacbot-rs.git", rev = "f210b57690c9f80b6597ed18a6ccb6ad4b2d218e", default-features = false }
+
+# Logging
+defmt-or-log = "0.2.1"
 defmt = { version = "0.3.8", optional = true }
-heapless = { version = "0.8.0", features = ["serde"] }
 log = { version = "0.4.22", optional = true }
-embedded-graphics = { version = "0.8.1" }
+
+# Synchronization
+embassy-sync = { version = "0.6.1", git = "https://github.com/embassy-rs/embassy.git" }
+portable-atomic = { version = "1.9.0", features = ["float"] }
 async-channel = { version = "2.3.1", optional = true }
-futures = { version = "0.3.30", default-features = false }
+atomic = { version = "0.6.0", default-features = false }
+array-init = "2.1.0"
+critical-section = "1.2.0"
+
+# Async
 async-std = { version = "1.12.0", optional = true }
 embedded-io-async = "0.6.1"
-approx = "0.5.1"
-micromath = "2.1.0"
-libm = "0.2.8"
-static_cell = "2"
-pid = "4.0.0"
-ecolor = { version = "0.27.2", optional = true }
-egui-phosphor = { version = "0.5.0", optional = true }
-format_no_std = { version = "1.2.0" }
-portable-atomic = { version = "1.9.0", features = ["float"] }
+futures = { version = "0.3.30", default-features = false, features = ["async-await"] }
+embedded-graphics = { version = "0.8.1" }
+web-time = { version = "1.1.0", optional = true }
 
+# Math
+micromath = { version = "2.1.0", optional = true }
+libm = "0.2.8"
+pid = "4.0.0"
+approx = { version = "0.5.1", default-features = false }
+ordered-float = { version = "4.2.0", default-features = false }
+nalgebra = { version = "0.33.2", default-features = false, features = ["serde-serialize-no-std", "libm-force"] }
+
+# Serialization
+format_no_std = { version = "1.2.0" }
+serde = { version = "1.0.201", default-features = false, features = ["derive"] }
+bincode = { version = "2.0.0-rc.3", default-features = false, features = ["serde"] }
+heapless = { version = "0.8.0", features = ["serde"] }
+
+# Egui
+ecolor = { version = "0.30.0", optional = true }
+egui-phosphor = { version = "0.8.0", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3.69", features = ["WebSocket", "ErrorEvent", "MessageEvent", "FileReader", "ProgressEvent", "Blob"] }
 wasm-bindgen = "0.2.92"
 wasm-bindgen-futures = "0.4.42"
-web-time = "1.1.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-async-tungstenite = { version = "0.26.2", optional = true, features = ["async-std-runtime"] }
+async-tungstenite = { version = "0.26.2", features = ["async-std-runtime"], optional = true }
 
 [build-dependencies]
-nalgebra = { version = "0.32.5", default-features = false }
+nalgebra = { version = "0.33.2", default-features = false }

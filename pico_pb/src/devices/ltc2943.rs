@@ -2,7 +2,7 @@ use crate::peripherals::PeripheralsError;
 use crate::{PacbotI2cBus, PacbotI2cDevice};
 use core::sync::atomic::AtomicBool;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
 use embassy_time::Timer;
 use embedded_hal_async::i2c::I2c;
@@ -11,7 +11,7 @@ const ADDRESS: u8 = 0b1100100;
 
 pub struct Ltc2943 {
     enabled: &'static AtomicBool,
-    results: &'static Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>>,
+    results: &'static Signal<CriticalSectionRawMutex, Result<f32, PeripheralsError>>,
 
     i2c_device: PacbotI2cDevice,
     initialized: bool,
@@ -21,7 +21,7 @@ impl Ltc2943 {
     pub fn new(
         bus: &'static PacbotI2cBus,
         enabled: &'static AtomicBool,
-        results: &'static Signal<ThreadModeRawMutex, Result<f32, PeripheralsError>>,
+        results: &'static Signal<CriticalSectionRawMutex, Result<f32, PeripheralsError>>,
     ) -> Self {
         Self {
             enabled,
