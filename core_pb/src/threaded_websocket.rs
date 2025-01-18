@@ -14,6 +14,7 @@ use async_std::task::sleep;
 use futures::executor::block_on;
 use futures::future::{select, Either};
 use futures::select;
+#[allow(unused)]
 use log::{error, info};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
