@@ -1,11 +1,11 @@
 use bevy::prelude::*;
 use bevy_rapier2d::na::Vector2;
 use bevy_rapier2d::prelude::*;
-use std::sync::{Arc, RwLock};
-
+use core_pb::driving::data::NUM_WHEELS;
 use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
+use std::sync::{Arc, RwLock};
 
 use crate::driving::SimRobot;
 use crate::network::{update_network, PacbotNetworkSimulation};
@@ -22,12 +22,12 @@ pub struct MyApp {
     standard_grid: StandardGrid,
     grid: ComputedGrid,
 
-    robots: [Option<(Entity, Arc<RwLock<SimRobot>>)>; NUM_ROBOT_NAMES],
+    robots: [Option<(Entity, Arc<RwLock<SimRobot<NUM_WHEELS>>>)>; NUM_ROBOT_NAMES],
     selected_robot: RobotName,
 }
 
 #[derive(Clone, Component)]
-pub struct RobotReference(RobotName, Arc<RwLock<SimRobot>>);
+pub struct RobotReference(RobotName, Arc<RwLock<SimRobot<NUM_WHEELS>>>);
 
 #[derive(Component)]
 pub struct Wall;

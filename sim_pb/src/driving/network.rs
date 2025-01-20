@@ -3,6 +3,7 @@ use async_std::io::{ReadExt, WriteExt};
 use async_std::net::{TcpListener, TcpStream};
 use async_std::task::sleep;
 use bevy::prelude::{error, info};
+use core_pb::driving::data::NUM_WHEELS;
 use core_pb::driving::network::{NetworkScanInfo, RobotNetworkBehavior};
 use core_pb::names::RobotName;
 use embedded_io_async::{ErrorType, Read, ReadExactError, Write};
@@ -14,14 +15,18 @@ use std::time::Duration;
 
 pub struct SimNetwork {
     name: RobotName,
-    sim_robot: Arc<RwLock<SimRobot>>,
+    sim_robot: Arc<RwLock<SimRobot<NUM_WHEELS>>>,
     network_connected: bool,
 
     firmware_swapped: bool,
 }
 
 impl SimNetwork {
-    pub fn new(name: RobotName, firmware_swapped: bool, sim_robot: Arc<RwLock<SimRobot>>) -> Self {
+    pub fn new(
+        name: RobotName,
+        firmware_swapped: bool,
+        sim_robot: Arc<RwLock<SimRobot<NUM_WHEELS>>>,
+    ) -> Self {
         Self {
             name,
             sim_robot,

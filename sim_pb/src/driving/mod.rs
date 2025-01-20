@@ -4,7 +4,7 @@ use crate::driving::peripherals::{SimDisplay, SimPeripherals};
 use async_channel::{bounded, Receiver, Sender};
 use bevy::log::info;
 use bevy::tasks::block_on;
-use core_pb::driving::data::SharedRobotData;
+use core_pb::driving::data::{SharedRobotData, NUM_WHEELS};
 use core_pb::driving::motors::motors_task;
 use core_pb::driving::network::network_task;
 use core_pb::driving::peripherals::peripherals_task;
@@ -23,9 +23,9 @@ mod peripherals;
 
 pub const CHANNEL_BUFFER_SIZE: usize = 64;
 
-pub struct SimRobot {
+pub struct SimRobot<const WHEELS: usize> {
     pub name: RobotName,
-    pub data: Arc<SharedRobotData<SimRobot>>,
+    pub data: Arc<SharedRobotData<SimRobot<WHEELS>>>,
 
     pub display: SimDisplay,
     pub display_updated: bool,
@@ -34,14 +34,14 @@ pub struct SimRobot {
     pub firmware_updated: bool,
     pub reboot: bool,
 
-    pub wasd_motor_speeds: Option<[f32; 3]>,
-    pub requested_motor_speeds: [f32; 3],
+    pub wasd_motor_speeds: Option<[f32; WHEELS]>,
+    pub requested_motor_speeds: [f32; WHEELS],
 
     pub button_events: VecDeque<(RobotButton, bool)>,
     pub joystick: Option<(f32, f32)>,
 }
 
-impl SimRobot {
+impl SimRobot<NUM_WHEELS> {
     pub fn start(name: RobotName, firmware_swapped: bool) -> Arc<RwLock<Self>> {
         let shared_data = Arc::new(SharedRobotData::new(name));
         let (thread_stopper_tx, thread_stopper_rx) = bounded(CHANNEL_BUFFER_SIZE);
@@ -58,7 +58,7 @@ impl SimRobot {
             reboot: false,
 
             wasd_motor_speeds: None,
-            requested_motor_speeds: [0.0; 3],
+            requested_motor_speeds: [0.0; NUM_WHEELS],
 
             button_events: VecDeque::new(),
             joystick: None,
@@ -89,9 +89,9 @@ impl SimRobot {
     #[allow(clippy::too_many_arguments)]
     async fn start_async(
         name: RobotName,
-        motors: SimMotors,
+        motors: SimMotors<NUM_WHEELS>,
         network: SimNetwork,
-        data: Arc<SharedRobotData<SimRobot>>,
+        data: Arc<SharedRobotData<SimRobot<NUM_WHEELS>>>,
         peripherals: SimPeripherals,
         thread_stopper: Receiver<()>,
     ) {
@@ -112,10 +112,10 @@ impl SimRobot {
     }
 }
 
-impl RobotBehavior for SimRobot {
+impl<const WHEELS: usize> RobotBehavior for SimRobot<WHEELS> {
     type Instant = WebTimeInstant;
 
-    type Motors = SimMotors;
+    type Motors = SimMotors<NUM_WHEELS>;
     type Network = SimNetwork;
     type Peripherals = SimPeripherals;
 }

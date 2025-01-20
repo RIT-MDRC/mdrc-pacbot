@@ -7,6 +7,7 @@ use bevy_rapier2d::na::{Point2, Rotation2, Vector2};
 use bevy_rapier2d::prelude::*;
 use core::f32;
 use core_pb::constants::GU_PER_M;
+use core_pb::driving::data::{NUM_SENSORS, NUM_WHEELS};
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::RobotName;
 use core_pb::robot_definition::RobotDefinition;
@@ -115,7 +116,9 @@ impl MyApp {
                     f32::cos(rotation + (i as f32) * f32::consts::FRAC_PI_2),
                     f32::sin(rotation + (i as f32) * f32::consts::FRAC_PI_2),
                 );
-                let max_toi: f32 = RobotDefinition::new(robot.0).sensor_distance * GU_PER_M;
+                let max_toi: f32 = RobotDefinition::<NUM_WHEELS, NUM_SENSORS>::new(robot.0)
+                    .sensor_distance
+                    * GU_PER_M;
                 let solid: bool = true;
                 let filter: QueryFilter = QueryFilter::default()
                     .groups(CollisionGroups::new(Group::GROUP_2, Group::GROUP_1));
@@ -137,7 +140,7 @@ impl MyApp {
             let mut motor_speeds = sim_robot
                 .wasd_motor_speeds
                 .unwrap_or(sim_robot.requested_motor_speeds);
-            let robot_definition = RobotDefinition::new(robot.0);
+            let robot_definition = RobotDefinition::<NUM_WHEELS, NUM_SENSORS>::new(robot.0);
             //for each motor add noise
             for m in &mut motor_speeds {
                 let noise: f32 = rng.gen_range(-noise_rng..noise_rng).abs();

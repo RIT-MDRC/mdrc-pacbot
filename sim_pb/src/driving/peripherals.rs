@@ -1,6 +1,7 @@
 use crate::driving::SimRobot;
 use bevy::log::error;
 use core_pb::constants::{ROBOT_DISPLAY_HEIGHT, ROBOT_DISPLAY_WIDTH};
+use core_pb::driving::data::NUM_WHEELS;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::messages::RobotButton;
 use embedded_graphics::draw_target::DrawTarget;
@@ -10,11 +11,11 @@ use embedded_graphics::Pixel;
 use std::sync::{Arc, RwLock};
 
 pub struct SimPeripherals {
-    robot: Arc<RwLock<SimRobot>>,
+    robot: Arc<RwLock<SimRobot<NUM_WHEELS>>>,
 }
 
 impl SimPeripherals {
-    pub fn new(robot: Arc<RwLock<SimRobot>>) -> Self {
+    pub fn new(robot: Arc<RwLock<SimRobot<NUM_WHEELS>>>) -> Self {
         Self { robot }
     }
 }

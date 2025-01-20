@@ -4,15 +4,15 @@ use core_pb::driving::motors::RobotMotorsBehavior;
 use core_pb::names::RobotName;
 use std::sync::Arc;
 
-pub struct SimMotors {
+pub struct SimMotors<const WHEELS: usize> {
     name: RobotName,
-    sim_robot: Arc<RwLock<SimRobot>>,
+    sim_robot: Arc<RwLock<SimRobot<WHEELS>>>,
 
     pwm_values: [[u16; 2]; 3],
 }
 
-impl SimMotors {
-    pub fn new(name: RobotName, sim_robot: Arc<RwLock<SimRobot>>) -> Self {
+impl<const WHEELS: usize> SimMotors<WHEELS> {
+    pub fn new(name: RobotName, sim_robot: Arc<RwLock<SimRobot<WHEELS>>>) -> Self {
         Self {
             name,
             pwm_values: Default::default(),
@@ -21,7 +21,7 @@ impl SimMotors {
     }
 }
 
-impl RobotMotorsBehavior for SimMotors {
+impl<const WHEELS: usize> RobotMotorsBehavior for SimMotors<WHEELS> {
     async fn set_pwm(&mut self, pin: usize, to: u16) {
         let motor = pin / 2;
         if self.pwm_values[motor][pin % 2] != to {
