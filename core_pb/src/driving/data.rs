@@ -16,13 +16,20 @@ use embassy_sync::signal::Signal;
 use embassy_sync::watch::Watch;
 use portable_atomic::{AtomicBool, AtomicF32, AtomicI32, AtomicI8};
 
+/* 2-WHEEL NON-OMNI MOUSE ROBOT */
+pub const NUM_WHEELS: usize = 2;
+pub const NUM_SENSORS: usize = 5;
+/* 3-WHEEL OMNI ROBOT */
+// pub const NUM_WHEELS: usize = 3;
+// pub const NUM_SENSORS: usize = 4;
+
 /// Each robot should have exactly one. Some fields are managed by core_pb, but (when noted)
 /// implementations are responsible for updating values
 pub struct SharedRobotData<R: RobotBehavior + ?Sized> {
     /// Robot's name, to distinguish it from other robots, is provided on startup
     pub name: RobotName,
     /// The robot's physical characteristics
-    pub robot_definition: RobotDefinition<3>,
+    pub robot_definition: RobotDefinition<NUM_WHEELS, NUM_SENSORS>,
     /// An instant representing the time the shared struct was created
     pub created_at: R::Instant,
 
@@ -49,7 +56,7 @@ pub struct SharedRobotData<R: RobotBehavior + ?Sized> {
     /// Estimated motor speeds
     ///
     /// It is the responsibility of the implementation to update this field.
-    pub sig_motor_speeds: Signal<CriticalSectionRawMutex, [f32; 3]>,
+    pub sig_motor_speeds: Signal<CriticalSectionRawMutex, [f32; NUM_WHEELS]>,
     /// An estimation of the absolute orientation of the robot
     ///
     /// It is the responsibility of the implementation to update this field.
@@ -71,7 +78,7 @@ pub struct SharedRobotData<R: RobotBehavior + ?Sized> {
     pub sig_distances: [Signal<
         CriticalSectionRawMutex,
         Result<Option<f32>, <R::Peripherals as RobotPeripheralsBehavior>::Error>,
-    >; 4],
+    >; NUM_SENSORS],
     /// The battery level of the robot, in volts
     ///
     /// It is the responsibility of the implementation to update this field.
@@ -138,7 +145,7 @@ impl<R: RobotBehavior> SharedRobotData<R> {
     pub fn new(name: RobotName) -> Self {
         Self {
             name,
-            robot_definition: RobotDefinition::new(name),
+            robot_definition: RobotDefinition::<NUM_WHEELS, NUM_SENSORS>::new(name),
             created_at: R::Instant::default(),
 
             server_outgoing_queue: Channel::new(),

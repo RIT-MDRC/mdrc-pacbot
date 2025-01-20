@@ -1,4 +1,5 @@
 use crate::constants::MAX_ROBOT_PATH_LENGTH;
+use crate::driving::data::{NUM_SENSORS, NUM_WHEELS};
 use crate::grid::standard_grid::StandardGrid;
 #[cfg(feature = "std")]
 use crate::messages::server_status::ServerStatus;
@@ -135,7 +136,7 @@ pub struct FrequentServerToRobot {
     /// - `4` -> motor 1 counter-clockwise
     /// - `2` -> motor 2 clockwise
     /// - `3` -> motor 2 counter-clockwise
-    pub motor_config: [[usize; 2]; 3],
+    pub motor_config: [[usize; 2]; NUM_WHEELS],
     /// Basic parameters for the PID controller
     pub pid: [f32; 3],
     /// The grid cell the CV system thinks the robot is in
@@ -157,7 +158,7 @@ pub struct FrequentServerToRobot {
 impl FrequentServerToRobot {
     /// Create one with default parameters of the given robot
     pub fn new(robot: RobotName) -> Self {
-        let definition = RobotDefinition::new(robot);
+        let definition = RobotDefinition::<NUM_WHEELS, NUM_SENSORS>::new(robot);
         Self {
             grid: StandardGrid::Pacman,
             target_velocity: VelocityControl::None,
@@ -215,9 +216,9 @@ pub type ExtraOptsAtomicTypes = (
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MotorControlStatus {
-    pub pwm: [[u16; 2]; 3],
-    pub speed_set_points: [f32; 3],
-    pub measured_speeds: [f32; 3],
+    pub pwm: [[u16; 2]; NUM_WHEELS],
+    pub speed_set_points: [f32; NUM_WHEELS],
+    pub measured_speeds: [f32; NUM_WHEELS],
 }
 
 #[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]

@@ -19,7 +19,7 @@ pub fn estimate_location(
     grid: StandardGrid,
     cv_location: Option<Point2<i8>>,
     distance_sensors: &[Result<Option<f32>, heapless::String<MAX_SENSOR_ERR_LEN>>; 4],
-    robot: &RobotDefinition<3>,
+    robot: &RobotDefinition<3, 4>,
     cv_error: f32,
 ) -> Option<Point2<f32>> {
     let cv_location_int = cv_location?;

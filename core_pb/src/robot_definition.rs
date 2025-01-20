@@ -6,7 +6,7 @@ use nalgebra::Rotation2;
 
 #[derive(Copy, Clone, Debug)]
 /// All the information that may vary from robot to robot
-pub struct RobotDefinition<const WHEELS: usize> {
+pub struct RobotDefinition<const WHEELS: usize, const DISTS: usize> {
     /// Maximum radius of the circle the robot fits into
     pub radius: f32,
 
@@ -26,13 +26,22 @@ pub struct RobotDefinition<const WHEELS: usize> {
 
     /// Maximum range of the sensors in meters
     pub sensor_distance: f32,
+    /// Distance sensor locations
+    pub sensor_locations: [(); DISTS],
 }
 
 /// Describes physical characteristics of the motors
 #[derive(Copy, Clone, Debug)]
 pub struct WheelDefinition {}
 
-impl RobotDefinition<3> {
+impl RobotDefinition<2, 5> {
+    /// Create the default `RobotDefinition` for the given robot
+    pub fn new(name: RobotName) -> Self {
+        todo!()
+    }
+}
+
+impl RobotDefinition<3, 4> {
     /// Create the default `RobotDefinition` for the given robot
     pub fn new(name: RobotName) -> Self {
         let radius = 2.1 * GU_PER_INCH;
@@ -61,6 +70,8 @@ impl RobotDefinition<3> {
 
             has_screen: false,
             sensor_distance: 1.5,
+
+            sensor_locations: todo!(),
         }
     }
 }

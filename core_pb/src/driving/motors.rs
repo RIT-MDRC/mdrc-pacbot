@@ -1,4 +1,5 @@
 use crate::drive_system::DriveSystem;
+use crate::driving::data::{NUM_SENSORS, NUM_WHEELS};
 use crate::driving::RobotBehavior;
 use crate::messages::{
     FrequentServerToRobot, MotorControlStatus, RobotToServerMessage, SensorData, Task,
@@ -28,7 +29,7 @@ pub trait RobotMotorsBehavior {
 #[allow(dead_code)]
 struct MotorsData<const WHEELS: usize, M: RobotMotorsBehavior> {
     name: RobotName,
-    robot: RobotDefinition<WHEELS>,
+    robot: RobotDefinition<WHEELS, NUM_SENSORS>,
     drive_system: DriveSystem<WHEELS>,
 
     motors: M,
@@ -38,7 +39,7 @@ struct MotorsData<const WHEELS: usize, M: RobotMotorsBehavior> {
 
     pid_controllers: [Pid<f32>; WHEELS],
 
-    motor_speeds: [f32; 3],
+    motor_speeds: [f32; WHEELS],
     set_points: [f32; WHEELS],
     pwm: [[u16; 2]; WHEELS],
 }
@@ -55,7 +56,7 @@ pub async fn motors_task<R: RobotBehavior>(motors: R::Motors) -> ! {
     let config = FrequentServerToRobot::new(name);
     let pid = config.pid;
 
-    let pid_controllers = [0; 3].map(|_| {
+    let pid_controllers = [0; NUM_WHEELS].map(|_| {
         let mut pid_controller = Pid::new(0.0, robot.pwm_top as f32);
         pid_controller
             .p(pid[0], robot.pwm_top as f32)
@@ -77,7 +78,7 @@ pub async fn motors_task<R: RobotBehavior>(motors: R::Motors) -> ! {
         motors,
         pid_controllers,
 
-        motor_speeds: [0.0; 3],
+        motor_speeds: [0.0; NUM_WHEELS],
         set_points: Default::default(),
         pwm: Default::default(),
     };
@@ -153,6 +154,14 @@ fn adjust_ang_vel(curr_ang: f32, desired_ang: f32, p: f32, tol: f32) -> f32 {
     angle_diff * p
 }
 
+#[allow(unused)]
+impl<M: RobotMotorsBehavior> MotorsData<2, M> {
+    pub async fn do_motors(&mut self) {
+        todo!()
+    }
+}
+
+#[allow(unused)]
 impl<M: RobotMotorsBehavior> MotorsData<3, M> {
     pub async fn do_motors(&mut self) {
         // TODO: make this a tunable param

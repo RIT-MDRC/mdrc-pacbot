@@ -58,6 +58,7 @@ impl defmt::Format for RobotName {
     }
 }
 
+use crate::driving::data::{NUM_SENSORS, NUM_WHEELS};
 use crate::robot_definition::RobotDefinition;
 use core::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
@@ -153,8 +154,8 @@ impl RobotName {
     }
 
     /// The characteristics of this robot
-    pub fn robot(&self) -> RobotDefinition<3> {
-        RobotDefinition::new(*self)
+    pub fn robot(&self) -> RobotDefinition<NUM_WHEELS, NUM_SENSORS> {
+        RobotDefinition::<NUM_WHEELS, NUM_SENSORS>::new(*self)
     }
 }
 

@@ -1,4 +1,5 @@
 use crate::constants::GU_PER_M;
+use crate::driving::data::{NUM_SENSORS, NUM_WHEELS};
 use crate::grid::standard_grid::{get_grid_regions, StandardGrid};
 use crate::grid::Grid;
 use crate::messages::MAX_SENSOR_ERR_LEN;
@@ -130,7 +131,7 @@ pub fn estimate_location_2(
     grid: StandardGrid,
     cv_location: Option<Point2<i8>>,
     distance_sensors: &[Result<Option<f32>, heapless::String<MAX_SENSOR_ERR_LEN>>; 4],
-    robot: &RobotDefinition<3>,
+    robot: &RobotDefinition<NUM_WHEELS, NUM_SENSORS>,
 ) -> Option<Point2<f32>> {
     let mut dists = [Err(()); 4];
     for (i, d) in distance_sensors.iter().enumerate() {
