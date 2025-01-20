@@ -15,21 +15,16 @@ use crate::encoders::{run_encoders, PioEncoder};
 use crate::motors::Motors;
 use crate::network::{initialize_network, Network};
 use crate::peripherals::{manage_pico_i2c, Peripherals};
-use core::ops::{Deref, DerefMut};
 use core_pb::driving::data::SharedRobotData;
 use core_pb::driving::motors::motors_task;
 use core_pb::driving::network::{network_task, RobotNetworkBehavior};
 use core_pb::driving::peripherals::peripherals_task;
 use core_pb::driving::RobotBehavior;
-use core_pb::messages::Task;
 use core_pb::names::RobotName;
-use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::CrossPlatformInstant;
 use defmt::{debug, info, unwrap};
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_executor::{InterruptExecutor, Spawner};
-use embassy_futures::select::select;
-use embassy_futures::select::Either;
 use embassy_rp::gpio::Pin;
 use embassy_rp::i2c::{Async, I2c};
 use embassy_rp::interrupt::{InterruptExt, Priority};
@@ -57,7 +52,9 @@ impl RobotBehavior for PicoRobotBehavior {
     type Motors = Motors<3>;
     type Network = Network;
     type Peripherals = Peripherals;
+}
 
+impl PicoRobotBehavior {
     fn get() -> &'static SharedRobotData<Self> {
         SHARED_DATA
             .get()
@@ -160,17 +157,17 @@ async fn main(spawner: Spawner) {
 
 #[embassy_executor::task]
 async fn do_wifi(network: Network) {
-    network_task::<PicoRobotBehavior>(network).await;
+    network_task::<PicoRobotBehavior>(PicoRobotBehavior::get(), network).await;
 }
 
 #[embassy_executor::task]
 async fn do_motors(motors: Motors<3>) {
-    motors_task::<PicoRobotBehavior>(motors).await
+    motors_task::<PicoRobotBehavior>(PicoRobotBehavior::get(), motors).await
 }
 
 #[embassy_executor::task]
 async fn do_i2c(peripherals: Peripherals) {
-    peripherals_task::<PicoRobotBehavior>(peripherals).await
+    peripherals_task::<PicoRobotBehavior>(PicoRobotBehavior::get(), peripherals).await
 }
 
 #[derive(Copy, Clone)]

@@ -1,9 +1,9 @@
 use crate::drive_system::DriveSystem;
+use crate::driving::data::SharedRobotData;
 use crate::driving::data::{NUM_SENSORS, NUM_WHEELS};
 use crate::driving::RobotBehavior;
 use crate::messages::{
-    FrequentServerToRobot, MotorControlStatus, RobotToServerMessage, SensorData, Task,
-    VelocityControl,
+    FrequentServerToRobot, MotorControlStatus, SensorData, Task, VelocityControl,
 };
 use crate::names::RobotName;
 use crate::pure_pursuit::pure_pursuit;
@@ -45,10 +45,9 @@ struct MotorsData<const WHEELS: usize, M: RobotMotorsBehavior> {
 }
 
 /// The "main" method for the motors task
-pub async fn motors_task<R: RobotBehavior>(motors: R::Motors) -> ! {
-    let data = R::get();
-
+pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R::Motors) -> ! {
     let name = data.name;
+    let status_sender = data.motor_control.sender();
     let mut sensors_watch = data.sensors.receiver().unwrap();
     let mut config_watch = data.config.receiver().unwrap();
 
@@ -114,16 +113,11 @@ pub async fn motors_task<R: RobotBehavior>(motors: R::Motors) -> ! {
 
         motors_data.do_motors().await;
 
-        data.server_outgoing_queue
-            .try_send(RobotToServerMessage::MotorControlStatus((
-                data.created_at.elapsed(),
-                MotorControlStatus {
-                    pwm: motors_data.pwm,
-                    measured_speeds: motors_data.motor_speeds,
-                    speed_set_points: motors_data.set_points,
-                },
-            )))
-            .ok();
+        status_sender.send(MotorControlStatus {
+            pwm: motors_data.pwm,
+            measured_speeds: motors_data.motor_speeds,
+            speed_set_points: motors_data.set_points,
+        });
         data.utilization[Task::Motors as usize]
             .store(utilization_monitor.utilization(), Ordering::Relaxed);
 

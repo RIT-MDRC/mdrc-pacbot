@@ -37,10 +37,6 @@ mod consts;
 use crate::logging::{channel::Channel, consts::BUF_SIZE};
 use crate::PicoRobotBehavior;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use core_pb::constants::ROBOT_LOGS_BUFFER;
-use core_pb::driving::RobotBehavior;
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::pipe::Pipe;
 
 #[defmt::global_logger]
 struct Logger;
@@ -50,6 +46,7 @@ static TAKEN: AtomicBool = AtomicBool::new(false);
 static mut CS_RESTORE: critical_section::RestoreState = critical_section::RestoreState::invalid();
 static mut ENCODER: defmt::Encoder = defmt::Encoder::new();
 
+#[allow(static_mut_refs)]
 unsafe impl defmt::Logger for Logger {
     fn acquire() {
         // safety: Must be paired with corresponding call to release(), see below
@@ -150,5 +147,6 @@ unsafe fn handle() -> &'static Channel {
     #[link_section = ".data"]
     static NAME: [u8; 6] = *b"defmt\0";
 
+    #[allow(static_mut_refs)]
     &_SEGGER_RTT.up_channel
 }

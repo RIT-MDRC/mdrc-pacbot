@@ -3,7 +3,6 @@ pub mod motors;
 pub mod network;
 pub mod peripherals;
 
-use crate::driving::data::SharedRobotData;
 use crate::driving::motors::RobotMotorsBehavior;
 use crate::driving::network::RobotNetworkBehavior;
 use crate::driving::peripherals::RobotPeripheralsBehavior;
@@ -17,17 +16,15 @@ pub trait RobotBehavior: 'static {
     type Motors: RobotMotorsBehavior;
     type Network: RobotNetworkBehavior;
     type Peripherals: RobotPeripheralsBehavior;
-
-    fn get() -> &'static SharedRobotData<Self>;
 }
 
-pub struct Watched<M: RawMutex + 'static, T: Clone + 'static, const N: usize> {
-    receiver: Receiver<'static, M, T, N>,
+pub struct Watched<'a, M: RawMutex + 'static, T: Clone + 'static, const N: usize> {
+    receiver: Receiver<'a, M, T, N>,
     data: T,
 }
 
-impl<M: RawMutex, T: Clone, const N: usize> Watched<M, T, N> {
-    pub async fn new_receiver(watch: &'static Watch<M, T, N>) -> Self {
+impl<'a, M: RawMutex, T: Clone, const N: usize> Watched<'a, M, T, N> {
+    pub async fn new_receiver(watch: &'a Watch<M, T, N>) -> Self {
         let mut receiver = watch.receiver().unwrap();
         let data = receiver.get().await;
         Self { receiver, data }

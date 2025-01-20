@@ -180,25 +180,14 @@ impl App {
                                 GameServerCommand::Reset,
                             )),
                             Key::Space => {
-                                if !self.distance_recording.0 {
-                                    self.distance_recording.0 = true;
-                                    self.distance_recording.1 += 1;
-                                    info!("Start recording segment {}", self.distance_recording.1);
-                                }
-                                // if self.server_status.game_state.paused {
-                                //     self.send(GuiToServerMessage::GameServerCommand(
-                                //         GameServerCommand::Unpause,
-                                //     ))
-                                // } else {
-                                //     self.send(GuiToServerMessage::GameServerCommand(
-                                //         GameServerCommand::Pause,
-                                //     ))
-                                // }
-                            }
-                            Key::Escape => {
-                                if self.distance_recording.0 {
-                                    self.distance_recording.0 = false;
-                                    info!("End recording segment {}", self.distance_recording.1);
+                                if self.server_status.game_state.paused {
+                                    self.send(GuiToServerMessage::GameServerCommand(
+                                        GameServerCommand::Unpause,
+                                    ))
+                                } else {
+                                    self.send(GuiToServerMessage::GameServerCommand(
+                                        GameServerCommand::Pause,
+                                    ))
                                 }
                             }
                             // Strategy

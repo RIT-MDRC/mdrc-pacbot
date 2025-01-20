@@ -29,9 +29,7 @@ use egui_dock::{DockArea, DockState, NodeIndex, Style};
 use gilrs::Gilrs;
 use log::info;
 use std::collections::HashMap;
-use std::fs::OpenOptions;
-use std::io::Write;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
@@ -125,8 +123,6 @@ pub struct App {
     settings_fields: Option<HashMap<String, (String, String)>>,
     pacbot_server_connection_status: NetworkStatus,
     gilrs: Gilrs,
-
-    distance_recording: (bool, usize),
 }
 
 impl eframe::App for App {
@@ -228,8 +224,6 @@ impl App {
             settings_fields: Some(HashMap::new()),
             pacbot_server_connection_status: NetworkStatus::NotConnected,
             gilrs: Gilrs::new().unwrap(),
-
-            distance_recording: (false, 0),
         }
     }
 
@@ -272,38 +266,6 @@ impl App {
                 }
                 ServerToGuiMessage::Status(status) => {
                     self.server_status = status;
-                    // append to file
-                    if self.distance_recording.0 {
-                        let mut file = OpenOptions::new()
-                            .write(true)
-                            .append(true)
-                            .open("recording.csv")
-                            .unwrap();
-
-                        let line = format!(
-                            "{},{},{},{},{}",
-                            SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap()
-                                .as_millis(),
-                            self.distance_recording.1,
-                            self.settings.robots[self.ui_settings.selected_robot as usize]
-                                .extra_opts
-                                .opts_i8[0],
-                            self.server_status.robots[self.ui_settings.selected_robot as usize]
-                                .extra_indicators
-                                .unwrap()
-                                .opts_i32[0],
-                            self.server_status.robots[self.ui_settings.selected_robot as usize]
-                                .extra_indicators
-                                .unwrap()
-                                .opts_i32[1],
-                        );
-
-                        if let Err(e) = writeln!(file, "{}", line) {
-                            eprintln!("Couldn't write to file: {}", e);
-                        }
-                    }
                 }
             }
         }

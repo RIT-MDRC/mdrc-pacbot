@@ -25,8 +25,6 @@ use crate::threaded_websocket::TextOrT;
 use serde::de::DeserializeOwned;
 #[cfg(feature = "std")]
 use serde::Serialize;
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
 
 /// [`bincode::serde::encode_to_vec`] with [`bincode::config::standard`]
 #[cfg(feature = "std")]

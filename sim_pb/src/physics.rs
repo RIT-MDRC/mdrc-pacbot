@@ -23,11 +23,11 @@ pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
                 (wall.bottom_right.y as f32 * 1.0 - wall.top_left.y as f32 * 1.0) / 2.0,
             ))
             .insert(CollisionGroups::new(Group::GROUP_1, Group::GROUP_2))
-            .insert(TransformBundle::from(Transform::from_xyz(
+            .insert(Transform::from_xyz(
                 (wall.bottom_right.x as f32 * 1.0 + wall.top_left.x as f32 * 1.0) / 2.0,
                 (wall.bottom_right.y as f32 * 1.0 + wall.top_left.y as f32 * 1.0) / 2.0,
                 0.0,
-            )))
+            ))
             .insert(Wall);
     }
 }
@@ -42,9 +42,8 @@ impl MyApp {
             .spawn(RigidBody::Dynamic)
             .insert(Collider::ball(name.robot().radius))
             .insert(CollisionGroups::new(Group::GROUP_2, Group::GROUP_1))
-            .insert(TransformBundle::from(Transform::from_xyz(
-                pos.x, pos.y, 0.0,
-            )))
+            .insert(Transform::from_xyz(pos.x, pos.y, 0.0))
+            .insert(GravityScale(0.0))
             .insert(ExternalImpulse::default())
             .insert(Velocity::default())
             .insert(RobotReference(name, sim_robot.clone()))
@@ -83,22 +82,27 @@ impl MyApp {
             &mut ExternalImpulse,
             &RobotReference,
         )>,
-        rapier_context: Res<RapierContext>,
+        rapier_context: ReadDefaultRapierContext,
     ) {
         for (_, t, v, mut imp, robot) in robots {
-            // update simulated imu
-            let mut sim_robot = robot.1.write().unwrap();
+            let sim_robot = robot.1.read().unwrap();
+
+            // calculate current angle
             let rotation =
                 Rotation2::new(2.0 * t.rotation.normalize().w.acos() * t.rotation.z.signum())
                     .angle();
-            sim_robot.imu_angle = Ok(rotation);
-            sim_robot.velocity = v.linvel.into();
-            sim_robot.ang_velocity = v.angvel;
 
-            let mut distance_sensors: [Result<Option<f32>, ()>; 4] = [Err(()); 4];
+            // update core data
+            sim_robot.data.sig_angle.signal(Ok(rotation));
+            // note, sim doesn't provide extra imu data
+            // distances updated below
+            sim_robot.data.sig_battery.signal(Ok(8.4));
+            // note, sim doesn't provide logs via defmt_logs
+            // motor speeds updated below
+
             let mut rng = thread_rng();
 
-            for (i, _) in distance_sensors.into_iter().enumerate() {
+            for (i, sig) in sim_robot.data.sig_distances.iter().enumerate() {
                 let ray_pos = Vec2::new(
                     t.translation.x
                         + f32::cos(rotation + (i as f32) * f32::consts::FRAC_PI_2)
@@ -123,15 +127,12 @@ impl MyApp {
                     let dist_noise: f32 = 1.0 + rng.gen_range(-noise_range..noise_range);
                     let distance = ray_pos.distance(hit_point) * dist_noise;
 
-                    distance_sensors[i] = Ok(Some(distance));
+                    sig.signal(Ok(Some(distance)));
                 } else {
-                    distance_sensors[i] = Ok(None);
+                    sig.signal(Ok(None));
                 }
             }
 
-            sim_robot.distance_sensors = distance_sensors;
-
-            
             let noise_rng: f32 = 0.08;
             let mut motor_speeds = sim_robot
                 .wasd_motor_speeds
@@ -142,7 +143,7 @@ impl MyApp {
                 let noise: f32 = rng.gen_range(-noise_rng..noise_rng).abs();
                 *m += *m * noise;
             }
-            sim_robot.actual_motor_speeds = motor_speeds;
+            sim_robot.data.sig_motor_speeds.signal(motor_speeds);
             let mut target_vel = robot_definition
                 .drive_system
                 .get_actual_vel_omni(motor_speeds);
