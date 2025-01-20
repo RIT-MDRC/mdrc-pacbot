@@ -3,8 +3,8 @@ MEMORY
   /* NOTE 1 K = 1 KiBi = 1024 bytes */
   BOOT2                             : ORIGIN = 0x10000000, LENGTH = 0x100
   BOOTLOADER_STATE                  : ORIGIN = 0x10006000, LENGTH = 4K
-  FLASH                             : ORIGIN = 0x10007000, LENGTH = 1000K
-  DFU                               : ORIGIN = 0x10105000, LENGTH = 1004K
+  FLASH                             : ORIGIN = 0x10007000, LENGTH = 512K
+  DFU                               : ORIGIN = 0x10087000, LENGTH = 516K
 
   /* Pick one of the two options for RAM layout     */
 

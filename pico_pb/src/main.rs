@@ -11,7 +11,7 @@ mod network;
 mod peripherals;
 
 // todo https://github.com/adafruit/Adafruit_CircuitPython_seesaw/blob/main/adafruit_seesaw/seesaw.py https://crates.io/crates/adafruit-seesaw
-use crate::encoders::{run_encoders, PioEncoder};
+use crate::encoders::{run_encoders, WrappedPioEncoder};
 use crate::motors::Motors;
 use crate::network::{initialize_network, Network};
 use crate::peripherals::{manage_pico_i2c, Peripherals};
@@ -83,68 +83,68 @@ async fn main(spawner: Spawner) {
 
     // Override bootloader watchdog
     let mut watchdog = Watchdog::new(p.WATCHDOG);
-    watchdog.start(Duration::from_secs(8));
+    watchdog.start(Duration::from_secs(60));
 
-    // Initialize encoders
-    let Pio {
-        mut common,
-        sm0,
-        sm1,
-        sm2,
-        ..
-    } = Pio::new(p.PIO1, Irqs);
-
-    let encoder_a = PioEncoder::new(&mut common, sm0, p.PIN_4, p.PIN_5);
-    let encoder_b = PioEncoder::new(&mut common, sm1, p.PIN_8, p.PIN_9);
-    let encoder_c = PioEncoder::new(&mut common, sm2, p.PIN_12, p.PIN_13);
-
-    // Initialize network
-    let mut network = initialize_network(
-        spawner, p.PIN_23, p.PIN_25, p.PIO0, p.PIN_24, p.PIN_29, p.DMA_CH0, p.FLASH,
-    )
-    .await;
-
-    let mac_address = network.mac_address().await;
-    info!("mac_address {:?}", mac_address);
-
-    let name = RobotName::from_mac_address(&mac_address).expect("Unrecognized mac address");
-    info!("I am {}, mac address {:?}", name, mac_address);
-
-    // Set up core's shared data
-    // It is important that this happens before any core tasks begin
-    let shared_data = SHARED_DATA.get_or_init(|| SharedRobotData::new(name));
-
+    // // Initialize encoders
+    // let Pio {
+    //     mut common,
+    //     sm0,
+    //     sm1,
+    //     sm2,
+    //     ..
+    // } = Pio::new(p.PIO1, Irqs);
+    //
+    // let encoder_a = WrappedPioEncoder::new(&mut common, sm0, p.PIN_4, p.PIN_5);
+    // let encoder_b = WrappedPioEncoder::new(&mut common, sm1, p.PIN_8, p.PIN_9);
+    // let encoder_c = WrappedPioEncoder::new(&mut common, sm2, p.PIN_12, p.PIN_13);
+    //
+    // // Initialize network
+    // let mut network = initialize_network(
+    //     spawner, p.PIN_23, p.PIN_25, p.PIO0, p.PIN_24, p.PIN_29, p.DMA_CH0, p.FLASH,
+    // )
+    // .await;
+    //
+    // let mac_address = network.mac_address().await;
+    // info!("mac_address {:?}", mac_address);
+    //
+    // let name = RobotName::from_mac_address(&mac_address).expect("Unrecognized mac address");
+    // info!("I am {}, mac address {:?}", name, mac_address);
+    //
+    // // Set up core's shared data
+    // // It is important that this happens before any core tasks begin
+    // let shared_data = SHARED_DATA.get_or_init(|| SharedRobotData::new(name));
+    //
     // High-priority executor: SWI_IRQ_1, priority level 2
-    interrupt::SWI_IRQ_1.set_priority(Priority::P2);
-    let int_spawner = EXECUTOR_HIGH.start(interrupt::SWI_IRQ_1);
-    unwrap!(int_spawner.spawn(run_encoders(shared_data, (encoder_a, encoder_b, encoder_c))));
-
-    unwrap!(spawner.spawn(do_wifi(network)));
-    unwrap!(spawner.spawn(do_motors(Motors::new(
-        shared_data,
-        (p.PIN_2, p.PIN_3, p.PIN_6, p.PIN_7, p.PIN_10, p.PIN_11),
-        (p.PWM_SLICE1, p.PWM_SLICE3, p.PWM_SLICE5),
-    ))));
-
-    // xshut pins array
-    let xshut = [
-        p.PIN_14.degrade(),
-        p.PIN_15.degrade(),
-        p.PIN_16.degrade(),
-        p.PIN_17.degrade(),
-    ];
-
-    // set up shared I2C
-    static I2C_BUS: StaticCell<PacbotI2cBus> = StaticCell::new();
-    let i2c_bus = I2C_BUS.init(Mutex::new(embassy_rp::i2c::I2c::new_async(
-        p.I2C1,
-        p.PIN_27,
-        p.PIN_26,
-        Irqs,
-        embassy_rp::i2c::Config::default(),
-    )));
-    unwrap!(spawner.spawn(do_i2c(Peripherals::new(i2c_bus))));
-    unwrap!(spawner.spawn(manage_pico_i2c(i2c_bus, xshut)));
+    // interrupt::SWI_IRQ_1.set_priority(Priority::P2);
+    // let int_spawner = EXECUTOR_HIGH.start(interrupt::SWI_IRQ_1);
+    // unwrap!(int_spawner.spawn(run_encoders(shared_data, (encoder_a, encoder_b, encoder_c))));
+    //
+    // unwrap!(spawner.spawn(do_wifi(network)));
+    // unwrap!(spawner.spawn(do_motors(Motors::new(
+    //     shared_data,
+    //     (p.PIN_2, p.PIN_3, p.PIN_6, p.PIN_7, p.PIN_10, p.PIN_11),
+    //     (p.PWM_SLICE1, p.PWM_SLICE3, p.PWM_SLICE5),
+    // ))));
+    //
+    // // xshut pins array
+    // let xshut = [
+    //     p.PIN_14.degrade(),
+    //     p.PIN_15.degrade(),
+    //     p.PIN_16.degrade(),
+    //     p.PIN_17.degrade(),
+    // ];
+    //
+    // // set up shared I2C
+    // static I2C_BUS: StaticCell<PacbotI2cBus> = StaticCell::new();
+    // let i2c_bus = I2C_BUS.init(Mutex::new(embassy_rp::i2c::I2c::new_async(
+    //     p.I2C1,
+    //     p.PIN_27,
+    //     p.PIN_26,
+    //     Irqs,
+    //     embassy_rp::i2c::Config::default(),
+    // )));
+    // unwrap!(spawner.spawn(do_i2c(Peripherals::new(i2c_bus))));
+    // unwrap!(spawner.spawn(manage_pico_i2c(i2c_bus, xshut)));
 
     info!("Finished spawning tasks");
 
