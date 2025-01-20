@@ -27,18 +27,7 @@ pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
         .insert(CollisionGroups::new(Group::GROUP_1, Group::GROUP_2))
         .insert(Transform::from_xyz(16.0, 16.0, -0.10))
         .insert(Wall);
-    //
-    // commands
-    //     .spawn(Collider::cuboid(32.0, 32.0, 0.01))
-    //     .insert(CollisionGroups::new(Group::GROUP_1, Group::GROUP_2))
-    //     .insert(TransformBundle::from(Transform::from_xyz(16.0, 16.0, 0.0)))
-    //     .insert(Wall);
-    // commands
-    //     .spawn(Collider::cuboid(1.0, 1.0, 0.01))
-    //     .insert(CollisionGroups::new(Group::GROUP_1, Group::GROUP_2))
-    //     .insert(TransformBundle::from(Transform::from_xyz(1.0, 1.0, 0.0)))
-    //     .insert(Wall);
-    //
+
     // Create the walls
     for wall in grid.walls() {
         commands
@@ -88,7 +77,7 @@ pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
     // Draw collider rectangle
     let new_robot = commands
         .spawn((
-            RigidBody::Fixed,
+            RigidBody::Dynamic,
             Collider::cuboid(
                 robot.collider_size.x / 2.0,
                 robot.collider_size.y / 2.0,
@@ -107,9 +96,16 @@ pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
 
         commands.spawn((
             RigidBody::Dynamic,
-            Collider::cylinder(wheel_thickness / 2.0, wheel_radius),
+            Collider::cylinder(wheel.thickness / 2.0, wheel.radius),
             CollisionGroups::new(Group::GROUP_2, Group::GROUP_1),
             ImpulseJoint::new(new_robot, revolute_joint),
+            Transform::from_xyz(
+                wheel.center.x + robot_pos.x,
+                wheel.center.y + robot_pos.y,
+                wheel.center.z + robot_pos.z,
+            ),
+            Velocity::default(),
+            GravityScale(0.0),
         ));
     }
 }
