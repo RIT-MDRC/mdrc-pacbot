@@ -32,7 +32,15 @@ pub fn main() {
         .run();
 }
 
-fn setup_physics(app: ResMut<MyApp>, mut commands: Commands) {
+fn setup_physics(
+    app: ResMut<MyApp>,
+    mut commands: Commands,
+    mut rapier: Query<&mut RapierConfiguration>,
+) {
+    for mut r in &mut rapier {
+        r.gravity = -Vect::Z * 9.81;
+    }
+
     spawn_walls(&mut commands, app.standard_grid);
 }
 
