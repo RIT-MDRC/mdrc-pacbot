@@ -71,7 +71,7 @@ impl RobotDefinition<3, 4> {
             has_screen: false,
             sensor_distance: 1.5,
 
-            sensor_locations: todo!(),
+            sensor_locations: [(), (), (), ()],
         }
     }
 }

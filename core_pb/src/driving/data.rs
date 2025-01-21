@@ -16,11 +16,11 @@ use embassy_sync::watch::Watch;
 use portable_atomic::{AtomicBool, AtomicF32, AtomicI32, AtomicI8};
 
 /* 2-WHEEL NON-OMNI MOUSE ROBOT */
-pub const NUM_WHEELS: usize = 2;
-pub const NUM_SENSORS: usize = 5;
+// pub const NUM_WHEELS: usize = 2;
+// pub const NUM_SENSORS: usize = 5;
 /* 3-WHEEL OMNI ROBOT */
-// pub const NUM_WHEELS: usize = 3;
-// pub const NUM_SENSORS: usize = 4;
+pub const NUM_WHEELS: usize = 3;
+pub const NUM_SENSORS: usize = 4;
 
 /// Each robot should have exactly one. Some fields are managed by core_pb, but (when noted)
 /// implementations are responsible for updating values

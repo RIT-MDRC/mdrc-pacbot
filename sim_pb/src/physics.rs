@@ -147,16 +147,16 @@ impl MyApp {
                 *m += *m * noise;
             }
             sim_robot.data.sig_motor_speeds.signal(motor_speeds);
-            let mut target_vel = robot_definition
-                .drive_system
-                .get_actual_vel_omni(motor_speeds);
-            let move_scale = target_vel.0.magnitude();
-            if target_vel.0 != Vector2::new(0.0, 0.0) {
-                target_vel.0 = target_vel.0.normalize() * move_scale;
-            }
-            imp.impulse.x = target_vel.0.x - v.linvel.x * 0.6;
-            imp.impulse.y = target_vel.0.y - v.linvel.y * 0.6;
-            imp.torque_impulse = target_vel.1 - v.angvel * 0.1;
+            // let mut target_vel = robot_definition
+            //     .drive_system
+            //     .get_actual_vel_omni(motor_speeds);
+            // let move_scale = target_vel.0.magnitude();
+            // if target_vel.0 != Vector2::new(0.0, 0.0) {
+            //     target_vel.0 = target_vel.0.normalize() * move_scale;
+            // }
+            // imp.impulse.x = target_vel.0.x - v.linvel.x * 0.6;
+            // imp.impulse.y = target_vel.0.y - v.linvel.y * 0.6;
+            // imp.torque_impulse = target_vel.1 - v.angvel * 0.1;
         }
     }
 

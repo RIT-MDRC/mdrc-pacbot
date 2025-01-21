@@ -1,10 +1,11 @@
-use crate::{Wall, Wheel};
+use crate::{DistanceSensor, Wall, Wheel};
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use core_pb::constants::{INCHES_PER_GU, MM_PER_GU};
 use core_pb::grid::standard_grid::StandardGrid;
 use pid::Pid;
 
+#[derive(Clone, Debug)]
 struct RobotShapeWheel {
     center: Vec3,
     radius: f32,
@@ -12,16 +13,19 @@ struct RobotShapeWheel {
     motor: bool,
 }
 
+#[derive(Clone, Debug)]
 struct RobotCasterWheel {
     center: Vec3,
     radius: f32,
 }
 
-struct RobotDistanceSensor {
-    center: Vec3,
-    facing: Vec3,
+#[derive(Clone, Debug)]
+pub struct RobotDistanceSensor {
+    pub center: Vec3,
+    pub facing: Vec3,
 }
 
+#[derive(Clone, Debug)]
 struct RobotShape {
     collider_size: Vec3,
     collider_z: f32,
@@ -57,6 +61,7 @@ pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
                 inches(2.0),
             ))
             .insert(Wall);
+        // .insert(ColliderDebug::NeverRender);
     }
 
     // Create the robot
@@ -203,6 +208,7 @@ pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
             ),
             GravityScale(0.0),
             Velocity::default(),
+            DistanceSensor(sensor.clone()),
         ));
     }
 }
