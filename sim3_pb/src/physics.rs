@@ -1,13 +1,15 @@
-use crate::Wall;
+use crate::{Wall, Wheel};
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use core_pb::constants::{INCHES_PER_GU, MM_PER_GU};
 use core_pb::grid::standard_grid::StandardGrid;
+use pid::Pid;
 
 struct RobotShapeWheel {
     center: Vec3,
     radius: f32,
     thickness: f32,
+    motor: bool,
 }
 
 struct RobotCasterWheel {
@@ -72,6 +74,7 @@ pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
                 ),
                 radius: wheel_radius,
                 thickness: wheel_thickness,
+                motor: true,
             },
             RobotShapeWheel {
                 center: Vec3::new(
@@ -81,6 +84,7 @@ pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
                 ),
                 radius: wheel_radius,
                 thickness: wheel_thickness,
+                motor: true,
             },
         ],
         casters: vec![RobotCasterWheel {
@@ -135,9 +139,16 @@ pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
         ))
         .id();
 
+    let mut i = 0;
     for wheel in &robot.wheels {
         let revolute_joint = RevoluteJointBuilder::new(Vec3::Y)
             .local_anchor1(wheel.center + Vec3::new(0.0, 0.0, -robot.collider_z));
+        // if wheel.motor {
+        //     revolute_joint = revolute_joint.motor_velocity(1.0, 500.0);
+        // }
+
+        let mut pid = Pid::new(0.0, 0.01);
+        pid.p(0.01, 0.01);
 
         commands.spawn((
             RigidBody::Dynamic,
@@ -150,7 +161,11 @@ pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
                 wheel.center.z + robot_pos.z,
             ),
             Velocity::default(),
+            ExternalForce::default(),
+            Wheel(i, pid),
         ));
+
+        i += 1;
     }
 
     for caster in &robot.casters {

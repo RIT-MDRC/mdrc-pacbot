@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 core_pb = { path = "../core_pb", features = ["std", "log"] }
 bevy_rapier3d = { version = "0.28.0", features = ["debug-render-3d"] }
+pid = "4.0.0"
 
 [dependencies.bevy]
 version = "0.15.1"
