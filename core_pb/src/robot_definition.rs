@@ -36,7 +36,7 @@ pub struct WheelDefinition {}
 
 impl RobotDefinition<2, 5> {
     /// Create the default `RobotDefinition` for the given robot
-    pub fn new(name: RobotName) -> Self {
+    pub fn new(_name: RobotName) -> Self {
         todo!()
     }
 }
