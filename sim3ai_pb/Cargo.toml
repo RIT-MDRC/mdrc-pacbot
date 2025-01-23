@@ -1,0 +1,19 @@
+[workspace]
+
+[package]
+name = "sim3ai_pb"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+core_pb = { path = "../core_pb", features = ["std", "log"] }
+pid = "4.0.0"
+rapier3d = "0.23.0"
+
+[profile.dev.package.rapier3d]
+opt-level = 3
+
+[profile.release]
+codegen-units = 1
