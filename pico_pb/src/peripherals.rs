@@ -29,7 +29,7 @@ pub async fn run_imu(enabled: &'static AtomicBool, bus: &'static PacbotI2cBus) -
         .await
 }
 
-static DIST_ENABLED: AtomicBool = AtomicBool::new(true);
+static DIST_ENABLED: AtomicBool = AtomicBool::new(false);
 
 pub async fn run_dist(
     enabled: &'static AtomicBool,

@@ -39,7 +39,7 @@ defmt = { version = "0.3.8", optional = true }
 log = { version = "0.4.22", optional = true }
 
 # Synchronization
-embassy-sync = { version = "0.6.1", git = "https://github.com/embassy-rs/embassy.git" }
+embassy-sync = "0.6.2"
 portable-atomic = { version = "1.9.0", features = ["float"] }
 async-channel = { version = "2.3.1", optional = true }
 atomic = { version = "0.6.0", default-features = false }
