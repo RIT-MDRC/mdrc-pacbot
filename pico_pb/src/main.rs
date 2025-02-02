@@ -137,12 +137,10 @@ async fn main(spawner: Spawner) {
 
     // set up shared I2C
     static I2C_BUS: StaticCell<PacbotI2cBus> = StaticCell::new();
+    let mut i2c_config = embassy_rp::i2c::Config::default();
+    i2c_config.frequency = 400_000;
     let i2c_bus = I2C_BUS.init(Mutex::new(embassy_rp::i2c::I2c::new_async(
-        p.I2C1,
-        p.PIN_27,
-        p.PIN_26,
-        Irqs,
-        embassy_rp::i2c::Config::default(),
+        p.I2C1, p.PIN_27, p.PIN_26, Irqs, i2c_config,
     )));
     unwrap!(spawner.spawn(do_i2c(Peripherals::new(i2c_bus))));
     unwrap!(spawner.spawn(manage_pico_i2c(i2c_bus, xshut)));

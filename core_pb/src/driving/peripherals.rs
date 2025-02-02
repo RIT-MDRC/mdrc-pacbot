@@ -78,7 +78,7 @@ pub async fn peripherals_task<R: RobotBehavior>(
             something_changed = true;
         }
 
-        if last_display_time.elapsed() > Duration::from_millis(30) {
+        if last_display_time.elapsed() > Duration::from_millis(120) {
             last_display_time = R::Instant::default();
             while let Some((button, pressed)) = peripherals.read_button_event().await {
                 display_manager.button_event(button, pressed);
