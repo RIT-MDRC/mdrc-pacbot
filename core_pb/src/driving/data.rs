@@ -76,6 +76,7 @@ pub struct SharedRobotData<R: RobotBehavior + ?Sized> {
         CriticalSectionRawMutex,
         Result<f32, <R::Peripherals as RobotPeripheralsBehavior>::Error>,
     >,
+    pub buttons: [AtomicBool; 6],
     /// Logging bytes from defmt
     ///
     /// It is the responsibility of the implementation to update this field.
@@ -149,6 +150,7 @@ impl<R: RobotBehavior> SharedRobotData<R> {
             sig_extra_imu_data: Default::default(),
             sig_distances: Default::default(),
             sig_battery: Default::default(),
+            buttons: array_init(|_| AtomicBool::new(false)),
             defmt_logs: Pipe::new(),
 
             extra_opts: make_extra_atomic_types(),

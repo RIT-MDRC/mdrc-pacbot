@@ -102,9 +102,10 @@ impl PacbotIMU {
         // do nothing if the sensor is OK
         if self.initialized {
             // should we enable reports?
-            let should_do_extra_reports = PicoRobotBehavior::get()
-                .get_extra_bool_opt(7)
-                .unwrap_or(false);
+            // let should_do_extra_reports = PicoRobotBehavior::get()
+            //     .get_extra_bool_opt(7)
+            //     .unwrap_or(false);
+            let should_do_extra_reports = false;
             if !self.extra_reports && should_do_extra_reports {
                 self.sensor
                     .enable_report(SENSOR_REPORTID_ACCELEROMETER, 1000)

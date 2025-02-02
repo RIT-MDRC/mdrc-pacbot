@@ -1,16 +1,16 @@
 use crate::devices::bno08x::{ImuError, PacbotIMU};
 use crate::devices::ltc2943::Ltc2943;
+use crate::devices::seesaw_gamepad_qt::SeesawGamepadQt;
 use crate::devices::ssd1306::{PacbotDisplay, PacbotDisplayWrapper};
 use crate::devices::vl53l4cd::PacbotDistanceSensor;
 use crate::{PacbotI2cBus, PicoRobotBehavior};
-use core::sync::atomic::AtomicBool;
+use core::sync::atomic::{AtomicBool, Ordering};
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::messages::RobotButton;
 use defmt::Format;
 use display_interface::DisplayError;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;
 use embassy_executor::task;
-use embassy_futures::join::join3;
 use embassy_rp::gpio::{AnyPin, Level, Output};
 use embassy_rp::i2c;
 use futures::future::join4;
@@ -55,6 +55,12 @@ pub async fn run_battery_monitor(enabled: &'static AtomicBool, bus: &'static Pac
     Ltc2943::new(bus, enabled, &PicoRobotBehavior::get().sig_battery)
         .run_forever()
         .await
+}
+
+static GAMEPAD_ENABLED: AtomicBool = AtomicBool::new(true);
+
+pub async fn run_gamepad(enabled: &'static AtomicBool, bus: &'static PacbotI2cBus) {
+    SeesawGamepadQt::new(bus, enabled).run_forever().await
 }
 
 pub struct Peripherals {
@@ -106,43 +112,24 @@ impl RobotPeripheralsBehavior for Peripherals {
         self.display.flush().await;
     }
 
-    // async fn absolute_rotation(&mut self) -> Result<f32, Self::Error> {
-    //     // if let Some(rot) = IMU_SIGNAL.try_take() {
-    //     //     self.angle = rot;
-    //     // }
-    //     // self.angle.clone()
-    //     Ok(ENCODER_ANGLE.load(Ordering::Relaxed))
-    // }
-    //
-    // async fn extra_imu_data(&mut self) -> Option<ExtraImuData> {
-    //     if let Some(data) = EXTRA_IMU_DATA_SIGNAL.try_take() {
-    //         self.extra_imu_data = Some(data);
-    //     }
-    //     self.extra_imu_data
-    // }
-    //
-    // async fn distance_sensor(&mut self, index: usize) -> Result<Option<f32>, Self::Error> {
-    //     if let Some(dist) = DIST_SIGNALS[index].try_take() {
-    //         self.distances[index] = dist.map(|x| {
-    //             x.map(|y| {
-    //                 // found via linear regression
-    //                 let mut float_mm = y as f32 * 1.164826877 + -30.0;
-    //                 float_mm = f32::max(float_mm, 0.0);
-    //                 float_mm / MM_PER_GU
-    //             })
-    //         });
-    //     }
-    //     self.distances[index].clone()
-    // }
-    //
-    // async fn battery_level(&mut self) -> Result<f32, Self::Error> {
-    //     if let Some(bat) = BATTERY_MONITOR_SIGNAL.try_take() {
-    //         self.battery = bat;
-    //     }
-    //     self.battery.clone()
-    // }
-
     async fn read_button_event(&mut self) -> Option<(RobotButton, bool)> {
+        for (i, b) in PicoRobotBehavior::get().buttons.iter().enumerate() {
+            if b.load(Ordering::Relaxed) {
+                b.store(false, Ordering::Relaxed);
+                return Some((
+                    match i {
+                        0 => RobotButton::NorthX,
+                        1 => RobotButton::WestY,
+                        2 => RobotButton::EastA,
+                        3 => RobotButton::SouthB,
+                        4 => RobotButton::RightSelect,
+                        5 => RobotButton::LeftStart,
+                        _ => unreachable!(),
+                    },
+                    true,
+                ));
+            }
+        }
         None
     }
 
@@ -154,7 +141,7 @@ impl RobotPeripheralsBehavior for Peripherals {
 #[task]
 pub async fn manage_pico_i2c(bus: &'static PacbotI2cBus, xshut: [AnyPin; NUM_DIST_SENSORS]) {
     let [a, b, c, d] = xshut;
-    join3(
+    join4(
         run_imu(&IMU_ENABLED, bus),
         join4(
             run_dist(&DIST_ENABLED, bus, 0, a),
@@ -163,6 +150,7 @@ pub async fn manage_pico_i2c(bus: &'static PacbotI2cBus, xshut: [AnyPin; NUM_DIS
             run_dist(&DIST_ENABLED, bus, 3, d),
         ),
         run_battery_monitor(&BATTERY_MONITOR_ENABLED, bus),
+        run_gamepad(&GAMEPAD_ENABLED, bus),
     )
     .await;
 }

@@ -182,9 +182,12 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
     fn pacman<D: DrawTarget<Color = BinaryColor>>(&mut self, d: &mut D) -> Result<(), D::Error> {
         let base_x = 60;
         let base_y = 4;
-        if self.last_game_state_step.elapsed().as_millis() > (1000 / 24) {
+        let steps_to_pass = self.last_game_state_step.elapsed().as_millis() / (1000 / 24);
+        if steps_to_pass > 0 {
             self.last_game_state_step = I::default();
-            self.game_state.step();
+            for _ in 0..steps_to_pass {
+                self.game_state.step();
+            }
         }
         // walls/pellets
         for row in 0..(MAZE_ROWS as i8 + 1) {
