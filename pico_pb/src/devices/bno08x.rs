@@ -79,17 +79,16 @@ impl PacbotIMU {
         let mut dqz = k;
 
         let norm = (dqw * dqw + dqx * dqx + dqy * dqy + dqz * dqz).sqrt();
-        dqw = dqw / norm;
-        dqx = dqx / norm;
-        dqy = dqy / norm;
-        dqz = dqz / norm;
+        dqw /= norm;
+        dqx /= norm;
+        dqy /= norm;
+        dqz /= norm;
 
         let ysq = dqy * dqy;
 
         let t3 = 2.0 * (dqw * dqz + dqx * dqy);
         let t4 = 1.0 - 2.0 * (ysq + dqz * dqz);
-        let yaw = f32::atan2(t3, t4);
-        yaw
+        f32::atan2(t3, t4)
     }
 
     async fn initialize(&mut self) -> Result<(), PeripheralsError> {

@@ -72,7 +72,7 @@ impl Page {
     }
 }
 
-impl<'r, R: RobotBehavior> DisplayManager<'r, R> {
+impl<R: RobotBehavior> DisplayManager<'_, R> {
     pub fn draw_content<D: DrawTarget<Color = BinaryColor>>(
         &mut self,
         page: Page,

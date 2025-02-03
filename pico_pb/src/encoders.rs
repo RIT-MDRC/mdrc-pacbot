@@ -88,20 +88,18 @@ impl<T: Instance, const SM: usize> WrappedPioEncoder<T, SM> {
     }
 
     pub async fn read(&mut self) -> Direction {
-        loop {
-            let d = self.pio_encoder.read().await;
-            match d {
-                Direction::CounterClockwise => {
-                    self.ar.tick(false);
-                    self.ticks -= 1;
-                }
-                Direction::Clockwise => {
-                    self.ar.tick(true);
-                    self.ticks += 1;
-                }
-            };
-            return d;
-        }
+        let d = self.pio_encoder.read().await;
+        match d {
+            Direction::CounterClockwise => {
+                self.ar.tick(false);
+                self.ticks -= 1;
+            }
+            Direction::Clockwise => {
+                self.ar.tick(true);
+                self.ticks += 1;
+            }
+        };
+        d
     }
 
     pub fn average_rate(&self) -> f32 {
