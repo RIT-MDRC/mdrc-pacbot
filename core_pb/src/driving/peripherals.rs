@@ -1,5 +1,5 @@
 use crate::driving::data::SharedRobotData;
-use crate::driving::{RobotBehavior, Watched};
+use crate::driving::{RobotBehavior, Ticker};
 use crate::messages::{RobotButton, SensorData, Task, MAX_SENSOR_ERR_LEN};
 use crate::region_localization::estimate_location_2;
 use crate::robot_display::DisplayManager;
@@ -33,9 +33,6 @@ pub async fn peripherals_task<R: RobotBehavior>(
     data: &SharedRobotData<R>,
     mut peripherals: R::Peripherals,
 ) {
-    let name = data.name;
-    let robot = data.robot_definition;
-
     let mut sensors = SensorData {
         angle: Err("unknown".try_into().unwrap()),
         distances: array_init(|_| Err("unknown".try_into().unwrap())),
@@ -44,11 +41,9 @@ pub async fn peripherals_task<R: RobotBehavior>(
     };
 
     let sensors_sender = data.sensors.sender();
-    let mut config = Watched::new_receiver(&data.config).await;
-    let mut network_watch = data.network_status.receiver().unwrap();
+    let mut config = data.config.receiver().unwrap();
 
-    let mut display_manager: DisplayManager<R::Instant> =
-        DisplayManager::new(name, sensors.clone());
+    let mut display_manager = DisplayManager::new(data);
 
     let mut utilization_monitor: UtilizationMonitor<50, R::Instant> =
         UtilizationMonitor::new(0.0, 0.0);
@@ -56,13 +51,10 @@ pub async fn peripherals_task<R: RobotBehavior>(
 
     let mut last_display_time = R::Instant::default();
 
+    let mut ticker: Ticker<R::Instant> = Ticker::new();
     loop {
         let mut something_changed = false;
 
-        if let Some(status) = network_watch.try_changed() {
-            (display_manager.network_status, display_manager.ip) = status;
-            something_changed = true;
-        }
         if let Some(r) = data.sig_angle.try_take() {
             sensors.angle = handle_err(r);
             something_changed = true;
@@ -92,19 +84,20 @@ pub async fn peripherals_task<R: RobotBehavior>(
 
         if something_changed {
             sensors.location = estimate_location_2(
-                config.get().grid,
-                config.get().cv_location,
+                config.get().await.grid,
+                config.get().await.cv_location,
                 &sensors.distances,
-                &robot,
+                &data.robot_definition,
             );
-            display_manager.sensors = sensors.clone();
             sensors_sender.send(sensors.clone());
             data.utilization[Task::Peripherals as usize]
                 .store(utilization_monitor.utilization(), Ordering::Relaxed);
         }
 
         utilization_monitor.stop();
-        R::Instant::sleep(Duration::from_millis(10)).await;
+        ticker
+            .tick(Duration::from_millis(15), Duration::from_millis(5))
+            .await;
         utilization_monitor.start();
     }
 }

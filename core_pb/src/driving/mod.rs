@@ -7,8 +7,7 @@ use crate::driving::motors::RobotMotorsBehavior;
 use crate::driving::network::RobotNetworkBehavior;
 use crate::driving::peripherals::RobotPeripheralsBehavior;
 use crate::util::CrossPlatformInstant;
-use embassy_sync::blocking_mutex::raw::RawMutex;
-use embassy_sync::watch::{Receiver, Watch};
+use core::time::Duration;
 
 pub trait RobotBehavior: 'static {
     type Instant: CrossPlatformInstant + Default;
@@ -18,22 +17,21 @@ pub trait RobotBehavior: 'static {
     type Peripherals: RobotPeripheralsBehavior;
 }
 
-pub struct Watched<'a, M: RawMutex + 'static, T: Clone + 'static, const N: usize> {
-    receiver: Receiver<'a, M, T, N>,
-    data: T,
-}
+#[derive(Default)]
+pub struct Ticker<I: Default>(I);
 
-impl<'a, M: RawMutex, T: Clone, const N: usize> Watched<'a, M, T, N> {
-    pub async fn new_receiver(watch: &'a Watch<M, T, N>) -> Self {
-        let mut receiver = watch.receiver().unwrap();
-        let data = receiver.get().await;
-        Self { receiver, data }
+impl<I: CrossPlatformInstant + Default> Ticker<I> {
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    pub fn get(&mut self) -> &T {
-        if let Some(t) = self.receiver.try_changed() {
-            self.data = t;
+    pub async fn tick(&mut self, interval: Duration, min_wait: Duration) {
+        if self.0.elapsed() > interval {
+            I::sleep(min_wait).await;
+        } else {
+            let t = Duration::max(interval - self.0.elapsed(), min_wait);
+            I::sleep(t).await;
         }
-        &self.data
+        self.0 = I::default()
     }
 }

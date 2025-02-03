@@ -1,9 +1,9 @@
 mod menu;
 
 use crate::constants::{DEFAULT_NETWORK, ROBOT_DISPLAY_HEIGHT, ROBOT_DISPLAY_WIDTH};
-use crate::messages::SensorData;
+use crate::driving::data::SharedRobotData;
+use crate::driving::RobotBehavior;
 use crate::messages::{NetworkStatus, RobotButton};
-use crate::names::RobotName;
 use crate::robot_display::menu::Page;
 use crate::util::CrossPlatformInstant;
 use embedded_graphics::mono_font::ascii::FONT_5X7;
@@ -14,27 +14,23 @@ use embedded_graphics::text::Text;
 use embedded_graphics::Drawable;
 use pacbot_rs::game_state::GameState;
 
-pub struct DisplayManager<I: CrossPlatformInstant + Default> {
-    name: RobotName,
-    initial_time: I,
+pub struct DisplayManager<'r, R: RobotBehavior> {
+    data: &'r SharedRobotData<R>,
 
-    animation_timer: I,
+    animation_timer: R::Instant,
     page: Page,
     submenu_index: usize,
     game_state: GameState,
-    last_game_state_step: I,
+    last_game_state_step: R::Instant,
 
     typing_tests: [TextInput<32>; 3],
 
-    pub network_status: NetworkStatus,
-    pub ip: Option<[u8; 4]>,
     pub ssid: Option<([u8; 32], usize)>,
-    pub sensors: SensorData,
     pub joystick: (f32, f32),
 }
 
-impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
-    pub fn new(name: RobotName, sensors: SensorData) -> Self {
+impl<'r, R: RobotBehavior> DisplayManager<'r, R> {
+    pub fn new(data: &'r SharedRobotData<R>) -> Self {
         let mut ssid = [0; 32];
         for (i, ch) in DEFAULT_NETWORK.as_bytes().iter().enumerate().take(32) {
             ssid[i] = *ch;
@@ -43,21 +39,17 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
         game_state.paused = false;
         game_state.step();
         Self {
-            name,
-            initial_time: I::default(),
+            data,
 
-            animation_timer: I::default(),
+            animation_timer: R::Instant::default(),
             page: Page::Main,
             submenu_index: 0,
             game_state,
-            last_game_state_step: I::default(),
+            last_game_state_step: R::Instant::default(),
 
             typing_tests: [TextInput::new(); 3],
 
-            network_status: NetworkStatus::NotConnected,
             ssid: Some((ssid, DEFAULT_NETWORK.len().min(32))),
-            ip: None,
-            sensors,
             joystick: (0.0, 0.0),
         }
     }
@@ -149,15 +141,16 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
         d: &mut D,
     ) -> Result<(), D::Error> {
         // name top left
-        self.text(self.name.get_str(), Point::new(3, 6), d)?;
+        self.text(self.data.name.get_str(), Point::new(3, 6), d)?;
         let mut buf = [0; 20];
         // ip top right
-        let ip_str = match self.network_status {
-            NetworkStatus::NotConnected => "NO CONNECTION",
-            NetworkStatus::ConnectionFailed => "WIFI FAILED",
-            NetworkStatus::Connecting => "CONNECTING",
-            NetworkStatus::Connected => {
-                if let Some([a, b, c, d]) = self.ip {
+        let ip_str = match self.data.network_status.try_get() {
+            None => "UNKNOWN",
+            Some((NetworkStatus::NotConnected, _)) => "NO CONNECTION",
+            Some((NetworkStatus::ConnectionFailed, _)) => "WIFI FAILED",
+            Some((NetworkStatus::Connecting, _)) => "CONNECTING",
+            Some((NetworkStatus::Connected, ip)) => {
+                if let Some([a, b, c, d]) = ip {
                     format_no_std::show(&mut buf, format_args!("{a}.{b}.{c}.{d}"))
                         .unwrap_or("FORMAT ERR")
                 } else {
@@ -193,8 +186,8 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
             &mut buf,
             format_args!(
                 "uptime {}:{:0>2}",
-                self.initial_time.elapsed().as_secs() / 60,
-                self.initial_time.elapsed().as_secs() % 60
+                self.data.created_at.elapsed().as_secs() / 60,
+                self.data.created_at.elapsed().as_secs() % 60
             ),
         )
         .unwrap_or("FORMAT ERR");
@@ -206,38 +199,42 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
             ),
             d,
         )?;
-        // distance sensors
-        self.text(
-            "dist",
-            Point::new(3, ROBOT_DISPLAY_HEIGHT as i32 - (7 * 7)),
-            d,
-        )?;
-        for i in 0..4 {
-            let s = match self.sensors.distances[i] {
-                Err(_) => " ERR",
-                Ok(None) => "NONE",
-                Ok(Some(d)) => {
-                    format_no_std::show(&mut buf, format_args!("{:>4.1}", d)).unwrap_or("?")
-                }
-            };
+        if let Some(sensors) = self.data.sensors.try_get() {
+            // distance sensors
             self.text(
-                s,
-                Point::new(3, ROBOT_DISPLAY_HEIGHT as i32 + 1 - (7 * (6 - i as i32))),
+                "dist",
+                Point::new(3, ROBOT_DISPLAY_HEIGHT as i32 - (7 * 7)),
                 d,
             )?;
+            for i in 0..4 {
+                let s = match sensors.distances[i] {
+                    Err(_) => " ERR",
+                    Ok(None) => "NONE",
+                    Ok(Some(d)) => {
+                        format_no_std::show(&mut buf, format_args!("{:>4.1}", d)).unwrap_or("?")
+                    }
+                };
+                self.text(
+                    s,
+                    Point::new(3, ROBOT_DISPLAY_HEIGHT as i32 + 1 - (7 * (6 - i as i32))),
+                    d,
+                )?;
+            }
+            // angle
+            self.text(
+                "angl",
+                Point::new(3, ROBOT_DISPLAY_HEIGHT as i32 - 4 - 7),
+                d,
+            )?;
+            let s = match sensors.angle {
+                Err(_) => " ERR",
+                Ok(a) => {
+                    format_no_std::show(&mut buf, format_args!("{:>4}", a.to_degrees() as i32))
+                        .unwrap_or("?")
+                }
+            };
+            self.text(s, Point::new(3, ROBOT_DISPLAY_HEIGHT as i32 - 3), d)?;
         }
-        // angle
-        self.text(
-            "angl",
-            Point::new(3, ROBOT_DISPLAY_HEIGHT as i32 - 4 - 7),
-            d,
-        )?;
-        let s = match self.sensors.angle {
-            Err(_) => " ERR",
-            Ok(a) => format_no_std::show(&mut buf, format_args!("{:>4}", a.to_degrees() as i32))
-                .unwrap_or("?"),
-        };
-        self.text(s, Point::new(3, ROBOT_DISPLAY_HEIGHT as i32 - 3), d)?;
         Ok(())
     }
 

@@ -26,6 +26,7 @@ pub enum Page {
 }
 
 use crate::constants::ROBOT_DISPLAY_WIDTH;
+use crate::driving::RobotBehavior;
 use Page::*;
 
 impl Page {
@@ -60,9 +61,9 @@ impl Page {
         }
     }
 
-    fn text_edit<'a, I: CrossPlatformInstant + Default>(
+    fn text_edit<'a, R: RobotBehavior>(
         &self,
-        dm: &'a mut DisplayManager<I>,
+        dm: &'a mut DisplayManager<R>,
     ) -> Option<&'a mut TextInput<32>> {
         match self {
             TypingTestEdit(i) => Some(&mut dm.typing_tests[*i]),
@@ -71,7 +72,7 @@ impl Page {
     }
 }
 
-impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
+impl<'r, R: RobotBehavior> DisplayManager<'r, R> {
     pub fn draw_content<D: DrawTarget<Color = BinaryColor>>(
         &mut self,
         page: Page,
@@ -122,7 +123,7 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
             (Pacman, _, button, true) => match button {
                 RobotButton::RightSelect => {
                     self.game_state =
-                        GameState::new_with_seed(self.initial_time.elapsed().as_micros() as u64);
+                        GameState::new_with_seed(self.data.created_at.elapsed().as_micros() as u64);
                     self.game_state.paused = false;
                     self.game_state.step();
                 }
@@ -148,7 +149,7 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
             }
         }
         if self.page != old_page {
-            self.animation_timer = I::default();
+            self.animation_timer = R::Instant::default();
             if !self.page.submenu().is_empty() {
                 self.submenu_index %= self.page.submenu().len();
             }
@@ -184,8 +185,8 @@ impl<I: CrossPlatformInstant + Default> DisplayManager<I> {
         let base_y = 4;
         let steps_to_pass = self.last_game_state_step.elapsed().as_millis() / (1000 / 24);
         if steps_to_pass > 0 {
-            self.last_game_state_step = I::default();
-            for _ in 0..steps_to_pass {
+            self.last_game_state_step = R::Instant::default();
+            for _ in 0..u128::min(steps_to_pass, 5000 / (1000 / 24)) {
                 self.game_state.step();
             }
         }
