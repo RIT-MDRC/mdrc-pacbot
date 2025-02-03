@@ -1,4 +1,3 @@
-use crate::Wall;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use core_pb::constants::{INCHES_PER_GU, MM_PER_GU};
@@ -173,6 +172,7 @@ impl PhysicsRobot {
                     .id();
 
                 associated_entities.push(id);
+                commands.entity(id).despawn();
                 id
             })
             .collect::<Vec<_>>();
@@ -277,8 +277,7 @@ pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
     commands
         .spawn(Collider::cuboid(16.0, 16.0, 0.10))
         .insert(CollisionGroups::new(Group::GROUP_1, Group::GROUP_2))
-        .insert(Transform::from_xyz(16.0, 16.0, -0.10))
-        .insert(Wall);
+        .insert(Transform::from_xyz(16.0, 16.0, -0.10));
 
     // Create the walls
     for wall in grid.walls() {
@@ -293,9 +292,8 @@ pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
                 (wall.bottom_right.x as f32 * 1.0 + wall.top_left.x as f32 * 1.0) / 2.0,
                 (wall.bottom_right.y as f32 * 1.0 + wall.top_left.y as f32 * 1.0) / 2.0,
                 inches(2.0),
-            ))
-            // .insert(ColliderDebug::NeverRender)
-            .insert(Wall);
+            ));
+        // .insert(ColliderDebug::NeverRender);
     }
 
     // Create the robot

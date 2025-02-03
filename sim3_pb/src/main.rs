@@ -44,13 +44,13 @@ fn setup_physics(
     spawn_walls(&mut commands, app.standard_grid);
 }
 
-// fn ray_casts(
-//     rapier_context: ReadDefaultRapierContext,
-//     sensors: Query<(&Transform, &DistanceSensor)>,
-// ) {
-//     let filter: QueryFilter =
-//         QueryFilter::default().groups(CollisionGroups::new(Group::GROUP_2, Group::GROUP_1));
-//     for s in &sensors {
-//         rapier_context.cast_ray_and_get_normal(s.0.translation, s.1 .0.facing, 8.0, true, filter);
-//     }
-// }
+fn ray_casts(
+    rapier_context: ReadDefaultRapierContext,
+    sensors: Query<(&Transform, &DistanceSensor)>,
+) {
+    let filter: QueryFilter =
+        QueryFilter::default().groups(CollisionGroups::new(Group::GROUP_2, Group::GROUP_1));
+    for s in &sensors {
+        rapier_context.cast_ray_and_get_normal(s.0.translation, s.1 .0.facing, 8.0, true, filter);
+    }
+}

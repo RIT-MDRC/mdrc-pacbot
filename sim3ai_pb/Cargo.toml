@@ -9,8 +9,10 @@ edition = "2021"
 
 [dependencies]
 core_pb = { path = "../core_pb", features = ["std", "log"] }
+sim3_pb = { path = "../sim3_pb" }
 pid = "4.0.0"
-rapier3d = "0.23.0"
+rapier3d = { version = "0.22.0" }
+glam = "0.29.2"
 
 [profile.dev.package.rapier3d]
 opt-level = 3

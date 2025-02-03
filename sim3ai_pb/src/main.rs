@@ -1,3 +1,5 @@
+mod physics;
+
 use rapier3d::prelude::*;
 use std::time::Instant;
 
@@ -18,7 +20,7 @@ fn main() {
     collider_set.insert_with_parent(collider, ball_body_handle, &mut rigid_body_set);
 
     /* Create other structures necessary for the simulation. */
-    let gravity = vector![0.0, -9.81, 0.0];
+    let gravity = vector![0.0, 0.0, -9.81];
     let integration_parameters = IntegrationParameters::default();
     let mut physics_pipeline = PhysicsPipeline::new();
     let mut island_manager = IslandManager::new();
