@@ -1,5 +1,5 @@
 use crate::driving::data::SharedRobotData;
-use crate::driving::{RobotBehavior, Ticker};
+use crate::driving::RobotBehavior;
 use crate::messages::{RobotButton, SensorData, Task, MAX_SENSOR_ERR_LEN};
 use crate::region_localization::estimate_location_2;
 use crate::robot_display::DisplayManager;
@@ -51,8 +51,10 @@ pub async fn peripherals_task<R: RobotBehavior>(
 
     let mut last_display_time = R::Instant::default();
 
-    let mut ticker: Ticker<R::Instant> = Ticker::new();
     loop {
+        // used to control the sleep between loop iterations
+        let loop_start_time = R::Instant::default();
+        // if any sensors changed, recompute the estimated position
         let mut something_changed = false;
 
         if let Some(r) = data.sig_angle.try_take() {
@@ -95,13 +97,31 @@ pub async fn peripherals_task<R: RobotBehavior>(
         }
 
         utilization_monitor.stop();
-        ticker
-            .tick(Duration::from_millis(15), Duration::from_millis(5))
+        // The peripherals loop tends to use a significant percentage of its loop time doing I/O
+        // Peripherals should always sleep for at least a little bit in order to give other tasks
+        // a chance to run
+        let min_wait_time = Duration::from_millis(5);
+        // Ideally, peripherals runs at a consistent rate
+        let ideal_loop_interval = Duration::from_millis(15);
+        let this_loop_time = loop_start_time.elapsed();
+        if this_loop_time > ideal_loop_interval {
+            // This is bad; the peripherals loop took longer to run than its ideal interval
+            // This will manifest in a drop in utilization_monitor's hz() result
+            R::Instant::sleep(min_wait_time).await;
+        } else {
+            // Make sure to sleep for at least min_wait_time
+            R::Instant::sleep(Duration::max(
+                this_loop_time - ideal_loop_interval,
+                min_wait_time,
+            ))
             .await;
+        }
+        // After sleeping, activity continues at the start of the loop
         utilization_monitor.start();
     }
 }
 
+/// Converts Results from sensors into heapless::String Results to be sent to the GUI
 fn handle_err<T, E: Debug>(r: Result<T, E>) -> Result<T, heapless::String<MAX_SENSOR_ERR_LEN>> {
     let mut fmt_buf = [0; 100];
     match r {

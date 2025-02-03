@@ -1,10 +1,9 @@
 use crate::constants::ROBOT_LOGS_BUFFER;
 use crate::driving::peripherals::RobotPeripheralsBehavior;
 use crate::driving::RobotBehavior;
-use crate::grid::standard_grid::StandardGrid;
 use crate::messages::{
     ExtraImuData, ExtraOptsAtomicTypes, ExtraOptsTypes, FrequentServerToRobot, MotorControlStatus,
-    NetworkStatus, SensorData, VelocityControl,
+    NetworkStatus, SensorData,
 };
 use crate::names::RobotName;
 use crate::robot_definition::RobotDefinition;
@@ -142,23 +141,7 @@ impl<R: RobotBehavior> SharedRobotData<R> {
 
             sensors: Watch::new(),
             network_status: Watch::new_with((NetworkStatus::NotConnected, None)),
-            // these are safe defaults for the robot starting up, before it receives server data
-            config: Watch::new_with(FrequentServerToRobot {
-                grid: StandardGrid::Pacman,
-                target_velocity: VelocityControl::Stop,
-                motors_override: [None; 3],
-                pwm_override: [[None; 2]; 3],
-                motor_config: [[0, 1], [2, 3], [4, 5]],
-                pid: [0.0, 0.0, 0.0],
-                cv_location: None,
-                target_path: heapless::Vec::new(),
-                follow_target_path: false,
-                angle_offset: 0.0,
-                lookahead_dist: 1.0,
-                robot_speed: 1.0,
-                snapping_dist: 1.0,
-                cv_error: 1.0,
-            }),
+            config: Watch::new_with(FrequentServerToRobot::new(name)),
             motor_control: Watch::new(),
             utilization: array_init(|_| AtomicF32::new(0.0)),
 
