@@ -1,11 +1,11 @@
 use crate::peripherals::PeripheralsError;
 use crate::{PacbotI2cBus, PacbotI2cDevice};
-use core::sync::atomic::AtomicBool;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
 use embassy_time::Timer;
 use embedded_hal_async::i2c::I2c;
+use portable_atomic::AtomicBool;
 
 const ADDRESS: u8 = 0b1100100;
 

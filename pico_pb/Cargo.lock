@@ -167,7 +167,6 @@ dependencies = [
 [[package]]
 name = "bno08x-async"
 version = "0.2.0"
-source = "git+https://github.com/MJE10/bno080?rev=ae419c2d278c8609721b4a41bfaddd1c6620aefe#ae419c2d278c8609721b4a41bfaddd1c6620aefe"
 dependencies = [
  "defmt",
  "embedded-hal-async",

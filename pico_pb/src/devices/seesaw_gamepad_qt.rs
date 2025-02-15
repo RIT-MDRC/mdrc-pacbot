@@ -1,12 +1,13 @@
 use crate::peripherals::PeripheralsError;
 use crate::{PacbotI2cBus, PacbotI2cDevice, PicoRobotBehavior};
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::Ordering;
 use defmt::{error, info};
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;
 use embassy_rp::i2c;
 use embassy_time::Timer;
 use embedded_hal_async::i2c::I2c;
+use portable_atomic::AtomicBool;
 
 const STATUS_BASE: u8 = 0x00;
 

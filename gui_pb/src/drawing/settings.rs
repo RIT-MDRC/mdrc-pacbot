@@ -9,6 +9,7 @@ use core_pb::messages::{
 };
 use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
 use core_pb::threaded_websocket::TextOrT;
+use core_pb::util::ColoredStatus;
 use eframe::egui;
 use eframe::egui::{Align, Color32, Layout, TextEdit, Ui, WidgetText};
 use regex::Regex;
@@ -28,6 +29,7 @@ pub struct UiSettings {
     pub game_server_collapsed: bool,
     pub robots_collapsed: [bool; NUM_ROBOT_NAMES],
     pub graph_lines: [[bool; 4]; 3],
+    pub devices_collapsed: bool,
 
     pub angle_behavior: VelocityControlAngleBehavior,
 
@@ -51,6 +53,7 @@ impl Default for UiSettings {
             game_server_collapsed: true,
             robots_collapsed: [true; NUM_ROBOT_NAMES],
             graph_lines: [[true; 4]; 3],
+            devices_collapsed: true,
 
             angle_behavior: VelocityControlAngleBehavior::Free,
 
@@ -311,11 +314,50 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
     );
     ui.end_row();
 
+    if app.ui_settings.selected_robot.is_simulated() {
+        app.ui_settings.devices_collapsed = true;
+    }
+    collapsable_section(
+        ui,
+        &mut app.ui_settings.devices_collapsed,
+        ColoredStatus::NotApplicable(None).to_color32(),
+        |ui| {
+            ui.label("Physical Devices");
+        },
+        |ui| {
+            let settings = &mut app.settings.robots[app.ui_settings.selected_robot as usize];
+            ui.checkbox(&mut settings.config.enable_imu, "IMU");
+            ui.end_row();
+            ui.checkbox(&mut settings.config.enable_extra_imu_data, "Extra IMU data");
+            ui.end_row();
+            ui.checkbox(&mut settings.config.enable_dists, "Distance sensors");
+            ui.end_row();
+            ui.checkbox(
+                &mut settings.config.enable_battery_monitor,
+                "Battery monitor",
+            );
+            ui.end_row();
+            ui.checkbox(&mut settings.config.enable_display, "Display");
+            ui.end_row();
+            ui.checkbox(&mut settings.config.enable_gamepad, "Gamepad");
+            ui.end_row();
+            num(
+                "Display update (ms)".to_string(),
+                ui,
+                fields,
+                &mut settings.config.display_loop_interval,
+                "Display update (ms)",
+                true,
+            );
+        },
+        None::<String>,
+    );
+
     num(
         "lookahead_distance".to_string(),
         ui,
         fields,
-        &mut app.settings.robots[app.settings.pacman as usize]
+        &mut app.settings.robots[app.ui_settings.selected_robot as usize]
             .config
             .lookahead_dist,
         "Lookahead distance",
@@ -326,7 +368,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         "robot_speed".to_string(),
         ui,
         fields,
-        &mut app.settings.robots[app.settings.pacman as usize]
+        &mut app.settings.robots[app.ui_settings.selected_robot as usize]
             .config
             .robot_speed,
         "Robot speed",
@@ -337,7 +379,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         "snapping_distance".to_string(),
         ui,
         fields,
-        &mut app.settings.robots[app.settings.pacman as usize]
+        &mut app.settings.robots[app.ui_settings.selected_robot as usize]
             .config
             .snapping_dist,
         "Snapping distance",
@@ -348,7 +390,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         "cv_error".to_string(),
         ui,
         fields,
-        &mut app.settings.robots[app.settings.pacman as usize]
+        &mut app.settings.robots[app.ui_settings.selected_robot as usize]
             .config
             .cv_error,
         "CV error",

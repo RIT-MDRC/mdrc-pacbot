@@ -95,9 +95,9 @@ async fn main(spawner: Spawner) {
         ..
     } = Pio::new(p.PIO1, Irqs);
 
-    let encoder_a = WrappedPioEncoder::new(&mut common, sm0, p.PIN_4, p.PIN_5);
+    let encoder_a = WrappedPioEncoder::new(&mut common, sm0, p.PIN_12, p.PIN_13);
     let encoder_b = WrappedPioEncoder::new(&mut common, sm1, p.PIN_8, p.PIN_9);
-    let encoder_c = WrappedPioEncoder::new(&mut common, sm2, p.PIN_12, p.PIN_13);
+    let encoder_c = WrappedPioEncoder::new(&mut common, sm2, p.PIN_4, p.PIN_5);
 
     // Initialize network
     let mut network = initialize_network(

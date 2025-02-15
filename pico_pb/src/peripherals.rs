@@ -4,7 +4,7 @@ use crate::devices::seesaw_gamepad_qt::SeesawGamepadQt;
 use crate::devices::ssd1306::{PacbotDisplay, PacbotDisplayWrapper};
 use crate::devices::vl53l4cd::PacbotDistanceSensor;
 use crate::{PacbotI2cBus, PicoRobotBehavior};
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::Ordering;
 use core_pb::driving::peripherals::RobotPeripheralsBehavior;
 use core_pb::messages::RobotButton;
 use defmt::Format;
@@ -14,6 +14,7 @@ use embassy_executor::task;
 use embassy_rp::gpio::{AnyPin, Level, Output};
 use embassy_rp::i2c;
 use futures::future::join4;
+use portable_atomic::AtomicBool;
 use vl53l4cd::Status;
 
 /// number of distance sensors on the robot
@@ -21,15 +22,16 @@ pub const NUM_DIST_SENSORS: usize = 4;
 /// what I2C addresses to reassign each distance sensor to
 pub const DIST_SENSOR_ADDRESSES: [u8; NUM_DIST_SENSORS] = [0x31, 0x32, 0x33, 0x34];
 
-static IMU_ENABLED: AtomicBool = AtomicBool::new(false);
-
 pub async fn run_imu(enabled: &'static AtomicBool, bus: &'static PacbotI2cBus) -> ! {
-    PacbotIMU::new(bus, enabled, &PicoRobotBehavior::get().sig_angle)
-        .run_forever()
-        .await
+    PacbotIMU::new(
+        bus,
+        enabled,
+        &PicoRobotBehavior::get().enable_extra_imu_data,
+        &PicoRobotBehavior::get().sig_angle,
+    )
+    .run_forever()
+    .await
 }
-
-static DIST_ENABLED: AtomicBool = AtomicBool::new(false);
 
 pub async fn run_dist(
     enabled: &'static AtomicBool,
@@ -49,15 +51,11 @@ pub async fn run_dist(
     .await
 }
 
-static BATTERY_MONITOR_ENABLED: AtomicBool = AtomicBool::new(false);
-
 pub async fn run_battery_monitor(enabled: &'static AtomicBool, bus: &'static PacbotI2cBus) {
     Ltc2943::new(bus, enabled, &PicoRobotBehavior::get().sig_battery)
         .run_forever()
         .await
 }
-
-static GAMEPAD_ENABLED: AtomicBool = AtomicBool::new(true);
 
 pub async fn run_gamepad(enabled: &'static AtomicBool, bus: &'static PacbotI2cBus) {
     SeesawGamepadQt::new(bus, enabled).run_forever().await
@@ -140,17 +138,18 @@ impl RobotPeripheralsBehavior for Peripherals {
 
 #[task]
 pub async fn manage_pico_i2c(bus: &'static PacbotI2cBus, xshut: [AnyPin; NUM_DIST_SENSORS]) {
+    let data = PicoRobotBehavior::get();
     let [a, b, c, d] = xshut;
     join4(
-        run_imu(&IMU_ENABLED, bus),
+        run_imu(&data.enable_imu, bus),
         join4(
-            run_dist(&DIST_ENABLED, bus, 0, a),
-            run_dist(&DIST_ENABLED, bus, 1, b),
-            run_dist(&DIST_ENABLED, bus, 2, c),
-            run_dist(&DIST_ENABLED, bus, 3, d),
+            run_dist(&data.enable_dists, bus, 0, a),
+            run_dist(&data.enable_dists, bus, 1, b),
+            run_dist(&data.enable_dists, bus, 2, c),
+            run_dist(&data.enable_dists, bus, 3, d),
         ),
-        run_battery_monitor(&BATTERY_MONITOR_ENABLED, bus),
-        run_gamepad(&GAMEPAD_ENABLED, bus),
+        run_battery_monitor(&data.enable_battery_monitor, bus),
+        run_gamepad(&data.enable_gamepad, bus),
     )
     .await;
 }

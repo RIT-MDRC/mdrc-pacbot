@@ -1,6 +1,6 @@
 use crate::peripherals::PeripheralsError;
 use crate::{PacbotI2cBus, PacbotI2cDevice};
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::Ordering;
 use defmt::info;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;
@@ -12,6 +12,7 @@ use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex};
 use embassy_sync::signal::Signal;
 use embassy_time::{Delay, Timer};
 use embedded_hal_async::i2c::I2c;
+use portable_atomic::AtomicBool;
 use vl53l4cd::wait::Poll;
 use vl53l4cd::{Status, Vl53l4cd};
 
@@ -66,6 +67,7 @@ impl PacbotDistanceSensor {
     }
 
     pub async fn run_forever(mut self) -> ! {
+        self.results.signal(Ok(Some(0.2)));
         loop {
             if self.initialize().await.is_ok() {
                 match self.fetch_measurement().await {
@@ -107,6 +109,7 @@ impl PacbotDistanceSensor {
     }
 
     async fn initialize(&mut self) -> Result<(), PeripheralsError> {
+        self.results.signal(Ok(Some(0.3)));
         // do nothing if disabled
         if !self.enabled.load(Ordering::Relaxed) {
             self.initialized = false;
@@ -117,6 +120,7 @@ impl PacbotDistanceSensor {
         if self.initialized {
             return Ok(());
         }
+        self.results.signal(Ok(Some(0.4)));
 
         info!(
             "Attempting to initialize vl53l4cd distance sensor {}",
@@ -126,6 +130,7 @@ impl PacbotDistanceSensor {
         // set XSHUT high to turn the sensor on
         self.xshut.set_high();
         Timer::after_millis(300).await;
+        self.results.signal(Ok(Some(0.5)));
 
         // initialize sensor with default address
         self.default_sensor.init().await?;
@@ -135,11 +140,13 @@ impl PacbotDistanceSensor {
             .write(vl53l4cd::PERIPHERAL_ADDR, &[0x00, 0x01, self.addr])
             .await?;
         Timer::after_millis(300).await;
+        self.results.signal(Ok(Some(0.6)));
         // initialize sensor with new address
         self.sensor.init().await?;
         self.sensor.start_ranging().await?;
 
         self.initialized = true;
+        self.results.signal(Ok(Some(0.1)));
         Ok(())
     }
 }

@@ -61,18 +61,20 @@ pub async fn peripherals_task<R: RobotBehavior>(
             sensors.angle = handle_err(r);
             something_changed = true;
         }
-        for (i, sensor) in sensors.distances.iter_mut().enumerate() {
-            if let Some(r) = data.sig_distances[i].try_take() {
-                *sensor = handle_err(r);
-                something_changed = true;
-            }
-        }
+        // for (i, sensor) in sensors.distances.iter_mut().enumerate() {
+        //     if let Some(r) = data.sig_distances[i].try_take() {
+        //         *sensor = handle_err(r);
+        //         something_changed = true;
+        //     }
+        // }
         if let Some(r) = data.sig_battery.try_take() {
             sensors.battery = handle_err(r);
             something_changed = true;
         }
 
-        if last_display_time.elapsed() > Duration::from_millis(120) {
+        if last_display_time.elapsed()
+            > Duration::from_millis(data.display_loop_interval.load(Ordering::Relaxed))
+        {
             last_display_time = R::Instant::default();
             while let Some((button, pressed)) = peripherals.read_button_event().await {
                 display_manager.button_event(button, pressed);
@@ -111,7 +113,7 @@ pub async fn peripherals_task<R: RobotBehavior>(
         } else {
             // Make sure to sleep for at least min_wait_time
             R::Instant::sleep(Duration::max(
-                this_loop_time - ideal_loop_interval,
+                this_loop_time.saturating_sub(ideal_loop_interval),
                 min_wait_time,
             ))
             .await;

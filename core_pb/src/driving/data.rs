@@ -13,7 +13,7 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::pipe::Pipe;
 use embassy_sync::signal::Signal;
 use embassy_sync::watch::Watch;
-use portable_atomic::{AtomicBool, AtomicF32, AtomicI32, AtomicI8};
+use portable_atomic::{AtomicBool, AtomicF32, AtomicI32, AtomicI8, AtomicU64};
 
 /// Each robot should have exactly one. Some fields are managed by core_pb, but (when noted)
 /// implementations are responsible for updating values
@@ -27,6 +27,17 @@ pub struct SharedRobotData<R: RobotBehavior + ?Sized> {
     pub created_at: R::Instant,
 
     //
+    // ----------- ENABLE/DISABLE DEVICES ----------
+    // See core_pb/src/constants.rs for initial values
+    pub enable_imu: AtomicBool,
+    pub enable_extra_imu_data: AtomicBool,
+    pub enable_dists: AtomicBool,
+    pub enable_battery_monitor: AtomicBool,
+    pub enable_display: AtomicBool,
+    pub enable_gamepad: AtomicBool,
+    pub display_loop_interval: AtomicU64,
+
+    //
     // ------------------- INTER TASK DATA -------------------
     //
     /// Information gathered by the peripherals task will be posted here for network and motors
@@ -34,6 +45,8 @@ pub struct SharedRobotData<R: RobotBehavior + ?Sized> {
     /// The current network status, updated by network task
     pub network_status: Watch<CriticalSectionRawMutex, (NetworkStatus, Option<[u8; 4]>), 2>,
     /// Configuration from the server that may change frequently, updated by network task
+    ///
+    /// Note: some fields are loaded into other atomic primitives
     pub config: Watch<CriticalSectionRawMutex, FrequentServerToRobot, 2>,
     /// Motor control status, updated by motors task
     pub motor_control: Watch<CriticalSectionRawMutex, MotorControlStatus, 2>,
@@ -134,14 +147,23 @@ impl ExtraOptsTypes {
 
 impl<R: RobotBehavior> SharedRobotData<R> {
     pub fn new(name: RobotName) -> Self {
+        let config = FrequentServerToRobot::new(name);
         Self {
             name,
             robot_definition: RobotDefinition::new(name),
             created_at: R::Instant::default(),
 
+            enable_imu: AtomicBool::new(config.enable_imu),
+            enable_extra_imu_data: AtomicBool::new(config.enable_extra_imu_data),
+            enable_dists: AtomicBool::new(config.enable_dists),
+            enable_battery_monitor: AtomicBool::new(config.enable_battery_monitor),
+            enable_display: AtomicBool::new(config.enable_display),
+            enable_gamepad: AtomicBool::new(config.enable_gamepad),
+            display_loop_interval: AtomicU64::new(config.display_loop_interval),
+
             sensors: Watch::new(),
             network_status: Watch::new_with((NetworkStatus::NotConnected, None)),
-            config: Watch::new_with(FrequentServerToRobot::new(name)),
+            config: Watch::new_with(config),
             motor_control: Watch::new(),
             utilization: array_init(|_| AtomicF32::new(0.0)),
 

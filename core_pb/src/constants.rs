@@ -1,3 +1,12 @@
+// enable/disable devices - starting atomic values
+pub const INITIAL_ENABLE_IMU: bool = false;
+pub const INITIAL_ENABLE_EXTRA_IMU_DATA: bool = false;
+pub const INITIAL_ENABLE_DISTS: bool = false;
+pub const INITIAL_ENABLE_BATTERY_MONITOR: bool = false;
+pub const INITIAL_ENABLE_DISPLAY: bool = false;
+pub const INITIAL_ENABLE_GAMEPAD: bool = false;
+pub const INITIAL_DISPLAY_LOOP_INTERVAL: u64 = 500;
+
 /// The default port where `server_pb` should expect to find the game server
 pub const GAME_SERVER_PORT: u16 = 3002;
 /// The default port where `gui_pb` should expect to connect to `server_pb`

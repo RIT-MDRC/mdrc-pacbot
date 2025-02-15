@@ -21,8 +21,8 @@ pub async fn run_encoders(
     let mut velocities = [0.0; 3];
     let mut instants = [Instant::now(), Instant::now(), Instant::now()];
 
-    let mut last_tick = Instant::now();
-    let mut angle = 0.0;
+    // let mut last_tick = Instant::now();
+    // let mut angle = 0.0;
 
     loop {
         if let Some((i, tick, velocity)) = match select4(
@@ -50,17 +50,17 @@ pub async fn run_encoders(
         }
         shared_data.sig_motor_speeds.signal(velocities);
 
-        let elapsed = last_tick.elapsed();
-        if elapsed.as_micros() > 100 {
-            last_tick = Instant::now();
-            let rotational_velocity = shared_data
-                .robot_definition
-                .drive_system
-                .get_actual_rotational_vel_omni(velocities);
-            let s = elapsed.as_micros() as f32 / 1_000_000.0;
-            angle += rotational_velocity * s;
-            shared_data.sig_angle.signal(Ok(angle));
-        }
+        // let elapsed = last_tick.elapsed();
+        // if elapsed.as_micros() > 100 {
+        //     last_tick = Instant::now();
+        //     let rotational_velocity = shared_data
+        //         .robot_definition
+        //         .drive_system
+        //         .get_actual_rotational_vel_omni(velocities);
+        //     let s = elapsed.as_micros() as f32 / 1_000_000.0;
+        //     angle += rotational_velocity * s;
+        //     // shared_data.sig_angle.signal(Ok(angle));
+        // }
     }
 }
 

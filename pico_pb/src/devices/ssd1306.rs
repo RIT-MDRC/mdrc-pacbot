@@ -39,7 +39,7 @@ impl PacbotDisplayWrapper {
             .into_buffered_graphics_mode();
 
         Self {
-            enabled: true,
+            enabled: false,
 
             display,
             initialized: Err(PeripheralsError::Uninitialized),
