@@ -15,6 +15,10 @@ use embedded_hal_async::i2c::I2c;
 use portable_atomic::AtomicBool;
 use vl53l4cd::wait::Poll;
 use vl53l4cd::{Status, Vl53l4cd};
+use embassy_sync::mutex::Mutex;
+
+// TODO: do this a better way
+static INIT_LOCK: Mutex<CriticalSectionRawMutex, i32> = Mutex::new(0);
 
 type PacbotDistanceSensorType =
     Vl53l4cd<I2cDevice<'static, NoopRawMutex, i2c::I2c<'static, I2C1, Async>>, Delay, Poll>;
@@ -67,7 +71,6 @@ impl PacbotDistanceSensor {
     }
 
     pub async fn run_forever(mut self) -> ! {
-        self.results.signal(Ok(Some(0.2)));
         loop {
             if self.initialize().await.is_ok() {
                 match self.fetch_measurement().await {
@@ -109,7 +112,6 @@ impl PacbotDistanceSensor {
     }
 
     async fn initialize(&mut self) -> Result<(), PeripheralsError> {
-        self.results.signal(Ok(Some(0.3)));
         // do nothing if disabled
         if !self.enabled.load(Ordering::Relaxed) {
             self.initialized = false;
@@ -120,7 +122,9 @@ impl PacbotDistanceSensor {
         if self.initialized {
             return Ok(());
         }
-        self.results.signal(Ok(Some(0.4)));
+
+        // start critical section
+        let _lock = INIT_LOCK.lock().await;
 
         info!(
             "Attempting to initialize vl53l4cd distance sensor {}",
@@ -130,7 +134,6 @@ impl PacbotDistanceSensor {
         // set XSHUT high to turn the sensor on
         self.xshut.set_high();
         Timer::after_millis(300).await;
-        self.results.signal(Ok(Some(0.5)));
 
         // initialize sensor with default address
         self.default_sensor.init().await?;
@@ -140,13 +143,11 @@ impl PacbotDistanceSensor {
             .write(vl53l4cd::PERIPHERAL_ADDR, &[0x00, 0x01, self.addr])
             .await?;
         Timer::after_millis(300).await;
-        self.results.signal(Ok(Some(0.6)));
         // initialize sensor with new address
         self.sensor.init().await?;
         self.sensor.start_ranging().await?;
 
         self.initialized = true;
-        self.results.signal(Ok(Some(0.1)));
         Ok(())
     }
 }

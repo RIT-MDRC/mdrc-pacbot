@@ -66,7 +66,7 @@ num-traits = { version = "0.2.18", default-features = false }
 smoltcp = { version = "0.11.0", default-features = false, features = ["defmt", "proto-ipv4"] }
 format_no_std = "1.2.0"
 vl53l4cd = { version = "0.4.0", default-features = false, features = ["defmt-03"] }
-bno08x-async = { version = "0.2.0", path = "C:/Users/Michael/RustroverProjects/bno080", features = ["defmt"] }
+bno08x-async = { version = "0.2.0", git = "https://github.com/MJE10/bno080", features = ["defmt"] }
 micromath = "2.1.0"
 
 [profile.release]

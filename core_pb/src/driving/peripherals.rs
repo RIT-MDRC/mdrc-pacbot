@@ -61,12 +61,12 @@ pub async fn peripherals_task<R: RobotBehavior>(
             sensors.angle = handle_err(r);
             something_changed = true;
         }
-        // for (i, sensor) in sensors.distances.iter_mut().enumerate() {
-        //     if let Some(r) = data.sig_distances[i].try_take() {
-        //         *sensor = handle_err(r);
-        //         something_changed = true;
-        //     }
-        // }
+        for (i, sensor) in sensors.distances.iter_mut().enumerate() {
+            if let Some(r) = data.sig_distances[i].try_take() {
+                *sensor = handle_err(r);
+                something_changed = true;
+            }
+        }
         if let Some(r) = data.sig_battery.try_take() {
             sensors.battery = handle_err(r);
             something_changed = true;
@@ -76,7 +76,7 @@ pub async fn peripherals_task<R: RobotBehavior>(
             > Duration::from_millis(data.display_loop_interval.load(Ordering::Relaxed))
         {
             last_display_time = R::Instant::default();
-            while let Some((button, pressed)) = peripherals.read_button_event().await {
+            if let Some((button, pressed)) = peripherals.read_button_event().await {
                 display_manager.button_event(button, pressed);
             }
             if let Some(joystick) = peripherals.read_joystick().await {
@@ -94,11 +94,13 @@ pub async fn peripherals_task<R: RobotBehavior>(
                 &data.robot_definition,
             );
             sensors_sender.send(sensors.clone());
-            data.utilization[Task::Peripherals as usize]
-                .store(utilization_monitor.utilization(), Ordering::Relaxed);
         }
 
+        data.utilization[Task::Peripherals as usize]
+            .store(utilization_monitor.utilization(), Ordering::Relaxed);
+
         utilization_monitor.stop();
+
         // The peripherals loop tends to use a significant percentage of its loop time doing I/O
         // Peripherals should always sleep for at least a little bit in order to give other tasks
         // a chance to run
@@ -113,7 +115,7 @@ pub async fn peripherals_task<R: RobotBehavior>(
         } else {
             // Make sure to sleep for at least min_wait_time
             R::Instant::sleep(Duration::max(
-                this_loop_time.saturating_sub(ideal_loop_interval),
+                ideal_loop_interval.saturating_sub(this_loop_time),
                 min_wait_time,
             ))
             .await;
