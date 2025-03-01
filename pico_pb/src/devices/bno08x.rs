@@ -14,6 +14,7 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
 use embassy_time::{Delay, Timer};
 use micromath::F32Ext;
+use num_traits::FloatConst;
 use portable_atomic::AtomicBool;
 
 pub type ImuError =
@@ -54,8 +55,9 @@ impl PacbotIMU {
             match self.initialize().await {
                 Ok(()) => {
                     self.sensor.handle_one_message(&mut Delay, 10).await;
-                    // self.results.signal(Ok(self.get_measurement().await));
-                    self.results.signal(Ok(-self.sensor.rotation_vector.0[0]));
+                    self.results.signal(Ok(self.get_measurement().await));
+                    // self.results
+                    //     .signal(Ok(-self.sensor.rotation_vector.0[0] * f32::PI()));
                     PicoRobotBehavior::get()
                         .sig_extra_imu_data
                         .signal(ExtraImuData {

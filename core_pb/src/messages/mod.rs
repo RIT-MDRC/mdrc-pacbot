@@ -140,6 +140,10 @@ pub struct FrequentServerToRobot {
     /// - `2` -> motor 2 clockwise
     /// - `3` -> motor 2 counter-clockwise
     pub motor_config: [[usize; 2]; 3],
+    /// Which encoder belongs to which motor, and whether the encoder is reversed
+    pub encoder_config: [(usize, bool); 3],
+    /// The order of the distance sensors
+    pub dist_sensor_config: [usize; 4],
     /// Basic parameters for the PID controller
     pub pid: [f32; 3],
     /// The grid cell the CV system thinks the robot is in
@@ -176,6 +180,8 @@ impl FrequentServerToRobot {
             motors_override: [None; 3],
             pwm_override: [[None; 2]; 3],
             motor_config: definition.default_motor_config,
+            encoder_config: definition.default_encoder_config,
+            dist_sensor_config: definition.default_dist_sensor_order,
             pid: definition.default_pid,
             cv_location: None,
             target_path: heapless::Vec::new(),

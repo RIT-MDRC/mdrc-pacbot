@@ -1,6 +1,7 @@
 use crate::peripherals::PeripheralsError;
 use crate::{PacbotI2cBus, PacbotI2cDevice};
 use core::sync::atomic::Ordering;
+use core_pb::constants::{INCHES_PER_GU, MM_PER_GU};
 use defmt::info;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;
@@ -9,13 +10,13 @@ use embassy_rp::i2c;
 use embassy_rp::i2c::Async;
 use embassy_rp::peripherals::I2C1;
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex};
+use embassy_sync::mutex::Mutex;
 use embassy_sync::signal::Signal;
 use embassy_time::{Delay, Timer};
 use embedded_hal_async::i2c::I2c;
 use portable_atomic::AtomicBool;
 use vl53l4cd::wait::Poll;
 use vl53l4cd::{Status, Vl53l4cd};
-use embassy_sync::mutex::Mutex;
 
 // TODO: do this a better way
 static INIT_LOCK: Mutex<CriticalSectionRawMutex, i32> = Mutex::new(0);
@@ -81,7 +82,10 @@ impl PacbotDistanceSensor {
                         self.results.signal(Err(e));
                         self.initialized = false;
                     }
-                    Ok(m) => self.results.signal(Ok(m.map(|x| x as f32))),
+                    Ok(m) => self.results.signal(Ok(
+                        // m.map(|x| f32::max(0.0, (0.0402 * x as f32 - 0.826) / INCHES_PER_GU))
+                        m.map(|x| x as f32),
+                    )), // see "Sensor Calibration" google sheet
                 }
                 Timer::after_millis(20).await;
             } else {

@@ -68,7 +68,7 @@ pub struct Peripherals {
 impl Peripherals {
     pub fn new(bus: &'static PacbotI2cBus) -> Self {
         Self {
-            display: PacbotDisplayWrapper::new(bus),
+            display: PacbotDisplayWrapper::new(bus, &PicoRobotBehavior::get().enable_display),
         }
     }
 }

@@ -110,9 +110,10 @@ fn get_region_score(
         // strongly discourage estimating our location inside a wall
         if get_at(grid.get_grid(), Vector2::new(grid_loc.0, grid_loc.1))
             && (grid_loc.0 as f32 - p.x).powi(2) + (grid_loc.1 as f32 - p.y).powi(2)
-                < robot_radius.powi(2)
+                < robot_radius.powi(2) * 0.9
         {
-            score += 2.0;
+            return None;
+            // score += 2.0;
         }
     }
     Some((-score, Point2::new(p.x, p.y)))
@@ -120,7 +121,7 @@ fn get_region_score(
 
 fn get_at(grid: Grid, at: Vector2<i8>) -> bool {
     if at.x < 0 || at.y < 0 || at.x as usize >= grid.len() || at.y as usize >= grid[0].len() {
-        false
+        true
     } else {
         grid[at.x as usize][at.y as usize]
     }
@@ -147,6 +148,7 @@ pub fn estimate_location_2(
         robot.radius,
         robot.sensor_distance * GU_PER_M,
     )
+    .or(cv_location.map(|p| p.map(|a| a as f32)))
 }
 
 #[allow(unused)]

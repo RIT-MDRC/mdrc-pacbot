@@ -195,9 +195,41 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                     );
                     ui.checkbox(&mut app.ui_settings.graph_lines[i][3], "Graph PWM");
                     ui.end_row();
+
+                    ui.label("Encoder: ");
+                    dropdown(
+                        ui,
+                        format!("encoder{i}_setting"),
+                        "",
+                        &mut app.settings.robots[app.ui_settings.selected_robot as usize]
+                            .config
+                            .encoder_config[i]
+                            .0,
+                        &[0, 1, 2],
+                    );
+                    ui.checkbox(
+                        &mut app.settings.robots[app.ui_settings.selected_robot as usize]
+                            .config
+                            .encoder_config[i]
+                            .1,
+                        "Encoder is backwards",
+                    );
+                    ui.end_row();
                 });
                 ui.separator();
             }
+            egui::Grid::new("dist_pins_grid").show(ui, |ui| {
+                ui.label("Distance sensor order:");
+                for (i, c) in app.settings.robots[app.ui_settings.selected_robot as usize]
+                    .config
+                    .dist_sensor_config
+                    .iter_mut()
+                    .enumerate()
+                {
+                    dropdown(ui, format!("dist{i}_setting"), "", c, &[0, 1, 2, 3]);
+                }
+            });
+            ui.separator();
         });
     });
 

@@ -1,11 +1,14 @@
 // enable/disable devices - starting atomic values
-pub const INITIAL_ENABLE_IMU: bool = false;
+pub const INITIAL_ENABLE_IMU: bool = true;
 pub const INITIAL_ENABLE_EXTRA_IMU_DATA: bool = false;
-pub const INITIAL_ENABLE_DISTS: bool = false;
-pub const INITIAL_ENABLE_BATTERY_MONITOR: bool = false;
-pub const INITIAL_ENABLE_DISPLAY: bool = false;
-pub const INITIAL_ENABLE_GAMEPAD: bool = false;
+pub const INITIAL_ENABLE_DISTS: bool = true;
+pub const INITIAL_ENABLE_BATTERY_MONITOR: bool = true;
+pub const INITIAL_ENABLE_DISPLAY: bool = true;
+pub const INITIAL_ENABLE_GAMEPAD: bool = true;
 pub const INITIAL_DISPLAY_LOOP_INTERVAL: u64 = 500;
+
+/// Hardcoded maximum PWM signal that the pico will send to motors, as a safety
+pub const PWM_SOFT_CAP: u16 = 3000;
 
 /// The default port where `server_pb` should expect to find the game server
 pub const GAME_SERVER_PORT: u16 = 3002;

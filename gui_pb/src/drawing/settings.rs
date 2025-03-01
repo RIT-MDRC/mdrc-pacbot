@@ -305,10 +305,13 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
             == NetworkStatus::Connected,
         |ui| {
             if ui.button("Reset angle").clicked() {
-                // app.send(GuiToServerMessage::RobotCommand(
-                //     app.ui_settings.selected_robot,
-                //     ServerToRobotMessage::ResetAngle,
-                // ));
+                if let Ok(ang) =
+                    app.server_status.robots[app.ui_settings.selected_robot as usize].imu_angle
+                {
+                    app.settings.robots[app.ui_settings.selected_robot as usize]
+                        .config
+                        .angle_offset += ang;
+                }
             }
         },
     );

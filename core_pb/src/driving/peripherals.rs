@@ -1,3 +1,4 @@
+use crate::constants::INCHES_PER_GU;
 use crate::driving::data::SharedRobotData;
 use crate::driving::RobotBehavior;
 use crate::messages::{RobotButton, SensorData, Task, MAX_SENSOR_ERR_LEN};
@@ -59,11 +60,28 @@ pub async fn peripherals_task<R: RobotBehavior>(
 
         if let Some(r) = data.sig_angle.try_take() {
             sensors.angle = handle_err(r);
+            if let Ok(ang) = &mut sensors.angle {
+                *ang = *ang - config.get().await.angle_offset;
+            }
             something_changed = true;
         }
-        for (i, sensor) in sensors.distances.iter_mut().enumerate() {
-            if let Some(r) = data.sig_distances[i].try_take() {
-                *sensor = handle_err(r);
+        // https://docs.google.com/spreadsheets/d/1IAJgFo2dWXHccGbES6QZTsN5cONJF3FZhfny_6V-3S4/edit?gid=0#gid=0
+        for (i, sensor) in data.sig_distances.iter().enumerate() {
+            let index = config.get().await.dist_sensor_config[i];
+            if let Some(r) = sensor.try_take() {
+                sensors.distances[index] = handle_err(r).map(|x| {
+                    x.map(|x| {
+                        f32::max(
+                            0.0,
+                            match index {
+                                0 => (0.0402 * x - 0.826) / INCHES_PER_GU,
+                                1 => (0.0417 * x - 1.47) / INCHES_PER_GU,
+                                2 => (0.0403 * x - 0.942) / INCHES_PER_GU,
+                                _ => (0.0403 * x - 0.819) / INCHES_PER_GU,
+                            },
+                        )
+                    })
+                });
                 something_changed = true;
             }
         }

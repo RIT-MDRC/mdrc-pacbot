@@ -89,7 +89,14 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
             motors_data.config.pwm_override = [[Some(0); 2]; 3];
         }
         if let Some(new_speeds) = data.sig_motor_speeds.try_take() {
-            motors_data.motor_speeds = new_speeds;
+            for (i, speed) in motors_data.motor_speeds.iter_mut().enumerate() {
+                *speed = new_speeds[motors_data.config.encoder_config[i].0]
+                    * if motors_data.config.encoder_config[i].1 {
+                        -1.0
+                    } else {
+                        1.0
+                    };
+            }
         }
 
         motors_data
