@@ -15,6 +15,7 @@ pub fn pure_pursuit(
     lookahead: f32,
     speed: f32,
     snapping_dist: f32,
+    cv_location: Option<Point2<i8>>,
 ) -> Option<Vector2<f32>> {
     let loc = sensors.location?;
 
@@ -30,8 +31,12 @@ pub fn pure_pursuit(
     let mut path_f32: heapless::Vec<Point2<f32>, LOCAL_MAX_PATH_LENGTH> =
         path.into_iter().map(|x| x.map(|y| y as f32)).collect();
 
+    // path_f32
+    //     .insert(0, round_point(loc))
+    //     .expect("CANNOT GET HERE");
+
     path_f32
-        .insert(0, round_point(loc))
+        .insert(0, cv_location?.map(|a| a as f32))
         .expect("CANNOT GET HERE");
 
     let closest_point = if path_f32.len() > 1 {
@@ -75,9 +80,9 @@ fn get_pursuit_point(
 
     for i in 0..(path.len() - 1) {
         if let Some(intersection) = get_intersection(loc, path[i], path[i + 1], lookahead) {
-            if in_line(intersection, path[i], path[i + 1]) {
-                intersections.push(intersection).expect("CANNOT GET HERE");
-            }
+            // if in_line(intersection, path[i], path[i + 1]) {
+            intersections.push(intersection).expect("CANNOT GET HERE");
+            // }
         }
         if intersections.len() > 1 {
             break;

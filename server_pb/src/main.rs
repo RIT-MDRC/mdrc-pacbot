@@ -325,7 +325,6 @@ impl App {
                             .neighbors(&last_loc)
                             .into_iter()
                             .filter(|x| !self.status.target_path.contains(x) && *x != cv_loc)
-                            .filter(|x| *x != Point2::new(28, 27) && *x != Point2::new(29, 27))
                             .choose(&mut thread_rng())
                         {
                             self.status.target_path.push(neighbor);

@@ -72,6 +72,7 @@ impl PacbotDistanceSensor {
     }
 
     pub async fn run_forever(mut self) -> ! {
+        let mut is_connected = false;
         loop {
             if self.initialize().await.is_ok() {
                 match self.fetch_measurement().await {
@@ -88,12 +89,16 @@ impl PacbotDistanceSensor {
                     )), // see "Sensor Calibration" google sheet
                 }
                 Timer::after_millis(20).await;
+                is_connected = true;
             } else {
                 // set XSHUT low to turn the sensor off
                 self.xshut.set_low();
                 self.results
                     .signal(Err(PeripheralsError::DistanceSensorError(None)));
-                Timer::after_millis(300).await;
+                if !is_connected {
+                    Timer::after_millis(20).await;
+                }
+                is_connected = false;
                 self.initialized = false;
             }
         }
@@ -137,7 +142,7 @@ impl PacbotDistanceSensor {
 
         // set XSHUT high to turn the sensor on
         self.xshut.set_high();
-        Timer::after_millis(300).await;
+        // Timer::after_millis(30).await;
 
         // initialize sensor with default address
         self.default_sensor.init().await?;
@@ -146,7 +151,7 @@ impl PacbotDistanceSensor {
         self.i2c_device
             .write(vl53l4cd::PERIPHERAL_ADDR, &[0x00, 0x01, self.addr])
             .await?;
-        Timer::after_millis(300).await;
+        // Timer::after_millis(300).await;
         // initialize sensor with new address
         self.sensor.init().await?;
         self.sensor.start_ranging().await?;

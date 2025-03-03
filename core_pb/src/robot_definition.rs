@@ -39,7 +39,7 @@ pub struct WheelDefinition {}
 impl RobotDefinition<3> {
     /// Create the default `RobotDefinition` for the given robot
     pub fn new(name: RobotName) -> Self {
-        let radius = 2.1 * GU_PER_INCH;
+        let radius = 2.6 * GU_PER_INCH;
         Self {
             radius,
 

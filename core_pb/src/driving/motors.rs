@@ -72,9 +72,16 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
         UtilizationMonitor::new(0.0, 0.0);
     utilization_monitor.start();
 
+    let mut cv_over_time = motors_data.config.cv_location;
+    let mut cv_over_time_time = R::Instant::default();
+
     loop {
         if let Some(config) = config_watch.try_changed() {
             last_command = R::Instant::default();
+            if config.cv_location != cv_over_time {
+                cv_over_time = config.cv_location;
+                cv_over_time_time = R::Instant::default();
+            }
             motors_data.config = config;
             for m in 0..3 {
                 motors_data.pid_controllers[m]
@@ -99,8 +106,20 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
             }
         }
 
+        let stuck = cv_over_time_time.elapsed() > Duration::from_secs(3)
+            && cv_over_time.is_some()
+            && motors_data.config.follow_target_path
+            && motors_data.config.target_path.len() > 1;
+        if cv_over_time_time.elapsed() > Duration::from_secs(4) {
+            cv_over_time_time = R::Instant::default();
+        }
+        data.set_extra_bool_indicator(1, stuck);
         motors_data
-            .do_motors(&data.robot_definition.drive_system, &data.sensors.try_get())
+            .do_motors(
+                &data.robot_definition.drive_system,
+                &data.sensors.try_get(),
+                stuck,
+            )
             .await;
 
         status_sender.send(MotorControlStatus {
@@ -139,7 +158,12 @@ fn adjust_ang_vel(curr_ang: f32, desired_ang: f32, p: f32, tol: f32) -> f32 {
 }
 
 impl<M: RobotMotorsBehavior> MotorsData<3, M> {
-    pub async fn do_motors(&mut self, drive_system: &DriveSystem<3>, sensors: &Option<SensorData>) {
+    pub async fn do_motors(
+        &mut self,
+        drive_system: &DriveSystem<3>,
+        sensors: &Option<SensorData>,
+        stuck: bool,
+    ) {
         // TODO: make this a tunable param
         let angle_p = 2.0;
         let angle_tol = 0.03; // rad
@@ -159,8 +183,12 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                             self.config.lookahead_dist,
                             self.config.robot_speed,
                             self.config.snapping_dist,
+                            self.config.cv_location,
                         ) {
                             target_velocity.0 = vel;
+                            if stuck {
+                                target_velocity.0 = -target_velocity.0;
+                            }
                         }
                     }
                 }
