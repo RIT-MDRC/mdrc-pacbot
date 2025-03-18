@@ -113,7 +113,7 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
         if cv_over_time_time.elapsed() > Duration::from_secs(4) {
             cv_over_time_time = R::Instant::default();
         }
-        data.set_extra_bool_indicator(1, stuck);
+        // data.set_extra_bool_indicator(1, stuck);
         motors_data
             .do_motors(
                 &data.robot_definition.drive_system,

@@ -73,11 +73,15 @@ pub async fn peripherals_task<R: RobotBehavior>(
                     x.map(|x| {
                         f32::max(
                             0.0,
-                            match index {
-                                0 => (0.0402 * x - 0.826) / INCHES_PER_GU,
-                                1 => (0.0417 * x - 1.47) / INCHES_PER_GU,
-                                2 => (0.0403 * x - 0.942) / INCHES_PER_GU,
-                                _ => (0.0403 * x - 0.819) / INCHES_PER_GU,
+                            if data.name.is_simulated() {
+                                x
+                            } else {
+                                match index {
+                                    0 => (0.0402 * x - 0.826) / INCHES_PER_GU,
+                                    1 => (0.0417 * x - 1.47) / INCHES_PER_GU,
+                                    2 => (0.0403 * x - 0.942) / INCHES_PER_GU,
+                                    _ => (0.0403 * x - 0.819) / INCHES_PER_GU,
+                                }
                             },
                         )
                     })
