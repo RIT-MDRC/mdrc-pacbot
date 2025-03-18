@@ -187,8 +187,8 @@ impl FrequentServerToRobot {
             target_path: heapless::Vec::new(),
             follow_target_path: false,
             angle_offset: 0.0,
-            lookahead_dist: 0.5,
-            robot_speed: 1.5,
+            lookahead_dist: 0.7,
+            robot_speed: 2.5,
             snapping_dist: 0.3,
             cv_error: 1.5,
 

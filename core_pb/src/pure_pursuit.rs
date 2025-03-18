@@ -98,6 +98,7 @@ fn get_pursuit_point(
     None
 }
 
+#[allow(dead_code)]
 fn in_line(loc: Point2<f32>, p1: Point2<f32>, p2: Point2<f32>) -> bool {
     if p1.x == p2.x {
         loc.y >= p1.y && loc.y <= p2.y || loc.y <= p1.y && loc.y >= p2.y
