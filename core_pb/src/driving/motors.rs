@@ -106,19 +106,26 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
             }
         }
 
-        let stuck = cv_over_time_time.elapsed() > Duration::from_secs(3)
-            && cv_over_time.is_some()
+        let is_enabled = cv_over_time.is_some()
             && motors_data.config.follow_target_path
-            && motors_data.config.target_path.len() > 1;
+            && motors_data.config.target_path.len() > 0;
+        if !is_enabled {
+            cv_over_time_time = R::Instant::default();
+        }
+        let stuck = cv_over_time_time.elapsed() > Duration::from_secs(3) && is_enabled;
         if cv_over_time_time.elapsed() > Duration::from_secs(4) {
             cv_over_time_time = R::Instant::default();
         }
-        // data.set_extra_bool_indicator(1, stuck);
+        data.set_extra_bool_indicator(1, stuck);
         motors_data
             .do_motors(
                 &data.robot_definition.drive_system,
                 &data.sensors.try_get(),
                 stuck,
+                4.0, // todo make this into an option
+                2.0,
+                0.05,
+                0.0,
             )
             .await;
 
@@ -136,7 +143,7 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
     }
 }
 
-fn adjust_ang_vel(curr_ang: f32, desired_ang: f32, p: f32, tol: f32) -> f32 {
+fn adjust_ang_vel(curr_ang: f32, desired_ang: f32, p: f32, tol: f32, offset: f32) -> f32 {
     // Calculate the difference between desired angle and current angle
     let mut angle_diff = desired_ang - curr_ang;
 
@@ -148,13 +155,11 @@ fn adjust_ang_vel(curr_ang: f32, desired_ang: f32, p: f32, tol: f32) -> f32 {
     }
 
     // clamp if within tol rads
-    angle_diff = if angle_diff.abs() < tol {
+    if angle_diff.abs() < tol {
         0.0
     } else {
-        angle_diff
-    };
-
-    angle_diff * p
+        angle_diff * p + offset * angle_diff.signum()
+    }
 }
 
 impl<M: RobotMotorsBehavior> MotorsData<3, M> {
@@ -163,17 +168,18 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
         drive_system: &DriveSystem<3>,
         sensors: &Option<SensorData>,
         stuck: bool,
+        snapping_multiplier: f32,
+        angle_p: f32,
+        angle_tol: f32, // rad
+        angle_snapping_offset: f32,
     ) {
-        // TODO: make this a tunable param
-        let angle_p = 2.0;
-        let angle_tol = 0.03; // rad
-
         if self.config.follow_target_path {
             if let Some(sensors) = sensors {
                 let mut target_velocity = (Vector2::new(0.0, 0.0), 0.0);
                 // maintain heading 0
                 if let Ok(angle) = sensors.angle {
-                    target_velocity.1 = adjust_ang_vel(angle, 0.0, angle_p, angle_tol);
+                    target_velocity.1 =
+                        adjust_ang_vel(angle, 0.0, angle_p, angle_tol, angle_snapping_offset);
                     let angle = Rotation2::new(angle).angle();
                     if angle.abs() < 20.0_f32.to_radians() {
                         // now that we've made sure we're facing the right way, try to follow the path
@@ -183,6 +189,7 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                             self.config.lookahead_dist,
                             self.config.robot_speed,
                             self.config.snapping_dist,
+                            snapping_multiplier,
                             self.config.cv_location,
                         ) {
                             target_velocity.0 = vel;
@@ -207,7 +214,12 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
             VelocityControl::LinVelFixedAng(lin, set_ang) => sensors
                 .as_ref()
                 .and_then(|s| s.angle.clone().ok())
-                .map(|cur_ang| (lin, adjust_ang_vel(cur_ang, set_ang, angle_p, angle_tol))),
+                .map(|cur_ang| {
+                    (
+                        lin,
+                        adjust_ang_vel(cur_ang, set_ang, angle_p, angle_tol, angle_snapping_offset),
+                    )
+                }),
             VelocityControl::LinVelFaceForward(lin) => sensors
                 .as_ref()
                 .and_then(|s| s.angle.clone().ok())
@@ -217,11 +229,12 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                         if lin.magnitude() < 0.01 {
                             0.0
                         } else {
-                            crate::driving::motors::adjust_ang_vel(
+                            adjust_ang_vel(
                                 cur_ang,
                                 f32::atan2(lin.y, lin.x),
                                 angle_p,
                                 angle_tol,
+                                angle_snapping_offset,
                             )
                         },
                     )

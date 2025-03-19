@@ -15,6 +15,7 @@ pub fn pure_pursuit(
     lookahead: f32,
     speed: f32,
     snapping_dist: f32,
+    snapping_multiplier: f32,
     cv_location: Option<Point2<i8>>,
 ) -> Option<Vector2<f32>> {
     let loc = sensors.location?;
@@ -22,7 +23,7 @@ pub fn pure_pursuit(
     if path.is_empty() {
         let r = round_point(loc);
         if get_dist(loc, r) > snapping_dist {
-            return Some(get_vec(loc, r, false, speed));
+            return Some(get_vec(loc, r, false, speed, snapping_multiplier));
         } else {
             return None;
         }
@@ -46,7 +47,7 @@ pub fn pure_pursuit(
     };
 
     if let Some(pursuit_point) = get_pursuit_point(&closest_point, &path_f32, lookahead) {
-        return Some(get_vec(loc, pursuit_point, true, speed));
+        return Some(get_vec(loc, pursuit_point, true, speed, 1.0));
     }
 
     None
@@ -57,11 +58,16 @@ fn get_vec(
     pursuit_point: Point2<f32>,
     normalize: bool,
     speed: f32,
+    extra_multiplier: f32,
 ) -> Vector2<f32> {
     let x = pursuit_point.x - loc.x;
     let y = pursuit_point.y - loc.y;
     let mag = (x * x + y * y).sqrt(); // could potentially do math here to ease acceleration as to not overshoot endpoint
-    let mult = if normalize { speed / mag } else { 1.0 };
+    let mult = if normalize {
+        speed / mag
+    } else {
+        extra_multiplier
+    };
     Vector2::new(x * mult, y * mult)
 }
 
