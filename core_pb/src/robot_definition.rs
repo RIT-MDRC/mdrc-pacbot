@@ -60,7 +60,7 @@ impl RobotDefinition<3> {
             default_motor_config: if name.is_simulated() {
                 [[0, 1], [2, 3], [4, 5]]
             } else {
-                [[5, 4], [3, 2], [0, 1]]
+                [[5, 4], [3, 2], [1, 0]]
             },
             default_encoder_config: if name.is_simulated() {
                 [(0, false), (1, false), (2, false)]
@@ -70,7 +70,7 @@ impl RobotDefinition<3> {
             default_dist_sensor_order: if name.is_simulated() {
                 [0, 1, 2, 3]
             } else {
-                [3, 2, 1, 0]
+                [2, 3, 0, 1]
             },
 
             has_screen: false,

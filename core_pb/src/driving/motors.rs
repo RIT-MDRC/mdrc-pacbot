@@ -113,7 +113,7 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
             cv_over_time_time = R::Instant::default();
         }
         let stuck = cv_over_time_time.elapsed() > Duration::from_secs(3) && is_enabled;
-        if cv_over_time_time.elapsed() > Duration::from_secs(4) {
+        if cv_over_time_time.elapsed() > Duration::from_secs(2) {
             cv_over_time_time = R::Instant::default();
         }
         data.set_extra_bool_indicator(1, stuck);
@@ -186,7 +186,11 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                         if let Some(vel) = pure_pursuit(
                             sensors,
                             &self.config.target_path,
-                            self.config.lookahead_dist,
+                            if stuck {
+                                self.config.lookahead_dist * 0.1
+                            } else {
+                                self.config.lookahead_dist
+                            },
                             self.config.robot_speed,
                             self.config.snapping_dist,
                             snapping_multiplier,
@@ -194,7 +198,7 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                         ) {
                             target_velocity.0 = vel;
                             if stuck {
-                                target_velocity.0 = -target_velocity.0;
+                                // target_velocity.0 = -target_velocity.0;
                             }
                         }
                     }

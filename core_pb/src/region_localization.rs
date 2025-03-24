@@ -151,6 +151,22 @@ pub fn estimate_location_2(
     .or(cv_location.map(|p| p.map(|a| a as f32)))
 }
 
+pub fn is_close_to_box(
+    low_xy: Point2<i8>,
+    high_xy: Point2<i8>,
+    p: Point2<i8>,
+    tolerance: i8,
+) -> bool {
+    // let y = i8::min((p.y - high_xy.y).abs(), (p.y - low_xy.y).abs());
+    // let x = i8::min((p.x - high_xy.x).abs(), (p.x - low_xy.x).abs());
+    //
+    // i8::min(x, y) <= tolerance
+    low_xy.x - tolerance <= p.x
+        && p.x <= high_xy.x + tolerance
+        && low_xy.y - tolerance <= p.y
+        && p.y <= high_xy.y + tolerance
+}
+
 #[allow(unused)]
 pub fn estimate_location(
     grid: StandardGrid,
@@ -163,6 +179,12 @@ pub fn estimate_location(
     let mut best_score = f32::MIN;
 
     for region in get_grid_regions(grid) {
+        if let Some(cv_location) = cv_location {
+            if !is_close_to_box(region.low_xy, region.high_xy, cv_location, 2) {
+                continue;
+            }
+        }
+
         if let Some((mut score, pos)) =
             get_region_score(grid, distance_sensors, robot_radius, max_toi, region)
         {
