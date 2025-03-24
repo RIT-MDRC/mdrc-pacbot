@@ -123,7 +123,7 @@ impl MyApp {
                     rapier_context.cast_ray_and_get_normal(ray_pos, ray_dir, max_toi, solid, filter)
                 {
                     let hit_point = intersection.point;
-                    let noise_range: f32 = 0.1;
+                    let noise_range: f32 = 0.01;
                     let dist_noise: f32 = 1.0 + rng.gen_range(-noise_range..noise_range);
                     let distance = ray_pos.distance(hit_point) * dist_noise;
 
