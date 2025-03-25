@@ -1,7 +1,7 @@
 use crate::drawing::settings::VelocityControlAngleBehavior;
 use crate::App;
 use core_pb::grid::standard_grid::StandardGrid;
-use core_pb::messages::settings::{CvLocationSource, StrategyChoice};
+use core_pb::messages::settings::{CvLocationSource, ShouldDoTargetPath, StrategyChoice};
 use core_pb::messages::{
     GameServerCommand, GuiToServerMessage, NetworkStatus, RobotButton, ServerToSimulationMessage,
     VelocityControl,
@@ -44,17 +44,53 @@ impl App {
             if i.modifiers.ctrl || i.modifiers.command {
                 scale /= 3.0;
             }
-            for (key, (lin, ang)) in [
-                (Key::W, (Vector2::new(0.0, scale), 0.0)),
-                (Key::A, (Vector2::new(-scale, 0.0), 0.0)),
-                (Key::D, (Vector2::new(scale, 0.0), 0.0)),
-                (Key::S, (Vector2::new(0.0, -scale), 0.0)),
-                (Key::Q, (Vector2::new(0.0, 0.0), scale)),
-                (Key::E, (Vector2::new(0.0, 0.0), -scale)),
+            for (key, (lin, ang), dir) in [
+                (Key::W, (Vector2::new(0.0, scale), 0.0), Direction::Right),
+                (Key::A, (Vector2::new(-scale, 0.0), 0.0), Direction::Up),
+                (Key::D, (Vector2::new(scale, 0.0), 0.0), Direction::Down),
+                (Key::S, (Vector2::new(0.0, -scale), 0.0), Direction::Left),
+                (Key::Q, (Vector2::new(0.0, 0.0), scale), Direction::Stay),
+                (Key::E, (Vector2::new(0.0, 0.0), -scale), Direction::Stay),
             ] {
-                if i.key_down(key) {
-                    target_vel.0 += lin;
-                    target_vel.1 += ang;
+                if self.settings.do_target_path == ShouldDoTargetPath::Yes
+                    || self.settings.do_target_path == ShouldDoTargetPath::DoWhilePlayed
+                        && !self.server_status.game_state.paused
+                {
+                    // instead of doing manual velocity, create a manual target path
+                    if i.key_down(key) && dir != Direction::Stay {
+                        // what is the earliest location in the current target path where we
+                        // could start moving in this direction?
+                        if let Some(curr_loc) = self.server_status.cv_location {
+                            let next_loc = Point2::new(
+                                curr_loc.x + dir.vector().0,
+                                curr_loc.y + dir.vector().1,
+                            );
+                            if !self.grid.wall_at(&next_loc)
+                                && !self.server_status.target_path.contains(&next_loc)
+                            {
+                                self.send(GuiToServerMessage::TargetLocation(next_loc));
+                            } else if let Some(prev) = self
+                                .server_status
+                                .target_path
+                                .iter()
+                                .map(|loc| {
+                                    Point2::new(loc.x + dir.vector().0, loc.y + dir.vector().1)
+                                })
+                                .filter(|loc| {
+                                    !self.grid.wall_at(&loc)
+                                        && !self.server_status.target_path.contains(&loc)
+                                })
+                                .next()
+                            {
+                                self.send(GuiToServerMessage::TargetLocation(prev));
+                            }
+                        }
+                    }
+                } else {
+                    if i.key_down(key) {
+                        target_vel.0 += lin;
+                        target_vel.1 += ang;
+                    }
                 }
             }
             while let Some(gilrs::Event { event, .. }) = self.gilrs.next_event() {
