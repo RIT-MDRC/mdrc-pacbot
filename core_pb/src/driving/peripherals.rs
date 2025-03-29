@@ -114,6 +114,7 @@ pub async fn peripherals_task<R: RobotBehavior>(
                 config.get().await.cv_location,
                 &sensors.distances,
                 &data.robot_definition,
+                config.get().await.follow_target_path,
             );
             sensors_sender.send(sensors.clone());
         }

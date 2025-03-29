@@ -183,7 +183,7 @@ impl FrequentServerToRobot {
             encoder_config: definition.default_encoder_config,
             dist_sensor_config: definition.default_dist_sensor_order,
             pid: definition.default_pid,
-            cv_location: None,
+            cv_location: Some(Point2::new(1, 1)),
             target_path: heapless::Vec::new(),
             follow_target_path: false,
             angle_offset: 0.0,

@@ -113,15 +113,19 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
             cv_over_time_time = R::Instant::default();
         }
         let stuck = cv_over_time_time.elapsed() > Duration::from_secs(3) && is_enabled;
-        if cv_over_time_time.elapsed() > Duration::from_secs(2) {
-            cv_over_time_time = R::Instant::default();
-        }
+        // if cv_over_time_time.elapsed() > Duration::from_secs(2) {
+        //     cv_over_time_time = R::Instant::default();
+        // }
         data.set_extra_bool_indicator(1, stuck);
         motors_data
             .do_motors(
                 &data.robot_definition.drive_system,
                 &data.sensors.try_get(),
-                stuck,
+                if !stuck {
+                    0
+                } else {
+                    cv_over_time_time.elapsed().as_secs()
+                },
                 4.0, // todo make this into an option
                 2.0,
                 0.05,
@@ -167,7 +171,7 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
         &mut self,
         drive_system: &DriveSystem<3>,
         sensors: &Option<SensorData>,
-        stuck: bool,
+        stuck_time: u64,
         snapping_multiplier: f32,
         angle_p: f32,
         angle_tol: f32, // rad
@@ -186,7 +190,7 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                         if let Some(vel) = pure_pursuit(
                             sensors,
                             &self.config.target_path,
-                            if stuck {
+                            if stuck_time > 2 {
                                 self.config.lookahead_dist * 0.1
                             } else {
                                 self.config.lookahead_dist
@@ -197,7 +201,13 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                             self.config.cv_location,
                         ) {
                             target_velocity.0 = vel;
-                            if stuck {
+                            if stuck_time % 10 > 5 {
+                                let phase = stuck_time % 4;
+                                let speed = 1.5;
+                                let angle = (90.0 * phase as f32).to_radians();
+                                let x_speed = angle.cos() * speed;
+                                let y_speed = angle.sin() * speed;
+                                target_velocity.0 = Vector2::new(x_speed, y_speed);
                                 // target_velocity.0 = -target_velocity.0;
                             }
                         }

@@ -96,7 +96,7 @@ impl PacbotDistanceSensor {
                 self.results
                     .signal(Err(PeripheralsError::DistanceSensorError(None)));
                 if !is_connected {
-                    Timer::after_millis(20).await;
+                    Timer::after_millis(50).await;
                 }
                 is_connected = false;
                 self.initialized = false;

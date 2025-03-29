@@ -302,10 +302,10 @@ impl App {
                                 if let Some(pos) = self.pointer_pos {
                                     let pos = self.world_to_screen.inverse().map_point(pos);
                                     let p = Point2::new(pos.x.round() as i8, pos.y.round() as i8);
-                                    if !self.grid.wall_at(&p) {
-                                        self.settings.cv_location_source =
-                                            CvLocationSource::Constant(Some(p))
-                                    }
+                                    // if !self.grid.wall_at(&p) {
+                                    self.settings.cv_location_source =
+                                        CvLocationSource::Constant(Some(p))
+                                    // }
                                 }
                             }
                             // Grid
@@ -361,14 +361,20 @@ impl App {
                     } => {
                         let pos2 = self.world_to_screen.inverse().map_point(*pos);
                         if *pressed {
-                            if let Some(loc) = self.grid.node_nearest(pos2.x, pos2.y) {
-                                self.send(GuiToServerMessage::SimulationCommand(
-                                    ServerToSimulationMessage::Teleport(
-                                        self.ui_settings.selected_robot,
-                                        loc,
-                                    ),
-                                ))
-                            }
+                            self.send(GuiToServerMessage::SimulationCommand(
+                                ServerToSimulationMessage::Teleport(
+                                    self.ui_settings.selected_robot,
+                                    Point2::new(pos2.x.round() as i8, pos2.y.round() as i8),
+                                ),
+                            ))
+                            // if let Some(loc) = self.grid.node_nearest(pos2.x, pos2.y) {
+                            //     self.send(GuiToServerMessage::SimulationCommand(
+                            //         ServerToSimulationMessage::Teleport(
+                            //             self.ui_settings.selected_robot,
+                            //             loc,
+                            //         ),
+                            //     ))
+                            // }
                         }
                         let pos2 = self.robot_buttons_wts.inverse().map_point(*pos);
                         for (x, y, button) in [

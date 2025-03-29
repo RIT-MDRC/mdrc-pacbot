@@ -201,7 +201,7 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
             region.low_xy,
             region.high_xy,
             app.server_status.cv_location.unwrap_or_default(),
-            2,
+            1,
         ) {
             Color32::from_rgba_unmultiplied(0, 0, 100, 25)
         } else {

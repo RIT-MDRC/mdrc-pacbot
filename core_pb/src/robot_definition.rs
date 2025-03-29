@@ -74,7 +74,7 @@ impl RobotDefinition<3> {
             },
 
             has_screen: false,
-            sensor_distance: 1.5,
+            sensor_distance: 1.5, // 0.14
         }
     }
 }
