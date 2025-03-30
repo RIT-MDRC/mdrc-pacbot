@@ -3,6 +3,10 @@ use crate::grid::standard_grid::{get_grid_regions, StandardGrid};
 use crate::grid::Grid;
 use crate::messages::MAX_SENSOR_ERR_LEN;
 use crate::robot_definition::RobotDefinition;
+// use log::info;
+// use log::info;
+// use std::thread::sleep;
+// use std::time::Duration;
 // use defmt::warn;
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
@@ -85,6 +89,14 @@ fn get_region_score(
     }
     if p.y > region.high_xy.y as f32 {
         score += p.y - region.high_xy.y as f32;
+    }
+    let tol = 1.0;
+    if p.x < region.low_xy.x as f32 - tol
+        || p.x > region.high_xy.x as f32 + tol
+        || p.y < region.low_xy.y as f32 - tol
+        || p.y > region.high_xy.y as f32 + tol
+    {
+        return None;
     }
     // or if any sensors are reading larger than predicted
     for (i, d) in dists
@@ -214,51 +226,63 @@ pub fn estimate_location(
                     - (pos.x - cv_location.x as f32).abs()
                     - (pos.y - cv_location.y as f32).abs();
             }
-            // if let (Some(sm_x), Some(cv_loc), true) = (
-            //     [0, 2]
-            //         .into_iter()
-            //         .map(|i| (i, distance_sensors[i]))
-            //         .flat_map(|(i, x)| x.ok().map(|x| (i, x.unwrap_or(max_toi))))
-            //         .min_by_key(|(_, d)| NotNan::new(*d).unwrap()),
-            //     cv_location,
-            //     do_cv_adjust,
-            // ) {
-            //     if sm_x.1 > 7.0 {
-            //         pos.x = cv_loc.x as f32;
-            //         if grid.get_grid()[pos.x.max(0.0).round() as usize]
-            //             [pos.y.max(0.0).round() as usize]
-            //         {
-            //             pos = cv_loc.map(|x| x as f32);
-            //         }
-            //     }
-            // }
-            // if let (Some(sm_y), Some(cv_loc), true) = (
-            //     [1, 3]
-            //         .into_iter()
-            //         .map(|i| (i, distance_sensors[i]))
-            //         .flat_map(|(i, x)| x.ok().map(|x| (i, x.unwrap_or(max_toi))))
-            //         .min_by_key(|(_, d)| NotNan::new(*d).unwrap()),
-            //     cv_location,
-            //     do_cv_adjust,
-            // ) {
-            //     if sm_y.1 > 7.0 {
-            //         pos.y = cv_loc.y as f32;
-            //         if grid.get_grid()[pos.x.max(0.0).round() as usize]
-            //             [pos.y.max(0.0).round() as usize]
-            //         {
-            //             pos = cv_loc.map(|x| x as f32);
-            //         }
-            //     }
-            // }
+            if let (Some(sm_x), Some(cv_loc), true) = (
+                [0, 2]
+                    .into_iter()
+                    .map(|i| (i, distance_sensors[i]))
+                    .flat_map(|(i, x)| x.ok().map(|x| (i, x.unwrap_or(max_toi))))
+                    .min_by_key(|(_, d)| NotNan::new(*d).unwrap()),
+                cv_location,
+                do_cv_adjust,
+            ) {
+                if sm_x.1 > 5.0 {
+                    pos.x = cv_loc.x as f32;
+                    // info!(
+                    //     "{pos:?} {} {}",
+                    //     pos.x.max(0.0).round(),
+                    //     pos.y.max(0.0).round()
+                    // );
+                    if grid.get_grid()[pos.x.max(0.0).round() as usize]
+                        [pos.y.max(0.0).round() as usize]
+                    {
+                        pos = cv_loc.map(|x| x as f32);
+                    }
+                }
+            }
+            if let (Some(sm_y), Some(cv_loc), true) = (
+                [1, 3]
+                    .into_iter()
+                    .map(|i| (i, distance_sensors[i]))
+                    .flat_map(|(i, x)| x.ok().map(|x| (i, x.unwrap_or(max_toi))))
+                    .min_by_key(|(_, d)| NotNan::new(*d).unwrap()),
+                cv_location,
+                do_cv_adjust,
+            ) {
+                if sm_y.1 > 5.0 {
+                    pos.y = cv_loc.y as f32;
+                    // info!(
+                    //     "{pos:?} {} {}",
+                    //     pos.x.max(0.0).round(),
+                    //     pos.y.max(0.0).round()
+                    // );
+                    if grid.get_grid()[pos.x.max(0.0).round() as usize]
+                        [pos.y.max(0.0).round() as usize]
+                    {
+                        pos = cv_loc.map(|x| x as f32);
+                    }
+                }
+            }
+            // info!("{region:?} {pos:?}");
             if score > best_score {
                 best_score = score;
                 best_p = Some(pos);
             }
         }
     }
-
-    best_p
-    // best_p.or(cv_location.map(|cv| cv.map(|x| x as f32)))
+    // info!("-----------");
+    // sleep(Duration::from_millis(100));
+    // best_p
+    best_p.or(cv_location.map(|cv| cv.map(|x| x as f32)))
     // Some(best_p.unwrap_or(cv_location.unwrap_or_default().map(|x| x as f32)))
 }
 

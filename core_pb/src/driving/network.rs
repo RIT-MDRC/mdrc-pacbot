@@ -124,11 +124,7 @@ impl<R: RobotBehavior> NetworkData<'_, R> {
                 .send((NetworkStatus::Connecting, None));
             loop {
                 // warn!("wifi b");
-                if let Ok(()) = self
-                    .network
-                    .connect_wifi(DEFAULT_NETWORK, Some("Pacbot#2024!"))
-                    .await
-                {
+                if let Ok(()) = self.network.connect_wifi(DEFAULT_NETWORK, None).await {
                     let ip = self.network.wifi_is_connected().await.unwrap_or([0; 4]);
                     self.network_status_sender
                         .send((NetworkStatus::Connected, Some(ip)));

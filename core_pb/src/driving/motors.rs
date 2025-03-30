@@ -117,6 +117,14 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
         //     cv_over_time_time = R::Instant::default();
         // }
         data.set_extra_bool_indicator(1, stuck);
+        data.set_extra_i32_indicator(
+            1,
+            if !stuck {
+                0
+            } else {
+                cv_over_time_time.elapsed().as_secs() as i32
+            },
+        );
         motors_data
             .do_motors(
                 &data.robot_definition.drive_system,
@@ -126,7 +134,7 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
                 } else {
                     cv_over_time_time.elapsed().as_secs()
                 },
-                4.0, // todo make this into an option
+                3.0, // todo make this into an option
                 2.0,
                 0.05,
                 0.0,
@@ -185,33 +193,34 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                     target_velocity.1 =
                         adjust_ang_vel(angle, 0.0, angle_p, angle_tol, angle_snapping_offset);
                     let angle = Rotation2::new(angle).angle();
-                    if angle.abs() < 20.0_f32.to_radians() {
-                        // now that we've made sure we're facing the right way, try to follow the path
-                        if let Some(vel) = pure_pursuit(
-                            sensors,
-                            &self.config.target_path,
-                            if stuck_time > 2 {
-                                self.config.lookahead_dist * 0.1
-                            } else {
-                                self.config.lookahead_dist
-                            },
-                            self.config.robot_speed,
-                            self.config.snapping_dist,
-                            snapping_multiplier,
-                            self.config.cv_location,
-                        ) {
-                            target_velocity.0 = vel;
-                            if stuck_time % 10 > 5 {
-                                let phase = stuck_time % 4;
-                                let speed = 1.5;
-                                let angle = (90.0 * phase as f32).to_radians();
-                                let x_speed = angle.cos() * speed;
-                                let y_speed = angle.sin() * speed;
-                                target_velocity.0 = Vector2::new(x_speed, y_speed);
-                                // target_velocity.0 = -target_velocity.0;
-                            }
+                    // if angle.abs() < 20.0_f32.to_radians() {
+                    // now that we've made sure we're facing the right way, try to follow the path
+                    if let Some(vel) = pure_pursuit(
+                        sensors,
+                        &self.config.target_path,
+                        if stuck_time > 2 {
+                            self.config.lookahead_dist * 0.1
+                        } else {
+                            self.config.lookahead_dist
+                        },
+                        self.config.robot_speed,
+                        self.config.snapping_dist,
+                        snapping_multiplier,
+                        self.config.cv_location,
+                    ) {
+                        target_velocity.0 = vel;
+                        if stuck_time % 6 > 3 {
+                            // let phase = stuck_time % 4;
+                            // let speed = 2.5;
+                            // let angle = (180.0 as f32).to_radians();
+                            // let x_speed = angle.cos() * speed;
+                            // let y_speed = angle.sin() * speed;
+                            // target_velocity.0 = Vector2::new(x_speed, y_speed);
+                            target_velocity.0 = -target_velocity.0;
+                            target_velocity.1 = -target_velocity.1;
                         }
                     }
+                    // }
                 }
                 // calculate wheel velocities
                 self.config.target_velocity =
@@ -221,7 +230,7 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
 
         self.set_points = [0.0; 3];
         self.pwm = [[0; 2]; 3];
-        if let Some((lin, ang)) = match self.config.target_velocity {
+        if let Some((mut lin, ang)) = match self.config.target_velocity {
             VelocityControl::None | VelocityControl::AssistedDriving(_) => None,
             VelocityControl::Stop => Some((Vector2::new(0.0, 0.0), 0.0)),
             VelocityControl::LinVelAngVel(lin, ang) => Some((lin, ang)),
@@ -254,6 +263,16 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                     )
                 }),
         } {
+            if let Some(SensorData {
+                angle: Ok(angle), ..
+            }) = &sensors
+            {
+                lin = Vector2::new(
+                    lin.x * (-angle).cos() - lin.y * (-angle).sin(),
+                    lin.x * (-angle).sin() + lin.y * (-angle).cos(),
+                );
+            }
+            // let lin_x = lin.x *
             self.set_points = drive_system.get_motor_speed_omni(lin, ang);
         }
         #[allow(clippy::needless_range_loop)]

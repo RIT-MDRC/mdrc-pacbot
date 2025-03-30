@@ -31,7 +31,7 @@ pub const ROBOT_DISPLAY_WIDTH: usize = 128;
 pub const ROBOT_DISPLAY_HEIGHT: usize = 64;
 
 /// The default network the robot tries to connect to
-pub const DEFAULT_NETWORK: &str = "Pacbot_Server";
+pub const DEFAULT_NETWORK: &str = "MdrcPacbot";
 
 pub const ROBOT_LOGS_BUFFER: usize = 4096;
 
