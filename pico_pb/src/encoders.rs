@@ -1,5 +1,6 @@
 use crate::EmbassyInstant;
 use crate::SharedPicoRobotData;
+use core::sync::atomic::Ordering;
 use core_pb::util::average_rate::AverageRate;
 use embassy_futures::select::{select4, Either4};
 use embassy_rp::peripherals::PIO1;
@@ -47,8 +48,8 @@ pub async fn run_encoders(
             if instants[i].elapsed().as_millis() > 80 {
                 velocities[i] = 0.0;
             }
+            shared_data.sig_motor_speeds[i].store(velocities[i], Ordering::Relaxed);
         }
-        shared_data.sig_motor_speeds.signal(velocities);
 
         // let elapsed = last_tick.elapsed();
         // if elapsed.as_micros() > 100 {

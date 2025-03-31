@@ -11,7 +11,7 @@ use core::sync::atomic::Ordering;
 use core::time::Duration;
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
-use nalgebra::{Rotation2, Vector2};
+use nalgebra::Vector2;
 use pid::Pid;
 
 /// Functionality that robots with motors must support
@@ -74,6 +74,7 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
 
     let mut cv_over_time = motors_data.config.cv_location;
     let mut cv_over_time_time = R::Instant::default();
+    let mut last_motor_speeds = [0, 1, 2].map(|i| data.sig_motor_speeds[i].load(Ordering::Relaxed));
 
     loop {
         if let Some(config) = config_watch.try_changed() {
@@ -95,7 +96,9 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
             motors_data.config = FrequentServerToRobot::new(data.name);
             motors_data.config.pwm_override = [[Some(0); 2]; 3];
         }
-        if let Some(new_speeds) = data.sig_motor_speeds.try_take() {
+        let new_speeds = [0, 1, 2].map(|i| data.sig_motor_speeds[i].load(Ordering::Relaxed));
+        if new_speeds != last_motor_speeds {
+            last_motor_speeds = new_speeds;
             for (i, speed) in motors_data.motor_speeds.iter_mut().enumerate() {
                 *speed = new_speeds[motors_data.config.encoder_config[i].0]
                     * if motors_data.config.encoder_config[i].1 {
@@ -192,7 +195,7 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                 if let Ok(angle) = sensors.angle {
                     target_velocity.1 =
                         adjust_ang_vel(angle, 0.0, angle_p, angle_tol, angle_snapping_offset);
-                    let angle = Rotation2::new(angle).angle();
+                    // let angle = Rotation2::new(angle).angle();
                     // if angle.abs() < 20.0_f32.to_radians() {
                     // now that we've made sure we're facing the right way, try to follow the path
                     if let Some(vel) = pure_pursuit(

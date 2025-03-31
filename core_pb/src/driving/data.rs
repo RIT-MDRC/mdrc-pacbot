@@ -59,7 +59,7 @@ pub struct SharedRobotData<R: RobotBehavior + ?Sized> {
     /// Estimated motor speeds
     ///
     /// It is the responsibility of the implementation to update this field.
-    pub sig_motor_speeds: Signal<CriticalSectionRawMutex, [f32; 3]>,
+    pub sig_motor_speeds: [AtomicF32; 3],
     /// An estimation of the absolute orientation of the robot
     ///
     /// It is the responsibility of the implementation to update this field.

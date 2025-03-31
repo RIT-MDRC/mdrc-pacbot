@@ -1,7 +1,6 @@
 use crate::peripherals::PeripheralsError;
 use crate::{PacbotI2cBus, PacbotI2cDevice};
 use core::sync::atomic::Ordering;
-use core_pb::constants::{INCHES_PER_GU, MM_PER_GU};
 use defmt::info;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;

@@ -12,6 +12,9 @@ use core::sync::atomic::Ordering;
 use core::time::Duration;
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::DrawTarget;
+#[cfg(feature = "micromath")]
+use micromath::F32Ext;
+use nalgebra::{Point2, Vector2};
 
 /// Functionality that robots with peripherals must support
 pub trait RobotPeripheralsBehavior {
@@ -51,6 +54,8 @@ pub async fn peripherals_task<R: RobotBehavior>(
     utilization_monitor.start();
 
     let mut last_display_time = R::Instant::default();
+    let mut dead_reckoning_loc = Point2::new(0.0f32, 0.0);
+    let mut dead_reckoning_time = R::Instant::default();
 
     loop {
         // used to control the sleep between loop iterations
@@ -106,6 +111,33 @@ pub async fn peripherals_task<R: RobotBehavior>(
             }
             peripherals.draw_display(|d| display_manager.draw(d)).await;
             peripherals.flip_screen().await;
+        }
+
+        // compute dead reckoning location
+        if let Ok(angle) = sensors.angle {
+            let motor_speeds = [0, 1, 2].map(|i| data.sig_motor_speeds[i].load(Ordering::Relaxed));
+            let t = dead_reckoning_time.elapsed().as_secs_f32();
+            if t != 0.0 {
+                dead_reckoning_time = R::Instant::default();
+                let (lin, _) = data
+                    .robot_definition
+                    .drive_system
+                    .get_actual_vel_omni(motor_speeds);
+                // data.set_extra_f32_indicator(2, lin.x);
+                // data.set_extra_f32_indicator(3, lin.y);
+                if !lin.x.is_nan() && !lin.y.is_nan() {
+                    // transform linear velocity by the current angle
+                    let vel = Vector2::new(
+                        lin.x * angle.cos() - lin.y * angle.sin(),
+                        lin.x * angle.sin() + lin.y * angle.cos(),
+                    );
+                    dead_reckoning_loc += vel * t;
+                    // data.set_extra_f32_indicator(0, dead_reckoning_loc.x);
+                    // data.set_extra_f32_indicator(1, dead_reckoning_loc.y);
+                    // data.set_extra_f32_indicator(2, t);
+                    // data.set_extra_f32_indicator(3, angle);
+                }
+            }
         }
 
         if something_changed {
