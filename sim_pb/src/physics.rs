@@ -11,6 +11,7 @@ use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::RobotName;
 use core_pb::robot_definition::RobotDefinition;
 use rand::prelude::*;
+use std::sync::atomic::Ordering;
 
 pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
     let grid = grid.compute_grid();
@@ -143,7 +144,9 @@ impl MyApp {
                 let noise: f32 = rng.gen_range(-noise_rng..noise_rng).abs();
                 *m += *m * noise;
             }
-            sim_robot.data.sig_motor_speeds.signal(motor_speeds);
+            for i in 0..3 {
+                sim_robot.data.sig_motor_speeds[i].store(motor_speeds[i], Ordering::Relaxed);
+            }
             let mut target_vel = robot_definition
                 .drive_system
                 .get_actual_vel_omni(motor_speeds);

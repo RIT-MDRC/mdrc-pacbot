@@ -8,6 +8,7 @@ use crate::robot_definition::RobotDefinition;
 // use std::thread::sleep;
 // use std::time::Duration;
 // use defmt::warn;
+use crate::localization;
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
 use nalgebra::{Point2, Vector2};
@@ -282,7 +283,18 @@ pub fn estimate_location(
     // info!("-----------");
     // sleep(Duration::from_millis(100));
     // best_p
-    best_p.or(cv_location.map(|cv| cv.map(|x| x as f32)))
+    best_p.or(localization::estimate_location(
+        grid,
+        cv_location,
+        &distance_sensors.map(|x| {
+            x.map_err(|_| {
+                let s: heapless::String<10> = heapless::String::new();
+                s
+            })
+        }),
+        robot_radius,
+        2.0,
+    ))
     // Some(best_p.unwrap_or(cv_location.unwrap_or_default().map(|x| x as f32)))
 }
 

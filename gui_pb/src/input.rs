@@ -128,6 +128,7 @@ impl App {
                 }
             }
             if let Some((_, gp)) = self.gilrs.gamepads().next() {
+                // Adjust scale with triggers
                 if let Some(t) = gp.button_data(Button::LeftTrigger2) {
                     if t.is_pressed() {
                         scale /= 3.0;
@@ -138,19 +139,88 @@ impl App {
                         scale *= 1.5;
                     }
                 }
-                if let Some(left_x) = gp.axis_data(Axis::LeftStickX) {
-                    if left_x.value() != 0.0 {
-                        target_vel.0 += Vector2::new(left_x.value() * scale, 0.0);
+
+                let in_target_path_mode = self.settings.do_target_path == ShouldDoTargetPath::Yes
+                    || (self.settings.do_target_path == ShouldDoTargetPath::DoWhilePlayed
+                        && !self.server_status.game_state.paused);
+
+                if in_target_path_mode {
+                    // Handle left stick for target path directions
+                    let deadzone = 0.5;
+                    let left_x = gp
+                        .axis_data(Axis::LeftStickX)
+                        .map(|a| a.value())
+                        .unwrap_or(0.0);
+                    let left_y = gp
+                        .axis_data(Axis::LeftStickY)
+                        .map(|a| a.value())
+                        .unwrap_or(0.0);
+
+                    let dir = if left_x.abs() > deadzone || left_y.abs() > deadzone {
+                        if left_x.abs() > left_y.abs() {
+                            if left_x > deadzone {
+                                Direction::Down
+                            } else if left_x < -deadzone {
+                                Direction::Up
+                            } else {
+                                Direction::Stay
+                            }
+                        } else {
+                            if left_y > deadzone {
+                                Direction::Right
+                            } else if left_y < -deadzone {
+                                Direction::Left
+                            } else {
+                                Direction::Stay
+                            }
+                        }
+                    } else {
+                        Direction::Stay
+                    };
+
+                    if dir != Direction::Stay {
+                        if let Some(curr_loc) = self.server_status.cv_location {
+                            let next_loc = Point2::new(
+                                curr_loc.x + dir.vector().0,
+                                curr_loc.y + dir.vector().1,
+                            );
+                            if !self.grid.wall_at(&next_loc)
+                                && !self.server_status.target_path.contains(&next_loc)
+                            {
+                                self.send(GuiToServerMessage::TargetLocation(next_loc));
+                            } else if let Some(prev) = self
+                                .server_status
+                                .target_path
+                                .iter()
+                                .map(|loc| {
+                                    Point2::new(loc.x + dir.vector().0, loc.y + dir.vector().1)
+                                })
+                                .filter(|loc| {
+                                    !self.grid.wall_at(loc)
+                                        && !self.server_status.target_path.contains(loc)
+                                })
+                                .next()
+                            {
+                                self.send(GuiToServerMessage::TargetLocation(prev));
+                            }
+                        }
                     }
-                }
-                if let Some(left_y) = gp.axis_data(Axis::LeftStickY) {
-                    if left_y.value() != 0.0 {
-                        target_vel.0 += Vector2::new(0.0, left_y.value() * scale);
+                } else {
+                    // Existing velocity handling for gamepad
+                    if let Some(left_x) = gp.axis_data(Axis::LeftStickX) {
+                        if left_x.value() != 0.0 {
+                            target_vel.0 += Vector2::new(left_x.value() * scale, 0.0);
+                        }
                     }
-                }
-                if let Some(right_x) = gp.axis_data(Axis::RightStickX) {
-                    if right_x.value() != 0.0 {
-                        target_vel.1 += -right_x.value() * scale
+                    if let Some(left_y) = gp.axis_data(Axis::LeftStickY) {
+                        if left_y.value() != 0.0 {
+                            target_vel.0 += Vector2::new(0.0, left_y.value() * scale);
+                        }
+                    }
+                    if let Some(right_x) = gp.axis_data(Axis::RightStickX) {
+                        if right_x.value() != 0.0 {
+                            target_vel.1 += -right_x.value() * scale;
+                        }
                     }
                 }
             }
@@ -210,7 +280,14 @@ impl App {
                         key, pressed: true, ..
                     } => {
                         match key {
-                            Key::Y => self.rotated_grid = !self.rotated_grid,
+                            Key::Y => {
+                                self.settings.do_target_path =
+                                    if self.settings.do_target_path == ShouldDoTargetPath::Yes {
+                                        ShouldDoTargetPath::DoWhilePlayed
+                                    } else {
+                                        ShouldDoTargetPath::Yes
+                                    }
+                            }
                             // Game state
                             Key::R => self.send(GuiToServerMessage::GameServerCommand(
                                 GameServerCommand::Reset,

@@ -27,7 +27,7 @@ use core_pb::util::stopwatch::Stopwatch;
 use core_pb::util::utilization::UtilizationMonitor;
 use core_pb::util::WebTimeInstant;
 use env_logger::Builder;
-use log::{info, LevelFilter};
+use log::{info, warn, LevelFilter};
 use nalgebra::Point2;
 use rand::prelude::IteratorRandom;
 use rand::thread_rng;
@@ -42,6 +42,7 @@ mod high_level;
 mod logging;
 pub mod network;
 mod ota;
+mod repeater;
 mod sockets;
 // todo pub mod strategy;
 
@@ -276,6 +277,7 @@ impl App {
     }
 
     fn trigger_strategy_update(&mut self) {
+        warn!("strategy update");
         const LOOKAHEAD_DIST: usize = 4;
         if let Some(cv_loc) = self.status.cv_location {
             match self.settings.driving.strategy {

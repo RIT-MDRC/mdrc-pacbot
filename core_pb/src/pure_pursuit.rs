@@ -46,6 +46,23 @@ pub fn pure_pursuit(
         loc
     };
 
+    let num_straight_points = if path.len() < 2 {
+        0
+    } else {
+        path.iter()
+            .enumerate()
+            .skip(1)
+            .take_while(|(i, x)| (path[1] - path[0]) == (**x - path[*i - 1]))
+            .count()
+    };
+    let speed = speed
+        + match num_straight_points {
+            0 | 1 => -0.4,
+            2 => -0.2,
+            3 | 4 => 0.0,
+            _ => 0.2,
+        };
+
     if let Some(pursuit_point) = get_pursuit_point(&closest_point, &path_f32, lookahead) {
         return Some(get_vec(loc, pursuit_point, true, speed, 1.0));
     }
