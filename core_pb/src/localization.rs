@@ -127,7 +127,7 @@ fn get_estimated_poses(
     })
 }
 
-fn get_sim_ray_cast(loc: Point2<i8>, grid: &Grid, radius: f32) -> [f32; 4] {
+pub fn get_sim_ray_cast(loc: Point2<i8>, grid: &Grid, radius: f32) -> [f32; 4] {
     VECTORS.map(|dir| {
         let mut dist: i8 = 0;
         let mut p = loc;

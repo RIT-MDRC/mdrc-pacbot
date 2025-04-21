@@ -277,7 +277,6 @@ impl App {
     }
 
     fn trigger_strategy_update(&mut self) {
-        warn!("strategy update");
         const LOOKAHEAD_DIST: usize = 4;
         if let Some(cv_loc) = self.status.cv_location {
             match self.settings.driving.strategy {
@@ -298,7 +297,11 @@ impl App {
                 }
                 StrategyChoice::ReinforcementLearning => {
                     self.inference_timer.start();
+                    let first = self.status.target_path.first().copied();
                     self.status.target_path.clear();
+                    if let Some(first) = first {
+                        self.status.target_path.push(first);
+                    }
 
                     // if second AI
                     if !(self.status.game_state.pellet_at((3, 1))
@@ -324,6 +327,9 @@ impl App {
                     }
 
                     let mut future = self.status.game_state.clone();
+                    if let Some(first) = first {
+                        future.set_pacman_location((first.x, first.y));
+                    }
                     while self.status.target_path.len() < LOOKAHEAD_DIST {
                         if self
                             .grid

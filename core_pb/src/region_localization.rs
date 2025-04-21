@@ -9,6 +9,7 @@ use crate::robot_definition::RobotDefinition;
 // use std::time::Duration;
 // use defmt::warn;
 use crate::localization;
+use crate::localization::get_sim_ray_cast;
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
 use nalgebra::{Point2, Vector2};
@@ -283,18 +284,43 @@ pub fn estimate_location(
     // info!("-----------");
     // sleep(Duration::from_millis(100));
     // best_p
-    best_p.or(localization::estimate_location(
-        grid,
-        cv_location,
-        &distance_sensors.map(|x| {
-            x.map_err(|_| {
-                let s: heapless::String<10> = heapless::String::new();
-                s
-            })
-        }),
-        robot_radius,
-        2.0,
-    ))
+    // best_p.or(localization::estimate_location(
+    //     grid,
+    //     cv_location,
+    //     &distance_sensors.map(|x| {
+    //         x.map_err(|_| {
+    //             let s: heapless::String<10> = heapless::String::new();
+    //             s
+    //         })
+    //     }),
+    //     robot_radius,
+    //     2.0,
+    // ))
+    if let Some(best_p) = best_p {
+        Some(best_p)
+    } else {
+        let mut loc = cv_location.unwrap_or_default().map(|x| x as f32);
+        let min = distance_sensors
+            .iter()
+            .enumerate()
+            .flat_map(|x| x.1.ok().map(|o| o.map(|o| (x.0, o))))
+            .flatten()
+            .min_by_key(|x| NotNan::try_from(x.1).unwrap());
+        if let Some((i, val)) = min {
+            if val < 1.0 {
+                let raycasts =
+                    get_sim_ray_cast(cv_location.unwrap_or_default(), &grid.get_grid(), 0.0);
+                match i {
+                    0 => loc.x += raycasts[0] - robot_radius - val,
+                    1 => loc.y += raycasts[1] - robot_radius - val,
+                    2 => loc.x -= raycasts[2] - robot_radius - val,
+                    3 => loc.y -= raycasts[3] - robot_radius - val,
+                    _ => {}
+                }
+            }
+        }
+        Some(loc)
+    }
     // Some(best_p.unwrap_or(cv_location.unwrap_or_default().map(|x| x as f32)))
 }
 

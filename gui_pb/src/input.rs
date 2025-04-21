@@ -159,17 +159,17 @@ impl App {
                     let dir = if left_x.abs() > deadzone || left_y.abs() > deadzone {
                         if left_x.abs() > left_y.abs() {
                             if left_x > deadzone {
-                                Direction::Down
+                                Direction::Right
                             } else if left_x < -deadzone {
-                                Direction::Up
+                                Direction::Left
                             } else {
                                 Direction::Stay
                             }
                         } else {
                             if left_y > deadzone {
-                                Direction::Right
+                                Direction::Up
                             } else if left_y < -deadzone {
-                                Direction::Left
+                                Direction::Down
                             } else {
                                 Direction::Stay
                             }
