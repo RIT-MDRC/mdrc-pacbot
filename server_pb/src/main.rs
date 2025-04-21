@@ -42,7 +42,6 @@ mod high_level;
 mod logging;
 pub mod network;
 mod ota;
-mod repeater;
 mod sockets;
 // todo pub mod strategy;
 
