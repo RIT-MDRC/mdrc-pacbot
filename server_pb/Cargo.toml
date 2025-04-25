@@ -7,6 +7,10 @@ default-run = "server_pb"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+tokio-tungstenite = "0.20"
+tungstenite = "0.20"
+url = "2.5.4"
+
 core_pb = { path = "../core_pb", features = ["log"] }
 nalgebra = { version = "0.33.2", features = ["serde", "serde-serialize"] }
 serde = { version = "1.0.198", features = ["derive", "std"] }
@@ -25,4 +29,4 @@ ouroboros = "0.18.4"
 
 # When an IDE tries to load the project with WASM target, it shouldn't run Pyo3 build commands
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rl_pb = { git = "https://github.com/RIT-MDRC/pacbot-rl.git", package = "pacbot_rs", rev = "cbc5844605e85b4928ab56dafea8bd4a5775bc5b", features = ["candle"] }
+rl_pb = { git = "https://github.com/RIT-MDRC/pacbot-rl.git", package = "pacbot_rs", rev = "92921d14de023e6d8ebe3ae24aac674f9dbea3ec" }

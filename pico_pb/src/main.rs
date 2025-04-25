@@ -5,13 +5,13 @@
 mod devices;
 #[allow(dead_code)]
 mod encoders;
-mod logging;
+// mod logging;
 mod motors;
 mod network;
 mod peripherals;
 
 // todo https://github.com/adafruit/Adafruit_CircuitPython_seesaw/blob/main/adafruit_seesaw/seesaw.py https://crates.io/crates/adafruit-seesaw
-use crate::encoders::{run_encoders, PioEncoder};
+use crate::encoders::{run_encoders, WrappedPioEncoder};
 use crate::motors::Motors;
 use crate::network::{initialize_network, Network};
 use crate::peripherals::{manage_pico_i2c, Peripherals};
@@ -38,6 +38,7 @@ use embassy_time::{Duration, Instant, Timer};
 use once_cell::sync::OnceCell;
 use panic_probe as _;
 use static_cell::StaticCell;
+use {defmt_rtt as _, panic_probe as _};
 
 pub type PacbotI2cBus = Mutex<NoopRawMutex, I2c<'static, I2C1, Async>>;
 pub type PacbotI2cDevice = I2cDevice<'static, NoopRawMutex, I2c<'static, I2C1, Async>>;
@@ -94,9 +95,9 @@ async fn main(spawner: Spawner) {
         ..
     } = Pio::new(p.PIO1, Irqs);
 
-    let encoder_a = PioEncoder::new(&mut common, sm0, p.PIN_4, p.PIN_5);
-    let encoder_b = PioEncoder::new(&mut common, sm1, p.PIN_8, p.PIN_9);
-    let encoder_c = PioEncoder::new(&mut common, sm2, p.PIN_12, p.PIN_13);
+    let encoder_a = WrappedPioEncoder::new(&mut common, sm0, p.PIN_12, p.PIN_13);
+    let encoder_b = WrappedPioEncoder::new(&mut common, sm1, p.PIN_8, p.PIN_9);
+    let encoder_c = WrappedPioEncoder::new(&mut common, sm2, p.PIN_4, p.PIN_5);
 
     // Initialize network
     let mut network = initialize_network(
@@ -136,12 +137,10 @@ async fn main(spawner: Spawner) {
 
     // set up shared I2C
     static I2C_BUS: StaticCell<PacbotI2cBus> = StaticCell::new();
+    let mut i2c_config = embassy_rp::i2c::Config::default();
+    i2c_config.frequency = 400_000;
     let i2c_bus = I2C_BUS.init(Mutex::new(embassy_rp::i2c::I2c::new_async(
-        p.I2C1,
-        p.PIN_27,
-        p.PIN_26,
-        Irqs,
-        embassy_rp::i2c::Config::default(),
+        p.I2C1, p.PIN_27, p.PIN_26, Irqs, i2c_config,
     )));
     unwrap!(spawner.spawn(do_i2c(Peripherals::new(i2c_bus))));
     unwrap!(spawner.spawn(manage_pico_i2c(i2c_bus, xshut)));

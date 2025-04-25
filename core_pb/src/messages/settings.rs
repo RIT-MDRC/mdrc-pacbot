@@ -37,7 +37,7 @@ impl Default for PacbotSettings {
         Self {
             host_http: false,
             safe_mode: false,
-            pacman: RobotName::Stella,
+            pacman: RobotName::Pierre,
             do_target_path: Default::default(),
             cv_location_source: Default::default(),
             target_speed: 3.0,

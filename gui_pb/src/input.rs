@@ -1,7 +1,7 @@
 use crate::drawing::settings::VelocityControlAngleBehavior;
 use crate::App;
 use core_pb::grid::standard_grid::StandardGrid;
-use core_pb::messages::settings::{CvLocationSource, StrategyChoice};
+use core_pb::messages::settings::{CvLocationSource, ShouldDoTargetPath, StrategyChoice};
 use core_pb::messages::{
     GameServerCommand, GuiToServerMessage, NetworkStatus, RobotButton, ServerToSimulationMessage,
     VelocityControl,
@@ -44,17 +44,53 @@ impl App {
             if i.modifiers.ctrl || i.modifiers.command {
                 scale /= 3.0;
             }
-            for (key, (lin, ang)) in [
-                (Key::W, (Vector2::new(0.0, scale), 0.0)),
-                (Key::A, (Vector2::new(-scale, 0.0), 0.0)),
-                (Key::D, (Vector2::new(scale, 0.0), 0.0)),
-                (Key::S, (Vector2::new(0.0, -scale), 0.0)),
-                (Key::Q, (Vector2::new(0.0, 0.0), scale)),
-                (Key::E, (Vector2::new(0.0, 0.0), -scale)),
+            for (key, (lin, ang), dir) in [
+                (Key::W, (Vector2::new(0.0, scale), 0.0), Direction::Right),
+                (Key::A, (Vector2::new(-scale, 0.0), 0.0), Direction::Up),
+                (Key::D, (Vector2::new(scale, 0.0), 0.0), Direction::Down),
+                (Key::S, (Vector2::new(0.0, -scale), 0.0), Direction::Left),
+                (Key::Q, (Vector2::new(0.0, 0.0), scale), Direction::Stay),
+                (Key::E, (Vector2::new(0.0, 0.0), -scale), Direction::Stay),
             ] {
-                if i.key_down(key) {
-                    target_vel.0 += lin;
-                    target_vel.1 += ang;
+                if self.settings.do_target_path == ShouldDoTargetPath::Yes
+                    || self.settings.do_target_path == ShouldDoTargetPath::DoWhilePlayed
+                        && !self.server_status.game_state.paused
+                {
+                    // instead of doing manual velocity, create a manual target path
+                    if i.key_down(key) && dir != Direction::Stay {
+                        // what is the earliest location in the current target path where we
+                        // could start moving in this direction?
+                        if let Some(curr_loc) = self.server_status.cv_location {
+                            let next_loc = Point2::new(
+                                curr_loc.x + dir.vector().0,
+                                curr_loc.y + dir.vector().1,
+                            );
+                            if !self.grid.wall_at(&next_loc)
+                                && !self.server_status.target_path.contains(&next_loc)
+                            {
+                                self.send(GuiToServerMessage::TargetLocation(next_loc));
+                            } else if let Some(prev) = self
+                                .server_status
+                                .target_path
+                                .iter()
+                                .map(|loc| {
+                                    Point2::new(loc.x + dir.vector().0, loc.y + dir.vector().1)
+                                })
+                                .filter(|loc| {
+                                    !self.grid.wall_at(&loc)
+                                        && !self.server_status.target_path.contains(&loc)
+                                })
+                                .next()
+                            {
+                                self.send(GuiToServerMessage::TargetLocation(prev));
+                            }
+                        }
+                    }
+                } else {
+                    if i.key_down(key) {
+                        target_vel.0 += lin;
+                        target_vel.1 += ang;
+                    }
                 }
             }
             while let Some(gilrs::Event { event, .. }) = self.gilrs.next_event() {
@@ -92,6 +128,7 @@ impl App {
                 }
             }
             if let Some((_, gp)) = self.gilrs.gamepads().next() {
+                // Adjust scale with triggers
                 if let Some(t) = gp.button_data(Button::LeftTrigger2) {
                     if t.is_pressed() {
                         scale /= 3.0;
@@ -102,19 +139,88 @@ impl App {
                         scale *= 1.5;
                     }
                 }
-                if let Some(left_x) = gp.axis_data(Axis::LeftStickX) {
-                    if left_x.value() != 0.0 {
-                        target_vel.0 += Vector2::new(left_x.value() * scale, 0.0);
+
+                let in_target_path_mode = self.settings.do_target_path == ShouldDoTargetPath::Yes
+                    || (self.settings.do_target_path == ShouldDoTargetPath::DoWhilePlayed
+                        && !self.server_status.game_state.paused);
+
+                if in_target_path_mode {
+                    // Handle left stick for target path directions
+                    let deadzone = 0.5;
+                    let left_x = gp
+                        .axis_data(Axis::LeftStickX)
+                        .map(|a| a.value())
+                        .unwrap_or(0.0);
+                    let left_y = gp
+                        .axis_data(Axis::LeftStickY)
+                        .map(|a| a.value())
+                        .unwrap_or(0.0);
+
+                    let dir = if left_x.abs() > deadzone || left_y.abs() > deadzone {
+                        if left_x.abs() > left_y.abs() {
+                            if left_x > deadzone {
+                                Direction::Right
+                            } else if left_x < -deadzone {
+                                Direction::Left
+                            } else {
+                                Direction::Stay
+                            }
+                        } else {
+                            if left_y > deadzone {
+                                Direction::Up
+                            } else if left_y < -deadzone {
+                                Direction::Down
+                            } else {
+                                Direction::Stay
+                            }
+                        }
+                    } else {
+                        Direction::Stay
+                    };
+
+                    if dir != Direction::Stay {
+                        if let Some(curr_loc) = self.server_status.cv_location {
+                            let next_loc = Point2::new(
+                                curr_loc.x + dir.vector().0,
+                                curr_loc.y + dir.vector().1,
+                            );
+                            if !self.grid.wall_at(&next_loc)
+                                && !self.server_status.target_path.contains(&next_loc)
+                            {
+                                self.send(GuiToServerMessage::TargetLocation(next_loc));
+                            } else if let Some(prev) = self
+                                .server_status
+                                .target_path
+                                .iter()
+                                .map(|loc| {
+                                    Point2::new(loc.x + dir.vector().0, loc.y + dir.vector().1)
+                                })
+                                .filter(|loc| {
+                                    !self.grid.wall_at(loc)
+                                        && !self.server_status.target_path.contains(loc)
+                                })
+                                .next()
+                            {
+                                self.send(GuiToServerMessage::TargetLocation(prev));
+                            }
+                        }
                     }
-                }
-                if let Some(left_y) = gp.axis_data(Axis::LeftStickY) {
-                    if left_y.value() != 0.0 {
-                        target_vel.0 += Vector2::new(0.0, left_y.value() * scale);
+                } else {
+                    // Existing velocity handling for gamepad
+                    if let Some(left_x) = gp.axis_data(Axis::LeftStickX) {
+                        if left_x.value() != 0.0 {
+                            target_vel.0 += Vector2::new(left_x.value() * scale, 0.0);
+                        }
                     }
-                }
-                if let Some(right_x) = gp.axis_data(Axis::RightStickX) {
-                    if right_x.value() != 0.0 {
-                        target_vel.1 += -right_x.value() * scale
+                    if let Some(left_y) = gp.axis_data(Axis::LeftStickY) {
+                        if left_y.value() != 0.0 {
+                            target_vel.0 += Vector2::new(0.0, left_y.value() * scale);
+                        }
+                    }
+                    if let Some(right_x) = gp.axis_data(Axis::RightStickX) {
+                        if right_x.value() != 0.0 {
+                            target_vel.1 += -right_x.value() * scale;
+                        }
                     }
                 }
             }
@@ -174,7 +280,14 @@ impl App {
                         key, pressed: true, ..
                     } => {
                         match key {
-                            Key::Y => self.rotated_grid = !self.rotated_grid,
+                            Key::Y => {
+                                self.settings.do_target_path =
+                                    if self.settings.do_target_path == ShouldDoTargetPath::Yes {
+                                        ShouldDoTargetPath::DoWhilePlayed
+                                    } else {
+                                        ShouldDoTargetPath::Yes
+                                    }
+                            }
                             // Game state
                             Key::R => self.send(GuiToServerMessage::GameServerCommand(
                                 GameServerCommand::Reset,
@@ -266,10 +379,10 @@ impl App {
                                 if let Some(pos) = self.pointer_pos {
                                     let pos = self.world_to_screen.inverse().map_point(pos);
                                     let p = Point2::new(pos.x.round() as i8, pos.y.round() as i8);
-                                    if !self.grid.wall_at(&p) {
-                                        self.settings.cv_location_source =
-                                            CvLocationSource::Constant(Some(p))
-                                    }
+                                    // if !self.grid.wall_at(&p) {
+                                    self.settings.cv_location_source =
+                                        CvLocationSource::Constant(Some(p))
+                                    // }
                                 }
                             }
                             // Grid
@@ -325,14 +438,20 @@ impl App {
                     } => {
                         let pos2 = self.world_to_screen.inverse().map_point(*pos);
                         if *pressed {
-                            if let Some(loc) = self.grid.node_nearest(pos2.x, pos2.y) {
-                                self.send(GuiToServerMessage::SimulationCommand(
-                                    ServerToSimulationMessage::Teleport(
-                                        self.ui_settings.selected_robot,
-                                        loc,
-                                    ),
-                                ))
-                            }
+                            self.send(GuiToServerMessage::SimulationCommand(
+                                ServerToSimulationMessage::Teleport(
+                                    self.ui_settings.selected_robot,
+                                    Point2::new(pos2.x.round() as i8, pos2.y.round() as i8),
+                                ),
+                            ))
+                            // if let Some(loc) = self.grid.node_nearest(pos2.x, pos2.y) {
+                            //     self.send(GuiToServerMessage::SimulationCommand(
+                            //         ServerToSimulationMessage::Teleport(
+                            //             self.ui_settings.selected_robot,
+                            //             loc,
+                            //         ),
+                            //     ))
+                            // }
                         }
                         let pos2 = self.robot_buttons_wts.inverse().map_point(*pos);
                         for (x, y, button) in [

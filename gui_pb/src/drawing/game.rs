@@ -6,7 +6,7 @@ use core_pb::constants::GU_PER_M;
 use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::RobotName;
 use core_pb::pacbot_rs::ghost_state::GhostColor;
-use core_pb::region_localization::get_possible_regions;
+use core_pb::region_localization::{get_possible_regions, is_close_to_box};
 use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::TRANSLUCENT_YELLOW_COLOR;
 use eframe::egui::{Color32, Painter, Pos2, Rect, Rounding, Stroke};
@@ -197,13 +197,23 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
         RobotDefinition::new(app.ui_settings.selected_robot).sensor_distance * GU_PER_M,
         RobotDefinition::new(app.ui_settings.selected_robot).radius,
     ) {
+        let color = if is_close_to_box(
+            region.low_xy,
+            region.high_xy,
+            app.server_status.cv_location.unwrap_or_default(),
+            1,
+        ) {
+            Color32::from_rgba_unmultiplied(0, 0, 100, 25)
+        } else {
+            Color32::from_rgba_unmultiplied(100, 0, 0, 25)
+        };
         painter.rect(
             Rect::from_two_pos(
                 wts.map_point2(region.low_xy.map(|x| x as f32)),
                 wts.map_point2(region.high_xy.map(|x| x as f32)),
             ),
             Rounding::ZERO,
-            Color32::from_rgba_unmultiplied(100, 0, 0, 25),
+            color,
             Stroke::new(1.0, Color32::DARK_GRAY),
         );
         painter.circle_filled(wts.map_point2(point), 2.0, Color32::RED);

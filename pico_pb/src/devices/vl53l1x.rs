@@ -490,10 +490,10 @@ impl VL53L1X {
         }
     }
 
-    /// This function programs the Intermeasurement period in ms.
-    ///
-    /// Intermeasurement period must be >/= timing budget. This condition is not checked by the API,
-    /// the customer has the duty to check the condition. **Default = 100 ms**
+    // /// This function programs the Intermeasurement period in ms.
+    // ///
+    // /// Intermeasurement period must be >/= timing budget. This condition is not checked by the API,
+    // /// the customer has the duty to check the condition. **Default = 100 ms**
     // todo pub async fn set_inter_measurement_in_ms<T: I2c>(
     //     &mut self,
     //     i2c: &mut T,

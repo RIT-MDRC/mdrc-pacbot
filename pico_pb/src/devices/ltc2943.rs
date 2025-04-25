@@ -1,11 +1,12 @@
 use crate::peripherals::PeripheralsError;
 use crate::{PacbotI2cBus, PacbotI2cDevice};
-use core::sync::atomic::AtomicBool;
+use core::sync::atomic::Ordering;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
 use embassy_time::Timer;
 use embedded_hal_async::i2c::I2c;
+use portable_atomic::AtomicBool;
 
 const ADDRESS: u8 = 0b1100100;
 
@@ -58,6 +59,11 @@ impl Ltc2943 {
     }
 
     async fn initialize(&mut self) -> Result<(), PeripheralsError> {
+        // do nothing if disabled
+        if !self.enabled.load(Ordering::Relaxed) {
+            return Err(PeripheralsError::Disabled);
+        }
+
         #[allow(clippy::unusual_byte_groupings)]
         self.i2c_device
             .write(ADDRESS, &[0x01, 0b10_111_00_0])

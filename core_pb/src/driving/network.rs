@@ -4,7 +4,7 @@ use crate::driving::RobotBehavior;
 use crate::messages::robot_tcp::{write_tcp, BytesOrT, StatefulTcpReader, TcpError, TcpMessage};
 use crate::messages::{
     ExtraImuData, ExtraOptsTypes, FrequentServerToRobot, MotorControlStatus, NetworkStatus,
-    RobotToServerMessage, SensorData, ServerToRobotMessage,
+    RobotToServerMessage, SensorData, ServerToRobotMessage, Task,
 };
 use crate::names::RobotName;
 use crate::util::utilization::UtilizationMonitor;
@@ -121,11 +121,7 @@ impl<R: RobotBehavior> NetworkData<'_, R> {
             self.network_status_sender
                 .send((NetworkStatus::Connecting, None));
             loop {
-                if let Ok(()) = self
-                    .network
-                    .connect_wifi(DEFAULT_NETWORK, option_env!("WIFI_PASSWORD"))
-                    .await
-                {
+                if let Ok(()) = self.network.connect_wifi(DEFAULT_NETWORK, None).await {
                     let ip = self.network.wifi_is_connected().await.unwrap_or([0; 4]);
                     self.network_status_sender
                         .send((NetworkStatus::Connected, Some(ip)));
@@ -177,28 +173,6 @@ impl<R: RobotBehavior> NetworkData<'_, R> {
         }
     }
 
-    // async fn handle_inter_task_message(
-    //     &mut self,
-    //     s: &mut R::Network::Socket<'_>,
-    //     msg: RobotInterTaskMessage,
-    // ) {
-    //     match msg {
-    //         RobotInterTaskMessage::Utilization(util, task) => {
-    //             self.utilizations[task as usize] = util;
-    //             self.utilizations[Task::Wifi as usize] = self.utilization_monitor.utilization();
-    //             self.send(s, RobotToServerMessage::Utilization(self.utilizations))
-    //                 .await;
-    //         }
-    //         RobotInterTaskMessage::ToServer(msg) => {
-    //             self.send(s, msg).await;
-    //         }
-    //         RobotInterTaskMessage::Sensors(sensors) => {
-    //             self.send(s, RobotToServerMessage::Sensors(sensors)).await;
-    //         }
-    //         _ => {}
-    //     }
-    // }
-
     async fn handle_server_message(
         &mut self,
         s: &mut <R::Network as RobotNetworkBehavior>::Socket<'_>,
@@ -220,6 +194,8 @@ impl<R: RobotBehavior> NetworkData<'_, R> {
         match msg {
             ServerToRobotMessage::Ping => {
                 self.send(s, RobotToServerMessage::Pong).await;
+                self.data.utilization[Task::Wifi as usize]
+                    .store(self.utilization_monitor.utilization(), Ordering::Relaxed);
                 let util = [
                     self.data.utilization[0].load(Ordering::Relaxed),
                     self.data.utilization[1].load(Ordering::Relaxed),
@@ -228,6 +204,27 @@ impl<R: RobotBehavior> NetworkData<'_, R> {
                 self.send(s, RobotToServerMessage::Utilization(util)).await;
             }
             ServerToRobotMessage::FrequentRobotItems(msg) => {
+                self.data
+                    .enable_imu
+                    .store(msg.enable_imu, Ordering::Relaxed);
+                self.data
+                    .enable_extra_imu_data
+                    .store(msg.enable_extra_imu_data, Ordering::Relaxed);
+                self.data
+                    .enable_dists
+                    .store(msg.enable_dists, Ordering::Relaxed);
+                self.data
+                    .enable_battery_monitor
+                    .store(msg.enable_battery_monitor, Ordering::Relaxed);
+                self.data
+                    .enable_display
+                    .store(msg.enable_display, Ordering::Relaxed);
+                self.data
+                    .enable_gamepad
+                    .store(msg.enable_gamepad, Ordering::Relaxed);
+                self.data
+                    .display_loop_interval
+                    .store(msg.display_loop_interval, Ordering::Relaxed);
                 self.config = msg.clone();
                 self.config_sender.send(msg);
             }

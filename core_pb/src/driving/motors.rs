@@ -4,16 +4,14 @@ use crate::driving::RobotBehavior;
 use crate::messages::{
     FrequentServerToRobot, MotorControlStatus, SensorData, Task, VelocityControl,
 };
-use crate::names::RobotName;
 use crate::pure_pursuit::pure_pursuit;
-use crate::robot_definition::RobotDefinition;
 use crate::util::utilization::UtilizationMonitor;
 use crate::util::CrossPlatformInstant;
 use core::sync::atomic::Ordering;
 use core::time::Duration;
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
-use nalgebra::{Rotation2, Vector2};
+use nalgebra::Vector2;
 use pid::Pid;
 
 /// Functionality that robots with motors must support
@@ -25,16 +23,10 @@ pub trait RobotMotorsBehavior {
     async fn set_pwm(&mut self, pin: usize, to: u16);
 }
 
-#[allow(dead_code)]
 struct MotorsData<const WHEELS: usize, M: RobotMotorsBehavior> {
-    name: RobotName,
-    robot: RobotDefinition<WHEELS>,
-    drive_system: DriveSystem<WHEELS>,
-
     motors: M,
 
     config: FrequentServerToRobot,
-    sensors: Option<SensorData>,
 
     pid_controllers: [Pid<f32>; WHEELS],
 
@@ -45,13 +37,13 @@ struct MotorsData<const WHEELS: usize, M: RobotMotorsBehavior> {
 
 /// The "main" method for the motors task
 pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R::Motors) -> ! {
-    let name = data.name;
     let status_sender = data.motor_control.sender();
-    let mut sensors_watch = data.sensors.receiver().unwrap();
+    // Watch for config changes instead of just using .get() to enable detecting when no one is
+    // setting new configs, and turn off motors
     let mut config_watch = data.config.receiver().unwrap();
 
-    let robot = data.robot_definition;
-    let config = FrequentServerToRobot::new(name);
+    let robot = &data.robot_definition;
+    let config = FrequentServerToRobot::new(data.name);
     let pid = config.pid;
 
     let pid_controllers = [0; 3].map(|_| {
@@ -63,15 +55,8 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
         pid_controller
     });
 
-    let drive_system = robot.drive_system;
-
     let mut motors_data = MotorsData {
-        name,
-        robot,
-        drive_system,
-
         config,
-        sensors: None,
 
         motors,
         pid_controllers,
@@ -87,9 +72,17 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
         UtilizationMonitor::new(0.0, 0.0);
     utilization_monitor.start();
 
+    let mut cv_over_time = motors_data.config.cv_location;
+    let mut cv_over_time_time = R::Instant::default();
+    let mut last_motor_speeds = [0, 1, 2].map(|i| data.sig_motor_speeds[i].load(Ordering::Relaxed));
+
     loop {
         if let Some(config) = config_watch.try_changed() {
             last_command = R::Instant::default();
+            if config.cv_location != cv_over_time {
+                cv_over_time = config.cv_location;
+                cv_over_time_time = R::Instant::default();
+            }
             motors_data.config = config;
             for m in 0..3 {
                 motors_data.pid_controllers[m]
@@ -100,17 +93,56 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
         }
         if last_command.elapsed() > Duration::from_millis(300) {
             // we might have disconnected, set all motors to stop
-            motors_data.config = FrequentServerToRobot::new(motors_data.name);
+            motors_data.config = FrequentServerToRobot::new(data.name);
             motors_data.config.pwm_override = [[Some(0); 2]; 3];
         }
-        if let Some(new_sensors) = sensors_watch.try_changed() {
-            motors_data.sensors = Some(new_sensors);
-        }
-        if let Some(new_speeds) = data.sig_motor_speeds.try_take() {
-            motors_data.motor_speeds = new_speeds;
+        let new_speeds = [0, 1, 2].map(|i| data.sig_motor_speeds[i].load(Ordering::Relaxed));
+        if new_speeds != last_motor_speeds {
+            last_motor_speeds = new_speeds;
+            for (i, speed) in motors_data.motor_speeds.iter_mut().enumerate() {
+                *speed = new_speeds[motors_data.config.encoder_config[i].0]
+                    * if motors_data.config.encoder_config[i].1 {
+                        -1.0
+                    } else {
+                        1.0
+                    };
+            }
         }
 
-        motors_data.do_motors().await;
+        let is_enabled = cv_over_time.is_some()
+            && motors_data.config.follow_target_path
+            && motors_data.config.target_path.len() > 0;
+        if !is_enabled {
+            cv_over_time_time = R::Instant::default();
+        }
+        let stuck = cv_over_time_time.elapsed() > Duration::from_secs(3) && is_enabled;
+        // if cv_over_time_time.elapsed() > Duration::from_secs(2) {
+        //     cv_over_time_time = R::Instant::default();
+        // }
+        // data.set_extra_bool_indicator(1, stuck);
+        // data.set_extra_i32_indicator(
+        //     1,
+        //     if !stuck {
+        //         0
+        //     } else {
+        //         cv_over_time_time.elapsed().as_secs() as i32
+        //     },
+        // );
+        motors_data
+            .do_motors(
+                &data.robot_definition.drive_system,
+                &data.sensors.try_get(),
+                if !stuck {
+                    0
+                } else {
+                    cv_over_time_time.elapsed().as_secs()
+                },
+                3.0, // todo make this into an option
+                2.0,
+                0.05,
+                0.0,
+            )
+            .await;
 
         status_sender.send(MotorControlStatus {
             pwm: motors_data.pwm,
@@ -126,7 +158,7 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
     }
 }
 
-fn adjust_ang_vel(curr_ang: f32, desired_ang: f32, p: f32, tol: f32) -> f32 {
+fn adjust_ang_vel(curr_ang: f32, desired_ang: f32, p: f32, tol: f32, offset: f32) -> f32 {
     // Calculate the difference between desired angle and current angle
     let mut angle_diff = desired_ang - curr_ang;
 
@@ -138,40 +170,60 @@ fn adjust_ang_vel(curr_ang: f32, desired_ang: f32, p: f32, tol: f32) -> f32 {
     }
 
     // clamp if within tol rads
-    angle_diff = if angle_diff.abs() < tol {
+    if angle_diff.abs() < tol {
         0.0
     } else {
-        angle_diff
-    };
-
-    angle_diff * p
+        angle_diff * p + offset * angle_diff.signum()
+    }
 }
 
 impl<M: RobotMotorsBehavior> MotorsData<3, M> {
-    pub async fn do_motors(&mut self) {
-        // TODO: make this a tunable param
-        let angle_p = 2.0;
-        let angle_tol = 0.03; // rad
-
+    pub async fn do_motors(
+        &mut self,
+        drive_system: &DriveSystem<3>,
+        sensors: &Option<SensorData>,
+        stuck_time: u64,
+        snapping_multiplier: f32,
+        angle_p: f32,
+        angle_tol: f32, // rad
+        angle_snapping_offset: f32,
+    ) {
         if self.config.follow_target_path {
-            if let Some(sensors) = &self.sensors {
+            if let Some(sensors) = sensors {
                 let mut target_velocity = (Vector2::new(0.0, 0.0), 0.0);
                 // maintain heading 0
                 if let Ok(angle) = sensors.angle {
-                    target_velocity.1 = adjust_ang_vel(angle, 0.0, angle_p, angle_tol);
-                    let angle = Rotation2::new(angle).angle();
-                    if angle.abs() < 20.0_f32.to_radians() {
-                        // now that we've made sure we're facing the right way, try to follow the path
-                        if let Some(vel) = pure_pursuit(
-                            sensors,
-                            &self.config.target_path,
-                            self.config.lookahead_dist,
-                            self.config.robot_speed,
-                            self.config.snapping_dist,
-                        ) {
-                            target_velocity.0 = vel;
+                    target_velocity.1 =
+                        adjust_ang_vel(angle, 0.0, angle_p, angle_tol, angle_snapping_offset);
+                    // let angle = Rotation2::new(angle).angle();
+                    // if angle.abs() < 20.0_f32.to_radians() {
+                    // now that we've made sure we're facing the right way, try to follow the path
+                    if let Some(vel) = pure_pursuit(
+                        sensors,
+                        &self.config.target_path,
+                        if stuck_time > 2 {
+                            self.config.lookahead_dist * 0.1
+                        } else {
+                            self.config.lookahead_dist
+                        },
+                        self.config.robot_speed,
+                        self.config.snapping_dist,
+                        snapping_multiplier,
+                        self.config.cv_location,
+                    ) {
+                        target_velocity.0 = vel;
+                        if stuck_time % 6 > 3 {
+                            // let phase = stuck_time % 4;
+                            // let speed = 2.5;
+                            // let angle = (180.0 as f32).to_radians();
+                            // let x_speed = angle.cos() * speed;
+                            // let y_speed = angle.sin() * speed;
+                            // target_velocity.0 = Vector2::new(x_speed, y_speed);
+                            target_velocity.0 = -target_velocity.0;
+                            target_velocity.1 = -target_velocity.1;
                         }
                     }
+                    // }
                 }
                 // calculate wheel velocities
                 self.config.target_velocity =
@@ -181,24 +233,20 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
 
         self.set_points = [0.0; 3];
         self.pwm = [[0; 2]; 3];
-        if let Some((lin, ang)) = match self.config.target_velocity {
+        if let Some((mut lin, ang)) = match self.config.target_velocity {
             VelocityControl::None | VelocityControl::AssistedDriving(_) => None,
             VelocityControl::Stop => Some((Vector2::new(0.0, 0.0), 0.0)),
             VelocityControl::LinVelAngVel(lin, ang) => Some((lin, ang)),
-            VelocityControl::LinVelFixedAng(lin, set_ang) => self
-                .sensors
+            VelocityControl::LinVelFixedAng(lin, set_ang) => sensors
                 .as_ref()
                 .and_then(|s| s.angle.clone().ok())
                 .map(|cur_ang| {
                     (
                         lin,
-                        crate::driving::motors::adjust_ang_vel(
-                            cur_ang, set_ang, angle_p, angle_tol,
-                        ),
+                        adjust_ang_vel(cur_ang, set_ang, angle_p, angle_tol, angle_snapping_offset),
                     )
                 }),
-            VelocityControl::LinVelFaceForward(lin) => self
-                .sensors
+            VelocityControl::LinVelFaceForward(lin) => sensors
                 .as_ref()
                 .and_then(|s| s.angle.clone().ok())
                 .map(|cur_ang| {
@@ -207,17 +255,28 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                         if lin.magnitude() < 0.01 {
                             0.0
                         } else {
-                            crate::driving::motors::adjust_ang_vel(
+                            adjust_ang_vel(
                                 cur_ang,
                                 f32::atan2(lin.y, lin.x),
                                 angle_p,
                                 angle_tol,
+                                angle_snapping_offset,
                             )
                         },
                     )
                 }),
         } {
-            self.set_points = self.drive_system.get_motor_speed_omni(lin, ang);
+            if let Some(SensorData {
+                angle: Ok(angle), ..
+            }) = &sensors
+            {
+                lin = Vector2::new(
+                    lin.x * (-angle).cos() - lin.y * (-angle).sin(),
+                    lin.x * (-angle).sin() + lin.y * (-angle).cos(),
+                );
+            }
+            // let lin_x = lin.x *
+            self.set_points = drive_system.get_motor_speed_omni(lin, ang);
         }
         #[allow(clippy::needless_range_loop)]
         for m in 0..3 {

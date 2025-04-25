@@ -1,6 +1,6 @@
+use crate::grid::standard_grid::StandardGrid;
 use crate::grid::{Grid, GRID_SIZE};
 use crate::messages::MAX_SENSOR_ERR_LEN;
-use crate::{grid::standard_grid::StandardGrid, robot_definition::RobotDefinition};
 #[cfg(feature = "micromath")]
 use nalgebra::ComplexField;
 use nalgebra::{Point2, Vector2};
@@ -19,14 +19,14 @@ pub fn estimate_location(
     grid: StandardGrid,
     cv_location: Option<Point2<i8>>,
     distance_sensors: &[Result<Option<f32>, heapless::String<MAX_SENSOR_ERR_LEN>>; 4],
-    robot: &RobotDefinition<3>,
+    radius: f32,
     cv_error: f32,
 ) -> Option<Point2<f32>> {
     let cv_location_int = cv_location?;
     let cv_location_f32 = cv_location_int.map(|x| x as f32);
 
     let grid = grid.get_grid();
-    let mut poses = get_estimated_poses(&grid, cv_location_int, distance_sensors, robot.radius);
+    let mut poses = get_estimated_poses(&grid, cv_location_int, distance_sensors, radius);
 
     if [poses[0], poses[2]].iter().all(|x| {
         x.map(|pos| get_dist(pos, cv_location_f32) > cv_error)
@@ -39,7 +39,7 @@ pub fn estimate_location(
             } else {
                 new_location.y -= 1;
             }
-            poses = get_estimated_poses(&grid, new_location, distance_sensors, robot.radius);
+            poses = get_estimated_poses(&grid, new_location, distance_sensors, radius);
         }
     }
 
@@ -54,11 +54,11 @@ pub fn estimate_location(
             } else {
                 new_location.x -= 1;
             }
-            poses = get_estimated_poses(&grid, new_location, distance_sensors, robot.radius);
+            poses = get_estimated_poses(&grid, new_location, distance_sensors, radius);
         }
     }
 
-    let x = [poses[0], poses[2]]
+    let mut x = [poses[0], poses[2]]
         .into_iter()
         .flatten()
         .min_by_key(|pos| {
@@ -67,7 +67,7 @@ pub fn estimate_location(
         .unwrap_or(cv_location_f32)
         .x;
 
-    let y = [poses[1], poses[3]]
+    let mut y = [poses[1], poses[3]]
         .into_iter()
         .flatten()
         .min_by_key(|pos| {
@@ -75,6 +75,36 @@ pub fn estimate_location(
         })
         .unwrap_or(cv_location_f32)
         .y;
+
+    let max_dist: f32 = 5.;
+
+    if distance_sensors[0]
+        .clone()
+        .unwrap_or_default()
+        .unwrap_or(max_dist)
+        >= max_dist
+        && distance_sensors[2]
+            .clone()
+            .unwrap_or_default()
+            .unwrap_or(max_dist)
+            >= max_dist
+    {
+        x = cv_location_f32.x;
+    }
+
+    if distance_sensors[1]
+        .clone()
+        .unwrap_or_default()
+        .unwrap_or(max_dist)
+        >= max_dist
+        && distance_sensors[3]
+            .clone()
+            .unwrap_or_default()
+            .unwrap_or(max_dist)
+            >= max_dist
+    {
+        y = cv_location_f32.y;
+    }
 
     Some(Point2::new(x, y))
 }
@@ -97,7 +127,7 @@ fn get_estimated_poses(
     })
 }
 
-fn get_sim_ray_cast(loc: Point2<i8>, grid: &Grid, radius: f32) -> [f32; 4] {
+pub fn get_sim_ray_cast(loc: Point2<i8>, grid: &Grid, radius: f32) -> [f32; 4] {
     VECTORS.map(|dir| {
         let mut dist: i8 = 0;
         let mut p = loc;

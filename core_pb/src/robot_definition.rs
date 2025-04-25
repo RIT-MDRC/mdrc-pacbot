@@ -20,6 +20,10 @@ pub struct RobotDefinition<const WHEELS: usize> {
     pub pwm_top: u16,
     /// Which pwm pin corresponds to forwards and backwards for each motor - can change
     pub default_motor_config: [[usize; 2]; WHEELS],
+    /// Which encoder belongs to which motor, and whether it is reversed - can change
+    pub default_encoder_config: [(usize, bool); 3],
+    /// The order of the distance sensors
+    pub default_dist_sensor_order: [usize; 4],
 
     /// Whether the robot should expect to have access to a screen
     pub has_screen: bool,
@@ -35,7 +39,7 @@ pub struct WheelDefinition {}
 impl RobotDefinition<3> {
     /// Create the default `RobotDefinition` for the given robot
     pub fn new(name: RobotName) -> Self {
-        let radius = 2.1 * GU_PER_INCH;
+        let radius = 2.6 * GU_PER_INCH;
         Self {
             radius,
 
@@ -56,11 +60,21 @@ impl RobotDefinition<3> {
             default_motor_config: if name.is_simulated() {
                 [[0, 1], [2, 3], [4, 5]]
             } else {
-                [[5, 4], [3, 2], [0, 1]]
+                [[5, 4], [3, 2], [1, 0]]
+            },
+            default_encoder_config: if name.is_simulated() {
+                [(0, false), (1, false), (2, false)]
+            } else {
+                [(0, false), (1, false), (2, false)]
+            },
+            default_dist_sensor_order: if name.is_simulated() {
+                [0, 1, 2, 3]
+            } else {
+                [2, 3, 0, 1]
             },
 
             has_screen: false,
-            sensor_distance: 1.5,
+            sensor_distance: 1.5, // 0.14
         }
     }
 }

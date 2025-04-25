@@ -1,9 +1,11 @@
 use crate::peripherals::PeripheralsError;
 use crate::{PacbotI2cBus, PacbotI2cDevice};
+use core::sync::atomic::Ordering;
 use defmt::info;
 use display_interface::DisplayError;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_time::Instant;
+use portable_atomic::AtomicBool;
 use ssd1306::mode::BufferedGraphicsModeAsync;
 use ssd1306::prelude::*;
 use ssd1306::Ssd1306Async;
@@ -23,7 +25,7 @@ impl From<DisplayError> for PeripheralsError {
 }
 
 pub struct PacbotDisplayWrapper {
-    enabled: bool,
+    enabled: &'static AtomicBool,
 
     display: PacbotDisplay,
     initialized: Result<(), PeripheralsError>,
@@ -32,28 +34,19 @@ pub struct PacbotDisplayWrapper {
 
 #[allow(dead_code)]
 impl PacbotDisplayWrapper {
-    pub fn new(bus: &'static PacbotI2cBus) -> Self {
+    pub fn new(bus: &'static PacbotI2cBus, enabled: &'static AtomicBool) -> Self {
         let i2c_device = I2cDevice::new(bus);
-        let interface = I2CInterface::new(i2c_device, DISPLAY_ADDRESS, 0xC0);
-        let display = Ssd1306Async::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
+        let interface = I2CInterface::new(i2c_device, DISPLAY_ADDRESS, 0x40);
+        let display = Ssd1306Async::new(interface, DisplaySize128x64, DisplayRotation::Rotate180)
             .into_buffered_graphics_mode();
 
         Self {
-            enabled: false,
+            enabled,
 
             display,
             initialized: Err(PeripheralsError::Uninitialized),
             last_init_time: Instant::now(),
         }
-    }
-
-    pub fn set_enabled(&mut self, new_enabled: bool) {
-        if !new_enabled {
-            self.initialized = Err(PeripheralsError::Disabled)
-        } else if !self.enabled {
-            self.initialized = Err(PeripheralsError::Uninitialized)
-        }
-        self.enabled = new_enabled;
     }
 
     pub fn status(&self) -> Result<(), PeripheralsError> {
@@ -81,7 +74,7 @@ impl PacbotDisplayWrapper {
 
     async fn initialize(&mut self) -> Result<(), PeripheralsError> {
         // do nothing if disabled
-        if !self.enabled {
+        if !self.enabled.load(Ordering::Relaxed) {
             return Err(PeripheralsError::Disabled);
         }
 

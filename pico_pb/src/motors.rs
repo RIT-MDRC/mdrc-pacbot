@@ -1,4 +1,5 @@
 use crate::SharedPicoRobotData;
+use core_pb::constants::PWM_SOFT_CAP;
 use core_pb::driving::motors::RobotMotorsBehavior;
 use defmt::Format;
 use embassy_rp::peripherals::*;
@@ -42,6 +43,7 @@ pub enum MotorError {}
 
 impl RobotMotorsBehavior for Motors<3> {
     async fn set_pwm(&mut self, pin: usize, to: u16) {
+        let to = u16::min(to, PWM_SOFT_CAP);
         if pin % 2 == 0 {
             self.pwm_configs[pin / 2].compare_a = to;
         } else {

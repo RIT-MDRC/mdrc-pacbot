@@ -1,6 +1,6 @@
 use crate::peripherals::PeripheralsError;
 use crate::{PacbotI2cBus, PacbotI2cDevice};
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::Ordering;
 use defmt::info;
 use embassy_embedded_hal::shared_bus::asynch::i2c::I2cDevice;
 use embassy_embedded_hal::shared_bus::I2cDeviceError;
@@ -9,11 +9,16 @@ use embassy_rp::i2c;
 use embassy_rp::i2c::Async;
 use embassy_rp::peripherals::I2C1;
 use embassy_sync::blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex};
+use embassy_sync::mutex::Mutex;
 use embassy_sync::signal::Signal;
 use embassy_time::{Delay, Timer};
 use embedded_hal_async::i2c::I2c;
+use portable_atomic::AtomicBool;
 use vl53l4cd::wait::Poll;
 use vl53l4cd::{Status, Vl53l4cd};
+
+// TODO: do this a better way
+static INIT_LOCK: Mutex<CriticalSectionRawMutex, i32> = Mutex::new(0);
 
 type PacbotDistanceSensorType =
     Vl53l4cd<I2cDevice<'static, NoopRawMutex, i2c::I2c<'static, I2C1, Async>>, Delay, Poll>;
@@ -66,6 +71,7 @@ impl PacbotDistanceSensor {
     }
 
     pub async fn run_forever(mut self) -> ! {
+        let mut is_connected = false;
         loop {
             if self.initialize().await.is_ok() {
                 match self.fetch_measurement().await {
@@ -76,15 +82,22 @@ impl PacbotDistanceSensor {
                         self.results.signal(Err(e));
                         self.initialized = false;
                     }
-                    Ok(m) => self.results.signal(Ok(m.map(|x| x as f32))),
+                    Ok(m) => self.results.signal(Ok(
+                        // m.map(|x| f32::max(0.0, (0.0402 * x as f32 - 0.826) / INCHES_PER_GU))
+                        m.map(|x| x as f32),
+                    )), // see "Sensor Calibration" google sheet
                 }
                 Timer::after_millis(20).await;
+                is_connected = true;
             } else {
                 // set XSHUT low to turn the sensor off
                 self.xshut.set_low();
                 self.results
                     .signal(Err(PeripheralsError::DistanceSensorError(None)));
-                Timer::after_millis(300).await;
+                if !is_connected {
+                    Timer::after_millis(50).await;
+                }
+                is_connected = false;
                 self.initialized = false;
             }
         }
@@ -118,6 +131,9 @@ impl PacbotDistanceSensor {
             return Ok(());
         }
 
+        // start critical section
+        let _lock = INIT_LOCK.lock().await;
+
         info!(
             "Attempting to initialize vl53l4cd distance sensor {}",
             self.index
@@ -125,7 +141,7 @@ impl PacbotDistanceSensor {
 
         // set XSHUT high to turn the sensor on
         self.xshut.set_high();
-        Timer::after_millis(300).await;
+        // Timer::after_millis(30).await;
 
         // initialize sensor with default address
         self.default_sensor.init().await?;
@@ -134,7 +150,7 @@ impl PacbotDistanceSensor {
         self.i2c_device
             .write(vl53l4cd::PERIPHERAL_ADDR, &[0x00, 0x01, self.addr])
             .await?;
-        Timer::after_millis(300).await;
+        // Timer::after_millis(300).await;
         // initialize sensor with new address
         self.sensor.init().await?;
         self.sensor.start_ranging().await?;

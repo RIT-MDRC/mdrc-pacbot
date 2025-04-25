@@ -1,4 +1,8 @@
-use crate::constants::MAX_ROBOT_PATH_LENGTH;
+use crate::constants::{
+    INITIAL_ENABLE_BATTERY_MONITOR, INITIAL_ENABLE_DISPLAY, INITIAL_ENABLE_DISTS,
+    INITIAL_ENABLE_EXTRA_IMU_DATA, INITIAL_ENABLE_GAMEPAD, INITIAL_ENABLE_IMU,
+    MAX_ROBOT_PATH_LENGTH,
+};
 use crate::grid::standard_grid::StandardGrid;
 #[cfg(feature = "std")]
 use crate::messages::server_status::ServerStatus;
@@ -136,6 +140,10 @@ pub struct FrequentServerToRobot {
     /// - `2` -> motor 2 clockwise
     /// - `3` -> motor 2 counter-clockwise
     pub motor_config: [[usize; 2]; 3],
+    /// Which encoder belongs to which motor, and whether the encoder is reversed
+    pub encoder_config: [(usize, bool); 3],
+    /// The order of the distance sensors
+    pub dist_sensor_config: [usize; 4],
     /// Basic parameters for the PID controller
     pub pid: [f32; 3],
     /// The grid cell the CV system thinks the robot is in
@@ -152,6 +160,14 @@ pub struct FrequentServerToRobot {
     pub robot_speed: f32,
     pub snapping_dist: f32,
     pub cv_error: f32,
+
+    pub enable_imu: bool,
+    pub enable_extra_imu_data: bool,
+    pub enable_dists: bool,
+    pub enable_battery_monitor: bool,
+    pub enable_display: bool,
+    pub enable_gamepad: bool,
+    pub display_loop_interval: u64,
 }
 
 impl FrequentServerToRobot {
@@ -164,15 +180,25 @@ impl FrequentServerToRobot {
             motors_override: [None; 3],
             pwm_override: [[None; 2]; 3],
             motor_config: definition.default_motor_config,
+            encoder_config: definition.default_encoder_config,
+            dist_sensor_config: definition.default_dist_sensor_order,
             pid: definition.default_pid,
-            cv_location: None,
+            cv_location: Some(Point2::new(1, 1)),
             target_path: heapless::Vec::new(),
             follow_target_path: false,
             angle_offset: 0.0,
-            lookahead_dist: 0.5,
-            robot_speed: 1.5,
+            lookahead_dist: 0.7,
+            robot_speed: 2.5,
             snapping_dist: 0.3,
             cv_error: 1.5,
+
+            enable_imu: INITIAL_ENABLE_IMU,
+            enable_extra_imu_data: INITIAL_ENABLE_EXTRA_IMU_DATA,
+            enable_dists: INITIAL_ENABLE_DISTS,
+            enable_battery_monitor: INITIAL_ENABLE_BATTERY_MONITOR,
+            enable_display: INITIAL_ENABLE_DISPLAY,
+            enable_gamepad: INITIAL_ENABLE_GAMEPAD,
+            display_loop_interval: 500,
         }
     }
 }

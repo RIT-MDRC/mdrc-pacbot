@@ -11,6 +11,7 @@ use core_pb::grid::standard_grid::StandardGrid;
 use core_pb::names::RobotName;
 use core_pb::robot_definition::RobotDefinition;
 use rand::prelude::*;
+use std::sync::atomic::Ordering;
 
 pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
     let grid = grid.compute_grid();
@@ -123,7 +124,7 @@ impl MyApp {
                     rapier_context.cast_ray_and_get_normal(ray_pos, ray_dir, max_toi, solid, filter)
                 {
                     let hit_point = intersection.point;
-                    let noise_range: f32 = 0.1;
+                    let noise_range: f32 = 0.01;
                     let dist_noise: f32 = 1.0 + rng.gen_range(-noise_range..noise_range);
                     let distance = ray_pos.distance(hit_point) * dist_noise;
 
@@ -143,7 +144,9 @@ impl MyApp {
                 let noise: f32 = rng.gen_range(-noise_rng..noise_rng).abs();
                 *m += *m * noise;
             }
-            sim_robot.data.sig_motor_speeds.signal(motor_speeds);
+            for i in 0..3 {
+                sim_robot.data.sig_motor_speeds[i].store(motor_speeds[i], Ordering::Relaxed);
+            }
             let mut target_vel = robot_definition
                 .drive_system
                 .get_actual_vel_omni(motor_speeds);
