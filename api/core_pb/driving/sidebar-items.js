@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["data","motors","network","peripherals"],"struct":["Watched"],"trait":["RobotBehavior"]};
