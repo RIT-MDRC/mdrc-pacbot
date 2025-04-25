@@ -10,7 +10,7 @@ pub fn model_configuration(_model: KnownRLModel) -> PacmanGymConfiguration {
         random_start: false,
         random_ticks: false,
         randomize_ghosts: false,
-        remove_super_pellets: false,
+        ..Default::default()
     }
 }
 

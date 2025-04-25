@@ -1,6 +1,6 @@
+use crate::grid::standard_grid::StandardGrid;
 use crate::grid::{Grid, GRID_SIZE};
 use crate::messages::MAX_SENSOR_ERR_LEN;
-use crate::{grid::standard_grid::StandardGrid, robot_definition::RobotDefinition};
 #[cfg(feature = "micromath")]
 use nalgebra::ComplexField;
 use nalgebra::{Point2, Vector2};
@@ -76,18 +76,18 @@ pub fn estimate_location(
         .unwrap_or(cv_location_f32)
         .y;
 
-    let MAX_DIST: f32 = 5.;
+    let max_dist: f32 = 5.;
 
     if distance_sensors[0]
         .clone()
         .unwrap_or_default()
-        .unwrap_or(MAX_DIST)
-        >= MAX_DIST
+        .unwrap_or(max_dist)
+        >= max_dist
         && distance_sensors[2]
             .clone()
             .unwrap_or_default()
-            .unwrap_or(MAX_DIST)
-            >= MAX_DIST
+            .unwrap_or(max_dist)
+            >= max_dist
     {
         x = cv_location_f32.x;
     }
@@ -95,13 +95,13 @@ pub fn estimate_location(
     if distance_sensors[1]
         .clone()
         .unwrap_or_default()
-        .unwrap_or(MAX_DIST)
-        >= MAX_DIST
+        .unwrap_or(max_dist)
+        >= max_dist
         && distance_sensors[3]
             .clone()
             .unwrap_or_default()
-            .unwrap_or(MAX_DIST)
-            >= MAX_DIST
+            .unwrap_or(max_dist)
+            >= max_dist
     {
         y = cv_location_f32.y;
     }

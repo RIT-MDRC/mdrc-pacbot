@@ -1,15 +1,9 @@
 use crate::constants::GU_PER_M;
 use crate::grid::standard_grid::{get_grid_regions, StandardGrid};
 use crate::grid::Grid;
+use crate::localization::get_sim_ray_cast;
 use crate::messages::MAX_SENSOR_ERR_LEN;
 use crate::robot_definition::RobotDefinition;
-// use log::info;
-// use log::info;
-// use std::thread::sleep;
-// use std::time::Duration;
-// use defmt::warn;
-use crate::localization;
-use crate::localization::get_sim_ray_cast;
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
 use nalgebra::{Point2, Vector2};
@@ -281,21 +275,6 @@ pub fn estimate_location(
             }
         }
     }
-    // info!("-----------");
-    // sleep(Duration::from_millis(100));
-    // best_p
-    // best_p.or(localization::estimate_location(
-    //     grid,
-    //     cv_location,
-    //     &distance_sensors.map(|x| {
-    //         x.map_err(|_| {
-    //             let s: heapless::String<10> = heapless::String::new();
-    //             s
-    //         })
-    //     }),
-    //     robot_radius,
-    //     2.0,
-    // ))
     if let Some(best_p) = best_p {
         Some(best_p)
     } else {

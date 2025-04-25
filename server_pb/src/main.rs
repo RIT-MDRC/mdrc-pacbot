@@ -27,7 +27,7 @@ use core_pb::util::stopwatch::Stopwatch;
 use core_pb::util::utilization::UtilizationMonitor;
 use core_pb::util::WebTimeInstant;
 use env_logger::Builder;
-use log::{info, warn, LevelFilter};
+use log::{info, LevelFilter};
 use nalgebra::Point2;
 use rand::prelude::IteratorRandom;
 use rand::thread_rng;

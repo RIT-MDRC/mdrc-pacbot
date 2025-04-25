@@ -13,7 +13,6 @@ use core::fmt::Debug;
 use core::pin::pin;
 use core::sync::atomic::Ordering;
 use core::time::Duration;
-// use defmt::warn;
 use defmt_or_log::{error, info};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
@@ -119,21 +118,17 @@ struct NetworkData<'a, R: RobotBehavior + 'a> {
 impl<R: RobotBehavior> NetworkData<'_, R> {
     async fn connect_wifi(&mut self) {
         while self.network.wifi_is_connected().await.is_none() {
-            // warn!("wifi a");
             self.network_status_sender
                 .send((NetworkStatus::Connecting, None));
             loop {
-                // warn!("wifi b");
                 if let Ok(()) = self.network.connect_wifi(DEFAULT_NETWORK, None).await {
                     let ip = self.network.wifi_is_connected().await.unwrap_or([0; 4]);
                     self.network_status_sender
                         .send((NetworkStatus::Connected, Some(ip)));
-                    // warn!("wifi d");
                     break;
                 }
                 self.network_status_sender
                     .send((NetworkStatus::ConnectionFailed, None));
-                // warn!("wifi c");
             }
             info!("{} network connected", self.name);
         }

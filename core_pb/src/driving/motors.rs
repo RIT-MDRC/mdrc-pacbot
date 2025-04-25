@@ -119,15 +119,15 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
         // if cv_over_time_time.elapsed() > Duration::from_secs(2) {
         //     cv_over_time_time = R::Instant::default();
         // }
-        data.set_extra_bool_indicator(1, stuck);
-        data.set_extra_i32_indicator(
-            1,
-            if !stuck {
-                0
-            } else {
-                cv_over_time_time.elapsed().as_secs() as i32
-            },
-        );
+        // data.set_extra_bool_indicator(1, stuck);
+        // data.set_extra_i32_indicator(
+        //     1,
+        //     if !stuck {
+        //         0
+        //     } else {
+        //         cv_over_time_time.elapsed().as_secs() as i32
+        //     },
+        // );
         motors_data
             .do_motors(
                 &data.robot_definition.drive_system,
