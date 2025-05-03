@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["TRANSLUCENT_GREEN_COLOR","TRANSLUCENT_RED_COLOR","TRANSLUCENT_YELLOW_COLOR"],"enum":["ColoredStatus"],"mod":["average_rate","moving_average","stopwatch","utilization"],"struct":["WebTimeInstant"],"trait":["CrossPlatformInstant"]};

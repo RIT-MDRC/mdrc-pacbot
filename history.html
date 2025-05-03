@@ -3,8 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>MDRC Pacbot</title>
-        <meta name="robots" content="noindex">
+        <title>History - MDRC Pacbot</title>
 
 
         <!-- Custom HTML head -->
@@ -156,14 +155,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <p>Welcome to Pacbot!</p>
-<p>We are part of RIT's Multi-Disciplinary Robotics Club, a student-led organization that aims to teach, create,
-and manage robotics projects, using skills learned across electrical, mechanical, and software engineering. Pacbot
-requires collaboration across all three disciplines.</p>
-<p>Our team focuses on developing a small fully autonomous robot to play the arcade game Pac-Man on a physical field.
-Our annual competition is in April, where we compete against other Pacbot teams from various universities. A
-picture of our competition board can be found <a href="https://drive.google.com/file/d/1iVqpCv0Rxv8A2_7jpsx35VPjnoLUcA_p/view?usp=drive_link">here</a>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="the-history-of-the-rit-pacbot-team"><a class="header" href="#the-history-of-the-rit-pacbot-team">The History of the RIT Pacbot Team</a></h1>
+                        <h1 id="the-history-of-the-rit-pacbot-team"><a class="header" href="#the-history-of-the-rit-pacbot-team">The History of the RIT Pacbot Team</a></h1>
 <p>The Rochester Institute of Technology (RIT) Pacbot team is a part of the RIT Robotics Club, also known as MDRC. The team participates in the annual Pacbot competition, where autonomous robots navigate a maze to collect pellets and evade or capture ghosts. This document chronicles the history of the RIT Pacbot team, drawing from a team meeting held on May 2, 2025, following the competition hosted at RIT on April 19, 2025.</p>
 <p>The RIT Pacbot team's participation in the competition dates back to its early years. Quinn Tucker, who joined RIT in the fall of 2019, recalled being told about the team's unexpected victory in the 2019 Pacbot competition. Ben Giacalone, also a freshman in 2019, corroborated this, describing it as a win achieved through "complete accent." At that time, the robots from various teams were generally unreliable, and their artificial intelligence (AI) capabilities were rudimentary, primarily relying on heuristic approaches. The RIT robot that secured the first-place finish was described as being hastily assembled the night before the competition and barely functional.</p>
 <p>Following this surprising success, the team faced challenges in subsequent years. The onset of the COVID-19 pandemic in 2020 significantly disrupted the competition schedule, with the Pacbot competition being canceled in 2020 and likely in 2021 as well. This period of uncertainty led to demotivation among some team members. Despite the lack of competitions, the team continued to work on their robot and AI, though progress on the physical robot was slow, with early prototypes being simple box-shaped designs that lacked effective movement.</p>
@@ -180,272 +172,18 @@ picture of our competition board can be found <a href="https://drive.google.com/
 <p>The team also discussed potential hardware upgrades. While a suspension system was deemed overly complex, exploring flexible 3D-printed mounts or rubber dampeners could help mitigate vibrations. Considering motors with perpendicular axles could further reduce the robot's footprint. The reliability of the current brushed DC motors, which occasionally fail due to brush disintegration, is also a factor to consider for future iterations.</p>
 <p>A recurring "bad idea," jokingly raised by Quinn Tucker, was to train the reinforcement learning model directly on the physical robot instead of in simulation, a proposition deemed impractical due to the potential for damage and inefficiency. Another explored but ultimately discarded concept was to have the reinforcement learning model control the low-level motor commands directly. The consensus was that hand-coded motor control, possibly incorporating model-based control techniques, would be more effective.</p>
 <p>The team acknowledges the significant progress made over the years, from a barely functional robot to a competition-winning design and the ability to host their own event. The current success is attributed to the dedication and hard work of numerous team members, particularly the graduating seniors Michael Elia and Brian Doolin, as well as the contributions of alumni like Quinn Tucker and Ben Giacalone. As Michael Elia prepares to hand over the team leadership to Ben Brodeur, there is a sense of pride in past achievements and optimism for the future of the RIT Pacbot team. The wealth of knowledge and experience accumulated within the team, documented in their GitHub repository and the memories of its members, will serve as a valuable resource for future generations of RIT students who take on the challenge of autonomous Pacbot navigation.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="rust-api"><a class="header" href="#rust-api">Rust API</a></h1>
-<p>Our code is done entirely in Rust, a modern systems programmings language focused on speed and memory safety. If you
-don't know Rust, check out <a href="https://doc.rust-lang.org/book/">The Rust Book</a>.</p>
-<p>You can read more about each crate in the repository Readme.</p>
-<p>Auto-generated documentation for the Rust code can be found at <a href="https://rit-mdrc.github.io/mdrc-pacbot/api/core_pb/">https://rit-mdrc.github.io/mdrc-pacbot/api/core_pb/</a></p>
-<div style="break-before: page; page-break-before: always;"></div><p>The rules of the competition can be found here: <a href="https://docs.google.com/document/d/1S_LQgnrct9sxjBMF8caiuIUB6S4VU-Ep4F8Lx8vzH5Y/edit?usp=sharing">https://docs.google.com/document/d/1S_LQgnrct9sxjBMF8caiuIUB6S4VU-Ep4F8Lx8vzH5Y/edit?usp=sharing</a></p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="grid"><a class="header" href="#grid">Grid</a></h1>
-<ul>
-<li><a href="./grid_and_coordinates.html">Grid &amp; Coordinate System</a>: The 2D structure <code>Grid</code> and the corresponding coordinate system</li>
-<li><a href="./computed_grid.html">Computed Grid</a>: The utility structure <code>ComputedGrid</code> built around <code>Grid</code> that provides pre-calculated information</li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="grid--coordinate-system"><a class="header" href="#grid--coordinate-system">Grid &amp; Coordinate System</a></h1>
-<h2 id="grid-1"><a class="header" href="#grid-1"><code>Grid</code></a></h2>
-<p>Pacman is played on a 2D integer grid, meaning the location of all objects
-(including walls, ghosts, pellets, and Pacman) can be fully described with
-two integers.</p>
-<p>The <code>Grid</code> data type, an alias for <code>[[bool; GRID_COLS]; GRID_ROWS]</code> provides information about which cells are walls.</p>
-<p><code>Grid</code> is <code>GRID_ROWS</code> x <code>GRID_COLS</code> size. The official Pacbot grid
-is 28 cells 31 cells, but this code currently supports up to 32 x 32 grids.
-Any coordinate less than (0, 0) or greater than (31, 31) is treated as a wall, and is not stored in <code>Grid</code>.</p>
-<h2 id="standard-grids"><a class="header" href="#standard-grids">Standard Grids</a></h2>
-<p>A number of standard grids are provided in <code>core_pb::grid::standard_grid</code>. These include several
-common configurations:</p>
-<ul>
-<li><code>GRID_PACMAN</code> - The official Pacbot <code>Grid</code></li>
-<li><code>GRID_BLANK</code> - A <code>Grid</code> entirely composed of walls (except for the space at (1, 1)), copy-paste-able to create new <code>Grid</code>s</li>
-<li><code>GRID_OUTER</code> - A <code>Grid</code> with an empty pathway around the inside of the outer edge</li>
-<li><code>GRID_PLAYGROUND</code> - A <code>Grid</code> with many small areas for testing motor control algorithms</li>
-</ul>
-<p>These can be used as-is or edited to create custom <code>Grid</code>s. However, most parts of the application do not support <code>Grid</code>s
-outside the <code>StandardGrid</code>s.</p>
-<h3 id="upgrading-to-computedgrid"><a class="header" href="#upgrading-to-computedgrid">Upgrading to <code>ComputedGrid</code></a></h3>
-<p>The <a href="./computed_grid.html">ComputedGrid</a> struct provides additional pre-calculated information about <code>Grid</code>s.
-The section <a href="./computed_grid.html#grid-rules">Grid Rules</a> contains more information about special rules, like that a <code>Grid</code> must have
-Walls around the entire outer edge, among others.</p>
-<p>Once a <code>Grid</code> is upgraded to a <code>ComputedGrid</code> via <code>ComputedGrid::try_from(grid)</code>, which is necessary for many other parts of this library, it becomes
-immutable.</p>
-<h2 id="coordinates"><a class="header" href="#coordinates">Coordinates</a></h2>
-<p>Throughout <code>mdrc_pacbot</code>, we use <code>nalgebra::Point2</code> as much as possible to describe location. This has two properties,
-<code>x</code> and <code>y</code>. <em>Most of the time</em>, we use the same coordinate system you've used in math class for many years:</p>
-<pre><code class="language-ignore">+y; 90°     (31, 31)
- 🡑     
- |     (...)
- |
-(0, 0)-----🡒 +x; 0°
-</code></pre>
-<p>where <code>+x</code> and 0° is to the right, <code>+y</code> is up, and angle is more positive in the counter-clockwise direction. Using
-this system, angle functions like sin and cos behave as expected.</p>
-<p>The only downside to this system is that it differs from the official Pacbot Pac-Man implementation. There, they
-use <code>row</code> and <code>col</code>, with coordinates in the form <code>(row, col)</code>, with the intended orientation like so:</p>
-<pre><code class="language-ignore">(0, 0)    --&gt; +col
-       
- |    (...)
- v
-+row       (31, 31)
-</code></pre>
-<p>We choose not to do this because it places (0, 0) at the top left which makes physics calculations confusing. So we
-rotate the official game by 90° and translate <code>(row, col)</code> to <code>(x, y)</code>. If you want to view the grid without the rotation,
-click the "Rotated Grid" checkbox in the gui.</p>
-<p>On the official Pacbot grid (in either rotation):</p>
-<ul>
-<li>(1, 1)   is the top    left  walkable corner</li>
-<li>(1, 26)  is the top    right walkable corner</li>
-<li>(29, 1)  is the bottom left  walkable corner</li>
-<li>(29, 26) is the top    right walkable corner</li>
-</ul>
-<p>Pacbot's starting position is (23, 13), facing right.</p>
-<h2 id="physical-coordinates"><a class="header" href="#physical-coordinates">Physical Coordinates</a></h2>
-<p>The integer coordinate system described above is easily extendable to a physical floating point
-coordinate system.</p>
-<p>When points are given as floating point values, integer coordinates (like 1.0, 1.0) represent
-the center of the corresponding <code>Grid</code> cell (in this case, (1, 1)).</p>
-<p>Note that walls in the physical Pacbot grid are "eroded" by half a cell so that paths are two
-<code>Grid</code> cells wide. This is why, except for the outer edge, there can't be a wall in <code>Grid</code> that is one cell
-wide - both sides would get eroded by half a cell and there would be an infinitely thin wall.</p>
-<p>Curiously, this results in the edges of walls falling on integer coordinates that lie at the center
-of the <code>Grid</code> cells that are declared as walls.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="computed-grid"><a class="header" href="#computed-grid">Computed Grid</a></h1>
-<p><code>ComputedGrid</code> provides additional information about a <code>Grid</code> that is calculated when
-the <code>ComputedGrid</code> is first created, meaning it is very cheap to retrieve.</p>
-<p>For this documentation, a "walkable space" is one where Pacman can travel.</p>
-<h2 id="grid-rules"><a class="header" href="#grid-rules">Grid Rules</a></h2>
-<p>In order for a <code>Grid</code> to be successfully upgraded to a <code>ComputedGrid</code> via <code>ComputedGrid::try_from(grid)</code>,
-all of the following must be true:</p>
-<ul>
-<li>All the cells around the outside of the grid (with <code>x</code> or <code>y</code> equal to 0 or 31) are walls</li>
-<li>There is at least one walkable cell (where Pacman can spawn)</li>
-<li>There are no 2x2 empty squares</li>
-<li>There is no wall with a walkable space both above and below it</li>
-<li>There is no wall with a walkable space both to the left and right</li>
-</ul>
-<p>The last two points can be simplified to say that all walls are 2 cells thick.</p>
-<p>Note:</p>
-<ul>
-<li>It is not necessary that a <code>ComputedGrid</code> is connected, or that every walkable space is accessible from every other one</li>
-</ul>
-<h2 id="pre-computed-information"><a class="header" href="#pre-computed-information">Pre-computed Information</a></h2>
-<p>When a <code>ComputedGrid</code> is constructed, it spends extra time calculating a number of variables related to
-the game grid. This information is documented in the <a href="https://rit-mdrc.github.io/mdrc-pacbot-util/api/mdrc_pacbot_util/grid/struct.ComputedGrid.html">ComputedGrid documentation</a>.</p>
-<div style="break-before: page; page-break-before: always;"></div><pre><code class="language-mermaid">---
-title: RIT MDRC Pacbot Network Architecture (github.com/RIT-MDRC/mdrc-pacbot)
----
-flowchart LR
-    subgraph Legend
-        direction TB
-        Y(GUI):::gui
-        Z(Game Server):::game_server
-        X(Robot):::robot
-    end
-    %% ensure the legend is vertical
-    Y ~~~ A 
-    subgraph "mdrc-pacbot"
-        A(WASM GUIs):::gui &amp; B(Rust GUIs):::gui &lt;--&gt;|Websocket| D{MDRC Pacbot Server\nserver_pb}
-        D &lt;--&gt;|TCP| E(Raspberry Pi Picos):::robot
-        D &lt;--&gt;|TCP| F(Simulated Robots):::robot
-        D &lt;--&gt;|Websocket| J(Simulation Manager)
-        I(Rust Game Server):::game_server &lt;--&gt;|Websocket| D
-        subgraph gui_pb
-            A
-            B
-        end
-        subgraph pico_pb
-            E
-        end
-        subgraph sim_pb
-            I
-            J
-            F
-        end
-    end
-    subgraph "Pacbot-2 (github.com/Pacbot-Competition/Pacbot-2)"
-        C(Competition GUIs):::gui &lt;--&gt;|Websocket| G(Official Go Game Server):::game_server
-    end
-    C &lt;--&gt;|Websocket| I
-    G &lt;--&gt;|Websocket| D
-
-    classDef gui stroke:#f00
-    classDef game_server stroke:#0f0
-    classDef robot stroke:#ff0
-</code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="localization"><a class="header" href="#localization">Localization</a></h1>
-<p>The RIT pacbot team's localization requires 4 sensors, each facing in a cardinal direction (right, up, left
-down). The sensors have a range that extends half the distance of the longest corridor of the grid.</p>
-<h2 id="general-steps"><a class="header" href="#general-steps">General Steps</a></h2>
-<ol>
-<li>First Pass Prediction</li>
-<li>Second Pass Prediction</li>
-<li>Combine Directional Information</li>
-</ol>
-<h2 id="first-pass-prediction"><a class="header" href="#first-pass-prediction">First Pass Prediction</a></h2>
-<p>The <code>cv_location</code> passed into the localizer function is a rough estimate of where pacbot is on the grid. To
-get an initial estimate of where pacbot is based on sensor data, a raycast is performed in each of the
-cardinal directions from the <code>cv_location</code>.</p>
-<pre><code class="language-ignore">fn get_sim_ray_cast(loc: Point2&lt;i8&gt;, grid: &amp;Grid, radius: f32) -&gt; [f32; 4] {
-    VECTORS.map(|dir| {
-        let mut dist: i8 = 0;
-        let mut p = loc;
-        let dir = dir.map(|x| x as i8);
-
-        while !wall_at(grid, p) {
-            p += dir;
-            dist += 1;
-        }
-
-        dist as f32 - radius
-    })
-}
-</code></pre>
-<p>For the first prediction, an assumption is made: the walls that are hit by the actual sensors are the same
-walls hit by the corresponding raycasts from <code>cv_location</code>. This assumption is not always true given the inaccuracy of <code>cv_location</code>, but can be fixed in the second pass prediction. Knowing this, each of the
-sensors can give an estimate of pacbot's location on the corresponding axis by simply adding the raycast
-vector and subtracting the sensor vector.</p>
-<pre><code class="language-ignore">fn get_estimated_poses(
-    grid: &amp;Grid,
-    cv_location: Point2&lt;i8&gt;,
-    distance_sensors: &amp;[Result&lt;Option&lt;f32&gt;, ()&gt;; 4],
-    radius: f32,
-) -&gt; [Option&lt;Point2&lt;f32&gt;&gt;; 4] {
-    let cv_distances = get_sim_ray_cast(cv_location, grid, radius);
-    let cv_location = cv_location.map(|x| x as f32);
-
-    [0, 1, 2, 3].map(|i| {
-        distance_sensors[i]
-            .ok()
-            .flatten()
-            .map(|dist| cv_location + (VECTORS[i] * (cv_distances[i] - dist)))
-    })
-}
-</code></pre>
-<p>Although the first prediction may be incorrect, the information from the estimated poses allows for
-error correction.</p>
-<h2 id="second-pass-prediction"><a class="header" href="#second-pass-prediction">Second Pass Prediction</a></h2>
-<p>Once an estimated position is created from each of the sensors, each axis is checked to determine if it
-actually hit the wall that was hit by the <code>cv_location</code> raycast. The check is done by observing if the
-predicted position is different from <code>cv_location</code> by more than <code>CV_ERROR</code>. If the estimation is off
-by more than <code>CV_ERROR</code> for both directions along an axis (right and left or up and down), then we must perform the second pass operation.</p>
-<p>Before describing how the second pass works, it is important to understand that if one of the axis
-has incorrect values for both sensors, then the other axis must have a correct value. This property
-is a product of the grid, which requires pacbot to travel in a cardinal direction and also prevents it from
-travelling diagonally through any corridors. Requiring at least one sensor to hit the same wall as
-the <code>cv_location</code> raycast is essential for the second pass localization to correct the errors from
-the first pass.</p>
-<p>For the second pass, the program must find a position to raycast from in which the rays hit the same walls
-that the sensors do. To do so, we check the position given by the axis that gives a position within <code>CV_ERROR</code>. If this position has a greater value along the axis as the <code>cv_location</code>, then we must raycast
-again from one unit above the original <code>cv_location</code> on the corresponding axis. If the position has a lower value along the axis as the <code>cv_location</code>, then we must raycast again from one unit below the original <code>cv_location</code> on the corresponding axis. Once <code>new_location</code> is found, repeat the operations of the first
-pass with <code>new_location</code> in place of <code>cv_location</code>. Since the assumption that was made is now true
-(the rays hit the same walls as the sensors), the operation should give the correct position.</p>
-<pre><code class="language-ignore">if [poses[0], poses[2]].iter().all(|x| {
-        x.map(|pos| get_dist(pos, cv_location_f32) &gt; CV_ERROR)
-            .unwrap_or(true)
-    }) {
-        let mut new_location = cv_location_int;
-        if let Some(pos) = [poses[1], poses[3]].into_iter().flatten().next() {
-            if pos.y &gt; cv_location_f32.y {
-                new_location.y += 1;
-            } else {
-                new_location.y -= 1;
-            }
-            poses = get_estimated_poses(&amp;grid, new_location, distance_sensors, robot.radius);
-        }
-    }
-
-if [poses[1], poses[3]].iter().all(|x| {
-    x.map(|pos| get_dist(pos, cv_location_f32) &gt; CV_ERROR)
-        .unwrap_or(true)
-}) {
-    let mut new_location = cv_location_int;
-    if let Some(pos) = [poses[0], poses[2]].into_iter().flatten().next() {
-        if pos.x &gt; cv_location_f32.x {
-            new_location.x += 1;
-        } else {
-            new_location.x -= 1;
-        }
-        poses = get_estimated_poses(&amp;grid, new_location, distance_sensors, robot.radius);
-    }
-}
-</code></pre>
-<h2 id="combine-directional-information"><a class="header" href="#combine-directional-information">Combine Directional Information</a></h2>
-<p>The program integrates all of the sensor data by simply using one of the two sensors for each of the axis.
-It prioritizes the values closest to <code>cv_location</code> and values that are not <code>None</code> or <code>Err()</code> for each axis.
-If both sensors are not functional or do not detect a wall, that axis will remain whatever is given by
-<code>cv_location</code>.</p>
-<pre><code class="language-ignore">let x = [poses[0], poses[2]]
-        .into_iter()
-        .flatten()
-        .min_by_key(|pos| {
-            NotNan::new(get_dist(*pos, cv_location_f32)).unwrap_or(NotNan::new(0.0).unwrap())
-        })
-        .unwrap_or(cv_location_f32)
-        .x;
-
-let y = [poses[1], poses[3]]
-    .into_iter()
-    .flatten()
-    .min_by_key(|pos| {
-        NotNan::new(get_dist(*pos, cv_location_f32)).unwrap_or(NotNan::new(0.0).unwrap())
-    })
-    .unwrap_or(cv_location_f32)
-    .y;
-</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="welcome.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
 
+                            <a rel="next prefetch" href="rust_api.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -453,7 +191,13 @@ let y = [poses[1], poses[3]]
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="welcome.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
 
+                    <a rel="next prefetch" href="rust_api.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
             </nav>
 
         </div>
@@ -478,11 +222,6 @@ let y = [poses[1], poses[3]]
         <script src="mermaid.min.js"></script>
         <script src="mermaid-init.js"></script>
 
-        <script>
-        window.addEventListener('load', function() {
-            window.setTimeout(window.print, 100);
-        });
-        </script>
 
     </div>
     </body>

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["LOCAL_MAX_PATH_LENGTH"],"fn":["get_closest_point","get_closest_segment","get_intersection","get_pursuit_point","get_vec","in_line","pure_pursuit","round_point"]};
