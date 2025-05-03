@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["handle_err","peripherals_task"],"trait":["RobotPeripheralsBehavior"]};
