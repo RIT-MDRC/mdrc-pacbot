@@ -9,8 +9,7 @@ use core_pb::pacbot_rs::ghost_state::GhostColor;
 use core_pb::region_localization::{get_possible_regions, is_close_to_box};
 use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::TRANSLUCENT_YELLOW_COLOR;
-use eframe::egui::StrokeKind;
-use eframe::egui::{Color32, CornerRadius, Painter, Pos2, Rect, Stroke};
+use eframe::egui::{Color32, CornerRadius, Painter, Pos2, Rect, Stroke, StrokeKind};
 use nalgebra::{Point2, Rotation2};
 
 pub fn draw_grid(app: &mut App, painter: &Painter) {
