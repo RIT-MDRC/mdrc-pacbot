@@ -128,7 +128,7 @@ impl RobotName {
     /// The default pre-filled ip - robots need not necessarily use this ip
     pub fn default_ip(&self) -> [u8; 4] {
         match self {
-            Pierre => [192, 168, 8, 114],
+            Pierre => [192, 168, 8, 187],
             Prince => [192, 168, 8, 113],
             Patric => [192, 168, 8, 115],
             // simulated robots are local
