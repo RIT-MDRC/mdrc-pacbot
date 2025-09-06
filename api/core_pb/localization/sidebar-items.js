@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["VECTORS"],"fn":["estimate_location","get_dist","get_estimated_poses","get_sim_ray_cast","wall_at"]};

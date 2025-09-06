@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["VECTORS"],"fn":["estimate_location","estimate_location_2","get_at","get_possible_regions","get_region_score","is_close_to_box"],"struct":["Region"]};

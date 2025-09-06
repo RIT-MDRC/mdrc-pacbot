@@ -10,7 +10,7 @@ class MDBookSidebarScrollbox extends HTMLElement {
     connectedCallback() {
         this.innerHTML = '<ol class="chapter"><li class="chapter-item expanded "><a href="welcome.html"><strong aria-hidden="true">1.</strong> Welcome</a></li><li class="chapter-item expanded "><a href="history.html"><strong aria-hidden="true">2.</strong> History</a></li><li class="chapter-item expanded "><a href="rust_api.html"><strong aria-hidden="true">3.</strong> Rust API</a></li><li class="chapter-item expanded "><a href="game.html"><strong aria-hidden="true">4.</strong> Game</a></li><li class="chapter-item expanded "><a href="the_grid.html"><strong aria-hidden="true">5.</strong> Grid</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="grid_and_coordinates.html"><strong aria-hidden="true">5.1.</strong> Grid &amp; Coordinate System</a></li><li class="chapter-item expanded "><a href="computed_grid.html"><strong aria-hidden="true">5.2.</strong> Computed Grid</a></li></ol></li><li class="chapter-item expanded "><a href="network.html"><strong aria-hidden="true">6.</strong> Network</a></li><li class="chapter-item expanded "><a href="localization.html"><strong aria-hidden="true">7.</strong> Localization</a></li></ol>';
         // Set the current, active page, and reveal it if it's hidden
-        let current_page = document.location.href.toString().split("#")[0];
+        let current_page = document.location.href.toString().split("#")[0].split("?")[0];
         if (current_page.endsWith("/")) {
             current_page += "index.html";
         }
