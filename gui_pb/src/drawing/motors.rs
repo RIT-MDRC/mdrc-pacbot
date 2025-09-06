@@ -279,12 +279,16 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                 if last_x - first_x < 10.0 {
                     extra_points.push([first_x + 10.0, 0.0]);
                 }
-                plot_ui.points(Points::new(extra_points).color(app.background_color));
+                plot_ui.points(
+                    Points::new("motor_plot_extra_points", extra_points)
+                        .color(app.background_color),
+                );
                 if app.ui_settings.graph_lines[m][0] {
                     plot_ui.line(
-                        Line::new(PlotPoints::new(
-                            app.motor_status_frames.set_points[m].clone(),
-                        ))
+                        Line::new(
+                            "motor_plot_status_frame_points_0",
+                            PlotPoints::new(app.motor_status_frames.set_points[m].clone()),
+                        )
                         .name(format!("{m} Setpoint"))
                         .style(LineStyle::Dashed { length: 6.0 })
                         .color(color.0),
@@ -292,23 +296,32 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                 }
                 if app.ui_settings.graph_lines[m][1] {
                     plot_ui.line(
-                        Line::new(PlotPoints::new(app.motor_status_frames.speeds[m].clone()))
-                            .name(format!("{m} Speed"))
-                            .color(color.0),
+                        Line::new(
+                            "motor_plot_status_frame_points_1",
+                            PlotPoints::new(app.motor_status_frames.speeds[m].clone()),
+                        )
+                        .name(format!("{m} Speed"))
+                        .color(color.0),
                     );
                 }
                 if app.ui_settings.graph_lines[m][2] {
                     plot_ui.line(
-                        Line::new(PlotPoints::new(app.motor_status_frames.pwm[m][0].clone()))
-                            .name(format!("{m}a PWM"))
-                            .color(color.1),
+                        Line::new(
+                            "motor_plot_status_frame_points_2",
+                            PlotPoints::new(app.motor_status_frames.pwm[m][0].clone()),
+                        )
+                        .name(format!("{m}a PWM"))
+                        .color(color.1),
                     );
                 }
                 if app.ui_settings.graph_lines[m][3] {
                     plot_ui.line(
-                        Line::new(PlotPoints::new(app.motor_status_frames.pwm[m][1].clone()))
-                            .name(format!("{m}b PWM"))
-                            .color(color.1),
+                        Line::new(
+                            "motor_plot_status_frame_points_3",
+                            PlotPoints::new(app.motor_status_frames.pwm[m][1].clone()),
+                        )
+                        .name(format!("{m}b PWM"))
+                        .color(color.1),
                     );
                 }
             }
