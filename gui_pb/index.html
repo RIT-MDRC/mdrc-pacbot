@@ -54,8 +54,8 @@
             overflow: hidden;
             margin: 0 !important;
             padding: 0 !important;
-            height: 100vh;
-            width: 100vw;
+            height: 100%;
+            width: 100%;
         }
 
         /* Position canvas in center-top: */
@@ -119,9 +119,7 @@
 <body>
     <!-- The WASM code will resize the canvas dynamically -->
     <!-- the id is hardcoded in main.rs . so, make sure both match. -->
-    <div style="width: 100vw; height: 100vh;" id="canvas_container">
-        <canvas id="the_canvas_id"></canvas>
-    </div>
+    <canvas id="the_canvas_id"></canvas>
 
     <!-- the loading spinner will be removed in main.rs -->
     <div class="centered" id="loading_text">

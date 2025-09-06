@@ -72,12 +72,6 @@ fn main() {
             .dyn_into::<web_sys::HtmlCanvasElement>()
             .expect("the_canvas_id was not a HtmlCanvasElement");
 
-        let canvas_container = document
-            .get_element_by_id("canvas_container")
-            .expect("Failed to find the canvas container")
-            .dyn_into::<web_sys::HtmlDivElement>()
-            .expect("canvas_container was not a HTMLDivElement");
-
         let start_result = eframe::WebRunner::new()
             .start(
                 canvas,
@@ -91,10 +85,6 @@ fn main() {
             match start_result {
                 Ok(_) => {
                     loading_text.remove();
-                    canvas_container
-                        .style()
-                        .remove_property("display")
-                        .expect("Unable to remove CSS property?");
                 }
                 Err(e) => {
                     loading_text.set_inner_html(
