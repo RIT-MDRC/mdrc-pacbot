@@ -290,7 +290,7 @@ impl App {
                             });
                         });
                     // top left buttons
-                    egui::menu::bar(ui, |ui| {
+                    egui::MenuBar::new().ui(ui, |ui| {
                         if ui.button("Save").clicked() {
                             self.saved_game_state = Some(self.server_status.game_state.clone());
                         }

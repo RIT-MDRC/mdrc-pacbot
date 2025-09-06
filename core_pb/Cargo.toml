@@ -22,12 +22,19 @@ std = [
     "approx/std",
     "async-tungstenite",
     "critical-section/std",
-    "web-time"
+    "web-time",
 ]
 wasm = ["pacbot-rs/wasm"]
 
 log = ["dep:log", "defmt-or-log/log", "embassy-sync/log", "async-std/log"]
-defmt = ["dep:defmt", "defmt-or-log/defmt", "embassy-sync/defmt", "embedded-graphics/defmt", "embedded-io-async/defmt-03", "heapless/defmt-03"]
+defmt = [
+    "dep:defmt",
+    "defmt-or-log/defmt",
+    "embassy-sync/defmt",
+    "embedded-graphics/defmt",
+    "embedded-io-async/defmt-03",
+    "heapless/defmt-03",
+]
 
 [dependencies]
 # Pacbot
@@ -49,7 +56,9 @@ critical-section = "1.2.0"
 # Async
 async-std = { version = "1.12.0", optional = true }
 embedded-io-async = "0.6.1"
-futures = { version = "0.3.30", default-features = false, features = ["async-await"] }
+futures = { version = "0.3.30", default-features = false, features = [
+    "async-await",
+] }
 embedded-graphics = { version = "0.8.1" }
 web-time = { version = "1.1.0", optional = true }
 
@@ -59,25 +68,39 @@ libm = "0.2.8"
 pid = "4.0.0"
 approx = { version = "0.5.1", default-features = false }
 ordered-float = { version = "4.2.0", default-features = false }
-nalgebra = { version = "0.33.2", default-features = false, features = ["serde-serialize-no-std", "libm-force"] }
+nalgebra = { version = "0.33.2", default-features = false, features = [
+    "serde-serialize-no-std",
+    "libm-force",
+] }
 
 # Serialization
 format_no_std = { version = "1.2.0" }
 serde = { version = "1.0.201", default-features = false, features = ["derive"] }
-bincode = { version = "2.0.0-rc.3", default-features = false, features = ["serde"] }
+bincode = { version = "2.0.0-rc.3", default-features = false, features = [
+    "serde",
+] }
 heapless = { version = "0.8.0", features = ["serde"] }
 
 # Egui
-ecolor = { version = "0.30.0", optional = true }
-egui-phosphor = { version = "0.8.0", optional = true }
+ecolor = { version = "0.32.1", optional = true }
+egui-phosphor = { version = "0.10.0", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { version = "0.3.69", features = ["WebSocket", "ErrorEvent", "MessageEvent", "FileReader", "ProgressEvent", "Blob"] }
-wasm-bindgen = "0.2.92"
-wasm-bindgen-futures = "0.4.42"
+web-sys = { version = "0.3.77", features = [
+    "WebSocket",
+    "ErrorEvent",
+    "MessageEvent",
+    "FileReader",
+    "ProgressEvent",
+    "Blob",
+] }
+wasm-bindgen = "0.2.100"
+wasm-bindgen-futures = "0.4.50"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-async-tungstenite = { version = "0.26.2", features = ["async-std-runtime"], optional = true }
+async-tungstenite = { version = "0.26.2", features = [
+    "async-std-runtime",
+], optional = true }
 
 [build-dependencies]
 nalgebra = { version = "0.33.2", default-features = false }
