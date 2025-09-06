@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["menu"],"struct":["DisplayManager","TextInput"]};
