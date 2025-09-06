@@ -10,7 +10,7 @@ use core_pb::region_localization::{get_possible_regions, is_close_to_box};
 use core_pb::robot_definition::RobotDefinition;
 use core_pb::util::TRANSLUCENT_YELLOW_COLOR;
 use eframe::egui::StrokeKind;
-use eframe::egui::{Color32, Painter, Pos2, Rect, Rounding, Stroke};
+use eframe::egui::{Color32, CornerRadius, Painter, Pos2, Rect, Stroke};
 use nalgebra::{Point2, Rotation2};
 
 pub fn draw_grid(app: &mut App, painter: &Painter) {
@@ -21,7 +21,7 @@ pub fn draw_grid(app: &mut App, painter: &Painter) {
         let (p1, p2) = wts.map_wall(wall);
         painter.rect(
             Rect::from_two_pos(p1, p2),
-            Rounding::ZERO,
+            CornerRadius::ZERO,
             WALL_COLOR,
             Stroke::new(1.0, WALL_COLOR),
             StrokeKind::Middle,
@@ -32,7 +32,7 @@ pub fn draw_grid(app: &mut App, painter: &Painter) {
     for (p1, p2) in app.settings.standard_grid.get_outside_soft_boundaries() {
         painter.rect(
             Rect::from_two_pos(wts.map_point2(p1), wts.map_point2(p2)),
-            Rounding::ZERO,
+            CornerRadius::ZERO,
             app.background_color,
             Stroke::new(1.0, app.background_color),
             StrokeKind::Middle,
@@ -215,7 +215,7 @@ pub fn draw_game(app: &mut App, painter: &Painter) {
                 wts.map_point2(region.low_xy.map(|x| x as f32)),
                 wts.map_point2(region.high_xy.map(|x| x as f32)),
             ),
-            Rounding::ZERO,
+            CornerRadius::ZERO,
             color,
             Stroke::new(1.0, Color32::DARK_GRAY),
             StrokeKind::Middle,
