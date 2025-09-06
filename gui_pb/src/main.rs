@@ -32,21 +32,21 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 // When compiling natively:
-#[cfg(not(target_arch = "wasm32"))]
-fn main() -> eframe::Result {
-    env_logger::Builder::from_default_env()
-        .filter_level(log::LevelFilter::Info)
-        .init();
+// #[cfg(not(target_arch = "wasm32"))]
+// fn main() -> eframe::Result {
+//     env_logger::Builder::from_default_env()
+//         .filter_level(log::LevelFilter::Info)
+//         .init();
 
-    info!("RIT Pacbot gui starting up");
+//     info!("RIT Pacbot gui starting up");
 
-    let native_options = eframe::NativeOptions::default();
-    eframe::run_native(
-        "RIT Pacbot",
-        native_options,
-        Box::new(|cc| Ok(Box::new(App::new(cc)))),
-    )
-}
+//     let native_options = eframe::NativeOptions::default();
+//     eframe::run_native(
+//         "RIT Pacbot",
+//         native_options,
+//         Box::new(|cc| Ok(Box::new(App::new(cc)))),
+//     )
+// }
 
 // When compiling to web using trunk:
 #[cfg(target_arch = "wasm32")]
@@ -72,6 +72,12 @@ fn main() {
             .dyn_into::<web_sys::HtmlCanvasElement>()
             .expect("the_canvas_id was not a HtmlCanvasElement");
 
+        let canvas_container = document
+            .get_element_by_id("canvas_container")
+            .expect("Failed to find the canvas container")
+            .dyn_into::<web_sys::HtmlDivElement>()
+            .expect("canvas_container was not a HTMLDivElement");
+
         let start_result = eframe::WebRunner::new()
             .start(
                 canvas,
@@ -85,6 +91,10 @@ fn main() {
             match start_result {
                 Ok(_) => {
                     loading_text.remove();
+                    canvas_container
+                        .style()
+                        .remove_property("display")
+                        .expect("Unable to remove CSS property?");
                 }
                 Err(e) => {
                     loading_text.set_inner_html(
