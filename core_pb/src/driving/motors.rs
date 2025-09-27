@@ -28,9 +28,12 @@ struct MotorsData<const WHEELS: usize, M: RobotMotorsBehavior> {
 
     config: FrequentServerToRobot,
 
+    // PID controllers configured with P, I, and D constants from the config/GUI.
     pid_controllers: [Pid<f32>; WHEELS],
 
+    // Measurements of current motor speeds.
     motor_speeds: [f32; 3],
+    // Measurements of current target velocities.
     set_points: [f32; WHEELS],
     pwm: [[u16; 2]; WHEELS],
 }
@@ -289,17 +292,15 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                 self.pid_controllers[m].reset_integral_term();
                 0.0
             } else {
-                // TODO: Idk if this is right. I feel like the target != the current motor speed? Is this an input to the motor or output from?
-                let target_velocity = self.motor_speeds[m];
+                // TODO: Check this, but I think this makes more sense
+                let target_velocity = self.set_points[m];
 
                 let s = self.config.pidsv[3];
                 let v = self.config.pidsv[4];
 
                 // Get output from PID
                 let pid_output = self.pid_controllers[m]
-                    .next_control_output(
-                        self.motor_speeds[m], /* Leaving this as not a variable pending above TODO */
-                    )
+                    .next_control_output(self.motor_speeds[m])
                     .output;
 
                 // Calculate static friction (basically just whether or not the bot is moving)
