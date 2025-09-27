@@ -51,7 +51,6 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
             }
         }
         ui.separator();
-        // TODO: Add SV to GUI
         num(
             "motor_p".to_string(),
             ui,
@@ -80,6 +79,26 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
                 .config
                 .pidsv[2],
             "D",
+            true,
+        );
+        num(
+            "motor_s".to_string(),
+            ui,
+            app.settings_fields.as_mut().unwrap(),
+            &mut app.settings.robots[app.ui_settings.selected_robot as usize]
+                .config
+                .pidsv[3],
+            "S",
+            true,
+        );
+        num(
+            "motor_v".to_string(),
+            ui,
+            app.settings_fields.as_mut().unwrap(),
+            &mut app.settings.robots[app.ui_settings.selected_robot as usize]
+                .config
+                .pidsv[4],
+            "V",
             true,
         );
     });
