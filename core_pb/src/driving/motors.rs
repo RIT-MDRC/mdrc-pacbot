@@ -32,7 +32,7 @@ struct MotorsData<const WHEELS: usize, M: RobotMotorsBehavior> {
     pid_controllers: [Pid<f32>; WHEELS],
 
     // Measurements of current motor speeds.
-    motor_speeds: [f32; 3],
+    motor_speeds: [f32; WHEELS],
     // Measurements of current target velocities.
     set_points: [f32; WHEELS],
     pwm: [[u16; 2]; WHEELS],
