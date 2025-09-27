@@ -51,13 +51,14 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
             }
         }
         ui.separator();
+        // TODO: Add SV to GUI
         num(
             "motor_p".to_string(),
             ui,
             app.settings_fields.as_mut().unwrap(),
             &mut app.settings.robots[app.ui_settings.selected_robot as usize]
                 .config
-                .pid[0],
+                .pidsv[0],
             "P",
             true,
         );
@@ -67,7 +68,7 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
             app.settings_fields.as_mut().unwrap(),
             &mut app.settings.robots[app.ui_settings.selected_robot as usize]
                 .config
-                .pid[1],
+                .pidsv[1],
             "I",
             true,
         );
@@ -77,7 +78,7 @@ pub fn draw_motors(app: &mut App, ui: &mut Ui) {
             app.settings_fields.as_mut().unwrap(),
             &mut app.settings.robots[app.ui_settings.selected_robot as usize]
                 .config
-                .pid[2],
+                .pidsv[2],
             "D",
             true,
         );

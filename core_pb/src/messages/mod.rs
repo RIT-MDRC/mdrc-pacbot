@@ -145,7 +145,7 @@ pub struct FrequentServerToRobot {
     /// The order of the distance sensors
     pub dist_sensor_config: [usize; 4],
     /// Basic parameters for the PID controller
-    pub pid: [f32; 3],
+    pub pidsv: [f32; 5],
     /// The grid cell the CV system thinks the robot is in
     ///
     /// Not used when this struct functions as a configuration in server settings
@@ -182,7 +182,7 @@ impl FrequentServerToRobot {
             motor_config: definition.default_motor_config,
             encoder_config: definition.default_encoder_config,
             dist_sensor_config: definition.default_dist_sensor_order,
-            pid: definition.default_pid,
+            pidsv: definition.default_pidsv,
             cv_location: Some(Point2::new(1, 1)),
             target_path: heapless::Vec::new(),
             follow_target_path: false,
