@@ -42,23 +42,23 @@ jobs:
 
       - name: Build gui_pb
         working-directory: gui_pb
-        run: cargo build
+        run: cargo build --locked
 
       - name: Build gui_pb --target wasm32-unknown-unknown
         working-directory: gui_pb
-        run: cargo build --target wasm32-unknown-unknown
+        run: cargo build --locked --target wasm32-unknown-unknown
 
       - name: Build pico_pb
         working-directory: pico_pb
-        run: cargo build
+        run: cargo build --locked
 
       - name: Build server_pb
         working-directory: server_pb
-        run: cargo build
+        run: cargo build --locked
 
       - name: Build sim_pb
         working-directory: sim_pb
-        run: cargo build
+        run: cargo build --locked
 
       - name: Run tests
         run: cargo test
