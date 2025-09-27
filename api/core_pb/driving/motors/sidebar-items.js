@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["adjust_ang_vel","motors_task"],"struct":["MotorsData"],"trait":["RobotMotorsBehavior"]};
