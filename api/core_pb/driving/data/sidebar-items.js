@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["make_extra_atomic_types"],"struct":["SharedRobotData"]};
