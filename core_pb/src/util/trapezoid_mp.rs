@@ -1,5 +1,3 @@
-use math::round;
-use std::cmp;
 
 https://www.linearmotiontips.com/how-to-calculate-velocity/
 https://www.fusybots.com/post/trajectoryplanningformanipulator-mathematicsbehindtrapezoidalplanner
@@ -24,9 +22,17 @@ impl Trapezoid_MP {
     
     fn get_velocity(&mut self, time: f32) -> f32 {
 
-
+        // we're not calculating the acceleration
+        // Do we use tha max acceleration
+        // does vc represent change in velocity? Why not the initial velocity
         let v_c = (self.max_a*time) + (self.end_v - self.start_v);
-        cmp::min(v_c, self.max_v)
+        if(v_c < self.max_v) {
+            v_c
+        }
+        else {
+            self.max_v
+        }
+            
         
     }
 }
