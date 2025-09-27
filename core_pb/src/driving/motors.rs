@@ -304,7 +304,7 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                     .output;
 
                 // Calculate static friction (basically just whether or not the bot is moving)
-                let static_friction = if target_velocity.abs() > 0.0 { s } else { 0.0 };
+                let static_friction = if target_velocity > 0.0 { s } else { -s };
 
                 // Add the feedforward
                 let velocity_feedforward = v * target_velocity;
