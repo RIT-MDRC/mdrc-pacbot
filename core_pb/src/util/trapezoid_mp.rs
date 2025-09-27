@@ -11,7 +11,7 @@ https://www.fusybots.com/post/trajectoryplanningformanipulator-mathematicsbehind
 // return velocity
 
 struct Trapezoid_MP {
-    max_a: f32
+    a: f32
     max_v: f32
     start_v: f32
     end_v: f32
@@ -22,16 +22,15 @@ impl Trapezoid_MP {
     
     fn get_velocity(&mut self, time: f32) -> f32 {
 
-        // we're not calculating the acceleration
-        // Do we use tha max acceleration
-        // does vc represent change in velocity? Why not the initial velocity
-        let v_c = (self.max_a*time) + (self.end_v - self.start_v);
-        if(v_c < self.max_v) {
-            v_c
-        }
-        else {
-            self.max_v
-        }
+        // calculating velocity reached after time
+        let vt = (self.a*time) + self.start_v;
+        let v_effective_max = cmp::min(self.max_v, self.end_v);
+
+        // calculating how long it takes to reach max_v
+        let time_max = self.end_v - self.start_v / self.a;
+
+        // continue increasing velocity
+        cmp::min(vt, v_effective_max)
             
         
     }
