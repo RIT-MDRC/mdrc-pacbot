@@ -45,6 +45,7 @@ pub fn pure_pursuit(
     } else {
         loc
     };
+    let turn_multiplier = 0.25;
 
     let num_straight_points = if path.len() < 2 {
         0
@@ -55,7 +56,8 @@ pub fn pure_pursuit(
             .take_while(|(i, x)| (path[1] - path[0]) == (**x - path[*i - 1]))
             .count()
     };
-    let speed = speed
+
+    let base_speed = speed
         + match num_straight_points {
             0 | 1 => -0.4,
             2 => -0.2,
@@ -63,11 +65,34 @@ pub fn pure_pursuit(
             _ => 0.2,
         };
 
+    let calc_speed = calculate_speed(&path_f32, base_speed, &loc, turn_multiplier);
+
     if let Some(pursuit_point) = get_pursuit_point(&closest_point, &path_f32, lookahead) {
-        return Some(get_vec(loc, pursuit_point, true, speed, 1.0));
+        return Some(get_vec(loc, pursuit_point, true, calc_speed, 1.0));
     }
 
     None
+}
+
+fn calculate_speed(
+    path: &heapless::Vec<Point2<f32>, LOCAL_MAX_PATH_LENGTH>, 
+    base_speed: f32,
+    loc: &Point2<f32>,
+    turn_multiplier: f32
+) -> f32 {
+    if path.len() < 3 {
+        return base_speed;
+    }
+    let p1 = path[1];
+    let p2 = path[2];
+
+    if p2.x == p1.x && p1.x != loc.x.round() { // horiz -> vert
+        return base_speed * turn_multiplier;
+    } else if p2.y == p1.y && p1.y != loc.y.round() { // vert -> horiz
+        return base_speed * turn_multiplier;
+    }
+
+    return base_speed;
 }
 
 fn get_vec(
