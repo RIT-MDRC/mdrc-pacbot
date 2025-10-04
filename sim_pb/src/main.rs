@@ -1,3 +1,4 @@
+use bevy::log::tracing_subscriber::fmt::time;
 use bevy::prelude::*;
 use bevy_rapier2d::na::Vector2;
 use bevy_rapier2d::prelude::*;
@@ -9,7 +10,7 @@ use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
 
 use crate::driving::SimRobot;
 use crate::network::{update_network, PacbotNetworkSimulation};
-use crate::physics::spawn_walls;
+use crate::physics::{spawn_walls, apply_robot_wall_stick};
 
 #[allow(dead_code)]
 mod delayed_value;
@@ -51,6 +52,7 @@ fn main() {
         .add_systems(Startup, setup_physics)
         .add_systems(Update, keyboard_input)
         .add_systems(Update, update_network)
+        .add_systems(Update, apply_robot_wall_stick)
         .add_systems(Update, robot_position_to_game_state)
         .run();
 }
@@ -64,6 +66,7 @@ fn setup_graphics(mut commands: Commands) {
 fn setup_physics(app: ResMut<MyApp>, mut commands: Commands) {
     spawn_walls(&mut commands, app.standard_grid);
 }
+
 
 fn robot_position_to_game_state(
     app: ResMut<MyApp>,

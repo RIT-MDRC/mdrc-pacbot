@@ -350,10 +350,13 @@ impl App {
                         } else {
                             break;
                         }
+
+                        // move pacman and step simulation forward
                         future.set_pacman_location((
                             future.pacman_loc.row + rl_vec.0,
                             future.pacman_loc.col + rl_vec.1,
                         ));
+                        future.step();
                     }
 
                     self.inference_timer.mark_completed("inference").unwrap();

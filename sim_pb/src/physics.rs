@@ -33,6 +33,37 @@ pub fn spawn_walls(commands: &mut Commands, grid: StandardGrid) {
     }
 }
 
+/// Causes robots that touch a wall to experience a
+/// subtle sticking force that can make it difficult to take corners.
+/// Used to model a real-world effect observed on the field.
+pub fn apply_robot_wall_stick(
+    mut contact_force_events: EventReader<ContactForceEvent>,
+    mut robots: Query<&mut ExternalForce, With<RobotReference>>,
+    time: Res<Time>,
+) {
+
+    const K_DECAY: f32 = 17.0;
+    const STICK_FORCE: f32 = 250.0;
+
+    // go through all robots and set decay the force with time
+    for mut robot in &mut robots {
+        robot.force *= (-K_DECAY * time.delta_secs()).exp();
+    }
+
+    for contact_force_event in contact_force_events.read() {
+        let force_direction = contact_force_event.max_force_direction;
+        let mut robot = if let Ok(robot) = robots.get_mut(contact_force_event.collider1) {
+            robot
+        } else if let Ok(robot) = robots.get_mut(contact_force_event.collider2) {
+            robot
+        } else {
+            continue;
+        };
+
+        robot.force = Vec2::new(force_direction.x, force_direction.y) * STICK_FORCE;
+    }
+}
+
 impl MyApp {
     pub fn spawn_robot(&mut self, commands: &mut Commands, name: RobotName) {
         let pos = self.standard_grid.get_default_pacbot_isometry().translation;
@@ -46,8 +77,11 @@ impl MyApp {
             .insert(Transform::from_xyz(pos.x, pos.y, 0.0))
             .insert(GravityScale(0.0))
             .insert(ExternalImpulse::default())
+            .insert(ExternalForce::default())
             .insert(Velocity::default())
             .insert(RobotReference(name, sim_robot.clone()))
+            .insert(ActiveEvents::COLLISION_EVENTS)
+            .insert(ActiveEvents::CONTACT_FORCE_EVENTS)
             .id();
 
         self.robots[name as usize] = Some((new_robot, sim_robot));
