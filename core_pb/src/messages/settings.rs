@@ -74,6 +74,7 @@ pub enum CvLocationSource {
     GameState,
     Constant(Option<Point2<i8>>),
     Localization,
+    Simulation,
 }
 
 /// Generic network connection settings

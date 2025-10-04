@@ -447,6 +447,10 @@ impl App {
                 .estimated_location
                 .and_then(|p| self.grid.node_nearest(p.x, p.y))
                 .or(old_loc),
+            CvLocationSource::Simulation => self.status.robots[self.settings.pacman as usize]
+                .sim_position
+                .and_then(|p| self.grid.node_nearest(p.0.x, p.0.y))
+                .or(old_loc),
         };
 
         if old_loc != self.status.cv_location {

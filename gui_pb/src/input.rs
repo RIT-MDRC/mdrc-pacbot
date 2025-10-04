@@ -373,7 +373,7 @@ impl App {
                                 self.settings.cv_location_source = CvLocationSource::GameState
                             }
                             Key::H => {
-                                self.settings.cv_location_source = CvLocationSource::Localization
+                                self.settings.cv_location_source = CvLocationSource::Simulation
                             }
                             Key::T => {
                                 if let Some(pos) = self.pointer_pos {

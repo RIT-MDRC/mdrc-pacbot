@@ -598,7 +598,11 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         "cv_location".to_string(),
         "CV Location",
         &mut app.settings.cv_location_source,
-        &[CvLocationSource::GameState, CvLocationSource::Localization],
+        &[
+            CvLocationSource::GameState,
+            CvLocationSource::Localization,
+            CvLocationSource::Simulation,
+        ],
     );
     ui.end_row();
 }
