@@ -52,15 +52,15 @@ pub fn apply_robot_wall_stick(
 
     for contact_force_event in contact_force_events.read() {
         let force_direction = contact_force_event.max_force_direction;
-        let mut robot = if let Ok(robot) = robots.get_mut(contact_force_event.collider1) {
-            robot
+        let (mut robot, multiplier) = if let Ok(robot) = robots.get_mut(contact_force_event.collider1) {
+            (robot, 1.0)
         } else if let Ok(robot) = robots.get_mut(contact_force_event.collider2) {
-            robot
+            (robot, -1.0)
         } else {
             continue;
         };
 
-        robot.force = Vec2::new(force_direction.x, force_direction.y) * STICK_FORCE;
+        robot.force = Vec2::new(force_direction.x, force_direction.y) * multiplier * STICK_FORCE;
     }
 }
 

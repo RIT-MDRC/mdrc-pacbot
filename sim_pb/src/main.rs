@@ -1,4 +1,3 @@
-use bevy::log::tracing_subscriber::fmt::time;
 use bevy::prelude::*;
 use bevy_rapier2d::na::Vector2;
 use bevy_rapier2d::prelude::*;
