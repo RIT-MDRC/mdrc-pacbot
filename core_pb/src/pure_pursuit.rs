@@ -14,9 +14,10 @@ pub fn pure_pursuit(
     path: &heapless::Vec<Point2<i8>, MAX_ROBOT_PATH_LENGTH>,
     lookahead: f32,
     speed: f32,
+    turn_multiplier: f32,
     snapping_dist: f32,
     snapping_multiplier: f32,
-    cv_location: Option<Point2<i8>>,
+    cv_location: Option<Point2<i8>>
 ) -> Option<Vector2<f32>> {
     let loc = sensors.location?;
 
@@ -45,7 +46,6 @@ pub fn pure_pursuit(
     } else {
         loc
     };
-    let turn_multiplier = 0.25;
 
     let num_straight_points = if path.len() < 2 {
         0
@@ -90,7 +90,7 @@ fn calculate_speed(
         return base_speed * turn_multiplier;
     } else if p2.y == p1.y && p1.y != loc.y.round() { // vert -> horiz
         return base_speed * turn_multiplier;
-    }
+    } 
 
     return base_speed;
 }
