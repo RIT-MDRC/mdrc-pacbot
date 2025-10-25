@@ -590,6 +590,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
             StrategyChoice::ReinforcementLearning,
             StrategyChoice::TestUniform,
             StrategyChoice::TestForward,
+            StrategyChoice::TestTrapezoidal,
         ],
     );
     ui.end_row();
