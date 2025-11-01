@@ -3,9 +3,8 @@ use crate::driving::data::SharedRobotData;
 use crate::driving::RobotBehavior;
 use crate::messages::settings::LocalizationAlgorithmSource;
 use crate::messages::{RobotButton, SensorData, Task, MAX_SENSOR_ERR_LEN};
-// use crate::region_localization::estimate_location_2;
-use crate::region_localization;
-use crate::localization;
+use crate::localization::region_localization;
+use crate::localization::cv_adjust;
 use crate::robot_display::DisplayManager;
 use crate::util::utilization::UtilizationMonitor;
 use crate::util::CrossPlatformInstant;
@@ -49,7 +48,6 @@ pub async fn peripherals_task<R: RobotBehavior>(
 
     let sensors_sender = data.sensors.sender();
     let mut config = data.config.receiver().unwrap();
-    println!("{}", config.get().await.angle_offset);
 
     let mut display_manager = DisplayManager::new(data);
 
@@ -153,7 +151,7 @@ pub async fn peripherals_task<R: RobotBehavior>(
                     &data.robot_definition,
                     config.get().await.follow_target_path,
                 ),
-                LocalizationAlgorithmSource::CVAdjust => localization::estimate_location(
+                LocalizationAlgorithmSource::CVAdjust => cv_adjust::estimate_location(
                     config.get().await.grid,
                     config.get().await.cv_location,
                     &sensors.distances,

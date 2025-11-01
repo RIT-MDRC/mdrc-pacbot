@@ -9,7 +9,6 @@ pub mod localization;
 pub mod messages;
 pub mod names;
 pub mod pure_pursuit;
-pub mod region_localization;
 pub mod robot_definition;
 pub mod robot_display;
 #[cfg(feature = "std")]

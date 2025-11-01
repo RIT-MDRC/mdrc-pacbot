@@ -67,7 +67,7 @@ fn main() -> io::Result<()> {
         )?;
     }
 
-    writeln!(f, "\nuse crate::region_localization::Region;\n")?;
+    writeln!(f, "\nuse crate::localization::region_localization::Region;\n")?;
     write!(
         f,
         "pub fn get_grid_regions(grid: StandardGrid) -> &'static [Region] {{\n\tmatch grid {{"

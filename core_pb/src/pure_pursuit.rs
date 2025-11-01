@@ -1,6 +1,6 @@
 use crate::messages::SensorData;
 use crate::{constants::MAX_ROBOT_PATH_LENGTH, localization};
-use localization::get_dist;
+use localization::cv_adjust::get_dist;
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
 use nalgebra::{Point2, Vector2};
