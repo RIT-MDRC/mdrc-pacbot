@@ -1,7 +1,8 @@
 use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::settings::{
-    ConnectionSettings, CvLocationSource, LocalizationAlgorithmSource, ShouldDoTargetPath, StrategyChoice
+    ConnectionSettings, CvLocationSource, LocalizationAlgorithmSource, ShouldDoTargetPath,
+    StrategyChoice,
 };
 use core_pb::messages::{
     GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToRobotMessage,
@@ -605,13 +606,14 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         ui,
         "localization".to_string(),
         "Localization",
-        &mut app.settings.robots[app.ui_settings.selected_robot as usize].config.localization_algorithm,
+        &mut app.settings.robots[app.ui_settings.selected_robot as usize]
+            .config
+            .localization_algorithm,
         &[
             LocalizationAlgorithmSource::RegionLocalization,
             LocalizationAlgorithmSource::CVAdjust,
             LocalizationAlgorithmSource::CorridorPolicyChange,
         ],
-
     );
     ui.end_row();
 }
