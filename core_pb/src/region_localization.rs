@@ -139,6 +139,7 @@ fn get_at(grid: Grid, at: Vector2<i8>) -> bool {
     }
 }
 
+/// RegionLocalization
 pub fn estimate_location_2(
     grid: StandardGrid,
     cv_location: Option<Point2<i8>>,
