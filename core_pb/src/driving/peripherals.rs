@@ -3,7 +3,7 @@ use crate::driving::data::SharedRobotData;
 use crate::driving::RobotBehavior;
 use crate::localization::cv_adjust;
 use crate::localization::region_localization;
-use crate::messages::settings::LocalizationAlgorithmSource;
+use crate::messages::common::LocalizationAlgorithmSource;
 use crate::messages::{RobotButton, SensorData, Task, MAX_SENSOR_ERR_LEN};
 use crate::robot_display::DisplayManager;
 use crate::util::utilization::UtilizationMonitor;

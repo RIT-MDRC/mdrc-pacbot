@@ -1,7 +1,8 @@
 use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
+use core_pb::messages::common::LocalizationAlgorithmSource;
 use core_pb::messages::settings::{
-    ConnectionSettings, CvLocationSource, LocalizationAlgorithmSource, ShouldDoTargetPath,
+    ConnectionSettings, CvLocationSource, ShouldDoTargetPath,
     StrategyChoice,
 };
 use core_pb::messages::{

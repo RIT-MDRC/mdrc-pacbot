@@ -76,14 +76,6 @@ pub enum CvLocationSource {
     Localization,
 }
 
-#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize, PartialEq, PartialOrd)]
-pub enum LocalizationAlgorithmSource {
-    #[default]
-    RegionLocalization, // localization algorithm by Mike
-    CVAdjust,
-    CorridorPolicyChange, // Algorithm that changes localization policy on the fly
-}
-
 /// Generic network connection settings
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
 pub struct ConnectionSettings {

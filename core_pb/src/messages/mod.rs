@@ -6,7 +6,7 @@ use crate::constants::{
 use crate::grid::standard_grid::StandardGrid;
 #[cfg(feature = "std")]
 use crate::messages::server_status::ServerStatus;
-use crate::messages::settings::LocalizationAlgorithmSource;
+use crate::messages::common::LocalizationAlgorithmSource;
 #[cfg(feature = "std")]
 use crate::messages::settings::PacbotSettings;
 use crate::names::RobotName;
@@ -25,9 +25,10 @@ use pacbot_rs::location::Direction;
 use portable_atomic::{AtomicBool, AtomicF32, AtomicI32, AtomicI8};
 use serde::{Deserialize, Serialize};
 
+pub mod common;
+pub mod robot_tcp;
 #[cfg(feature = "std")]
 pub mod ota;
-pub mod robot_tcp;
 #[cfg(feature = "std")]
 pub mod server_status;
 #[cfg(feature = "std")]
