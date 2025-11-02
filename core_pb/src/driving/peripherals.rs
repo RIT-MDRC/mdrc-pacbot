@@ -1,8 +1,10 @@
 use crate::constants::INCHES_PER_GU;
 use crate::driving::data::SharedRobotData;
 use crate::driving::RobotBehavior;
+use crate::localization::cv_adjust;
+use crate::localization::region_localization;
+use crate::messages::common::LocalizationAlgorithmSource;
 use crate::messages::{RobotButton, SensorData, Task, MAX_SENSOR_ERR_LEN};
-use crate::region_localization::estimate_location_2;
 use crate::robot_display::DisplayManager;
 use crate::util::utilization::UtilizationMonitor;
 use crate::util::CrossPlatformInstant;
@@ -141,13 +143,26 @@ pub async fn peripherals_task<R: RobotBehavior>(
         }
 
         if something_changed {
-            sensors.location = estimate_location_2(
-                config.get().await.grid,
-                config.get().await.cv_location,
-                &sensors.distances,
-                &data.robot_definition,
-                config.get().await.follow_target_path,
-            );
+            sensors.location = match config.get().await.localization_algorithm {
+                LocalizationAlgorithmSource::RegionLocalization => {
+                    region_localization::estimate_location_2(
+                        config.get().await.grid,
+                        config.get().await.cv_location,
+                        &sensors.distances,
+                        &data.robot_definition,
+                        config.get().await.follow_target_path,
+                    )
+                }
+                LocalizationAlgorithmSource::CVAdjust => cv_adjust::estimate_location(
+                    config.get().await.grid,
+                    config.get().await.cv_location,
+                    &sensors.distances,
+                    &data.robot_definition,
+                    config.get().await.cv_error,
+                ),
+                // TODO: not implemented yet
+                _ => None,
+            };
             sensors_sender.send(sensors.clone());
         }
 

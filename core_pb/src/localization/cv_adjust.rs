@@ -1,6 +1,7 @@
 use crate::grid::standard_grid::StandardGrid;
 use crate::grid::{Grid, GRID_SIZE};
 use crate::messages::MAX_SENSOR_ERR_LEN;
+use crate::robot_definition::RobotDefinition;
 #[cfg(feature = "micromath")]
 use nalgebra::ComplexField;
 use nalgebra::{Point2, Vector2};
@@ -15,13 +16,15 @@ const VECTORS: [Vector2<f32>; 4] = [
     Vector2::new(0.0, -1.0),
 ];
 
+/// CVAdjust
 pub fn estimate_location(
     grid: StandardGrid,
     cv_location: Option<Point2<i8>>,
     distance_sensors: &[Result<Option<f32>, heapless::String<MAX_SENSOR_ERR_LEN>>; 4],
-    radius: f32,
+    robot_definition: &RobotDefinition<3>,
     cv_error: f32,
 ) -> Option<Point2<f32>> {
+    let radius = robot_definition.radius;
     let cv_location_int = cv_location?;
     let cv_location_f32 = cv_location_int.map(|x| x as f32);
 

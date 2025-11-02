@@ -6,6 +6,7 @@ use crate::constants::{
 use crate::grid::standard_grid::StandardGrid;
 #[cfg(feature = "std")]
 use crate::messages::server_status::ServerStatus;
+use crate::messages::common::LocalizationAlgorithmSource;
 #[cfg(feature = "std")]
 use crate::messages::settings::PacbotSettings;
 use crate::names::RobotName;
@@ -24,9 +25,10 @@ use pacbot_rs::location::Direction;
 use portable_atomic::{AtomicBool, AtomicF32, AtomicI32, AtomicI8};
 use serde::{Deserialize, Serialize};
 
+pub mod common;
+pub mod robot_tcp;
 #[cfg(feature = "std")]
 pub mod ota;
-pub mod robot_tcp;
 #[cfg(feature = "std")]
 pub mod server_status;
 #[cfg(feature = "std")]
@@ -150,6 +152,8 @@ pub struct FrequentServerToRobot {
     ///
     /// Not used when this struct functions as a configuration in server settings
     pub cv_location: Option<Point2<i8>>,
+    /// What localization strategy the robot should use
+    pub localization_algorithm: LocalizationAlgorithmSource,
     /// The points the robot should try to go to
     pub target_path: heapless::Vec<Point2<i8>, MAX_ROBOT_PATH_LENGTH>,
     /// Whether the robot should try to follow the target path (including maintaining heading 0)
@@ -184,6 +188,7 @@ impl FrequentServerToRobot {
             dist_sensor_config: definition.default_dist_sensor_order,
             pid: definition.default_pid,
             cv_location: Some(Point2::new(1, 1)),
+            localization_algorithm: LocalizationAlgorithmSource::RegionLocalization,
             target_path: heapless::Vec::new(),
             follow_target_path: false,
             angle_offset: 0.0,
