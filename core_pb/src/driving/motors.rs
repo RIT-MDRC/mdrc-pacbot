@@ -11,7 +11,7 @@ use core::sync::atomic::Ordering;
 use core::time::Duration;
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
-use nalgebra::Vector2;
+use nalgebra::{Vector2};
 use pid::Pid;
 
 /// Functionality that robots with motors must support
@@ -207,9 +207,10 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                             self.config.lookahead_dist
                         },
                         self.config.robot_speed,
+                        self.config.turn_multiplier,
                         self.config.snapping_dist,
                         snapping_multiplier,
-                        self.config.cv_location,
+                        self.config.cv_location
                     ) {
                         target_velocity.0 = vel;
                         if stuck_time % 6 > 3 {

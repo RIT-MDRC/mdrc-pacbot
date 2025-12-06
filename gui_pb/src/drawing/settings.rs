@@ -381,6 +381,17 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
     );
 
     num(
+        "turn_multiplier".to_string(),
+        ui,
+        fields,
+        &mut app.settings.robots[app.ui_settings.selected_robot as usize]
+        .config
+        .turn_multiplier,
+        "Turn speed multiplier",
+        true
+        );
+
+    num(
         "snapping_distance".to_string(),
         ui,
         fields,
