@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["cv_adjust","region_localization"]};
