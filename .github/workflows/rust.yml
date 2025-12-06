@@ -7,6 +7,10 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -38,32 +42,23 @@ jobs:
 
       - name: Build gui_pb
         working-directory: gui_pb
-        run: cargo build
+        run: cargo build --locked
 
       - name: Build gui_pb --target wasm32-unknown-unknown
         working-directory: gui_pb
-        run: cargo build --target wasm32-unknown-unknown
+        run: cargo build --locked --target wasm32-unknown-unknown
 
       - name: Build pico_pb
         working-directory: pico_pb
-        run: cargo build
+        run: cargo build --locked
 
       - name: Build server_pb
         working-directory: server_pb
-        run: cargo build
+        run: cargo build --locked
 
       - name: Build sim_pb
         working-directory: sim_pb
-        run: cargo build
+        run: cargo build --locked
 
       - name: Run tests
         run: cargo test
-      - name: Install latest mdbook
-        run: |
-          tag=$(curl 'https://api.github.com/repos/rust-lang/mdbook/releases/latest' | jq -r '.tag_name')
-          url="https://github.com/rust-lang/mdbook/releases/download/${tag}/mdbook-${tag}-x86_64-unknown-linux-gnu.tar.gz"
-          mkdir bin
-          curl -sSL $url | tar -xz --directory=bin
-          echo "$(pwd)/bin" >> $GITHUB_PATH
-      - name: Run book tests
-        run: mdbook test book

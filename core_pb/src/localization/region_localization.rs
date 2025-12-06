@@ -1,7 +1,7 @@
 use crate::constants::GU_PER_M;
 use crate::grid::standard_grid::{get_grid_regions, StandardGrid};
 use crate::grid::Grid;
-use crate::localization::get_sim_ray_cast;
+use crate::localization::cv_adjust::get_sim_ray_cast;
 use crate::messages::MAX_SENSOR_ERR_LEN;
 use crate::robot_definition::RobotDefinition;
 #[cfg(feature = "micromath")]
@@ -139,6 +139,7 @@ fn get_at(grid: Grid, at: Vector2<i8>) -> bool {
     }
 }
 
+/// RegionLocalization
 pub fn estimate_location_2(
     grid: StandardGrid,
     cv_location: Option<Point2<i8>>,
