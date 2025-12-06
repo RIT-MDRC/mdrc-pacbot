@@ -16,5 +16,6 @@ Our current goals are:
 
 <br />  
 
-This is an image of our robot and the competition we hosted in April 2025. We have the physical board on the ground that the robot needs to navigate around and a projection of the video game over the field on the ground. People are able to watch the robot's play on the projection.
-![PacBot robot](/book/images/pacbot.png) ![Competition Board](/book/images/full_game2025.png.jpg).
+This is an image of our robot and the competition we hosted in April 2025. We have the physical board on the ground that the robot needs to navigate around and a projection of the video game over the field on the ground. People are able to watch the robot's play on the projection. If pictures do not show click [here](https://drive.google.com/file/d/1OlmCtnr8tsUqDHCDqm_E7Cdd-6IaNbj7/view?usp=sharing) for the robot and [here](https://drive.google.com/file/d/1TuR0mWwFmth7ajinlTCPX8y76qnTMh9P/view?usp=sharing) for the competition board.
+
+![PacBot robot](/book/images/pacbot.png) ! [Competition Board](/book/images/full_game2025.png.jpg).
