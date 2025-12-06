@@ -162,6 +162,7 @@ pub struct FrequentServerToRobot {
     pub angle_offset: f32,
     pub lookahead_dist: f32,
     pub robot_speed: f32,
+    pub turn_multiplier: f32,
     pub snapping_dist: f32,
     pub cv_error: f32,
 
@@ -194,6 +195,7 @@ impl FrequentServerToRobot {
             angle_offset: 0.0,
             lookahead_dist: 0.7,
             robot_speed: 2.5,
+            turn_multiplier: 0.3,
             snapping_dist: 0.3,
             cv_error: 1.5,
 
