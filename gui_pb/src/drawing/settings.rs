@@ -6,8 +6,7 @@ use core_pb::messages::settings::{
     StrategyChoice,
 };
 use core_pb::messages::{
-    GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToRobotMessage,
-    ServerToSimulationMessage,
+    FrequentServerToRobot, GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToRobotMessage, ServerToSimulationMessage
 };
 use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
 use core_pb::threaded_websocket::TextOrT;
@@ -285,6 +284,26 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
     });
     ui.end_row();
     ui.checkbox(&mut app.settings.safe_mode, "Safe mode");
+    ui.end_row();
+    if ui.button("Competition mode").clicked() {
+        app.settings.do_target_path = ShouldDoTargetPath::DoWhilePlayed;
+        app.settings.target_speed = 4.0;
+        app.settings.robots[app.ui_settings.selected_robot as usize]
+            .config
+            .lookahead_dist = 2.0;
+        app.settings.robots[app.ui_settings.selected_robot as usize]
+            .config
+            .robot_speed = 4.0;
+        app.settings.robots[app.ui_settings.selected_robot as usize]
+            .config
+            .turn_multiplier = 0.1;
+        app.settings.robots[app.ui_settings.selected_robot as usize]
+            .config
+            .snapping_dist = 0.2;
+        app.settings.robots[app.ui_settings.selected_robot as usize]
+            .config
+            .cv_error = 1.5;
+    }
     ui.end_row();
     dropdown(
         ui,
