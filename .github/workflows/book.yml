@@ -1,0 +1,36 @@
+name: Build Book
+
+on:
+    push:
+        branches: ["main"]
+        paths:
+            - 'book/'
+    pull_request:
+        branches: ["main"]
+        paths:
+            - 'book/'
+    workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+    CARGO_TERM_COLOR: always
+
+jobs:
+    book:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Install Mermaid
+              run: cargo +stable install mdbook-mermaid
+
+            - name: Setup mdBook
+              uses: peaceiris/actions-mdbook@v1
+              with:
+                mdbook-version: 'latest'
+                
+            - name: Run book tests
+              run: mdbook test book
