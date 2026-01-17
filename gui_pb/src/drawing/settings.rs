@@ -2,12 +2,11 @@ use crate::App;
 use core_pb::constants::GUI_LISTENER_PORT;
 use core_pb::messages::common::LocalizationAlgorithmSource;
 use core_pb::messages::settings::{
-    ConnectionSettings, CvLocationSource, ShouldDoTargetPath,
-    StrategyChoice,
+    ConnectionSettings, CvLocationSource, ShouldDoTargetPath, StrategyChoice,
 };
 use core_pb::messages::{
-    GameServerCommand, GuiToServerMessage, NetworkStatus, ServerToRobotMessage,
-    ServerToSimulationMessage,
+    FrequentServerToRobot, GameServerCommand, GuiToServerMessage, NetworkStatus,
+    ServerToRobotMessage, ServerToSimulationMessage,
 };
 use core_pb::names::{RobotName, NUM_ROBOT_NAMES};
 use core_pb::threaded_websocket::TextOrT;
@@ -19,6 +18,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::str::FromStr;
+
+const COMP_DO_TARGET_PATH: ShouldDoTargetPath = ShouldDoTargetPath::DoWhilePlayed;
+const COMP_TARGET_SPEED: f32 = 4.0;
+const COMP_LOOKAHEAD_DIST: f32 = 2.0;
+const COMP_ROBOT_SPEED: f32 = 4.0;
+const COMP_TURN_SPEED_MULT: f32 = 0.1;
+const COMP_SNAPPING_DIST: f32 = 0.2;
+const COMP_CV_ERROR: f32 = 1.5;
 
 pub struct UiSettings {
     pub selected_robot: RobotName,
@@ -286,6 +293,26 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
     ui.end_row();
     ui.checkbox(&mut app.settings.safe_mode, "Safe mode");
     ui.end_row();
+    if ui.button("Competition mode").clicked() {
+        app.settings.do_target_path = COMP_DO_TARGET_PATH;
+        app.settings.target_speed = COMP_TARGET_SPEED;
+        app.settings.robots[app.ui_settings.selected_robot as usize]
+            .config
+            .lookahead_dist = COMP_LOOKAHEAD_DIST;
+        app.settings.robots[app.ui_settings.selected_robot as usize]
+            .config
+            .robot_speed = COMP_ROBOT_SPEED;
+        app.settings.robots[app.ui_settings.selected_robot as usize]
+            .config
+            .turn_multiplier = COMP_TURN_SPEED_MULT;
+        app.settings.robots[app.ui_settings.selected_robot as usize]
+            .config
+            .snapping_dist = COMP_SNAPPING_DIST;
+        app.settings.robots[app.ui_settings.selected_robot as usize]
+            .config
+            .cv_error = COMP_CV_ERROR;
+    }
+    ui.end_row();
     dropdown(
         ui,
         "Target Path Dropdown".to_string(),
@@ -385,11 +412,11 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         ui,
         fields,
         &mut app.settings.robots[app.ui_settings.selected_robot as usize]
-        .config
-        .turn_multiplier,
+            .config
+            .turn_multiplier,
         "Turn speed multiplier",
-        true
-        );
+        true,
+    );
 
     num(
         "snapping_distance".to_string(),
