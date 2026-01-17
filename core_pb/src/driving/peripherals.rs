@@ -1,6 +1,7 @@
 use crate::constants::INCHES_PER_GU;
 use crate::driving::data::SharedRobotData;
 use crate::driving::RobotBehavior;
+use crate::localization::corridor_policy_change;
 use crate::localization::cv_adjust;
 use crate::localization::region_localization;
 use crate::messages::common::LocalizationAlgorithmSource;
@@ -161,7 +162,13 @@ pub async fn peripherals_task<R: RobotBehavior>(
                     config.get().await.cv_error,
                 ),
                 // TODO: not implemented yet
-                _ => None,
+                LocalizationAlgorithmSource::CorridorPolicyChange => corridor_policy_change::estimate_location(
+                    config.get().await.grid,
+                    config.get().await.cv_location,
+                    &sensors.distances,
+                    &data.robot_definition,
+                    config.get().await.cv_error,
+                ),
             };
             sensors_sender.send(sensors.clone());
         }
