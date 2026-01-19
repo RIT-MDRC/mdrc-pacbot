@@ -29,4 +29,4 @@ ouroboros = "0.18.4"
 
 # When an IDE tries to load the project with WASM target, it shouldn't run Pyo3 build commands
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rl_pb = { git = "https://github.com/RIT-MDRC/pacbot-rl.git", package = "pacbot_rs", rev = "92921d14de023e6d8ebe3ae24aac674f9dbea3ec" }
+rl_pb = { git = "https://github.com/RIT-MDRC/pacbot-rl.git", package = "pacbot_rs", rev = "a95eebeaf23f35ca4825e311b5d6f6c29528811a" }
