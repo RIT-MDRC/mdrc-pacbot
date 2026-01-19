@@ -5118,7 +5118,7 @@ dependencies = [
 [[package]]
 name = "pacbot_rs"
 version = "0.1.0"
-source = "git+https://github.com/RIT-MDRC/pacbot-rl.git?rev=92921d14de023e6d8ebe3ae24aac674f9dbea3ec#92921d14de023e6d8ebe3ae24aac674f9dbea3ec"
+source = "git+https://github.com/RIT-MDRC/pacbot-rl.git?rev=a95eebeaf23f35ca4825e311b5d6f6c29528811a#a95eebeaf23f35ca4825e311b5d6f6c29528811a"
 dependencies = [
  "array-init",
  "arrayvec",
