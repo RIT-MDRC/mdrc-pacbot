@@ -38,7 +38,7 @@ jobs:
         run: rustup target add thumbv6m-none-eabi
 
       - name: Install packages
-        run: sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0
+        run: sudo apt-get update && sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev libxkbcommon-x11-0
 
       - name: Build gui_pb
         working-directory: gui_pb
