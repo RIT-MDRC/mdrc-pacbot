@@ -46,7 +46,7 @@ fn main() {
             robots: RobotName::get_all().map(|_| None),
             selected_robot: RobotName::Stella,
         })
-        .insert_resource(PacbotNetworkSimulation::new().unwrap())
+        .insert_resource(PacbotNetworkSimulation::new().expect("Failed to launch simulation. Make sure the game server is not running at the same time on the same machine."))
         .add_systems(Startup, setup_graphics)
         .add_systems(Startup, setup_physics)
         .add_systems(Update, keyboard_input)
