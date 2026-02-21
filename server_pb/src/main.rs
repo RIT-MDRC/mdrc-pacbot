@@ -538,7 +538,11 @@ impl App {
                 self.sim_game_engine_process = Some(
                     Command::new("cargo")
                         .args(["run", "--bin", "sim_pb"])
-                        .current_dir(env!("CARGO_MANIFEST_DIR").to_string() + "/../")
+                        .current_dir(
+                            std::env::var("CARGO_MANIFEST_DIR")
+                                .expect("No cargo manifest directory")
+                                + "/../",
+                        )
                         .spawn()
                         .unwrap(),
                 );
