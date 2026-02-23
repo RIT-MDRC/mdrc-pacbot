@@ -28,9 +28,12 @@ struct MotorsData<const WHEELS: usize, M: RobotMotorsBehavior> {
 
     config: FrequentServerToRobot,
 
+    // PID controllers configured with P, I, and D constants from the config/GUI.
     pid_controllers: [Pid<f32>; WHEELS],
 
-    motor_speeds: [f32; 3],
+    // Measurements of current motor speeds.
+    motor_speeds: [f32; WHEELS],
+    // Measurements of current target velocities.
     set_points: [f32; WHEELS],
     pwm: [[u16; 2]; WHEELS],
 }
@@ -44,7 +47,7 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
 
     let robot = &data.robot_definition;
     let config = FrequentServerToRobot::new(data.name);
-    let pid = config.pid;
+    let pid = config.pidsv;
 
     let pid_controllers = [0; 3].map(|_| {
         let mut pid_controller = Pid::new(0.0, robot.pwm_top as f32);
@@ -86,9 +89,9 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
             motors_data.config = config;
             for m in 0..3 {
                 motors_data.pid_controllers[m]
-                    .p(motors_data.config.pid[0], robot.pwm_top as f32)
-                    .i(motors_data.config.pid[1], robot.pwm_top as f32)
-                    .d(motors_data.config.pid[2], robot.pwm_top as f32);
+                    .p(motors_data.config.pidsv[0], robot.pwm_top as f32)
+                    .i(motors_data.config.pidsv[1], robot.pwm_top as f32)
+                    .d(motors_data.config.pidsv[2], robot.pwm_top as f32);
             }
         }
         if last_command.elapsed() > Duration::from_millis(300) {
@@ -290,9 +293,25 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                 self.pid_controllers[m].reset_integral_term();
                 0.0
             } else {
-                self.pid_controllers[m]
+                // TODO: Check this, but I think this makes more sense
+                let target_velocity = self.set_points[m];
+
+                let s = self.config.pidsv[3];
+                let v = self.config.pidsv[4];
+
+                // Get output from PID
+                let pid_output = self.pid_controllers[m]
                     .next_control_output(self.motor_speeds[m])
-                    .output
+                    .output;
+
+                // Calculate static friction (basically just whether or not the bot is moving)
+                let static_friction = if target_velocity > 0.0 { s } else { -s };
+
+                // Add the feedforward
+                let velocity_feedforward = v * target_velocity;
+
+                // Output = PID + S + V = PIDSV
+                pid_output + static_friction + velocity_feedforward
             };
 
             // set value to PWM on motors
