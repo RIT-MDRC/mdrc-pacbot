@@ -1,4 +1,5 @@
 use crate::messages::SensorData;
+use crate::motion_profiler::{MotionProfiler, MpState};
 use crate::{constants::MAX_ROBOT_PATH_LENGTH, localization};
 use localization::cv_adjust::get_dist;
 #[cfg(feature = "micromath")]
@@ -17,7 +18,8 @@ pub fn pure_pursuit(
     turn_multiplier: f32,
     snapping_dist: f32,
     snapping_multiplier: f32,
-    cv_location: Option<Point2<i8>>
+    cv_location: Option<Point2<i8>>,
+    motion_profiler: MotionProfiler
 ) -> Option<Vector2<f32>> {
     let loc = sensors.location?;
 
@@ -56,6 +58,12 @@ pub fn pure_pursuit(
             .take_while(|(i, x)| (path[1] - path[0]) == (**x - path[*i - 1]))
             .count()
     };
+
+    let setpoint= MpState {vel: 2.0, pos: 1.0};
+    let goal= MpState {vel: 5.0, pos: 10.0};
+
+    print!("{}\n", motion_profiler.calculate(setpoint, goal));
+
 
     let base_speed = speed
         + match num_straight_points {

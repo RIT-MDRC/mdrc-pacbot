@@ -14,6 +14,7 @@ pub mod robot_display;
 #[cfg(feature = "std")]
 pub mod threaded_websocket;
 pub mod util;
+pub mod motion_profiler;
 
 use core::fmt::Debug;
 

@@ -4,6 +4,7 @@ use crate::driving::RobotBehavior;
 use crate::messages::{
     FrequentServerToRobot, MotorControlStatus, SensorData, Task, VelocityControl,
 };
+use crate::motion_profiler::MotionProfiler;
 use crate::pure_pursuit::pure_pursuit;
 use crate::util::utilization::UtilizationMonitor;
 use crate::util::CrossPlatformInstant;
@@ -198,6 +199,7 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                     // let angle = Rotation2::new(angle).angle();
                     // if angle.abs() < 20.0_f32.to_radians() {
                     // now that we've made sure we're facing the right way, try to follow the path
+                    let motion_profiler: MotionProfiler = MotionProfiler::new(2.0, 5.0);
                     if let Some(vel) = pure_pursuit(
                         sensors,
                         &self.config.target_path,
@@ -210,7 +212,8 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                         self.config.turn_multiplier,
                         self.config.snapping_dist,
                         snapping_multiplier,
-                        self.config.cv_location
+                        self.config.cv_location,
+                        motion_profiler
                     ) {
                         target_velocity.0 = vel;
                         if stuck_time % 6 > 3 {
