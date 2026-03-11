@@ -16,18 +16,11 @@ pub struct MpState {
     pub pos: f32
 }
 
-pub enum MpPhase {
-    ACCEL,
-    STATIC,
-    DECEL
-}
-
 pub struct MotionProfiler {
     max_vel: f32,
     max_accel: f32,
     // 3 phase if true, 2 phase if false, consider changing for an enum. false by default
     trapezoidal: bool,
-    phase: MpPhase,
     accel_endpoint: f32,
     static_endpoint: f32,
     decel_endpoint: f32,
@@ -39,8 +32,7 @@ impl MotionProfiler {
         return MotionProfiler {
             max_vel: max_vel, 
             max_accel: max_accel, 
-            trapezoidal: false, 
-            phase: MpPhase::STATIC,
+            trapezoidal: false,
             accel_endpoint: 0.0,
             static_endpoint: 0.0,
             decel_endpoint: 0.0,
