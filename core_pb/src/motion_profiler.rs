@@ -71,10 +71,10 @@ impl MotionProfiler {
         // Determine length of phases
 
         // end of acceleration
-        self.accel_endpoint = calc_time(&self.max_vel, &0.0, &self.max_accel) / (2.0 * self.max_accel);
+        self.accel_endpoint = calc_time(&self.max_vel, &setpoint.vel, &self.max_accel);
         // end of static
         self.static_endpoint = if self.trapezoidal {
-            dist - (2.0 * self.accel_endpoint)
+            (dist - (2.0 * self.accel_endpoint)) / self.max_vel
         } else {
             0.0
         };
@@ -89,29 +89,30 @@ impl MotionProfiler {
      */
     pub fn stream_trajectory (
         &mut self,
-        setpoint: MpState,
-        goal: MpState
+        setpoint: MpState
     ) -> f32 {
 
-        //    let mut v = 0.0;
-        
-        // // if time > t0 && time < t1 {
-        // //     v = self.max_accel * (time - t0);
-        // //     println!("V1: {}", v);
-        // // } else if time > t1 && time < t2 {
-        // //     v = self.max_accel * (t1 - t0);
-        // //     println!("V2: {}", v);
-        // // } else if time > t2 && time < t3 {
-        // //     v = self.max_accel * (t3 - time);
-        // //     println!("V3: {}", v);
-        // // }
-        // if v.abs() > self.max_vel {
-        //     v = self.max_vel;
-        //     println!("V4: {}", v);
-        // }
+        let t = setpoint.pos / setpoint.vel;
+        let t0 = 0.0;
+        let t1 = self.accel_endpoint;
+        let t2 = self.static_endpoint;
+        let t3 = self.decel_endpoint;
 
-        // return v.abs();
-        return 0.0;
+        let mut v = 0.0;
+
+        if t > t0 && t < t1 {
+            v = self.max_accel * (t - t0);
+        } else if t > t1 && t < t2 {
+            v = self.max_accel * (t1 - t0);
+        } else if t > t2 && t < t3 {
+            v = -self.max_accel * (t3 - t);
+        }
+
+        if v.abs() > self.max_vel {
+            v = self.max_vel;
+        }
+        
+        return v.abs();
     }
 }
 
@@ -131,15 +132,3 @@ fn calc_time (
 ) -> f32 {
     return (vf - vi) / a;
 }
-
-
-        // let time = (setpoint.pos)/setpoint.vel;
-        // println!("TIME: {}", time);
-        // let t0 = 0.0; // should be 0
-        // println!("T0: {}", t0);
-        // let t1 = (self.max_vel - setpoint.vel) / self.max_accel; // t1 is the time when the robot reaches max velocity
-        // println!("T1: {}", t1);
-        // let t2 = (dist - (2.0 * dist_cap)) / self.max_vel; // t2 is the start time of deceleration
-        // println!("T2: {}", t2);
-        // let t3 = t2 + t1; // t3 is the end time of deceleration
-        // println!("T3: {}", t3);
