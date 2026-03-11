@@ -62,7 +62,7 @@ pub fn pure_pursuit(
     let setpoint= MpState {vel: 2.0, pos: 1.0};
     let goal= MpState {vel: 5.0, pos: 10.0};
 
-    print!("{}\n", motion_profiler.calculate(setpoint, goal));
+    // print!("{}\n", motion_profiler.calculate(setpoint, goal));
 
 
     let base_speed = speed
