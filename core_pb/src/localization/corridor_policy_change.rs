@@ -1,6 +1,7 @@
 use nalgebra::{Point2, Vector2};
 
 use crate::{
+    constants::MAX_SENSOR_DISTANCE,
     grid::{standard_grid::StandardGrid, Grid, GRID_SIZE},
     messages::MAX_SENSOR_ERR_LEN,
     robot_definition::RobotDefinition,
@@ -32,8 +33,6 @@ struct RegionInfo {
     transverse: [bool; 2],          /* front/back */
 }
 
-// TODO
-pub const MAX_SENSOR_DISTANCE: i8 = todo!();
 pub const PARTIAL_REGION_SIZE: f32 = 0.13;
 
 impl CorridorCalculatedPosition {
@@ -51,7 +50,7 @@ impl CorridorCalculatedPosition {
         let dir = dir.map(|x| x as i8);
 
         while !Self::wall_at(grid, p) {
-            if dist >= MAX_SENSOR_DISTANCE {
+            if dist as f32 >= MAX_SENSOR_DISTANCE {
                 return false;
             }
 
