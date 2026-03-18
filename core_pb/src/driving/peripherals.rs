@@ -160,7 +160,7 @@ pub async fn peripherals_task<R: RobotBehavior>(
                     &data.robot_definition,
                     config.get().await.cv_error,
                 ),
-                // TODO: not implemented yet
+                LocalizationAlgorithmSource::CorridorPolicyChange => todo!()
                 _ => None,
             };
             sensors_sender.send(sensors.clone());
