@@ -1,7 +1,7 @@
 use crate::constants::INCHES_PER_GU;
 use crate::driving::data::SharedRobotData;
 use crate::driving::RobotBehavior;
-use crate::localization::corridor_policy_change::CorridorCalculatedPosition;
+use crate::localization::corridor_calculated_position::CorridorCalculatedPosition;
 use crate::localization::cv_adjust;
 use crate::localization::region_localization;
 use crate::messages::common::LocalizationAlgorithmSource;
@@ -164,13 +164,17 @@ pub async fn peripherals_task<R: RobotBehavior>(
                     &data.robot_definition,
                     config.cv_error,
                 ),
-                LocalizationAlgorithmSource::CorridorPolicyChange => ccp.estimate_location(
-                    config.grid,
-                    config.cv_location,
-                    &sensors.distances,
-                    &data.robot_definition,
-                ),
-                _ => None,
+                LocalizationAlgorithmSource::CorridorCalculatedPosition => {
+                    if let Some(next_point) = config.target_path.get(0).copied() {
+                        ccp.set_next_point(next_point);
+                    }
+                    ccp.estimate_location(
+                        config.grid,
+                        config.cv_location,
+                        &sensors.distances,
+                        &data.robot_definition,
+                    )
+                }
             };
             sensors_sender.send(sensors.clone());
         }

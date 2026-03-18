@@ -651,7 +651,7 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
         &[
             LocalizationAlgorithmSource::RegionLocalization,
             LocalizationAlgorithmSource::CVAdjust,
-            LocalizationAlgorithmSource::CorridorPolicyChange,
+            LocalizationAlgorithmSource::CorridorCalculatedPosition,
         ],
     );
     ui.end_row();

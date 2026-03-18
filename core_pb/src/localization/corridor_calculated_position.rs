@@ -6,6 +6,8 @@ use crate::{
     robot_definition::RobotDefinition,
 };
 
+/// current_estimate must lie in or between previous_target and next_target.
+/// The algorithm's performance is undefined otherwise
 pub struct CorridorCalculatedPosition {
     previous_target: Point2<i8>,
     current_estimate: Point2<f32>,
@@ -20,6 +22,7 @@ enum PartialRegion {
 
 type SensorUsefulness = Option<bool /* has discontinuity */>;
 
+#[derive(Debug)]
 struct RegionInfo {
     lateral: [SensorUsefulness; 2], /* left/right */
     transverse: [bool; 2],          /* front/back */
@@ -371,7 +374,12 @@ impl CorridorCalculatedPosition {
 
         let info = self.compute_region_info(&grid, partial, &rays);
 
-        return Some(self.get_sensor_values(
+        println!("info: {:?}", info);
+        println!("previous_target: {}", self.previous_target);
+        println!("next_target: {}", self.next_target);
+        println!("current_estimate: {}", self.current_estimate);
+
+        self.current_estimate = self.get_sensor_values(
             &x_length,
             &y_length,
             distance_sensors,
@@ -380,14 +388,42 @@ impl CorridorCalculatedPosition {
             &rays,
             &robot_definition,
             cv_location.clone(),
-        ));
+        );
+
+        return Some(self.current_estimate);
     }
 
+    /// Path planner should set the next point on the path as a hint to the localizer.
+    /// Assume provided next_point is on a traversable square
+    pub fn set_next_point(&mut self, next_point: Point2<i8>) {
+        let x_diff_cur = (self.previous_target.x - (self.current_estimate.x.round() as i8)).abs();
+        let y_diff_cur = (self.previous_target.y - (self.current_estimate.y.round() as i8)).abs();
+        let x_diff_next = (self.next_target.x - next_point.x).abs();
+        let y_diff_next = (self.next_target.y - next_point.y).abs();
+
+        if (x_diff_cur <= 1 && y_diff_cur == 0) || (y_diff_cur <= 1 && x_diff_cur == 0) {
+            // if current_estimate is still within 1 grid unit of previous_target
+            // next target should be modified
+            self.next_target = next_point;
+        } else if (x_diff_next <= 1 && y_diff_next == 0) || (y_diff_next <= 1 && x_diff_next == 0) {
+            // if next_point is within 1 grid unit of next_target
+            // shift next_target to previous target before assinging next_target
+            self.previous_target = self.next_target;
+            self.next_target = next_point;
+        } else {
+            // do nothing currently, but this means a next point not reachable by the current
+            // position of the robot has been passed in
+        }
+    }
+
+    /// An assumption needs to be made here about the initial starting position of the robot.
+    /// For now, the assumption will be that it is at (20, 15) and going up
+    /// TODO: make better assumptions about start
     pub fn new() -> CorridorCalculatedPosition {
         CorridorCalculatedPosition {
-            previous_target: todo!(),
-            current_estimate: todo!(),
-            next_target: todo!(),
+            previous_target: Point2::new(20, 15),
+            current_estimate: Point2::new(20.0, 15.0),
+            next_target: Point2::new(20, 16),
         }
     }
 }
