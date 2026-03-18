@@ -1,8 +1,7 @@
 use nalgebra::{Point2, Vector2};
 
 use crate::{
-    constants::MAX_SENSOR_DISTANCE,
-    grid::{computed_grid::ComputedGrid, standard_grid::StandardGrid, Grid, GRID_SIZE},
+    grid::{computed_grid::ComputedGrid, standard_grid::StandardGrid},
     messages::MAX_SENSOR_ERR_LEN,
     robot_definition::RobotDefinition,
 };
@@ -239,6 +238,64 @@ impl CorridorCalculatedPosition {
                 }
             }
         }
+
+        let transverse_sensors = {
+            (
+                if info.transverse[0] {
+                    if let Ok(Some(fwd_sensor)) = sensor_values_adjusted.0 {
+                        Some(fwd_sensor)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                },
+                if info.transverse[1] {
+                    if let Ok(Some(back_sensor)) = sensor_values_adjusted.1 {
+                        Some(back_sensor)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                },
+            )
+        };
+
+        let fwd_pos = {
+            if let Some(fwd_sensor) = transverse_sensors.0 {
+                let dist_to_forward_wall =
+                    grid.ray_cast_distance(forward_ray, self.previous_target.clone()) as f32 + 0.5;
+                Some(dist_to_forward_wall + fwd_sensor + robot_definition.radius)
+            } else {
+                None
+            }
+        };
+
+        let back_pos = {
+            if let Some(back_sensor) = transverse_sensors.0 {
+                let dist_to_forward_wall =
+                    grid.ray_cast_distance(backward_ray, self.next_target.clone()) as f32 + 0.5;
+                Some(dist_to_forward_wall + back_sensor + robot_definition.radius)
+            } else {
+                None
+            }
+        };
+
+        let transverse_pos = {
+            if let Some(fwd_pos) = fwd_pos {
+                if let Some(back_pos) = back_pos {
+                    (fwd_pos + back_pos) / 2.0
+                } else {
+                    fwd_pos
+                }
+            } else if let Some(back_pos) = back_pos {
+                back_pos
+            } else {
+                // TODO: what to do when no transverse?
+                1.0
+            }
+        };
     }
 
     pub fn estimate_location(
