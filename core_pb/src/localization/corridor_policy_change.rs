@@ -12,13 +12,6 @@ pub struct CorridorCalculatedPosition {
     next_target: Point2<i8>,
 }
 
-const VECTORS: [Vector2<i8>; 4] = [
-    Vector2::new(1, 0),  // right
-    Vector2::new(0, 1),  // up
-    Vector2::new(-1, 0), // left
-    Vector2::new(0, -1), // down
-];
-
 enum PartialRegion {
     Farther,
     Middle,
@@ -111,9 +104,9 @@ impl CorridorCalculatedPosition {
         info: &RegionInfo,
         grid: &ComputedGrid,
         rays: &(Vector2<i8>, Vector2<i8>, Vector2<i8>, Vector2<i8>),
-        partial: &PartialRegion,
         robot_definition: &RobotDefinition<3>,
-    ) {
+        cv_location: Option<Point2<i8>>,
+    ) -> Point2<f32> {
         let (forward_ray, backward_ray, left_ray, right_ray) = rays;
 
         let sensor_values_adjusted = {
@@ -185,8 +178,15 @@ impl CorridorCalculatedPosition {
         let left_pos = {
             if let Some(left_sensor) = lateral_sensors.0 {
                 let dist_to_left_wall =
-                    grid.ray_cast_distance(left_ray, self.previous_target.clone()) as f32 + 0.5;
-                Some(dist_to_left_wall + left_sensor + robot_definition.radius)
+                    grid.ray_cast_distance(left_ray, self.previous_target.clone()) as f32;
+                let wall_to_robot = (0.5 + left_sensor + robot_definition.radius) * {
+                    if *y_length < 0 || *x_length < 0 {
+                        -1.0
+                    } else {
+                        1.0
+                    }
+                };
+                Some(dist_to_left_wall + wall_to_robot)
             } else {
                 None
             }
@@ -195,8 +195,15 @@ impl CorridorCalculatedPosition {
         let right_pos = {
             if let Some(right_sensor) = lateral_sensors.1 {
                 let dist_to_right_wall =
-                    grid.ray_cast_distance(right_ray, self.previous_target.clone()) as f32 + 0.5;
-                Some(dist_to_right_wall + right_sensor + robot_definition.radius)
+                    grid.ray_cast_distance(right_ray, self.previous_target.clone()) as f32;
+                let wall_to_robot = (0.5 + right_sensor + robot_definition.radius) * {
+                    if *y_length < 0 || *x_length < 0 {
+                        -1.0
+                    } else {
+                        1.0
+                    }
+                };
+                Some(dist_to_right_wall - wall_to_robot)
             } else {
                 None
             }
@@ -211,9 +218,10 @@ impl CorridorCalculatedPosition {
                 }
             } else if let Some(right_pos) = right_pos {
                 right_pos
+            } else if *y_length != 0 {
+                self.current_estimate.y
             } else {
-                // TODO: what to do when no lateral?
-                1.0
+                self.current_estimate.x
             }
         };
 
@@ -269,11 +277,28 @@ impl CorridorCalculatedPosition {
                 }
             } else if let Some(back_pos) = back_pos {
                 back_pos
+            }
+            /* TODO: what to do when no transverse? */
+            else if let Some(cv_location) = cv_location {
+                if *y_length != 0 {
+                    cv_location.y as f32
+                } else {
+                    cv_location.x as f32
+                }
             } else {
-                // TODO: what to do when no transverse?
-                1.0
+                if *y_length != 0 {
+                    self.current_estimate.y as f32
+                } else {
+                    self.current_estimate.x as f32
+                }
             }
         };
+
+        if *y_length != 0 {
+            Point2::new(lateral_pos, transverse_pos)
+        } else {
+            Point2::new(transverse_pos, lateral_pos)
+        }
     }
 
     pub fn estimate_location(
@@ -344,19 +369,25 @@ impl CorridorCalculatedPosition {
             }
         };
 
-        let grid = grid.grid.get_grid();
-
         let info = self.compute_region_info(&grid, partial, &rays);
 
-        let values = self.get_sensor_values(
+        return Some(self.get_sensor_values(
             &x_length,
             &y_length,
             distance_sensors,
             &info,
             &grid,
-            &partial,
-        );
+            &rays,
+            &robot_definition,
+            cv_location.clone(),
+        ));
+    }
 
-        todo!();
+    pub fn new() -> CorridorCalculatedPosition {
+        CorridorCalculatedPosition {
+            previous_target: todo!(),
+            current_estimate: todo!(),
+            next_target: todo!(),
+        }
     }
 }
