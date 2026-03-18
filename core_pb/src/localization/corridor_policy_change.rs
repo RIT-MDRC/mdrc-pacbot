@@ -182,62 +182,40 @@ impl CorridorCalculatedPosition {
             )
         };
 
-        let mut lateral_pos: Option<f32> = None;
+        let left_pos = {
+            if let Some(left_sensor) = lateral_sensors.0 {
+                let dist_to_left_wall =
+                    grid.ray_cast_distance(left_ray, self.previous_target.clone()) as f32 + 0.5;
+                Some(dist_to_left_wall + left_sensor + robot_definition.radius)
+            } else {
+                None
+            }
+        };
 
-        if let (Some(left_sensor), Some(right_sensor)) = lateral_sensors {
-            match partial {
-                PartialRegion::Closer => {
-                    let dist_to_left_wall =
-                        grid.ray_cast_distance(left_ray, self.previous_target.clone()) as f32 + 0.5;
-                    let dist_to_right_wall =
-                        grid.ray_cast_distance(right_ray, self.previous_target.clone()) as f32
-                            + 0.5;
-                    lateral_pos = Some(
-                        ((dist_to_left_wall + left_sensor + robot_definition.radius)
-                            + (dist_to_right_wall + right_sensor + robot_definition.radius))
-                            / 2.0,
-                    );
-                }
-                _ => {
-                    let dist_to_left_wall =
-                        grid.ray_cast_distance(left_ray, self.next_target.clone()) as f32 + 0.5;
-                    let dist_to_right_wall =
-                        grid.ray_cast_distance(right_ray, self.next_target.clone()) as f32 + 0.5;
-                    lateral_pos = Some(
-                        ((dist_to_left_wall + left_sensor + robot_definition.radius)
-                            + (dist_to_right_wall + right_sensor + robot_definition.radius))
-                            / 2.0,
-                    );
-                }
+        let right_pos = {
+            if let Some(right_sensor) = lateral_sensors.1 {
+                let dist_to_right_wall =
+                    grid.ray_cast_distance(right_ray, self.previous_target.clone()) as f32 + 0.5;
+                Some(dist_to_right_wall + right_sensor + robot_definition.radius)
+            } else {
+                None
             }
-        } else if let Some(left_sensor) = lateral_sensors.0 {
-            match partial {
-                PartialRegion::Closer => {
-                    let dist_to_left_wall =
-                        grid.ray_cast_distance(left_ray, self.previous_target.clone()) as f32 + 0.5;
-                    lateral_pos = Some(dist_to_left_wall + left_sensor + robot_definition.radius);
+        };
+
+        let lateral_pos = {
+            if let Some(left_pos) = left_pos {
+                if let Some(right_pos) = right_pos {
+                    (left_pos + right_pos) / 2.0
+                } else {
+                    left_pos
                 }
-                _ => {
-                    let dist_to_left_wall =
-                        grid.ray_cast_distance(left_ray, self.next_target.clone()) as f32 + 0.5;
-                    lateral_pos = Some(dist_to_left_wall + left_sensor + robot_definition.radius);
-                }
+            } else if let Some(right_pos) = right_pos {
+                right_pos
+            } else {
+                // TODO: what to do when no lateral?
+                1.0
             }
-        } else if let Some(right_sensor) = lateral_sensors.1 {
-            match partial {
-                PartialRegion::Closer => {
-                    let dist_to_right_wall =
-                        grid.ray_cast_distance(right_ray, self.previous_target.clone()) as f32
-                            + 0.5;
-                    lateral_pos = Some(dist_to_right_wall + right_sensor + robot_definition.radius);
-                }
-                _ => {
-                    let dist_to_right_wall =
-                        grid.ray_cast_distance(right_ray, self.next_target.clone()) as f32 + 0.5;
-                    lateral_pos = Some(dist_to_right_wall + right_sensor + robot_definition.radius);
-                }
-            }
-        }
+        };
 
         let transverse_sensors = {
             (
@@ -274,9 +252,9 @@ impl CorridorCalculatedPosition {
 
         let back_pos = {
             if let Some(back_sensor) = transverse_sensors.0 {
-                let dist_to_forward_wall =
+                let dist_to_backward_wall =
                     grid.ray_cast_distance(backward_ray, self.next_target.clone()) as f32 + 0.5;
-                Some(dist_to_forward_wall + back_sensor + robot_definition.radius)
+                Some(dist_to_backward_wall + back_sensor + robot_definition.radius)
             } else {
                 None
             }
