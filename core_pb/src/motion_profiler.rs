@@ -84,6 +84,10 @@ impl MotionProfiler {
         setpoint: MpState
     ) -> f32 {
 
+        if !self.trajectory_ready {
+            panic!("Trajectory not planned");
+        }
+
         let t = setpoint.pos / setpoint.vel;
         let t0 = 0.0;
         let t1 = self.accel_endpoint;
