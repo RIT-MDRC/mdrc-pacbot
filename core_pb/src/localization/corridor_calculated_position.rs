@@ -105,13 +105,7 @@ impl CorridorCalculatedPosition {
         y_length: &i8,
         distance_sensors: &[Result<Option<f32>, heapless::String<MAX_SENSOR_ERR_LEN>>; 4],
         info: &RegionInfo,
-        grid: &ComputedGrid,
-        rays: &(Vector2<i8>, Vector2<i8>, Vector2<i8>, Vector2<i8>),
-        robot_definition: &RobotDefinition<3>,
-        cv_location: Option<Point2<i8>>,
-    ) -> Point2<f32> {
-        let (forward_ray, backward_ray, left_ray, right_ray) = rays;
-
+    ) -> ((Option<f32>, Option<f32>), (Option<f32>, Option<f32>)) {
         let sensor_values_adjusted = {
             /* forward, backward, left, right */
             if *y_length > 0 {
@@ -151,7 +145,7 @@ impl CorridorCalculatedPosition {
                     Some(useful) => {
                         if useful {
                             if let Ok(Some(left_sensor)) = sensor_values_adjusted.2 {
-                                Some(left_sensor)
+                                Some(left_sensor.clone())
                             } else {
                                 None
                             }
@@ -165,7 +159,7 @@ impl CorridorCalculatedPosition {
                     Some(useful) => {
                         if useful {
                             if let Ok(Some(right_sensor)) = sensor_values_adjusted.3 {
-                                Some(right_sensor)
+                                Some(right_sensor.clone())
                             } else {
                                 None
                             }
@@ -177,6 +171,45 @@ impl CorridorCalculatedPosition {
                 },
             )
         };
+
+        let transverse_sensors = {
+            (
+                if info.transverse[0] {
+                    if let Ok(Some(fwd_sensor)) = sensor_values_adjusted.0 {
+                        Some(fwd_sensor.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                },
+                if info.transverse[1] {
+                    if let Ok(Some(back_sensor)) = sensor_values_adjusted.1 {
+                        Some(back_sensor.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                },
+            )
+        };
+
+        (lateral_sensors, transverse_sensors)
+    }
+
+    fn pos_from_sensors(
+        &self,
+        x_length: &i8,
+        y_length: &i8,
+        rays: &(Vector2<i8>, Vector2<i8>, Vector2<i8>, Vector2<i8>),
+        lateral_sensors: (Option<f32>, Option<f32>),
+        transverse_sensors: (Option<f32>, Option<f32>),
+        grid: &ComputedGrid,
+        robot_definition: &RobotDefinition<3>,
+        cv_location: Option<Point2<i8>>,
+    ) -> Point2<f32> {
+        let (forward_ray, backward_ray, left_ray, right_ray) = rays;
 
         let left_pos = {
             if let Some(left_sensor) = lateral_sensors.0 {
@@ -228,29 +261,6 @@ impl CorridorCalculatedPosition {
             }
         };
 
-        let transverse_sensors = {
-            (
-                if info.transverse[0] {
-                    if let Ok(Some(fwd_sensor)) = sensor_values_adjusted.0 {
-                        Some(fwd_sensor)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                },
-                if info.transverse[1] {
-                    if let Ok(Some(back_sensor)) = sensor_values_adjusted.1 {
-                        Some(back_sensor)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                },
-            )
-        };
-
         let fwd_pos = {
             if let Some(fwd_sensor) = transverse_sensors.0 {
                 let dist_to_forward_wall =
@@ -262,7 +272,7 @@ impl CorridorCalculatedPosition {
         };
 
         let back_pos = {
-            if let Some(back_sensor) = transverse_sensors.0 {
+            if let Some(back_sensor) = transverse_sensors.1 {
                 let dist_to_backward_wall =
                     grid.ray_cast_distance(backward_ray, self.next_target.clone()) as f32 + 0.5;
                 Some(dist_to_backward_wall + back_sensor + robot_definition.radius)
@@ -379,16 +389,21 @@ impl CorridorCalculatedPosition {
         println!("next_target: {}", self.next_target);
         println!("current_estimate: {}", self.current_estimate);
 
-        self.current_estimate = self.get_sensor_values(
+        let sensor_values = self.get_sensor_values(&x_length, &y_length, distance_sensors, &info);
+
+        println!("sensor values: {:?}", sensor_values);
+
+        self.current_estimate = self.pos_from_sensors(
             &x_length,
             &y_length,
-            distance_sensors,
-            &info,
-            &grid,
             &rays,
-            &robot_definition,
-            cv_location.clone(),
+            sensor_values.0,
+            sensor_values.1,
+            &grid,
+            robot_definition,
+            cv_location,
         );
+        println!("new estimate: {}", self.current_estimate);
 
         return Some(self.current_estimate);
     }
