@@ -1,6 +1,7 @@
+use crate::constants::MAX_SENSOR_DISTANCE;
 #[cfg(feature = "std")]
 use crate::grid::computed_grid::ComputedGrid;
-use crate::grid::Grid;
+use crate::grid::{Grid, GRID_SIZE};
 #[cfg(feature = "std")]
 use core::f32::consts::PI;
 use nalgebra::Point2;
@@ -44,6 +45,31 @@ impl StandardGrid {
             Self::Blank => GRID_BLANK,
             Self::Open => GRID_OPEN,
         }
+    }
+
+    pub fn wall_at(&self, p: &Point2<i8>) -> bool {
+        if p.x >= GRID_SIZE as i8 || p.y >= GRID_SIZE as i8 || p.x < 0 || p.y < 0 {
+            true
+        } else {
+            self.get_grid()[p.x as usize][p.y as usize]
+        }
+    }
+
+    pub fn ray_cast_distance(&self, dir: &Vector2<i8>, loc: Point2<i8>) -> i8 {
+        let mut dist: i8 = 0;
+        let mut p = loc;
+        let dir = dir.map(|x| x as i8);
+
+        while !self.wall_at(&p) {
+            p += dir;
+            dist += 1;
+        }
+
+        dist
+    }
+
+    pub fn ray_cast(&self, dir: &Vector2<i8>, loc: Point2<i8>) -> bool {
+        (self.ray_cast_distance(dir, loc) as f32) < MAX_SENSOR_DISTANCE
     }
 
     /// Get the [`ComputedGrid`] associated with this enum

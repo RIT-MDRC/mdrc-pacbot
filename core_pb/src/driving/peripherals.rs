@@ -60,7 +60,7 @@ pub async fn peripherals_task<R: RobotBehavior>(
     let mut dead_reckoning_loc = Point2::new(0.0f32, 0.0);
     let mut dead_reckoning_time = R::Instant::default();
 
-    let mut ccp = CorridorCalculatedPosition::new();
+    let mut ccp = None;
 
     loop {
         // used to control the sleep between loop iterations
@@ -149,6 +149,7 @@ pub async fn peripherals_task<R: RobotBehavior>(
             let config = config.get().await;
             sensors.location = match config.localization_algorithm {
                 LocalizationAlgorithmSource::RegionLocalization => {
+                    ccp = None;
                     region_localization::estimate_location_2(
                         config.grid,
                         config.cv_location,
@@ -157,23 +158,46 @@ pub async fn peripherals_task<R: RobotBehavior>(
                         config.follow_target_path,
                     )
                 }
-                LocalizationAlgorithmSource::CVAdjust => cv_adjust::estimate_location(
-                    config.grid,
-                    config.cv_location,
-                    &sensors.distances,
-                    &data.robot_definition,
-                    config.cv_error,
-                ),
-                LocalizationAlgorithmSource::CorridorCalculatedPosition => {
-                    if let Some(next_point) = config.target_path.get(0).copied() {
-                        ccp.set_next_point(next_point);
-                    }
-                    ccp.estimate_location(
+                LocalizationAlgorithmSource::CVAdjust => {
+                    ccp = None;
+                    cv_adjust::estimate_location(
                         config.grid,
                         config.cv_location,
                         &sensors.distances,
                         &data.robot_definition,
+                        config.cv_error,
                     )
+                }
+                LocalizationAlgorithmSource::CorridorCalculatedPosition => {
+                    let mut rccp = match ccp {
+                        Some(ccp) => ccp,
+                        None => CorridorCalculatedPosition::new(
+                            sensors
+                                .location
+                                .or_else(|| match config.cv_location {
+                                    Some(cv_loc) => Some(cv_loc.cast()),
+                                    None => None,
+                                })
+                                .unwrap_or_else(|| {
+                                    println!("!! No previous location; CCP defaulting to (20, 15)");
+                                    Point2::new(20.0, 15.0)
+                                }),
+                            &config.grid,
+                        ),
+                    };
+
+                    if let Some(next_point) = config.target_path.get(0).copied() {
+                        rccp.set_next_point(next_point);
+                    }
+                    let loc = rccp.estimate_location(
+                        config.grid,
+                        config.cv_location,
+                        &sensors.distances,
+                        &data.robot_definition,
+                    );
+
+                    ccp = Some(rccp);
+                    loc
                 }
             };
             sensors_sender.send(sensors.clone());

@@ -1,8 +1,7 @@
 use nalgebra::{Point2, Vector2};
 
 use crate::{
-    grid::{computed_grid::ComputedGrid, standard_grid::StandardGrid},
-    messages::MAX_SENSOR_ERR_LEN,
+    grid::standard_grid::StandardGrid, messages::MAX_SENSOR_ERR_LEN,
     robot_definition::RobotDefinition,
 };
 
@@ -22,7 +21,7 @@ enum PartialRegion {
 
 type SensorUsefulness = Option<bool /* has discontinuity */>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct RegionInfo {
     lateral: [SensorUsefulness; 2], /* left/right */
     transverse: [bool; 2],          /* front/back */
@@ -33,7 +32,7 @@ pub const PARTIAL_REGION_SIZE: f32 = 0.13;
 impl CorridorCalculatedPosition {
     fn compute_region_info(
         &self,
-        grid: &ComputedGrid,
+        grid: &StandardGrid,
         partial: PartialRegion,
         rays: &(Vector2<i8>, Vector2<i8>, Vector2<i8>, Vector2<i8>),
     ) -> RegionInfo {
@@ -44,12 +43,12 @@ impl CorridorCalculatedPosition {
                 let forward_ray = grid.ray_cast(forward_ray, self.previous_target.clone());
                 let backward_ray = grid.ray_cast(backward_ray, self.next_target.clone());
                 let left_ray = if grid.ray_cast(left_ray, self.next_target.clone()) {
-                    Some(false)
+                    Some(true)
                 } else {
                     None
                 };
                 let right_ray = if grid.ray_cast(right_ray, self.next_target.clone()) {
-                    Some(false)
+                    Some(true)
                 } else {
                     None
                 };
@@ -81,12 +80,12 @@ impl CorridorCalculatedPosition {
                 let forward_ray = grid.ray_cast(forward_ray, self.previous_target.clone());
                 let backward_ray = grid.ray_cast(backward_ray, self.next_target.clone());
                 let left_ray = if grid.ray_cast(left_ray, self.previous_target.clone()) {
-                    Some(false)
+                    Some(true)
                 } else {
                     None
                 };
                 let right_ray = if grid.ray_cast(right_ray, self.previous_target.clone()) {
-                    Some(false)
+                    Some(true)
                 } else {
                     None
                 };
@@ -205,7 +204,7 @@ impl CorridorCalculatedPosition {
         rays: &(Vector2<i8>, Vector2<i8>, Vector2<i8>, Vector2<i8>),
         lateral_sensors: (Option<f32>, Option<f32>),
         transverse_sensors: (Option<f32>, Option<f32>),
-        grid: &ComputedGrid,
+        grid: &StandardGrid,
         robot_definition: &RobotDefinition<3>,
         cv_location: Option<Point2<i8>>,
     ) -> Point2<f32> {
@@ -324,8 +323,6 @@ impl CorridorCalculatedPosition {
         let x_length = self.next_target.x - self.previous_target.x;
         let y_length = self.next_target.y - self.previous_target.y;
 
-        let grid = grid.compute_grid();
-
         let rays = {
             if y_length > 0 {
                 (
@@ -434,11 +431,75 @@ impl CorridorCalculatedPosition {
     /// An assumption needs to be made here about the initial starting position of the robot.
     /// For now, the assumption will be that it is at (20, 15) and going up
     /// TODO: make better assumptions about start
-    pub fn new() -> CorridorCalculatedPosition {
+    pub fn new(initial_estimate: Point2<f32>, grid: &StandardGrid) -> CorridorCalculatedPosition {
+        let rounded_estimate = Point2::new(
+            initial_estimate.x.round() as i8,
+            initial_estimate.y.round() as i8,
+        );
         CorridorCalculatedPosition {
-            previous_target: Point2::new(20, 15),
-            current_estimate: Point2::new(20.0, 15.0),
-            next_target: Point2::new(20, 16),
+            previous_target: rounded_estimate,
+            current_estimate: initial_estimate,
+            next_target: {
+                if !grid.wall_at(&Point2::new(rounded_estimate.x + 1, rounded_estimate.y)) {
+                    Point2::new(rounded_estimate.x + 1, rounded_estimate.y)
+                } else if !grid.wall_at(&Point2::new(rounded_estimate.x - 1, rounded_estimate.y)) {
+                    Point2::new(rounded_estimate.x - 1, rounded_estimate.y)
+                } else
+                /* invariant: this one has to be valid because of the way that the grid is laidout */
+                {
+                    Point2::new(rounded_estimate.x, rounded_estimate.y + 1)
+                }
+            },
         }
+    }
+}
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    pub fn test_initial_region_info() {
+        let grid = StandardGrid::Pacman;
+        let pos = CorridorCalculatedPosition::new(Point2::new(20.0, 15.0), &grid);
+
+        let rays = (
+            Vector2::new(1, 0),  // right
+            Vector2::new(-1, 0), // left
+            Vector2::new(0, 1),  // up
+            Vector2::new(0, -1), // down
+        );
+
+        let info = pos.compute_region_info(&grid, PartialRegion::Closer, &rays);
+
+        assert_eq!(
+            info,
+            RegionInfo {
+                lateral: [None, Some(true)],
+                transverse: [true, true]
+            }
+        );
+    }
+
+    #[test]
+    pub fn test_different_region_info() {
+        let grid = StandardGrid::Pacman;
+        let pos = CorridorCalculatedPosition::new(Point2::new(20.0, 15.0), &grid);
+
+        let rays = (
+            Vector2::new(1, 0),  // right
+            Vector2::new(-1, 0), // left
+            Vector2::new(0, 1),  // up
+            Vector2::new(0, -1), // down
+        );
+
+        let info = pos.compute_region_info(&StandardGrid::Pacman, PartialRegion::Closer, &rays);
+
+        assert_eq!(
+            info,
+            RegionInfo {
+                lateral: [None, Some(true)],
+                transverse: [true, true]
+            }
+        );
     }
 }

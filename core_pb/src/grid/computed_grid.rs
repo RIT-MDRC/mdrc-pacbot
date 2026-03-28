@@ -1,7 +1,6 @@
-use crate::constants::MAX_SENSOR_DISTANCE;
 use crate::grid::standard_grid::{StandardGrid, GRID_OPEN};
 use crate::grid::{Grid, GRID_SIZE};
-use nalgebra::{Point2, Vector2};
+use nalgebra::Point2;
 use ordered_float::OrderedFloat;
 use pacbot_rs::location::Direction;
 use pacbot_rs::location::Direction::*;
@@ -394,23 +393,6 @@ impl ComputedGrid {
         } else {
             self.grid[p.x as usize][p.y as usize]
         }
-    }
-
-    pub fn ray_cast_distance(&self, dir: &Vector2<i8>, loc: Point2<i8>) -> i8 {
-        let mut dist: i8 = 0;
-        let mut p = loc;
-        let dir = dir.map(|x| x as i8);
-
-        while !self.wall_at(&p) {
-            p += dir;
-            dist += 1;
-        }
-
-        dist
-    }
-
-    pub fn ray_cast(&self, dir: &Vector2<i8>, loc: Point2<i8>) -> bool {
-        (self.ray_cast_distance(dir, loc) as f32) < MAX_SENSOR_DISTANCE
     }
 
     /// Returns the distance between two points, or `None` if the points are not both walkable.
