@@ -25,6 +25,10 @@ pub const GAME_SERVER_MAGIC_NUMBER: [u8; 4] = [170, 115, 26, 153];
 
 /// The maximum number of nodes in the target path sent from the server to the robot
 pub const MAX_ROBOT_PATH_LENGTH: usize = 10;
+/// The maximum speed the robot can go in any one direction
+pub const MAX_SPEED: f32 = 5.0;
+/// The maximum acceleration the robot can have in any one direction
+pub const MAX_ACCEL: f32 = 5.0; // Temp value
 /// The size of the OLED display on the robot
 pub const ROBOT_DISPLAY_WIDTH: usize = 128;
 /// The size of the OLED display on the robot

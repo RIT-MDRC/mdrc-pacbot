@@ -76,6 +76,7 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
     let mut cv_over_time = motors_data.config.cv_location;
     let mut cv_over_time_time = R::Instant::default();
     let mut last_motor_speeds = [0, 1, 2].map(|i| data.sig_motor_speeds[i].load(Ordering::Relaxed));
+    let mut motion_profiler: MotionProfiler = MotionProfiler::new(5.0, 5.0);
 
     loop {
         if let Some(config) = config_watch.try_changed() {
@@ -142,6 +143,7 @@ pub async fn motors_task<R: RobotBehavior>(data: &SharedRobotData<R>, motors: R:
                 2.0,
                 0.05,
                 0.0,
+                &mut motion_profiler
             )
             .await;
 
@@ -188,6 +190,7 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
         angle_p: f32,
         angle_tol: f32, // rad
         angle_snapping_offset: f32,
+        motion_profiler: &mut MotionProfiler
     ) {
         if self.config.follow_target_path {
             if let Some(sensors) = sensors {
@@ -199,7 +202,6 @@ impl<M: RobotMotorsBehavior> MotorsData<3, M> {
                     // let angle = Rotation2::new(angle).angle();
                     // if angle.abs() < 20.0_f32.to_radians() {
                     // now that we've made sure we're facing the right way, try to follow the path
-                    let motion_profiler: MotionProfiler = MotionProfiler::new(2.0, 5.0);
                     if let Some(vel) = pure_pursuit(
                         sensors,
                         &self.config.target_path,

@@ -7,13 +7,15 @@
     2 phases:
         trajectory planning - how many phases (2 or 3), how long is each phase
         trajectory streaming - plug in values and calculate
-*/ 
+*/
 
 use nalgebra::Point2;
 
+use crate::localization::cv_adjust::get_dist; 
+
 pub struct MpState {
     pub vel: f32,
-    pub pos: f32
+    pub pos: Point2<f32>
 }
 
 pub struct MotionProfiler {
@@ -45,13 +47,13 @@ impl MotionProfiler {
      */
     pub fn plan_trajectory (
         &mut self,
-        setpoint: MpState, 
-        goal: MpState
+        setpoint: &MpState, 
+        goal: &MpState
     ) {
         // Determine type of profiling
 
         // total amount of dist in the path
-        let dist = goal.pos - setpoint.pos;
+        let dist = get_dist(goal.pos, setpoint.pos);
         // how much dist is required to get to max velocity
         let dist_cap = calc_dist(&self.max_vel, &setpoint.vel, &self.max_accel, &dist);
         // println!("DIST_CAP: {}", dist_cap);
@@ -81,14 +83,14 @@ impl MotionProfiler {
      */
     pub fn stream_trajectory (
         &mut self,
-        setpoint: MpState
+        setpoint: &MpState
     ) -> f32 {
 
         if !self.trajectory_ready {
-            panic!("Trajectory not planned");
+            panic!("Motion Profiler: trajectory not planned");
         }
 
-        let t = setpoint.pos / setpoint.vel;
+        let t = setpoint.pos / setpoint.vel; // TODO ALEX: FIND NEW WAY TO CALC BASE TIME
         let t0 = 0.0;
         let t1 = self.accel_endpoint;
         let t2 = self.static_endpoint;
