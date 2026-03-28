@@ -171,17 +171,21 @@ pub async fn peripherals_task<R: RobotBehavior>(
                 LocalizationAlgorithmSource::CorridorCalculatedPosition => {
                     let mut rccp = match ccp {
                         Some(ccp) => ccp,
-                        None => CorridorCalculatedPosition::new(
-                            config
+                        None => {
+                            let initial_loc = config
                                 .cv_location
                                 .map(|loc| loc.cast())
                                 .or_else(|| sensors.location)
                                 .unwrap_or_else(|| {
                                     println!("!! No previous location; CCP defaulting to (20, 15)");
                                     Point2::new(20.0, 15.0)
-                                }),
-                            &config.grid,
-                        ),
+                                });
+                            eprintln!(
+                                "il: {:?} {:?} {:?}",
+                                initial_loc, sensors.location, config.cv_location
+                            );
+                            CorridorCalculatedPosition::new(initial_loc, &config.grid)
+                        }
                     };
 
                     if let Some(next_point) = config.target_path.get(0).copied() {

@@ -125,18 +125,26 @@ impl CorridorCalculatedPosition {
                 (
                     &distance_sensors[3], // right
                     &distance_sensors[1], // left
-                    &distance_sensors[0], // up
                     &distance_sensors[2], // down
+                    &distance_sensors[0], // up
                 )
             } else {
                 (
                     &distance_sensors[1], // left
                     &distance_sensors[3], // right
-                    &distance_sensors[2], // down
                     &distance_sensors[0], // up
+                    &distance_sensors[2], // down
                 )
             }
         };
+
+        println!(
+            "sensor values[raw]: up: {:?} down: {:?} left: {:?} right: {:?}",
+            sensor_values_adjusted.0,
+            sensor_values_adjusted.1,
+            sensor_values_adjusted.2,
+            sensor_values_adjusted.3
+        );
 
         let lateral_sensors = {
             (
@@ -381,14 +389,12 @@ impl CorridorCalculatedPosition {
 
         let info = self.compute_region_info(&grid, partial, &rays);
 
-        println!("info: {:?}", info);
-        println!("previous_target: {}", self.previous_target);
-        println!("next_target: {}", self.next_target);
-        println!("current_estimate: {}", self.current_estimate);
+        // println!("info: {:?}", info);
+        // println!("current_estimate: {}", self.current_estimate);
 
         let sensor_values = self.get_sensor_values(&x_length, &y_length, distance_sensors, &info);
 
-        println!("sensor values: {:?}", sensor_values);
+        // println!("sensor values: {:?}", sensor_values);
 
         self.current_estimate = self.pos_from_sensors(
             &x_length,
@@ -400,7 +406,9 @@ impl CorridorCalculatedPosition {
             robot_definition,
             cv_location,
         );
-        println!("new estimate: {}", self.current_estimate);
+        println!("previous_target: {}", self.previous_target);
+        println!("next_target: {}", self.next_target);
+        // println!("new estimate: {}", self.current_estimate);
 
         return Some(self.current_estimate);
     }
