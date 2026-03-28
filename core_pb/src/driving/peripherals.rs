@@ -172,12 +172,10 @@ pub async fn peripherals_task<R: RobotBehavior>(
                     let mut rccp = match ccp {
                         Some(ccp) => ccp,
                         None => CorridorCalculatedPosition::new(
-                            sensors
-                                .location
-                                .or_else(|| match config.cv_location {
-                                    Some(cv_loc) => Some(cv_loc.cast()),
-                                    None => None,
-                                })
+                            config
+                                .cv_location
+                                .map(|loc| loc.cast())
+                                .or_else(|| sensors.location)
                                 .unwrap_or_else(|| {
                                     println!("!! No previous location; CCP defaulting to (20, 15)");
                                     Point2::new(20.0, 15.0)
