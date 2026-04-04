@@ -461,6 +461,8 @@ impl CorridorCalculatedPosition {
         }
     }
 }
+
+#[cfg(feature = "log")]
 #[cfg(test)]
 mod test {
     use super::*;
