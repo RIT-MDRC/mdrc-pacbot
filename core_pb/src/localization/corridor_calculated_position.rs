@@ -15,7 +15,6 @@ pub struct CorridorCalculatedPosition {
 
 enum PartialRegion {
     Farther,
-    Middle,
     Closer,
 }
 
@@ -42,34 +41,6 @@ impl CorridorCalculatedPosition {
             PartialRegion::Farther => {
                 let forward_ray = grid.ray_cast(forward_ray, self.previous_target.clone());
                 let backward_ray = grid.ray_cast(backward_ray, self.next_target.clone());
-                let left_ray = if grid.ray_cast(left_ray, self.next_target.clone()) {
-                    Some(true)
-                } else {
-                    None
-                };
-                let right_ray = if grid.ray_cast(right_ray, self.next_target.clone()) {
-                    Some(true)
-                } else {
-                    None
-                };
-
-                RegionInfo {
-                    lateral: [left_ray, right_ray],
-                    transverse: [forward_ray, backward_ray],
-                }
-            }
-            PartialRegion::Middle => {
-                let forward_ray = grid.ray_cast(forward_ray, self.previous_target.clone());
-                let backward_ray = grid.ray_cast(backward_ray, self.next_target.clone());
-
-                let left_ray_prev = grid.wall_at(&(self.previous_target.clone() + left_ray));
-                let left_ray_next = grid.wall_at(&(self.next_target.clone() + left_ray));
-
-                let right_ray_prev = grid.wall_at(&(self.previous_target.clone() + right_ray));
-                let right_ray_next = grid.wall_at(&(self.next_target.clone() + right_ray));
-
-                let left_ray = Some(left_ray_next == left_ray_prev);
-                let right_ray = Some(right_ray_next == right_ray_prev);
 
                 RegionInfo {
                     lateral: [left_ray, right_ray],
@@ -77,18 +48,23 @@ impl CorridorCalculatedPosition {
                 }
             }
             PartialRegion::Closer => {
+                let fwd = forward_ray;
                 let forward_ray = grid.ray_cast(forward_ray, self.previous_target.clone());
                 let backward_ray = grid.ray_cast(backward_ray, self.next_target.clone());
-                let left_ray = if grid.ray_cast(left_ray, self.previous_target.clone()) {
-                    Some(true)
-                } else {
-                    None
-                };
-                let right_ray = if grid.ray_cast(right_ray, self.previous_target.clone()) {
-                    Some(true)
-                } else {
-                    None
-                };
+                let left_ray_prev = grid.wall_at(
+                    &(self.previous_target.clone() + left_ray
+                        - Vector2::new(fwd.x.abs(), fwd.y.abs())),
+                );
+                let left_ray_next = grid.wall_at(&(self.previous_target.clone() + left_ray));
+
+                let right_ray_prev = grid.wall_at(
+                    &(self.previous_target.clone() + right_ray
+                        - Vector2::new(fwd.x.abs(), fwd.y.abs())),
+                );
+                let right_ray_next = grid.wall_at(&(self.next_target.clone() + right_ray));
+
+                let left_ray = Some(left_ray_next == left_ray_prev);
+                let right_ray = Some(right_ray_next == right_ray_prev);
 
                 RegionInfo {
                     lateral: [left_ray, right_ray],
