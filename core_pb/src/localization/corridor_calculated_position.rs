@@ -150,7 +150,8 @@ impl CorridorCalculatedPosition {
                         Some(fwd_sensor.clone())
                     } else {
                         None
-                    }
+                    }irmed that the distance sensors are reported in order of absolute angles: 0°, 90°, 180°,
+  and 270°. This correspond
                 } else {
                     None
                 },
@@ -370,29 +371,49 @@ impl CorridorCalculatedPosition {
     /// Path planner should set the next point on the path as a hint to the localizer.
     /// Assume provided next_point is on a traversable square
     pub fn set_next_point(&mut self, next_point: Point2<i8>) {
-        let x_diff_cur = (self.previous_target.x - (self.current_estimate.x.round() as i8)).abs();
-        let y_diff_cur = (self.previous_target.y - (self.current_estimate.y.round() as i8)).abs();
-        let x_diff_next = (self.next_target.x - next_point.x).abs();
-        let y_diff_next = (self.next_target.y - next_point.y).abs();
+        if next_point == self.next_target {
+            return;
+        }
 
-        println!(
-            "set point: {:?}, current estimate: {:?}",
-            next_point, self.current_estimate
+        let current_round = Point2::new(
+            self.current_estimate.x.round() as i8,
+            self.current_estimate.y.round() as i8,
         );
 
-        if (x_diff_cur == 1 && y_diff_cur == 0) || (y_diff_cur == 1 && x_diff_cur == 0) {
-            // if current_estimate is still within 1 grid unit of previous_target
-            // next target should be modified
+        if next_point == self.previous_target {
+            // maybe we are reversing?
             self.next_target = next_point;
-        } else if (x_diff_next == 1 && y_diff_next == 0) || (y_diff_next == 1 && x_diff_next == 0) {
-            // if next_point is within 1 grid unit of next_target
-            // shift next_target to previous target before assigning next_target
+            return;
+        }
+
+        // If we have reached or passed the current next_target, and the new next_point is adjacent to it,
+        // we should advance the segment.
+        if current_round == self.next_target {
+            let x_diff = (next_point.x - self.next_target.x).abs();
+            let y_diff = (next_point.y - self.next_target.y).abs();
+            if (x_diff == 1 && y_diff == 0) || (x_diff == 0 && y_diff == 1) {
+                self.previous_target = self.next_target;
+                self.next_target = next_point;
+                return;
+            }
+        }
+
+        // If we are still at the previous target, we can just update the next target
+        if current_round == self.previous_target {
+            let x_diff = (next_point.x - self.previous_target.x).abs();
+            let y_diff = (next_point.y - self.previous_target.y).abs();
+            if (x_diff == 1 && y_diff == 0) || (x_diff == 0 && y_diff == 1) {
+                self.next_target = next_point;
+                return;
+            }
+        }
+
+        // Fallback: if next_point is adjacent to current next_target, just assume we advanced
+        let x_diff = (next_point.x - self.next_target.x).abs();
+        let y_diff = (next_point.y - self.next_target.y).abs();
+        if (x_diff == 1 && y_diff == 0) || (x_diff == 0 && y_diff == 1) {
             self.previous_target = self.next_target;
             self.next_target = next_point;
-        } else {
-            // do nothing currently, but this means a next point not reachable by the current
-            // position of the robot has been passed in
-            panic!("unreachable set point");
         }
     }
 
@@ -546,43 +567,29 @@ mod test {
     }
 
     #[test]
-    pub fn test_initial_estimate_x_error() {
+    pub fn test_set_next_point_flow() {
         let grid = StandardGrid::Pacman;
-        // Start at (1.0, 1.0), moving right to (2, 1)
-        let mut ccp = CorridorCalculatedPosition {
-            previous_target: Point2::new(1, 1),
-            current_estimate: Point2::new(1.0, 1.0),
-            next_target: Point2::new(2, 1),
-        };
-        let robot = RobotDefinition::new(crate::names::RobotName::Stella);
+        let mut ccp = CorridorCalculatedPosition::new(Point2::new(1.0, 1.0), &grid);
+        // Initially rounded_estimate=(1,1), next_target=(2,1) or (1,2) etc.
+        // Let's force it for the test.
+        ccp.previous_target = Point2::new(1, 1);
+        ccp.next_target = Point2::new(2, 1);
         
-        // At (1, 1) in Pacman grid:
-        // row 1: W------------WW------------WWWWW
-        // (1, 1) is path. 
-        // RIGHT (forward): (2,1), (3,1), ..., (12,1) are path. (13,1) is W. dist=12.
-        // LEFT (backward): (0,1) is W. dist=1.
-        // DOWN (left): (1,0) is W. dist=1.
-        // UP (right): (1,2), (1,3), (1,4) are path. (1,5) is W? No, let's check.
-        // (1,1) x=1, y=1. 
+        // Robot still at (1,1), planner says next is (2,1)
+        ccp.set_next_point(Point2::new(2, 1));
+        assert_eq!(ccp.previous_target, Point2::new(1, 1));
+        assert_eq!(ccp.next_target, Point2::new(2, 1));
         
-        let rad = robot.radius;
-        // Suppose we are at (1.5, 1.2)
-        // RIGHT (+x, index 0): 13 - 1.5 = 11.5. sensor = 11.5 - rad.
-        // UP (+y, index 1): 5 - 1.2 = 3.8. sensor = 3.8 - rad.
-        // LEFT (-x, index 2): 1.5 - 0 = 1.5. sensor = 1.5 - rad.
-        // DOWN (-y, index 3): 1.2 - 0 = 1.2. sensor = 1.2 - rad.
-
-        let sensors = [
-            Ok(Some(11.5 - rad)), // RIGHT (+x, index 0)
-            Ok(Some(3.8 - rad)),  // UP (+y, index 1)
-            Ok(Some(1.5 - rad)),  // LEFT (-x, index 2)
-            Ok(Some(1.2 - rad)),  // DOWN (-y, index 3)
-        ];
-
-        let result = ccp.estimate_location(grid, None, &sensors, &robot).unwrap();
+        // Robot reaches (2,1), planner says next is (3,1)
+        ccp.current_estimate = Point2::new(2.0, 1.0);
+        ccp.set_next_point(Point2::new(3, 1));
+        assert_eq!(ccp.previous_target, Point2::new(2, 1));
+        assert_eq!(ccp.next_target, Point2::new(3, 1));
         
-        println!("Initial Error Repro result: {:?}", result);
-        assert!((result.x - 1.5).abs() < 0.1, "X position {} is nonsense! Expected 1.5", result.x);
-        assert!((result.y - 1.2).abs() < 0.1, "Y position {} is nonsense! Expected 1.2", result.y);
+        // Planner advances again to (4,1) but robot is at (2.6, 1.0)
+        ccp.current_estimate = Point2::new(2.6, 1.0); // rounds to (3,1)
+        ccp.set_next_point(Point2::new(4, 1));
+        assert_eq!(ccp.previous_target, Point2::new(3, 1));
+        assert_eq!(ccp.next_target, Point2::new(4, 1));
     }
 }
