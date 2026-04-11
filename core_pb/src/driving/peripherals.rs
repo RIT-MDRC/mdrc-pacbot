@@ -188,7 +188,7 @@ pub async fn peripherals_task<R: RobotBehavior>(
                         }
                     };
 
-                    if let Some(next_point) = config.target_path.get(0).copied() {
+                    if let Some(next_point) = config.target_path.get(1).copied() {
                         rccp.set_next_point(next_point);
                     }
                     let loc = rccp.estimate_location(

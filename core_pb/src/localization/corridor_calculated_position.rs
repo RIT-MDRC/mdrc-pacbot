@@ -18,15 +18,11 @@ enum PartialRegion {
     Closer,
 }
 
-type SensorUsefulness = Option<bool /* has discontinuity */>;
-
 #[derive(Debug, PartialEq)]
 struct RegionInfo {
-    lateral: [SensorUsefulness; 2], /* left/right */
-    transverse: [bool; 2],          /* front/back */
+    lateral: [bool; 2],    /* left/right */
+    transverse: [bool; 2], /* front/back */
 }
-
-pub const PARTIAL_REGION_SIZE: f32 = 0.13;
 
 impl CorridorCalculatedPosition {
     fn compute_region_info(
@@ -37,40 +33,57 @@ impl CorridorCalculatedPosition {
     ) -> RegionInfo {
         let (forward_ray, backward_ray, left_ray, right_ray) = rays;
 
-        match partial {
-            PartialRegion::Farther => {
-                let forward_ray = grid.ray_cast(forward_ray, self.previous_target.clone());
-                let backward_ray = grid.ray_cast(backward_ray, self.next_target.clone());
+        let usable_target = match partial {
+            PartialRegion::Farther => self.next_target.clone(),
+            PartialRegion::Closer => self.previous_target.clone(),
+        };
 
-                RegionInfo {
-                    lateral: [left_ray, right_ray],
-                    transverse: [forward_ray, backward_ray],
-                }
-            }
-            PartialRegion::Closer => {
-                let fwd = forward_ray;
-                let forward_ray = grid.ray_cast(forward_ray, self.previous_target.clone());
-                let backward_ray = grid.ray_cast(backward_ray, self.next_target.clone());
-                let left_ray_prev = grid.wall_at(
-                    &(self.previous_target.clone() + left_ray
-                        - Vector2::new(fwd.x.abs(), fwd.y.abs())),
-                );
-                let left_ray_next = grid.wall_at(&(self.previous_target.clone() + left_ray));
+        let forward_usable = grid.ray_cast(forward_ray, self.previous_target.clone());
+        let backward_usable = grid.ray_cast(backward_ray, self.next_target.clone());
 
-                let right_ray_prev = grid.wall_at(
-                    &(self.previous_target.clone() + right_ray
-                        - Vector2::new(fwd.x.abs(), fwd.y.abs())),
-                );
-                let right_ray_next = grid.wall_at(&(self.next_target.clone() + right_ray));
+        // left check
+        let back_left = grid.wall_at(&Point2::new(
+            usable_target.x + backward_ray.x + left_ray.x,
+            usable_target.y + backward_ray.y + left_ray.y,
+        ));
+        let target_left = if grid.wall_at(&Point2::new(
+            usable_target.x + left_ray.x,
+            usable_target.y + left_ray.y,
+        )) {
+            true
+        } else {
+            grid.ray_cast(left_ray, usable_target)
+        };
+        let fwd_left = grid.wall_at(&Point2::new(
+            usable_target.x + forward_ray.x + left_ray.x,
+            usable_target.y + forward_ray.y + left_ray.y,
+        ));
 
-                let left_ray = Some(left_ray_next == left_ray_prev);
-                let right_ray = Some(right_ray_next == right_ray_prev);
+        let left_usable = back_left && target_left && fwd_left;
 
-                RegionInfo {
-                    lateral: [left_ray, right_ray],
-                    transverse: [forward_ray, backward_ray],
-                }
-            }
+        // right check
+        let back_right = grid.wall_at(&Point2::new(
+            usable_target.x + backward_ray.x + right_ray.x,
+            usable_target.y + backward_ray.y + right_ray.y,
+        ));
+        let target_right = if grid.wall_at(&Point2::new(
+            usable_target.x + right_ray.x,
+            usable_target.y + right_ray.y,
+        )) {
+            true
+        } else {
+            grid.ray_cast(right_ray, usable_target)
+        };
+        let fwd_right = grid.wall_at(&Point2::new(
+            usable_target.x + forward_ray.x + right_ray.x,
+            usable_target.y + forward_ray.y + right_ray.y,
+        ));
+
+        let right_usable = back_right && target_right && fwd_right;
+
+        RegionInfo {
+            lateral: [left_usable, right_usable],
+            transverse: [forward_usable, backward_usable],
         }
     }
 
@@ -124,33 +137,23 @@ impl CorridorCalculatedPosition {
 
         let lateral_sensors = {
             (
-                match info.lateral[0] {
-                    Some(useful) => {
-                        if useful {
-                            if let Ok(Some(left_sensor)) = sensor_values_adjusted.2 {
-                                Some(left_sensor.clone())
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
+                if info.lateral[0] {
+                    if let Ok(Some(left_sensor)) = sensor_values_adjusted.2 {
+                        Some(left_sensor.clone())
+                    } else {
+                        None
                     }
-                    None => None,
+                } else {
+                    None
                 },
-                match info.lateral[1] {
-                    Some(useful) => {
-                        if useful {
-                            if let Ok(Some(right_sensor)) = sensor_values_adjusted.3 {
-                                Some(right_sensor.clone())
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
+                if info.lateral[1] {
+                    if let Ok(Some(right_sensor)) = sensor_values_adjusted.3 {
+                        Some(right_sensor.clone())
+                    } else {
+                        None
                     }
-                    None => None,
+                } else {
+                    None
                 },
             )
         };
@@ -198,7 +201,7 @@ impl CorridorCalculatedPosition {
             if let Some(left_sensor) = lateral_sensors.0 {
                 let dist_to_left_wall =
                     grid.ray_cast_distance(left_ray, self.previous_target.clone()) as f32;
-                let wall_to_robot = (0.5 + left_sensor + robot_definition.radius) * {
+                let wall_to_robot = (left_sensor + robot_definition.radius) * {
                     if *y_length < 0 || *x_length < 0 {
                         -1.0
                     } else {
@@ -215,7 +218,7 @@ impl CorridorCalculatedPosition {
             if let Some(right_sensor) = lateral_sensors.1 {
                 let dist_to_right_wall =
                     grid.ray_cast_distance(right_ray, self.previous_target.clone()) as f32;
-                let wall_to_robot = (0.5 + right_sensor + robot_definition.radius) * {
+                let wall_to_robot = (right_sensor + robot_definition.radius) * {
                     if *y_length < 0 || *x_length < 0 {
                         -1.0
                     } else {
@@ -247,7 +250,7 @@ impl CorridorCalculatedPosition {
         let fwd_pos = {
             if let Some(fwd_sensor) = transverse_sensors.0 {
                 let dist_to_forward_wall =
-                    grid.ray_cast_distance(forward_ray, self.previous_target.clone()) as f32 + 0.5;
+                    grid.ray_cast_distance(forward_ray, self.previous_target.clone()) as f32;
                 Some(dist_to_forward_wall + fwd_sensor + robot_definition.radius)
             } else {
                 None
@@ -257,7 +260,7 @@ impl CorridorCalculatedPosition {
         let back_pos = {
             if let Some(back_sensor) = transverse_sensors.1 {
                 let dist_to_backward_wall =
-                    grid.ray_cast_distance(backward_ray, self.next_target.clone()) as f32 + 0.5;
+                    grid.ray_cast_distance(backward_ray, self.next_target.clone()) as f32;
                 Some(dist_to_backward_wall + back_sensor + robot_definition.radius)
             } else {
                 None
@@ -342,23 +345,17 @@ impl CorridorCalculatedPosition {
         let partial = {
             if x_length != 0 {
                 let avg_x: f32 = (self.next_target.x as f32 + self.previous_target.x as f32) / 2.0;
-                let x_diff = self.current_estimate.x - avg_x * x_length as f32;
-                if x_diff > PARTIAL_REGION_SIZE {
+                if self.current_estimate.x >= avg_x {
                     PartialRegion::Farther
-                } else if x_diff < -PARTIAL_REGION_SIZE {
-                    PartialRegion::Closer
                 } else {
-                    PartialRegion::Middle
+                    PartialRegion::Closer
                 }
             } else {
                 let avg_y: f32 = (self.next_target.y as f32 + self.previous_target.y as f32) / 2.0;
-                let y_diff = self.current_estimate.y - avg_y * y_length as f32;
-                if y_diff > PARTIAL_REGION_SIZE {
+                if self.current_estimate.y >= avg_y {
                     PartialRegion::Farther
-                } else if y_diff < -PARTIAL_REGION_SIZE {
-                    PartialRegion::Closer
                 } else {
-                    PartialRegion::Middle
+                    PartialRegion::Closer
                 }
             }
         };
@@ -397,18 +394,24 @@ impl CorridorCalculatedPosition {
         let x_diff_next = (self.next_target.x - next_point.x).abs();
         let y_diff_next = (self.next_target.y - next_point.y).abs();
 
-        if (x_diff_cur <= 1 && y_diff_cur == 0) || (y_diff_cur <= 1 && x_diff_cur == 0) {
+        println!(
+            "set point: {:?}, current estimate: {:?}",
+            next_point, self.current_estimate
+        );
+
+        if (x_diff_cur == 1 && y_diff_cur == 0) || (y_diff_cur == 1 && x_diff_cur == 0) {
             // if current_estimate is still within 1 grid unit of previous_target
             // next target should be modified
             self.next_target = next_point;
-        } else if (x_diff_next <= 1 && y_diff_next == 0) || (y_diff_next <= 1 && x_diff_next == 0) {
+        } else if (x_diff_next == 1 && y_diff_next == 0) || (y_diff_next == 1 && x_diff_next == 0) {
             // if next_point is within 1 grid unit of next_target
-            // shift next_target to previous target before assinging next_target
+            // shift next_target to previous target before assigning next_target
             self.previous_target = self.next_target;
             self.next_target = next_point;
         } else {
             // do nothing currently, but this means a next point not reachable by the current
             // position of the robot has been passed in
+            panic!("unreachable set point");
         }
     }
 
@@ -460,7 +463,7 @@ mod test {
         assert_eq!(
             info,
             RegionInfo {
-                lateral: [None, Some(true)],
+                lateral: [false, true],
                 transverse: [true, true]
             }
         );
@@ -483,7 +486,7 @@ mod test {
         assert_eq!(
             info,
             RegionInfo {
-                lateral: [None, Some(true)],
+                lateral: [false, true],
                 transverse: [true, true]
             }
         );
