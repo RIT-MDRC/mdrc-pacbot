@@ -38,22 +38,18 @@ impl CorridorCalculatedPosition {
             PartialRegion::Closer => self.previous_target.clone(),
         };
 
-        let forward_usable = grid.ray_cast(forward_ray, self.previous_target.clone());
-        let backward_usable = grid.ray_cast(backward_ray, self.next_target.clone());
+        let forward_usable = grid.ray_cast(forward_ray, usable_target);
+        let backward_usable = grid.ray_cast(backward_ray, usable_target);
 
         // left check
         let back_left = grid.wall_at(&Point2::new(
             usable_target.x + backward_ray.x + left_ray.x,
             usable_target.y + backward_ray.y + left_ray.y,
         ));
-        let target_left = if grid.wall_at(&Point2::new(
+        let target_left = grid.wall_at(&Point2::new(
             usable_target.x + left_ray.x,
             usable_target.y + left_ray.y,
-        )) {
-            true
-        } else {
-            grid.ray_cast(left_ray, usable_target)
-        };
+        ));
         let fwd_left = grid.wall_at(&Point2::new(
             usable_target.x + forward_ray.x + left_ray.x,
             usable_target.y + forward_ray.y + left_ray.y,
@@ -66,14 +62,10 @@ impl CorridorCalculatedPosition {
             usable_target.x + backward_ray.x + right_ray.x,
             usable_target.y + backward_ray.y + right_ray.y,
         ));
-        let target_right = if grid.wall_at(&Point2::new(
+        let target_right = grid.wall_at(&Point2::new(
             usable_target.x + right_ray.x,
             usable_target.y + right_ray.y,
-        )) {
-            true
-        } else {
-            grid.ray_cast(right_ray, usable_target)
-        };
+        ));
         let fwd_right = grid.wall_at(&Point2::new(
             usable_target.x + forward_ray.x + right_ray.x,
             usable_target.y + forward_ray.y + right_ray.y,
@@ -98,42 +90,35 @@ impl CorridorCalculatedPosition {
             /* forward, backward, left, right */
             if *y_length > 0 {
                 (
-                    &distance_sensors[0], // up
-                    &distance_sensors[2], // down
-                    &distance_sensors[1], // left
-                    &distance_sensors[3], // right
+                    &distance_sensors[1], // forward (+y)
+                    &distance_sensors[3], // backward (-y)
+                    &distance_sensors[2], // left (-x)
+                    &distance_sensors[0], // right (+x)
                 )
             } else if *y_length < 0 {
                 (
-                    &distance_sensors[2], // down
-                    &distance_sensors[0], // up
-                    &distance_sensors[1], // left
-                    &distance_sensors[3], // right
+                    &distance_sensors[3], // forward (-y)
+                    &distance_sensors[1], // backward (+y)
+                    &distance_sensors[2], // left (-x)
+                    &distance_sensors[0], // right (+x)
                 )
             } else if *x_length > 0 {
                 (
-                    &distance_sensors[3], // right
-                    &distance_sensors[1], // left
-                    &distance_sensors[2], // down
-                    &distance_sensors[0], // up
+                    &distance_sensors[0], // forward (+x)
+                    &distance_sensors[2], // backward (-x)
+                    &distance_sensors[3], // left (-y)
+                    &distance_sensors[1], // right (+y)
                 )
             } else {
                 (
-                    &distance_sensors[1], // left
-                    &distance_sensors[3], // right
-                    &distance_sensors[0], // up
-                    &distance_sensors[2], // down
+                    &distance_sensors[2], // forward (-x)
+                    &distance_sensors[0], // backward (+x)
+                    &distance_sensors[3], // left (-y)
+                    &distance_sensors[1], // right (+y)
                 )
             }
-        };
 
-        println!(
-            "sensor values[raw]: up: {:?} down: {:?} left: {:?} right: {:?}",
-            sensor_values_adjusted.0,
-            sensor_values_adjusted.1,
-            sensor_values_adjusted.2,
-            sensor_values_adjusted.3
-        );
+        };
 
         let lateral_sensors = {
             (
@@ -186,7 +171,7 @@ impl CorridorCalculatedPosition {
 
     fn pos_from_sensors(
         &self,
-        x_length: &i8,
+        _x_length: &i8,
         y_length: &i8,
         rays: &(Vector2<i8>, Vector2<i8>, Vector2<i8>, Vector2<i8>),
         lateral_sensors: (Option<f32>, Option<f32>),
@@ -201,14 +186,9 @@ impl CorridorCalculatedPosition {
             if let Some(left_sensor) = lateral_sensors.0 {
                 let dist_to_left_wall =
                     grid.ray_cast_distance(left_ray, self.previous_target.clone()) as f32;
-                let wall_to_robot = (left_sensor + robot_definition.radius) * {
-                    if *y_length < 0 || *x_length < 0 {
-                        -1.0
-                    } else {
-                        1.0
-                    }
-                };
-                Some(dist_to_left_wall + wall_to_robot)
+                let start_coord = if *y_length != 0 { self.previous_target.x } else { self.previous_target.y } as f32;
+                let ray_dir = if *y_length != 0 { left_ray.x } else { left_ray.y } as f32;
+                Some(start_coord + ray_dir * (dist_to_left_wall - left_sensor - robot_definition.radius))
             } else {
                 None
             }
@@ -218,14 +198,9 @@ impl CorridorCalculatedPosition {
             if let Some(right_sensor) = lateral_sensors.1 {
                 let dist_to_right_wall =
                     grid.ray_cast_distance(right_ray, self.previous_target.clone()) as f32;
-                let wall_to_robot = (right_sensor + robot_definition.radius) * {
-                    if *y_length < 0 || *x_length < 0 {
-                        -1.0
-                    } else {
-                        1.0
-                    }
-                };
-                Some(dist_to_right_wall - wall_to_robot)
+                let start_coord = if *y_length != 0 { self.previous_target.x } else { self.previous_target.y } as f32;
+                let ray_dir = if *y_length != 0 { right_ray.x } else { right_ray.y } as f32;
+                Some(start_coord + ray_dir * (dist_to_right_wall - right_sensor - robot_definition.radius))
             } else {
                 None
             }
@@ -241,9 +216,9 @@ impl CorridorCalculatedPosition {
             } else if let Some(right_pos) = right_pos {
                 right_pos
             } else if *y_length != 0 {
-                self.current_estimate.y
-            } else {
                 self.current_estimate.x
+            } else {
+                self.current_estimate.y
             }
         };
 
@@ -251,7 +226,9 @@ impl CorridorCalculatedPosition {
             if let Some(fwd_sensor) = transverse_sensors.0 {
                 let dist_to_forward_wall =
                     grid.ray_cast_distance(forward_ray, self.previous_target.clone()) as f32;
-                Some(dist_to_forward_wall + fwd_sensor + robot_definition.radius)
+                let start_coord = if *y_length != 0 { self.previous_target.y } else { self.previous_target.x } as f32;
+                let ray_dir = if *y_length != 0 { forward_ray.y } else { forward_ray.x } as f32;
+                Some(start_coord + ray_dir * (dist_to_forward_wall - fwd_sensor - robot_definition.radius))
             } else {
                 None
             }
@@ -261,7 +238,9 @@ impl CorridorCalculatedPosition {
             if let Some(back_sensor) = transverse_sensors.1 {
                 let dist_to_backward_wall =
                     grid.ray_cast_distance(backward_ray, self.next_target.clone()) as f32;
-                Some(dist_to_backward_wall + back_sensor + robot_definition.radius)
+                let start_coord = if *y_length != 0 { self.next_target.y } else { self.next_target.x } as f32;
+                let ray_dir = if *y_length != 0 { backward_ray.y } else { backward_ray.x } as f32;
+                Some(start_coord + ray_dir * (dist_to_backward_wall - back_sensor - robot_definition.radius))
             } else {
                 None
             }
@@ -310,34 +289,36 @@ impl CorridorCalculatedPosition {
         let x_length = self.next_target.x - self.previous_target.x;
         let y_length = self.next_target.y - self.previous_target.y;
 
+        println!("cv_location in estimate_location: {:?}", cv_location);
+
         let rays = {
             if y_length > 0 {
                 (
-                    Vector2::new(0, 1),  // up
-                    Vector2::new(0, -1), // down
-                    Vector2::new(-1, 0), // left
-                    Vector2::new(1, 0),  // right
+                    Vector2::new(0, 1),  // forward (+y)
+                    Vector2::new(0, -1), // backward (-y)
+                    Vector2::new(-1, 0), // left (-x)
+                    Vector2::new(1, 0),  // right (+x)
                 )
             } else if y_length < 0 {
                 (
-                    Vector2::new(0, -1), // down
-                    Vector2::new(0, 1),  // up
-                    Vector2::new(-1, 0), // left
-                    Vector2::new(1, 0),  // right
+                    Vector2::new(0, -1), // forward (-y)
+                    Vector2::new(0, 1),  // backward (+y)
+                    Vector2::new(-1, 0), // left (-x)
+                    Vector2::new(1, 0),  // right (+x)
                 )
             } else if x_length > 0 {
                 (
-                    Vector2::new(1, 0),  // right
-                    Vector2::new(-1, 0), // left
-                    Vector2::new(0, 1),  // up
-                    Vector2::new(0, -1), // down
+                    Vector2::new(1, 0),  // forward (+x)
+                    Vector2::new(-1, 0), // backward (-x)
+                    Vector2::new(0, -1), // left (-y)
+                    Vector2::new(0, 1),  // right (+y)
                 )
             } else {
                 (
-                    Vector2::new(-1, 0), // left
-                    Vector2::new(1, 0),  // right
-                    Vector2::new(0, -1), // down
-                    Vector2::new(0, 1),  // up
+                    Vector2::new(-1, 0), // forward (-x)
+                    Vector2::new(1, 0),  // backward (+x)
+                    Vector2::new(0, -1), // left (-y)
+                    Vector2::new(0, 1),  // right (+y)
                 )
             }
         };
@@ -447,9 +428,9 @@ mod test {
     use super::*;
 
     #[test]
-    pub fn test_initial_region_info() {
+    pub fn test_initial_region_info1() {
         let grid = StandardGrid::Pacman;
-        let pos = CorridorCalculatedPosition::new(Point2::new(20.0, 15.0), &grid);
+        let ccp = CorridorCalculatedPosition::new(Point2::new(20.0, 15.0), &grid);
 
         let rays = (
             Vector2::new(1, 0),  // right
@@ -458,7 +439,7 @@ mod test {
             Vector2::new(0, -1), // down
         );
 
-        let info = pos.compute_region_info(&grid, PartialRegion::Closer, &rays);
+        let info = ccp.compute_region_info(&grid, PartialRegion::Closer, &rays);
 
         assert_eq!(
             info,
@@ -470,9 +451,9 @@ mod test {
     }
 
     #[test]
-    pub fn test_different_region_info() {
+    pub fn test_region_info2() {
         let grid = StandardGrid::Pacman;
-        let pos = CorridorCalculatedPosition::new(Point2::new(20.0, 15.0), &grid);
+        let ccp = CorridorCalculatedPosition::new(Point2::new(1.0, 1.0), &grid);
 
         let rays = (
             Vector2::new(1, 0),  // right
@@ -481,14 +462,127 @@ mod test {
             Vector2::new(0, -1), // down
         );
 
-        let info = pos.compute_region_info(&StandardGrid::Pacman, PartialRegion::Closer, &rays);
+        let info = ccp.compute_region_info(&StandardGrid::Pacman, PartialRegion::Closer, &rays);
 
         assert_eq!(
             info,
             RegionInfo {
                 lateral: [false, true],
-                transverse: [true, true]
+                transverse: [false, true]
             }
         );
+    }
+
+    #[test]
+    pub fn test_location_estimate_1_1_no_sensors() {
+        let grid = StandardGrid::Pacman;
+        let mut ccp = CorridorCalculatedPosition::new(Point2::new(1.0, 1.0), &grid);
+        let robot = RobotDefinition::new(crate::names::RobotName::Stella);
+        let cv_location = Some(Point2::new(1, 1));
+
+        let estimated_location = ccp.estimate_location(
+            grid,
+            cv_location,
+            &[Ok(None), Ok(None), Ok(None), Ok(None)],
+            &robot,
+        );
+
+        // in the case where there are no sensors, it should just take CV_location to be the truth
+        assert_eq!(estimated_location, cv_location.map(|p| Point2::new(p.x as f32, p.y as f32)));
+    }
+
+    #[test]
+    pub fn test_invariant_violation_repro() {
+        let grid = StandardGrid::Open;
+        // At (20, 15), moving up to (20, 16)
+        let mut ccp = CorridorCalculatedPosition {
+            previous_target: Point2::new(20, 15),
+            current_estimate: Point2::new(20.0, 15.0),
+            next_target: Point2::new(20, 16),
+        };
+        let robot = RobotDefinition::new(crate::names::RobotName::Stella);
+        
+        // dummy values
+        let sensor_up = 16.175; 
+        let sensor_left = 21.175; 
+        let sensor_down = 16.175; 
+        let sensor_right = 11.175; 
+
+        let sensors = [
+            Ok(Some(sensor_up)),
+            Ok(Some(sensor_left)),
+            Ok(Some(sensor_down)),
+            Ok(Some(sensor_right)),
+        ];
+
+        let result = ccp.estimate_location(grid, None, &sensors, &robot).unwrap();
+        
+        println!("Moving UP result: {:?}", result);
+        assert!(result.x > 19.0 && result.x < 22.0, "X position {} is nonsense when moving UP!", result.x);
+        assert!(result.y > 14.0 && result.y < 17.0, "Y position {} is nonsense when moving UP!", result.y);
+    }
+
+    #[test]
+    pub fn test_moving_down_repro() {
+        let grid = StandardGrid::Open;
+        // At (20, 15), moving down to (20, 14)
+        let mut ccp = CorridorCalculatedPosition {
+            previous_target: Point2::new(20, 15),
+            current_estimate: Point2::new(20.0, 15.0),
+            next_target: Point2::new(20, 14),
+        };
+        let robot = RobotDefinition::new(crate::names::RobotName::Stella);
+        
+        let sensors = [
+            Ok(Some(10.0)),
+            Ok(Some(10.0)),
+            Ok(Some(10.0)),
+            Ok(Some(10.0)),
+        ];
+
+        let result = ccp.estimate_location(grid, None, &sensors, &robot).unwrap();
+        println!("Moving DOWN result: {:?}", result);
+        assert!(result.x > 19.0 && result.x < 21.0, "X position {} is nonsense when moving DOWN!", result.x);
+    }
+
+    #[test]
+    pub fn test_initial_estimate_x_error() {
+        let grid = StandardGrid::Pacman;
+        // Start at (1.0, 1.0), moving right to (2, 1)
+        let mut ccp = CorridorCalculatedPosition {
+            previous_target: Point2::new(1, 1),
+            current_estimate: Point2::new(1.0, 1.0),
+            next_target: Point2::new(2, 1),
+        };
+        let robot = RobotDefinition::new(crate::names::RobotName::Stella);
+        
+        // At (1, 1) in Pacman grid:
+        // row 1: W------------WW------------WWWWW
+        // (1, 1) is path. 
+        // RIGHT (forward): (2,1), (3,1), ..., (12,1) are path. (13,1) is W. dist=12.
+        // LEFT (backward): (0,1) is W. dist=1.
+        // DOWN (left): (1,0) is W. dist=1.
+        // UP (right): (1,2), (1,3), (1,4) are path. (1,5) is W? No, let's check.
+        // (1,1) x=1, y=1. 
+        
+        let rad = robot.radius;
+        // Suppose we are at (1.5, 1.2)
+        // RIGHT (+x, index 0): 13 - 1.5 = 11.5. sensor = 11.5 - rad.
+        // UP (+y, index 1): 5 - 1.2 = 3.8. sensor = 3.8 - rad.
+        // LEFT (-x, index 2): 1.5 - 0 = 1.5. sensor = 1.5 - rad.
+        // DOWN (-y, index 3): 1.2 - 0 = 1.2. sensor = 1.2 - rad.
+
+        let sensors = [
+            Ok(Some(11.5 - rad)), // RIGHT (+x, index 0)
+            Ok(Some(3.8 - rad)),  // UP (+y, index 1)
+            Ok(Some(1.5 - rad)),  // LEFT (-x, index 2)
+            Ok(Some(1.2 - rad)),  // DOWN (-y, index 3)
+        ];
+
+        let result = ccp.estimate_location(grid, None, &sensors, &robot).unwrap();
+        
+        println!("Initial Error Repro result: {:?}", result);
+        assert!((result.x - 1.5).abs() < 0.1, "X position {} is nonsense! Expected 1.5", result.x);
+        assert!((result.y - 1.2).abs() < 0.1, "Y position {} is nonsense! Expected 1.2", result.y);
     }
 }
