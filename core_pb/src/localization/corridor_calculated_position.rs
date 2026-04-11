@@ -98,34 +98,42 @@ impl CorridorCalculatedPosition {
             /* forward, backward, left, right */
             if *y_length > 0 {
                 (
-                    &distance_sensors[1], // forward (+y)
-                    &distance_sensors[3], // backward (-y)
-                    &distance_sensors[2], // left (-x)
-                    &distance_sensors[0], // right (+x)
+                    &distance_sensors[1], // up
+                    &distance_sensors[3], // down
+                    &distance_sensors[2], // left
+                    &distance_sensors[0], // right
                 )
             } else if *y_length < 0 {
                 (
-                    &distance_sensors[3], // forward (-y)
-                    &distance_sensors[1], // backward (+y)
-                    &distance_sensors[2], // left (-x)
-                    &distance_sensors[0], // right (+x)
+                    &distance_sensors[3], // down
+                    &distance_sensors[1], // up
+                    &distance_sensors[0], // right
+                    &distance_sensors[2], // left
                 )
             } else if *x_length > 0 {
                 (
-                    &distance_sensors[0], // forward (+x)
-                    &distance_sensors[2], // backward (-x)
-                    &distance_sensors[3], // left (-y)
-                    &distance_sensors[1], // right (+y)
+                    &distance_sensors[0], // right
+                    &distance_sensors[2], // left
+                    &distance_sensors[1], // up
+                    &distance_sensors[3], // down
                 )
             } else {
                 (
-                    &distance_sensors[2], // forward (-x)
-                    &distance_sensors[0], // backward (+x)
-                    &distance_sensors[3], // left (-y)
-                    &distance_sensors[1], // right (+y)
+                    &distance_sensors[2], // left
+                    &distance_sensors[0], // right
+                    &distance_sensors[3], // down
+                    &distance_sensors[1], // up
                 )
             }
         };
+
+        println!(
+            "sensor values[adj]: fwd: {:?} back: {:?} left: {:?} right: {:?}",
+            sensor_values_adjusted.0,
+            sensor_values_adjusted.1,
+            sensor_values_adjusted.2,
+            sensor_values_adjusted.3,
+        );
 
         let lateral_sensors = {
             (
@@ -448,7 +456,7 @@ impl CorridorCalculatedPosition {
         );
         println!("previous_target: {}", self.previous_target);
         println!("next_target: {}", self.next_target);
-        // println!("new estimate: {}", self.current_estimate);
+        println!("new estimate: {}", self.current_estimate);
 
         return Some(self.current_estimate);
     }
