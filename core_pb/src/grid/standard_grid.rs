@@ -69,7 +69,7 @@ impl StandardGrid {
     }
 
     pub fn ray_cast(&self, dir: &Vector2<i8>, loc: Point2<i8>) -> bool {
-        (self.ray_cast_distance(dir, loc) as f32) < MAX_SENSOR_DISTANCE
+        (self.ray_cast_distance(dir, loc) as f32) <= MAX_SENSOR_DISTANCE
     }
 
     /// Get the [`ComputedGrid`] associated with this enum
