@@ -203,8 +203,6 @@ impl CorridorCalculatedPosition {
     ) -> Point2<f32> {
         let (forward_ray, backward_ray, left_ray, right_ray) = rays;
 
-        println!("encoder_displacement: {:?}", encoder_displacement);
-
         let partial = {
             let dist_to_prev = ((self.current_estimate.x - self.previous_target.x as f32).powi(2)
                 + (self.current_estimate.y - self.previous_target.y as f32).powi(2))
