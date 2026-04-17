@@ -59,6 +59,7 @@ pub async fn peripherals_task<R: RobotBehavior>(
     let mut last_display_time = R::Instant::default();
     let mut dead_reckoning_loc = Point2::new(0.0f32, 0.0);
     let mut dead_reckoning_time = R::Instant::default();
+    let mut last_dead_reckoning_loc = Point2::new(0.0f32, 0.0);
 
     let mut ccp = None;
 
@@ -172,6 +173,7 @@ pub async fn peripherals_task<R: RobotBehavior>(
                     let mut rccp = match ccp {
                         Some(ccp) => ccp,
                         None => {
+                            last_dead_reckoning_loc = dead_reckoning_loc;
                             let initial_loc = config
                                 .cv_location
                                 .map(|loc| loc.cast())
@@ -187,11 +189,15 @@ pub async fn peripherals_task<R: RobotBehavior>(
                     // if let Some(next_point) = config.target_path.get(0).copied() {
                     rccp.set_next_point(&config.target_path);
 
+                    let encoder_delta = dead_reckoning_loc - last_dead_reckoning_loc;
+                    last_dead_reckoning_loc = dead_reckoning_loc;
+
                     match rccp.estimate_location(
                         config.grid,
                         config.cv_location,
                         &sensors.distances,
                         &data.robot_definition,
+                        Some(encoder_delta),
                     ) {
                         Some(loc) => {
                             ccp = Some(rccp);

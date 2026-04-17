@@ -199,8 +199,11 @@ impl CorridorCalculatedPosition {
         grid: &StandardGrid,
         robot_definition: &RobotDefinition<3>,
         cv_location: Option<Point2<i8>>,
+        encoder_displacement: Option<Vector2<f32>>,
     ) -> Point2<f32> {
         let (forward_ray, backward_ray, left_ray, right_ray) = rays;
+
+        println!("encoder_displacement: {:?}", encoder_displacement);
 
         let partial = {
             let dist_to_prev = ((self.current_estimate.x - self.previous_target.x as f32).powi(2)
@@ -339,8 +342,19 @@ impl CorridorCalculatedPosition {
             } else if let Some(back_pos) = back_pos {
                 back_pos
             }
-            /* TODO: what to do when no transverse? */
-            else if let Some(cv_location) = cv_location {
+            // Dead reckoning: apply encoder displacement to previous estimate
+            else if let Some(displacement) = encoder_displacement {
+                let transverse_delta = if *y_length != 0 {
+                    displacement.y
+                } else {
+                    displacement.x
+                };
+                if *y_length != 0 {
+                    self.current_estimate.y + transverse_delta
+                } else {
+                    self.current_estimate.x + transverse_delta
+                }
+            } else if let Some(cv_location) = cv_location {
                 // info!("CV!");
                 if *y_length != 0 {
                     cv_location.y as f32
@@ -369,6 +383,7 @@ impl CorridorCalculatedPosition {
         cv_location: Option<Point2<i8>>,
         distance_sensors: &[Result<Option<f32>, heapless::String<MAX_SENSOR_ERR_LEN>>; 4],
         robot_definition: &RobotDefinition<3>,
+        encoder_displacement: Option<Vector2<f32>>,
     ) -> Option<Point2<f32>> {
         if let Some(cv) = cv_location {
             let cv_f = cv.cast::<f32>();
@@ -464,6 +479,7 @@ impl CorridorCalculatedPosition {
             &grid,
             robot_definition,
             cv_location,
+            encoder_displacement,
         );
         // info!("previous_target: {}", self.previous_target);
         // info!("next_target: {}", self.next_target);
@@ -594,6 +610,7 @@ mod test {
             cv_location,
             &[Ok(None), Ok(None), Ok(None), Ok(None)],
             &robot,
+            None,
         );
 
         // in the case where there are no sensors, it should just take CV_location to be the truth
@@ -627,7 +644,9 @@ mod test {
             Ok(Some(sensor_right)),
         ];
 
-        let result = ccp.estimate_location(grid, None, &sensors, &robot).unwrap();
+        let result = ccp
+            .estimate_location(grid, None, &sensors, &robot, None)
+            .unwrap();
 
         // info!("Moving UP result: {:?}", result);
         assert!(
@@ -660,7 +679,9 @@ mod test {
             Ok(Some(10.0)),
         ];
 
-        let result = ccp.estimate_location(grid, None, &sensors, &robot).unwrap();
+        let result = ccp
+            .estimate_location(grid, None, &sensors, &robot, None)
+            .unwrap();
         // info!("Moving DOWN result: {:?}", result);
         assert!(
             result.x > 19.0 && result.x < 21.0,
