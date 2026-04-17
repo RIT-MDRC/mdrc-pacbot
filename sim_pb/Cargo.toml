@@ -24,8 +24,8 @@ rand = "0.8.5"
 version = "0.15.1"
 default-features = false
 features = [
-    # Bevy functionality:
-    "multi_threaded", # Run with multithreading
-    "bevy_winit", # Window management (cross-platform Winit backend)
-    "x11", # Window management for linux
+  # Bevy functionality:
+  "multi_threaded", # Run with multithreading
+  "bevy_winit",     # Window management (cross-platform Winit backend)
+  "x11",            # Window management for linux
 ]

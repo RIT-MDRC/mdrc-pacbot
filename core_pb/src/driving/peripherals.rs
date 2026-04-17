@@ -180,26 +180,35 @@ pub async fn peripherals_task<R: RobotBehavior>(
                                     println!("!! No previous location; CCP defaulting to (20, 15)");
                                     Point2::new(20.0, 15.0)
                                 });
-                            eprintln!(
-                                "il: {:?} {:?} {:?}",
-                                initial_loc, sensors.location, config.cv_location
-                            );
                             CorridorCalculatedPosition::new(initial_loc, &config.grid)
                         }
                     };
 
-                    if let Some(next_point) = config.target_path.get(1).copied() {
-                        rccp.set_next_point(next_point);
-                    }
-                    let loc = rccp.estimate_location(
+                    // if let Some(next_point) = config.target_path.get(0).copied() {
+                    rccp.set_next_point(&config.target_path);
+
+                    match rccp.estimate_location(
                         config.grid,
                         config.cv_location,
                         &sensors.distances,
                         &data.robot_definition,
-                    );
-
-                    ccp = Some(rccp);
-                    loc
+                    ) {
+                        Some(loc) => {
+                            ccp = Some(rccp);
+                            Some(loc)
+                        }
+                        None => {
+                            ccp = None;
+                            eprintln!("CCP state corrupted - efaulting to region localization!");
+                            region_localization::estimate_location_2(
+                                config.grid,
+                                config.cv_location,
+                                &sensors.distances,
+                                &data.robot_definition,
+                                config.follow_target_path,
+                            )
+                        }
+                    }
                 }
             };
             sensors_sender.send(sensors.clone());

@@ -50,4 +50,4 @@ pub const MM_PER_GU: f32 = MM_PER_INCH * INCHES_PER_GU;
 pub const GU_PER_M: f32 = GU_PER_INCH * INCHES_PER_M;
 
 /// Max reliable distance for sensors
-pub const MAX_SENSOR_DISTANCE: f32 = 5.0;
+pub const MAX_SENSOR_DISTANCE: f32 = 8.0;
