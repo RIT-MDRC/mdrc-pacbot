@@ -1,4 +1,4 @@
-use crate::constants::GU_PER_M;
+use crate::constants::{GU_PER_M, MAX_SENSOR_DISTANCE};
 use crate::grid::standard_grid::{get_grid_regions, StandardGrid};
 use crate::grid::Grid;
 use crate::localization::cv_adjust::get_sim_ray_cast;
@@ -232,7 +232,7 @@ pub fn estimate_location(
                 cv_location,
                 do_cv_adjust,
             ) {
-                if sm_x.1 > 5.0 {
+                if sm_x.1 > MAX_SENSOR_DISTANCE {
                     pos.x = cv_loc.x as f32;
                     // info!(
                     //     "{pos:?} {} {}",
@@ -255,7 +255,7 @@ pub fn estimate_location(
                 cv_location,
                 do_cv_adjust,
             ) {
-                if sm_y.1 > 5.0 {
+                if sm_y.1 > MAX_SENSOR_DISTANCE {
                     pos.y = cv_loc.y as f32;
                     // info!(
                     //     "{pos:?} {} {}",

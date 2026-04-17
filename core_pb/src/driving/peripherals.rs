@@ -1,6 +1,7 @@
 use crate::constants::INCHES_PER_GU;
 use crate::driving::data::SharedRobotData;
 use crate::driving::RobotBehavior;
+use crate::localization::corridor_calculated_position::CorridorCalculatedPosition;
 use crate::localization::cv_adjust;
 use crate::localization::region_localization;
 use crate::messages::common::LocalizationAlgorithmSource;
@@ -58,6 +59,8 @@ pub async fn peripherals_task<R: RobotBehavior>(
     let mut last_display_time = R::Instant::default();
     let mut dead_reckoning_loc = Point2::new(0.0f32, 0.0);
     let mut dead_reckoning_time = R::Instant::default();
+
+    let mut ccp = None;
 
     loop {
         // used to control the sleep between loop iterations
@@ -143,25 +146,70 @@ pub async fn peripherals_task<R: RobotBehavior>(
         }
 
         if something_changed {
-            sensors.location = match config.get().await.localization_algorithm {
+            let config = config.get().await;
+            sensors.location = match config.localization_algorithm {
                 LocalizationAlgorithmSource::RegionLocalization => {
+                    ccp = None;
                     region_localization::estimate_location_2(
-                        config.get().await.grid,
-                        config.get().await.cv_location,
+                        config.grid,
+                        config.cv_location,
                         &sensors.distances,
                         &data.robot_definition,
-                        config.get().await.follow_target_path,
+                        config.follow_target_path,
                     )
                 }
-                LocalizationAlgorithmSource::CVAdjust => cv_adjust::estimate_location(
-                    config.get().await.grid,
-                    config.get().await.cv_location,
-                    &sensors.distances,
-                    &data.robot_definition,
-                    config.get().await.cv_error,
-                ),
-                // TODO: not implemented yet
-                _ => None,
+                LocalizationAlgorithmSource::CVAdjust => {
+                    ccp = None;
+                    cv_adjust::estimate_location(
+                        config.grid,
+                        config.cv_location,
+                        &sensors.distances,
+                        &data.robot_definition,
+                        config.cv_error,
+                    )
+                }
+                LocalizationAlgorithmSource::CorridorCalculatedPosition => {
+                    let mut rccp = match ccp {
+                        Some(ccp) => ccp,
+                        None => {
+                            let initial_loc = config
+                                .cv_location
+                                .map(|loc| loc.cast())
+                                .or_else(|| sensors.location)
+                                .unwrap_or_else(|| {
+                                    // println!("!! No previous location; CCP defaulting to (20, 15)");
+                                    Point2::new(20.0, 15.0)
+                                });
+                            CorridorCalculatedPosition::new(initial_loc, &config.grid)
+                        }
+                    };
+
+                    // if let Some(next_point) = config.target_path.get(0).copied() {
+                    rccp.set_next_point(&config.target_path);
+
+                    match rccp.estimate_location(
+                        config.grid,
+                        config.cv_location,
+                        &sensors.distances,
+                        &data.robot_definition,
+                    ) {
+                        Some(loc) => {
+                            ccp = Some(rccp);
+                            Some(loc)
+                        }
+                        None => {
+                            ccp = None;
+                            // eprintln!("CCP state corrupted - efaulting to region localization!");
+                            region_localization::estimate_location_2(
+                                config.grid,
+                                config.cv_location,
+                                &sensors.distances,
+                                &data.robot_definition,
+                                config.follow_target_path,
+                            )
+                        }
+                    }
+                }
             };
             sensors_sender.send(sensors.clone());
         }

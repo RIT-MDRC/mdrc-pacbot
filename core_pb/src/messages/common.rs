@@ -5,5 +5,5 @@ pub enum LocalizationAlgorithmSource {
     #[default]
     RegionLocalization,
     CVAdjust,
-    CorridorPolicyChange,
+    CorridorCalculatedPosition,
 }

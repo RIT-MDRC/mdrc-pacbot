@@ -14,7 +14,6 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
 use embassy_time::{Delay, Timer};
 use micromath::F32Ext;
-use num_traits::FloatConst;
 use portable_atomic::AtomicBool;
 
 pub type ImuError =
