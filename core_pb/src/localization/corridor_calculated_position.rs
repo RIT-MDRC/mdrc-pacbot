@@ -1,8 +1,8 @@
 use nalgebra::{Point2, Vector2};
 
 use crate::{
-    grid::standard_grid::StandardGrid, messages::MAX_SENSOR_ERR_LEN,
-    robot_definition::RobotDefinition,
+    constants::MAX_ROBOT_PATH_LENGTH, grid::standard_grid::StandardGrid,
+    messages::MAX_SENSOR_ERR_LEN, robot_definition::RobotDefinition,
 };
 
 /// current_estimate must lie in or between previous_target and next_target.
@@ -466,54 +466,21 @@ impl CorridorCalculatedPosition {
         println!("new estimate: {}", self.current_estimate);
 
         // invariant: current estimate cannot be outside of target ranges!
-        let rounded_estimate: Point2<i8> = Point2::new(
-            self.current_estimate.x.round() as i8,
-            self.current_estimate.y.round() as i8,
+        // let rounded_estimate: Point2<i8> = Point2::new(
+        //     self.current_estimate.x.round() as i8,
+        //     self.current_estimate.y.round() as i8,
+        // );
+        let middle = Point2::new(
+            (self.previous_target.x + self.next_target.x) / 2,
+            (self.previous_target.y + self.next_target.y) / 2,
         );
-        let out_of_bounds = {
-            if x_length > 0 && y_length > 0 {
-                if !(self.next_target.x >= rounded_estimate.x
-                    && rounded_estimate.x >= self.previous_target.x
-                    && self.next_target.y >= rounded_estimate.y
-                    && rounded_estimate.y >= self.previous_target.y)
-                {
-                    false
-                } else {
-                    true
-                }
-            } else if x_length > 0 && y_length < 0 {
-                if !(self.next_target.x >= rounded_estimate.x
-                    && rounded_estimate.x >= self.previous_target.x
-                    && self.previous_target.y >= rounded_estimate.y
-                    && rounded_estimate.y >= self.next_target.y)
-                {
-                    false
-                } else {
-                    true
-                }
-            } else if x_length < 0 && y_length > 0 {
-                if !(self.previous_target.x >= rounded_estimate.x
-                    && rounded_estimate.x >= self.next_target.x
-                    && self.next_target.y >= rounded_estimate.y
-                    && rounded_estimate.y >= self.previous_target.y)
-                {
-                    false
-                } else {
-                    true
-                }
-            } else {
-                if !(self.previous_target.x >= rounded_estimate.x
-                    && rounded_estimate.x >= self.next_target.x
-                    && self.previous_target.y >= rounded_estimate.y
-                    && rounded_estimate.y >= self.next_target.y)
-                {
-                    false
-                } else {
-                    true
-                }
-            }
-        };
-
+        let diff = Point2::new(
+            self.current_estimate.x - middle.x as f32,
+            self.current_estimate.y - middle.y as f32,
+        );
+        let dist = (diff.x + diff.y).sqrt();
+        // let diff_prev = rounded_estimate -
+        let out_of_bounds = dist > 2.0_f32.sqrt();
         return if out_of_bounds {
             None
         } else {
@@ -523,67 +490,15 @@ impl CorridorCalculatedPosition {
 
     /// Path planner should set the next point on the path as a hint to the localizer.
     /// Assume provided next_point is on a traversable square
-    pub fn set_next_point(&mut self, next_point: Point2<i8>) {
-        let prev_point = Point2::new(self.previous_target.x, self.previous_target.y);
-        let diff = next_point - prev_point;
-        let max_component = diff.x.abs().max(diff.y.abs());
-        self.next_target = (Point2::new(
-            diff.x / max_component + prev_point.x,
-            diff.y / max_component + prev_point.y,
-        ));
-        // if next_point == self.next_target || next_point == self.previous_target {
-        //     return;
-        // }
-        //
-        // // let current_round = Point2::new(
-        // //     self.current_estimate.x.round() as i8,
-        // //     self.current_estimate.y.round() as i8,
-        // // );
-        //
-        // // if next_point == self.previous_target {
-        // //     // maybe we are reversing?
-        // //     self.previous_target = self.next_target;
-        // //     self.next_target = next_point;
-        // //     return;
-        // // }
-        //
-        // let dist_to_next = (self.current_estimate.x.round() as i8 - self.next_target.x).abs()
-        //     + (self.current_estimate.y as i8 - self.next_target.y).abs();
-        //
-        // let dist_to_previous = (self.current_estimate.x.round() as i8 - self.previous_target.x)
-        //     .abs()
-        //     + (self.current_estimate.y as i8 - self.previous_target.y).abs();
-        //
-        // // If we have reached or passed the current next_target, and the new next_point is adjacent to it,
-        // // we should advance the segment.
-        // if dist_to_next > dist_to_previous {
-        //     // self.previous_target = self.next_target;
-        //     // self.next_target = next_point;
-        //     let x_diff = (next_point.x - self.next_target.x).abs();
-        //     let y_diff = (next_point.y - self.next_target.y).abs();
-        //     if (x_diff == 1 && y_diff == 0) || (x_diff == 0 && y_diff == 1) {
-        //         self.previous_target = self.next_target;
-        //         self.next_target = next_point;
-        //         return;
-        //     }
-        // } else {
-        //     // self.next_target = next_point;
-        //     // If we are still at the previous target, we can just update the next target
-        //     let x_diff = (next_point.x - self.previous_target.x).abs();
-        //     let y_diff = (next_point.y - self.previous_target.y).abs();
-        //     if (x_diff == 1 && y_diff == 0) || (x_diff == 0 && y_diff == 1) {
-        //         self.next_target = next_point;
-        //         return;
-        //     }
-        // }
-
-        // // Fallback: if next_point is adjacent to current next_target, just assume we advanced
-        // let x_diff = (next_point.x - self.next_target.x).abs();
-        // let y_diff = (next_point.y - self.next_target.y).abs();
-        // if (x_diff == 1 && y_diff == 0) || (x_diff == 0 && y_diff == 1) {
-        //     self.previous_target = self.next_target;
-        //     self.next_target = next_point;
-        // }
+    pub fn set_next_point(&mut self, next_path: &[Point2<i8>]) {
+        for next_point in next_path {
+            // let prev_point = Point2::new(self.previous_target.x, self.previous_target.y);
+            let diff = next_point - self.previous_target;
+            let magnitude = diff.x.abs() + diff.y.abs();
+            if magnitude == 1 {
+                self.next_target = *next_point;
+            }
+        }
     }
 
     /// An assumption needs to be made here about the initial starting position of the robot.
