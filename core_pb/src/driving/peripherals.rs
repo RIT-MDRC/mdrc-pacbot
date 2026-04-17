@@ -177,7 +177,7 @@ pub async fn peripherals_task<R: RobotBehavior>(
                                 .map(|loc| loc.cast())
                                 .or_else(|| sensors.location)
                                 .unwrap_or_else(|| {
-                                    println!("!! No previous location; CCP defaulting to (20, 15)");
+                                    // println!("!! No previous location; CCP defaulting to (20, 15)");
                                     Point2::new(20.0, 15.0)
                                 });
                             CorridorCalculatedPosition::new(initial_loc, &config.grid)
@@ -199,7 +199,7 @@ pub async fn peripherals_task<R: RobotBehavior>(
                         }
                         None => {
                             ccp = None;
-                            eprintln!("CCP state corrupted - efaulting to region localization!");
+                            // eprintln!("CCP state corrupted - efaulting to region localization!");
                             region_localization::estimate_location_2(
                                 config.grid,
                                 config.cv_location,

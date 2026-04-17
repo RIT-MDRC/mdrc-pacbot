@@ -4,9 +4,9 @@ use crate::grid::computed_grid::ComputedGrid;
 use crate::grid::{Grid, GRID_SIZE};
 #[cfg(feature = "std")]
 use core::f32::consts::PI;
-use nalgebra::Point2;
 #[cfg(feature = "std")]
-use nalgebra::{Isometry2, Vector2};
+use nalgebra::Isometry2;
+use nalgebra::{Point2, Vector2};
 #[cfg(feature = "std")]
 use pacbot_rs::variables::PACMAN_SPAWN_LOC;
 use serde::{Deserialize, Serialize};

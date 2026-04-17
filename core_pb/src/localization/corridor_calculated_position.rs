@@ -1,5 +1,8 @@
 use nalgebra::{Point2, Vector2};
 
+#[cfg(feature = "micromath")]
+use micromath::F32Ext;
+
 use crate::{
     grid::standard_grid::StandardGrid, messages::MAX_SENSOR_ERR_LEN,
     robot_definition::RobotDefinition,
@@ -127,14 +130,14 @@ impl CorridorCalculatedPosition {
             }
         };
 
-        println!(
-            "sensor values[adj]: fwd: {:?} back: {:?} left: {:?} right: {:?}, region_info: {:?}",
-            sensor_values_adjusted.0,
-            sensor_values_adjusted.1,
-            sensor_values_adjusted.2,
-            sensor_values_adjusted.3,
-            info
-        );
+        // info!(
+        //     "sensor values[adj]: fwd: {:?} back: {:?} left: {:?} right: {:?}, region_info: {:?}",
+        //     sensor_values_adjusted.0,
+        //     sensor_values_adjusted.1,
+        //     sensor_values_adjusted.2,
+        //     sensor_values_adjusted.3,
+        //     info
+        // );
 
         let lateral_sensors = {
             (
@@ -337,7 +340,7 @@ impl CorridorCalculatedPosition {
             }
             /* TODO: what to do when no transverse? */
             else if let Some(cv_location) = cv_location {
-                println!("CV!");
+                // info!("CV!");
                 if *y_length != 0 {
                     cv_location.y as f32
                 } else {
@@ -389,7 +392,7 @@ impl CorridorCalculatedPosition {
         let x_length = self.next_target.x - self.previous_target.x;
         let y_length = self.next_target.y - self.previous_target.y;
 
-        println!("cv_location in estimate_location: {:?}", cv_location);
+        // info!("cv_location in estimate_location: {:?}", cv_location);
 
         // assume previous point is always the cv_location
         if let Some(cv_loc) = cv_location {
@@ -444,12 +447,12 @@ impl CorridorCalculatedPosition {
 
         let info = self.compute_region_info(&grid, partial, &rays);
 
-        // println!("info: {:?}", info);
-        // println!("current_estimate: {}", self.current_estimate);
+        // info!("info: {:?}", info);
+        // info!("current_estimate: {}", self.current_estimate);
 
         let sensor_values = self.get_sensor_values(&x_length, &y_length, distance_sensors, &info);
 
-        // println!("sensor values: {:?}", sensor_values);
+        // info!("sensor values: {:?}", sensor_values);
 
         self.current_estimate = self.pos_from_sensors(
             &x_length,
@@ -461,9 +464,9 @@ impl CorridorCalculatedPosition {
             robot_definition,
             cv_location,
         );
-        println!("previous_target: {}", self.previous_target);
-        println!("next_target: {}", self.next_target);
-        println!("new estimate: {}", self.current_estimate);
+        // info!("previous_target: {}", self.previous_target);
+        // info!("next_target: {}", self.next_target);
+        // info!("new estimate: {}", self.current_estimate);
 
         // invariant: current estimate cannot be outside of target ranges!
         // let rounded_estimate: Point2<i8> = Point2::new(
@@ -625,7 +628,7 @@ mod test {
 
         let result = ccp.estimate_location(grid, None, &sensors, &robot).unwrap();
 
-        println!("Moving UP result: {:?}", result);
+        // info!("Moving UP result: {:?}", result);
         assert!(
             result.x > 19.0 && result.x < 22.0,
             "X position {} is nonsense when moving UP!",
@@ -657,7 +660,7 @@ mod test {
         ];
 
         let result = ccp.estimate_location(grid, None, &sensors, &robot).unwrap();
-        println!("Moving DOWN result: {:?}", result);
+        // info!("Moving DOWN result: {:?}", result);
         assert!(
             result.x > 19.0 && result.x < 21.0,
             "X position {} is nonsense when moving DOWN!",
@@ -697,7 +700,7 @@ mod test {
         ccp.current_estimate = Point2::new(21.0, 18.0);
         let res2 = ccp.estimate_location(grid, None, &sensors, &robot).unwrap();
 
-        println!("y=17 res: {:?}, y=18 res: {:?}", res1, res2);
+        // info!("y=17 res: {:?}, y=18 res: {:?}", res1, res2);
         // Since at y=20 (next_target) the wall at x=22 is GONE (dist is 5 now),
         // the Farther region should see a transition and disable the sensor.
         // So y=18 estimate should fallback to previous estimate (21.0) rather than jumping!
