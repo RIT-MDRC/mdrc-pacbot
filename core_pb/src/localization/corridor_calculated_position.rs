@@ -391,6 +391,11 @@ impl CorridorCalculatedPosition {
 
         println!("cv_location in estimate_location: {:?}", cv_location);
 
+        // assume previous point is always the cv_location
+        if let Some(cv_loc) = cv_location {
+            self.previous_target = cv_loc;
+        }
+
         let rays = {
             if y_length > 0 {
                 (
@@ -519,48 +524,58 @@ impl CorridorCalculatedPosition {
     /// Path planner should set the next point on the path as a hint to the localizer.
     /// Assume provided next_point is on a traversable square
     pub fn set_next_point(&mut self, next_point: Point2<i8>) {
-        if next_point == self.next_target {
-            return;
-        }
-
-        // let current_round = Point2::new(
-        //     self.current_estimate.x.round() as i8,
-        //     self.current_estimate.y.round() as i8,
-        // );
-
-        if next_point == self.previous_target {
-            // maybe we are reversing?
-            self.previous_target = self.next_target;
-            self.next_target = next_point;
-            return;
-        }
-
-        let dist_to_next = (self.current_estimate.x.round() as i8 - self.next_target.x).abs()
-            + (self.current_estimate.y as i8 - self.next_target.y).abs();
-
-        let dist_to_previous = (self.current_estimate.x.round() as i8 - self.previous_target.x)
-            .abs()
-            + (self.current_estimate.y as i8 - self.previous_target.y).abs();
-
-        // If we have reached or passed the current next_target, and the new next_point is adjacent to it,
-        // we should advance the segment.
-        if dist_to_next > dist_to_previous {
-            let x_diff = (next_point.x - self.next_target.x).abs();
-            let y_diff = (next_point.y - self.next_target.y).abs();
-            if (x_diff == 1 && y_diff == 0) || (x_diff == 0 && y_diff == 1) {
-                self.previous_target = self.next_target;
-                self.next_target = next_point;
-                return;
-            }
-        } else {
-            // If we are still at the previous target, we can just update the next target
-            let x_diff = (next_point.x - self.previous_target.x).abs();
-            let y_diff = (next_point.y - self.previous_target.y).abs();
-            if (x_diff == 1 && y_diff == 0) || (x_diff == 0 && y_diff == 1) {
-                self.next_target = next_point;
-                return;
-            }
-        }
+        let prev_point = Point2::new(self.previous_target.x, self.previous_target.y);
+        let diff = next_point - prev_point;
+        let max_component = diff.x.abs().max(diff.y.abs());
+        self.next_target = (Point2::new(
+            diff.x / max_component + prev_point.x,
+            diff.y / max_component + prev_point.y,
+        ));
+        // if next_point == self.next_target || next_point == self.previous_target {
+        //     return;
+        // }
+        //
+        // // let current_round = Point2::new(
+        // //     self.current_estimate.x.round() as i8,
+        // //     self.current_estimate.y.round() as i8,
+        // // );
+        //
+        // // if next_point == self.previous_target {
+        // //     // maybe we are reversing?
+        // //     self.previous_target = self.next_target;
+        // //     self.next_target = next_point;
+        // //     return;
+        // // }
+        //
+        // let dist_to_next = (self.current_estimate.x.round() as i8 - self.next_target.x).abs()
+        //     + (self.current_estimate.y as i8 - self.next_target.y).abs();
+        //
+        // let dist_to_previous = (self.current_estimate.x.round() as i8 - self.previous_target.x)
+        //     .abs()
+        //     + (self.current_estimate.y as i8 - self.previous_target.y).abs();
+        //
+        // // If we have reached or passed the current next_target, and the new next_point is adjacent to it,
+        // // we should advance the segment.
+        // if dist_to_next > dist_to_previous {
+        //     // self.previous_target = self.next_target;
+        //     // self.next_target = next_point;
+        //     let x_diff = (next_point.x - self.next_target.x).abs();
+        //     let y_diff = (next_point.y - self.next_target.y).abs();
+        //     if (x_diff == 1 && y_diff == 0) || (x_diff == 0 && y_diff == 1) {
+        //         self.previous_target = self.next_target;
+        //         self.next_target = next_point;
+        //         return;
+        //     }
+        // } else {
+        //     // self.next_target = next_point;
+        //     // If we are still at the previous target, we can just update the next target
+        //     let x_diff = (next_point.x - self.previous_target.x).abs();
+        //     let y_diff = (next_point.y - self.previous_target.y).abs();
+        //     if (x_diff == 1 && y_diff == 0) || (x_diff == 0 && y_diff == 1) {
+        //         self.next_target = next_point;
+        //         return;
+        //     }
+        // }
 
         // // Fallback: if next_point is adjacent to current next_target, just assume we advanced
         // let x_diff = (next_point.x - self.next_target.x).abs();
