@@ -1,8 +1,8 @@
 use nalgebra::{Point2, Vector2};
 
 use crate::{
-    constants::MAX_ROBOT_PATH_LENGTH, grid::standard_grid::StandardGrid,
-    messages::MAX_SENSOR_ERR_LEN, robot_definition::RobotDefinition,
+    grid::standard_grid::StandardGrid, messages::MAX_SENSOR_ERR_LEN,
+    robot_definition::RobotDefinition,
 };
 
 /// current_estimate must lie in or between previous_target and next_target.
