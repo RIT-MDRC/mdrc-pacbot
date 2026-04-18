@@ -58,15 +58,7 @@ pub fn pure_pursuit(
             .count()
     };
 
-    let setpoint= MpState {vel: speed, pos: loc};
-    let goal= MpState {vel: MAX_SPEED, pos: path_f32[10]};
-
-    motion_profiler.plan_trajectory(&setpoint, &goal);
-
-    let mp_speed = motion_profiler.stream_trajectory(&setpoint);
-    print!("{}\n", mp_speed);
-
-    let base_speed = speed
+    let mut mp_speed = speed
         + match num_straight_points {
             0 | 1 => -0.4,
             2 => -0.2,
@@ -74,7 +66,19 @@ pub fn pure_pursuit(
             _ => 0.2,
         };
 
-    let calc_speed = calculate_speed(&path_f32, base_speed, &loc, turn_multiplier);
+    let motion_points = get_1d_endpoints(&loc, &path_f32, num_straight_points);
+    // print!("({},{})\n", motion_points.0, motion_points.1);
+    if motion_points != (0.0, 0.0) {
+        let setpoint = MpState {vel: speed, pos: motion_points.0};
+        let goal = MpState {vel: MAX_SPEED, pos: motion_points.1};
+
+        motion_profiler.plan_trajectory(&setpoint, &goal);
+
+        mp_speed = motion_profiler.stream_trajectory(&setpoint);
+        print!("{}\n", mp_speed);
+    }
+
+    let calc_speed = apply_turn_speed(&path_f32, mp_speed, &loc, turn_multiplier);
 
     if let Some(pursuit_point) = get_pursuit_point(&closest_point, &path_f32, lookahead) {
         return Some(get_vec(loc, pursuit_point, true, calc_speed, 1.0));
@@ -83,7 +87,7 @@ pub fn pure_pursuit(
     None
 }
 
-fn calculate_speed(
+fn apply_turn_speed(
     path: &heapless::Vec<Point2<f32>, LOCAL_MAX_PATH_LENGTH>, 
     base_speed: f32,
     loc: &Point2<f32>,
@@ -102,6 +106,32 @@ fn calculate_speed(
     } 
 
     return base_speed;
+}
+
+/**
+ * Convert 2 2d Point2<f32>s into a tuple of 2 1d f32's representing the position of the robot in the straight away and its goal point
+ * 
+ * Do so by taking the number of straight points
+*/
+
+fn get_1d_endpoints(
+    loc: &Point2<f32>,
+    path: &heapless::Vec<Point2<f32>, LOCAL_MAX_PATH_LENGTH>,
+    num_straight_points: usize
+) -> (f32, f32) {
+    print!("nsp: {}\n", num_straight_points);
+    // print!("loc.x: {}, loc.y: {}, goal.x: {}, goal.y: {}\n", loc.x, loc.y, path[num_straight_points].x, path[num_straight_points].y);
+    if (loc.x + num_straight_points as f32).round() == path[num_straight_points].x {
+        let x_tup = (loc.x, path[num_straight_points].x);
+        print!("x: ({}, {})\n", x_tup.0, x_tup.1);
+        return x_tup;
+    } else if (loc.y + num_straight_points as f32).round() == path[num_straight_points].y {
+        let y_tup = (loc.y, path[num_straight_points].y);
+        print!("y: ({}, {})\n", y_tup.0, y_tup.1);
+        return y_tup;
+    } else {
+        return (0.0, 0.0);
+    }
 }
 
 fn get_vec(

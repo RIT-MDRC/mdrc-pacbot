@@ -8,14 +8,9 @@
         trajectory planning - how many phases (2 or 3), how long is each phase
         trajectory streaming - plug in values and calculate
 */
-
-use nalgebra::Point2;
-
-use crate::localization::cv_adjust::get_dist; 
-
 pub struct MpState {
     pub vel: f32,
-    pub pos: Point2<f32>
+    pub pos: f32
 }
 
 pub struct MotionProfiler {
@@ -53,7 +48,7 @@ impl MotionProfiler {
         // Determine type of profiling
 
         // total amount of dist in the path
-        let dist = get_dist(goal.pos, setpoint.pos);
+        let dist = goal.pos - setpoint.pos;
         // how much dist is required to get to max velocity
         let dist_cap = calc_dist(&self.max_vel, &setpoint.vel, &self.max_accel, &dist);
         // println!("DIST_CAP: {}", dist_cap);
