@@ -21,7 +21,7 @@ impl Motors<3> {
     ) -> Self {
         let mut pwm_config = pwm::Config::default();
         pwm_config.top = shared_data.robot_definition.pwm_top;
-        pwm_config.divider = FixedU16::<U4>::from_num(0.7);
+        pwm_config.divider = FixedU16::<U4>::from_num(1.0);
 
         let pins = [
             Pwm::new_output_ab(pwm.0, pwm_pins.0, pwm_pins.1, pwm_config.clone()),

@@ -11,7 +11,7 @@ mod network;
 mod peripherals;
 
 // todo https://github.com/adafruit/Adafruit_CircuitPython_seesaw/blob/main/adafruit_seesaw/seesaw.py https://crates.io/crates/adafruit-seesaw
-use crate::encoders::{run_encoders, WrappedPioEncoder};
+use crate::encoders::WrappedPioEncoder;
 use crate::motors::Motors;
 use crate::network::{initialize_network, Network};
 use crate::peripherals::{manage_pico_i2c, Peripherals};
@@ -118,7 +118,9 @@ async fn main(spawner: Spawner) {
     // High-priority executor: SWI_IRQ_1, priority level 2
     interrupt::SWI_IRQ_1.set_priority(Priority::P2);
     let int_spawner = EXECUTOR_HIGH.start(interrupt::SWI_IRQ_1);
-    unwrap!(int_spawner.spawn(run_encoders(shared_data, (encoder_a, encoder_b, encoder_c))));
+    unwrap!(int_spawner.spawn(crate::encoders::run_encoder_0(shared_data, encoder_a)));
+    unwrap!(int_spawner.spawn(crate::encoders::run_encoder_1(shared_data, encoder_b)));
+    unwrap!(int_spawner.spawn(crate::encoders::run_encoder_2(shared_data, encoder_c)));
 
     unwrap!(spawner.spawn(do_wifi(network)));
     unwrap!(spawner.spawn(do_motors(Motors::new(
