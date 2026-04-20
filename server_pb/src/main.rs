@@ -13,7 +13,8 @@ use core_pb::grid::computed_grid::ComputedGrid;
 use core_pb::grid::GRID_SIZE;
 use core_pb::messages::server_status::ServerStatus;
 use core_pb::messages::settings::{
-    ConnectionSettings, CvLocationSource, PacbotSettings, ShouldDoTargetPath, StrategyChoice,
+    ConnectionSettings, CvLocationSource, PacbotSettings, RobotSettings, ShouldDoTargetPath,
+    StrategyChoice,
 };
 use core_pb::messages::{
     GameServerCommand, NetworkStatus, ServerToGuiMessage, ServerToRobotMessage,
@@ -32,9 +33,11 @@ use nalgebra::Point2;
 use rand::prelude::IteratorRandom;
 use rand::thread_rng;
 use std::collections::HashSet;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::Path;
 use std::process::{Child, Command};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::select;
 use tokio::time::{interval, Instant, Interval};
 
@@ -44,6 +47,13 @@ pub mod network;
 mod ota;
 mod sockets;
 // todo pub mod strategy;
+
+// TODO: Have as setting or use distances?
+const TRAPEZOIDAL_MAINTAIN_MS: i32 = 500;
+// TODO: Have as setting or use distances?
+const TRAPEZOIDAL_DESCEND_MS: i32 = 1000;
+// TODO: Have as settings or use distances?
+const TRAPEZOIDAL_COMPLETE_MS: i32 = 1500;
 
 #[allow(dead_code)]
 pub struct App {
@@ -278,7 +288,7 @@ impl App {
     fn trigger_strategy_update(&mut self) {
         const LOOKAHEAD_DIST: usize = 4;
         if let Some(cv_loc) = self.status.cv_location {
-            match self.settings.driving.strategy {
+            match &mut self.settings.driving.strategy {
                 StrategyChoice::TestUniform => {
                     if self.status.target_path.is_empty() {
                         // find reachable location
@@ -373,6 +383,95 @@ impl App {
                         } else {
                             break;
                         }
+                    }
+                }
+                StrategyChoice::TestTrapezoidal(mut millis) => {
+                    // TODO: don't log to file
+                    let mut opts = OpenOptions::new();
+                    opts.append(true);
+                    opts.create(true);
+                    let mut log = opts
+                        .open("trapezoidal-motion-log.mdrc")
+                        .expect("TMP logfile didn't open");
+
+                    // Turn off target path
+                    self.settings.do_target_path = ShouldDoTargetPath::No;
+
+                    // Find and store selected bot
+                    let mut selected_bot: Option<&mut RobotSettings> = None;
+
+                    for r in &mut self.settings.robots {
+                        if r.name == self.settings.pacman {
+                            selected_bot = Some(r);
+                            break;
+                        }
+                    }
+
+                    if selected_bot == None {
+                        // TODO: Maybe fail a little more gracefully?
+                        log.write(b"No selected robot?\n").unwrap();
+                        panic!("No selected robot for TMP");
+                    }
+
+                    let robot = selected_bot.unwrap();
+
+                    // Set overrides for each motor according to correct velocity
+                    if millis == 0 {
+                        millis = SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .expect("Earlier than UNIX epoch")
+                            .as_millis();
+
+                        log.write(
+                            ("Initializing to 0 for ".to_owned()
+                                + robot.name.get_str()
+                                + " at "
+                                + &millis.to_string()
+                                + "\n")
+                                .as_bytes(),
+                        )
+                        .unwrap();
+
+                        robot.config.motors_override[0] = Some(0.0);
+                        robot.config.motors_override[1] = Some(0.0);
+                        robot.config.motors_override[2] = Some(0.0);
+                    } else {
+                        let elapsed_ms = SystemTime::now()
+                            .duration_since(UNIX_EPOCH + Duration::from_millis(millis as u64))
+                            .expect("Time went backwards")
+                            .as_millis() as i32;
+
+                        let mut str = "Elapsed ms: ".to_owned() + &elapsed_ms.to_string() + ": ";
+
+                        let motor_vel: f32;
+
+                        // Figure out whether we should be increasing, maintaining, or decreasing velocity
+                        if elapsed_ms <= TRAPEZOIDAL_MAINTAIN_MS {
+                            motor_vel = (elapsed_ms) as f32 / (TRAPEZOIDAL_MAINTAIN_MS) as f32;
+                            str += "below maintain";
+                        } else if elapsed_ms > TRAPEZOIDAL_MAINTAIN_MS
+                            && elapsed_ms < TRAPEZOIDAL_DESCEND_MS
+                        {
+                            motor_vel = 1f32;
+                            str += "at maintain";
+                        } else if elapsed_ms <= TRAPEZOIDAL_COMPLETE_MS {
+                            motor_vel = (TRAPEZOIDAL_COMPLETE_MS - elapsed_ms) as f32
+                                / (TRAPEZOIDAL_COMPLETE_MS) as f32;
+                            str += "above maintain, below complete";
+                        } else {
+                            log.write(b"TMP complete\n").unwrap();
+                            motor_vel = 0.0;
+                        }
+
+                        str += ": setting velocity to "; // TODO: idk why but it didn't make sense to do this in one line
+                        str += &motor_vel.to_string();
+                        str += "\n";
+
+                        robot.config.motors_override[0] = Some(motor_vel);
+                        robot.config.motors_override[1] = Some(motor_vel);
+                        robot.config.motors_override[2] = Some(motor_vel);
+
+                        log.write(str.as_bytes()).unwrap();
                     }
                 }
                 _ => {}

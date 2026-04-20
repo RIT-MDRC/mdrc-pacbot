@@ -15,7 +15,7 @@ pub struct RobotDefinition<const WHEELS: usize> {
     /// Describes physical characteristics of the motors
     pub motors: [WheelDefinition; WHEELS],
     /// Default PID parameters - can change
-    pub default_pid: [f32; 3],
+    pub default_pidsv: [f32; 5],
     /// The maximum value for motor PWM pins
     pub pwm_top: u16,
     /// Which pwm pin corresponds to forwards and backwards for each motor - can change
@@ -51,10 +51,11 @@ impl RobotDefinition<3> {
             )
             .expect("Default robot drive definition couldn't be constructed"),
             motors: [WheelDefinition {}; 3],
-            default_pid: if name.is_simulated() {
-                [300.0, 50.0, 0.0]
+            // TODO: Sensible defaults
+            default_pidsv: if name.is_simulated() {
+                [300.0, 50.0, 0.0, 0.0, 1.0]
             } else {
-                [500.0, 20.0, 0.0]
+                [500.0, 20.0, 0.0, 0.0, 1.0]
             },
             pwm_top: 0x8000,
             default_motor_config: if name.is_simulated() {

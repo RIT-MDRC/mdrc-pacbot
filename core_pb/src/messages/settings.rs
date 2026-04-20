@@ -222,4 +222,6 @@ pub enum StrategyChoice {
     TestUniform,
     /// Test (never goes back on itself)
     TestForward,
+    // Test (Trapezoidal motion for PIDSV tuning - stores u128 of the millis when it started)
+    TestTrapezoidal(u128),
 }
