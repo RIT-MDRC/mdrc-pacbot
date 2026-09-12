@@ -293,25 +293,31 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
     ui.end_row();
     ui.checkbox(&mut app.settings.safe_mode, "Safe mode");
     ui.end_row();
-    if ui.button("Competition mode").clicked() {
-        app.settings.do_target_path = COMP_DO_TARGET_PATH;
-        app.settings.target_speed = COMP_TARGET_SPEED;
-        app.settings.robots[app.ui_settings.selected_robot as usize]
-            .config
-            .lookahead_dist = COMP_LOOKAHEAD_DIST;
-        app.settings.robots[app.ui_settings.selected_robot as usize]
-            .config
-            .robot_speed = COMP_ROBOT_SPEED;
-        app.settings.robots[app.ui_settings.selected_robot as usize]
-            .config
-            .turn_multiplier = COMP_TURN_SPEED_MULT;
-        app.settings.robots[app.ui_settings.selected_robot as usize]
-            .config
-            .snapping_dist = COMP_SNAPPING_DIST;
-        app.settings.robots[app.ui_settings.selected_robot as usize]
-            .config
-            .cv_error = COMP_CV_ERROR;
-    }
+    ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+        if ui.button("Competition mode").clicked() {
+            app.settings.do_target_path = COMP_DO_TARGET_PATH;
+            app.settings.target_speed = COMP_TARGET_SPEED;
+            app.settings.robots[app.ui_settings.selected_robot as usize]
+                .config
+                .lookahead_dist = COMP_LOOKAHEAD_DIST;
+            app.settings.robots[app.ui_settings.selected_robot as usize]
+                .config
+                .robot_speed = COMP_ROBOT_SPEED;
+            app.settings.robots[app.ui_settings.selected_robot as usize]
+                .config
+                .turn_multiplier = COMP_TURN_SPEED_MULT;
+            app.settings.robots[app.ui_settings.selected_robot as usize]
+                .config
+                .snapping_dist = COMP_SNAPPING_DIST;
+            app.settings.robots[app.ui_settings.selected_robot as usize]
+                .config
+                .cv_error = COMP_CV_ERROR;
+        }
+        if ui.button("Quick Start").clicked() {
+            app.ui_settings.selected_robot = RobotName::Stella;
+            app.settings.pacman = RobotName::Stella;
+        }
+    });
     ui.end_row();
     dropdown(
         ui,
