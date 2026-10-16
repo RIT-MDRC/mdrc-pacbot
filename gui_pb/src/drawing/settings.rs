@@ -293,25 +293,47 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
     ui.end_row();
     ui.checkbox(&mut app.settings.safe_mode, "Safe mode");
     ui.end_row();
-    if ui.button("Competition mode").clicked() {
-        app.settings.do_target_path = COMP_DO_TARGET_PATH;
-        app.settings.target_speed = COMP_TARGET_SPEED;
-        app.settings.robots[app.ui_settings.selected_robot as usize]
-            .config
-            .lookahead_dist = COMP_LOOKAHEAD_DIST;
-        app.settings.robots[app.ui_settings.selected_robot as usize]
-            .config
-            .robot_speed = COMP_ROBOT_SPEED;
-        app.settings.robots[app.ui_settings.selected_robot as usize]
-            .config
-            .turn_multiplier = COMP_TURN_SPEED_MULT;
-        app.settings.robots[app.ui_settings.selected_robot as usize]
-            .config
-            .snapping_dist = COMP_SNAPPING_DIST;
-        app.settings.robots[app.ui_settings.selected_robot as usize]
-            .config
-            .cv_error = COMP_CV_ERROR;
-    }
+    ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+        if ui.button("Competition mode").clicked() {
+            app.settings.do_target_path = COMP_DO_TARGET_PATH;
+            app.settings.target_speed = COMP_TARGET_SPEED;
+            app.settings.robots[app.ui_settings.selected_robot as usize]
+                .config
+                .lookahead_dist = COMP_LOOKAHEAD_DIST;
+            app.settings.robots[app.ui_settings.selected_robot as usize]
+                .config
+                .robot_speed = COMP_ROBOT_SPEED;
+            app.settings.robots[app.ui_settings.selected_robot as usize]
+                .config
+                .turn_multiplier = COMP_TURN_SPEED_MULT;
+            app.settings.robots[app.ui_settings.selected_robot as usize]
+                .config
+                .snapping_dist = COMP_SNAPPING_DIST;
+            app.settings.robots[app.ui_settings.selected_robot as usize]
+                .config
+                .cv_error = COMP_CV_ERROR;
+        }
+        if ui.button("Quick Start").clicked() {
+            app.settings.simulation.connection.connect = true;  // checks "Simulation"
+            app.settings.simulation.simulate = true;            // checks "Run simulation"
+            app.settings.game_server.connection.connect = true; // checks "Game server"
+            app.ui_settings.selected_robot = RobotName::Stella; // selects Stella as Selected
+            app.settings.pacman = RobotName::Stella;            // selects Stella as Pacman
+            
+            app.settings.driving.strategy = StrategyChoice::ReinforcementLearning;      // selects ReinforcementLearning as Strategy
+            app.settings.robots[RobotName::Stella as usize].connection.connect = true;  // checks Stella
+            
+            let mut pending_spawn = true;   // need to wait for the server to be connected before trying to add Stella
+            while (pending_spawn) {
+                if (app.server_status.simulation_connection == NetworkStatus::Connected) {
+                    app.network.0.send(TextOrT::T(GuiToServerMessage::SimulationCommand(ServerToSimulationMessage::Spawn(RobotName::Stella)))); // "adds" Stella
+                    pending_spawn = false;
+                }
+            }
+
+
+        }
+    });
     ui.end_row();
     dropdown(
         ui,
