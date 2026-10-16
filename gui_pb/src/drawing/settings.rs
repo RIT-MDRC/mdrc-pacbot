@@ -314,8 +314,24 @@ fn draw_settings_inner(app: &mut App, ui: &mut Ui, fields: &mut HashMap<String, 
                 .cv_error = COMP_CV_ERROR;
         }
         if ui.button("Quick Start").clicked() {
-            app.ui_settings.selected_robot = RobotName::Stella;
-            app.settings.pacman = RobotName::Stella;
+            app.settings.simulation.connection.connect = true;  // checks "Simulation"
+            app.settings.simulation.simulate = true;            // checks "Run simulation"
+            app.settings.game_server.connection.connect = true; // checks "Game server"
+            app.ui_settings.selected_robot = RobotName::Stella; // selects Stella as Selected
+            app.settings.pacman = RobotName::Stella;            // selects Stella as Pacman
+            
+            app.settings.driving.strategy = StrategyChoice::ReinforcementLearning;      // selects ReinforcementLearning as Strategy
+            app.settings.robots[RobotName::Stella as usize].connection.connect = true;  // checks Stella
+            
+            let mut pending_spawn = true;   // need to wait for the server to be connected before trying to add Stella
+            while (pending_spawn) {
+                if (app.server_status.simulation_connection == NetworkStatus::Connected) {
+                    app.network.0.send(TextOrT::T(GuiToServerMessage::SimulationCommand(ServerToSimulationMessage::Spawn(RobotName::Stella)))); // "adds" Stella
+                    pending_spawn = false;
+                }
+            }
+
+
         }
     });
     ui.end_row();
