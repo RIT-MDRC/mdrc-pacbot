@@ -10,11 +10,17 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Estimator {
-    
+struct LastEstimate<'a> {
+    distance_sensors: &'a [Option<Option<f32>>; 4],
+    final_estimate: Option<Point2<f32>>,
 }
 
-impl Estimator {
+#[derive(Debug)]
+pub struct Estimator<'a> {
+    last_estimate: LastEstimate<'a>
+}
+
+impl<'a> Estimator<'a> {
     pub fn rotate_distance_sensors(distance_sensors: &[Result<Option<f32>, heapless::String<MAX_SENSOR_ERR_LEN>>; 4]) -> [&Result<Option<f32>, heapless::String<MAX_SENSOR_ERR_LEN>>; 4] {
         return [
             &distance_sensors[0], // up
@@ -22,6 +28,16 @@ impl Estimator {
             &distance_sensors[2], // left
             &distance_sensors[3] // right
         ]
+    }
+
+    pub fn simplify_sensors(distance_sensors: [&Result<Option<f32>, heapless::String<MAX_SENSOR_ERR_LEN>>; 4]) -> [Option<Option<f32>>; 4] {
+        std::array::from_fn(|i| {
+            match distance_sensors[i] {
+                Ok(Some(x)) => Some(Some(*x)),
+                Ok(None) => Some(None),
+                Err(_) => None,
+            }
+        })
     }
 
     pub fn estimate_location(
@@ -34,9 +50,23 @@ impl Estimator {
         // - Ok(None) indicates that the sensor is working, but didn't detect any object in its range
         // - Ok(x) indicates an object x grid units in front of the sensor
        let distance_sensors = Self::rotate_distance_sensors(raw_sensors);
+       let distance_sensors = Self::simplify_sensors(distance_sensors);
+       for i in distance_sensors {
+        if i.is_none() {
+            // TODO: distance sensor error!
+            return None;
+        }
+       }
+       let distance_sensors: [Option<f32>; 4] = std::array::from_fn(|i| {
+            match distance_sensors[i] {
+                Some(Some(x)) => Some(x),
+                Some(None) => None, 
+                None => None,
+            }
+       });
 
        let mut estimate = Estimate {
-            distance_sensors,
+            distance_sensors: &distance_sensors,
             grid: &grid,
             robot_definition
        };
