@@ -1,7 +1,9 @@
+use defmt_or_log::macros::NoneError;
 use nalgebra::{Point2, Vector2};
 
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
+use pacbot_rs::location::{Direction, LocationState};
 
 use crate::{
     constants::MAX_SENSOR_DISTANCE, grid::standard_grid::StandardGrid, messages::MAX_SENSOR_ERR_LEN, robot_definition::RobotDefinition
@@ -38,6 +40,16 @@ impl<'a> Estimate<'a> {
         };
         return (up_value + down_value) > (left_value + right_value);
     }
+
+    // // temporary, will figure out how to actually do the loop later
+    // while (true) {
+    //     if first cycle:
+    //         old_data = None
+    //         current_data = current_data
+    //     else:
+    //         old_data = current_data
+
+    // }
 
     /// Returns the amount, in positive (right) or negative (left) grid units, that Pacbot has deviated from the center line.
     /// If there are not two distance sensors that make sense that are available, this function should return None.
@@ -89,6 +101,44 @@ impl<'a> Estimate<'a> {
     pub fn estimate(
         &mut self
     ) -> Option<Point2<f32>> {
+        let distance_change: f32;
+        //Later have a loop to store previous data
+        let past_sensor: f32;
+        //We need new sensor distance and old sensor distance
+        if self.corridor_is_vertical() {
+            //Cant find a var with current sensor
+            //fix later or 
+            let current_sensor = match self.distance_sensors[0] {
+                Some(x) => x,
+                None => {return None;}
+            };
 
+            distance_change = past_sensor - current_sensor;
+
+            // previous grid position
+            let (row, col) = LocationState::get_coords(&self);
+            LocationState::new(row + distance_change, col, Direction::Up);
+            
+            //Update position
+
+        }else{
+            //Cant find a var with current sensor
+            //fix later or 
+            let current_sensor = match self.distance_sensors[2] {
+                Some(x) => x,
+                None => {return None;}
+            };
+
+            distance_change = past_sensor - current_sensor;
+
+            // previous grid position
+            let (row, col) = LocationState::get_coords(&self);
+            LocationState::new(row, col + distance_change, Direction::Right);
+            //Maybe??
+            //LocationState::updatecoords(&mut self, (row, col + distance_change));
+            
+            //Update position
+        }
+        return None;
     }
 }
