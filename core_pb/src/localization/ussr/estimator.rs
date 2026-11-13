@@ -1,4 +1,5 @@
 use nalgebra::{Point2, Vector2};
+//use last_estimate;
 
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
@@ -8,12 +9,6 @@ use crate::{
     robot_definition::RobotDefinition,
     localization::ussr::estimate::Estimate
 };
-
-#[derive(Debug)]
-struct LastEstimate<'a> {
-    distance_sensors: &'a [Option<Option<f32>>; 4],
-    final_estimate: Option<Point2<f32>>,
-}
 
 #[derive(Debug)]
 pub struct Estimator<'a> {

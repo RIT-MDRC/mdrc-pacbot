@@ -15,7 +15,7 @@ pub struct Estimate<'a> {
     // - Ok(None) indicates that the sensor is working, but didn't detect any object in its range
     // - Ok(x) indicates an object x grid units in front of the sensor
     pub distance_sensors: &'a [Option<f32>; 4],
-
+    pub last_estimate: &'a LastEstimate,
     pub grid: &'a StandardGrid,
     pub robot_definition: &'a RobotDefinition<3>,
 }
@@ -97,6 +97,24 @@ impl<'a> Estimate<'a> {
             x => Some(x)
         }
     }
+        
+    pub fn get_coords_from_speed(&mut self) -> Option<Point2<f32>> {
+        
+        // need to figure out:
+        //  - how exactly to get the velocity
+        //  - how much time has passed since the last coordinates, will it be same time every time this is called?
+
+        let motor_speeds: [f32; 3];
+        let velocity: Option<Point2<f32>> = robot_definition.drive_system.get_actual_velocity(motor_speeds);
+        let current_timestamp: SystemTime;
+
+        let distance: Option<Point2<f32>> = Point2::new(velocity[0] * (current_timestamp - self.last_estimate.timestamp)
+                                                        velocity[1] * (current_timestamp - self.last_estimate.timestamp))
+        
+        
+        return Point2::new(self.last_estimate.final_estimate[0] + velocity[0], self.last_estimate.final_estimate[1] + velocity[1])
+        
+    }
     
     pub fn estimate(
         &mut self
@@ -140,5 +158,16 @@ impl<'a> Estimate<'a> {
             //Update position
         }
         return None;
+    }
+
+    pub fn map_estimate(
+        &mut self
+    ) -> Option<Point2<f32>> {
+        //Begin spot
+        let begin_spot = self.grid.standard_grid.get_default_pacbot_isometry();// returns regular position
+        
+        //sensors movement spot
+
+        //where end spot
     }
 }
