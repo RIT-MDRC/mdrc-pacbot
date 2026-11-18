@@ -164,10 +164,13 @@ impl<'a> Estimate<'a> {
         &mut self
     ) -> Option<Point2<f32>> {
         //Begin spot
-        let begin_spot = self.grid.standard_grid.get_default_pacbot_isometry();// returns regular position
+        let start = self.grid.standard_grid.get_default_pacbot_isometry(StandardGrid::Pacman);// returns position of pacman spawn
+        let previous_sensors = last_estimate::final_estimate;
+        let current_sensor = self.distance_sensors[0];
         
-        //sensors movement spot
+        let change = previous_sensors - current_sensor;//sensors movement spot
 
+        //need to inpute change into grid by changing something?? Not sure what??
         //where end spot
     }
 }
