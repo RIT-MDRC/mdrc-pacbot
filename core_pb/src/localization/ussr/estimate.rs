@@ -15,6 +15,7 @@ pub struct Estimate<'a> {
     // - Ok(None) indicates that the sensor is working, but didn't detect any object in its range
     // - Ok(x) indicates an object x grid units in front of the sensor
     pub distance_sensors: &'a [Option<f32>; 4],
+    pub motor_speeds: [f32; 3],
     pub last_estimate: &'a LastEstimate,
     pub grid: &'a StandardGrid,
     pub robot_definition: &'a RobotDefinition<3>,
@@ -98,22 +99,17 @@ impl<'a> Estimate<'a> {
         }
     }
         
+    //  Returns an estimated coordinate location using the robot's velocity and timestamp from the last estimate
     pub fn get_coords_from_speed(&mut self) -> Option<Point2<f32>> {
-        
-        // need to figure out:
-        //  - how exactly to get the velocity
-        //  - how much time has passed since the last coordinates, will it be same time every time this is called?
-
-        let motor_speeds: [f32; 3];
-        let velocity: Option<Point2<f32>> = robot_definition.drive_system.get_actual_velocity(motor_speeds);
-        let current_timestamp: SystemTime;
-
-        let distance: Option<Point2<f32>> = Point2::new(velocity[0] * (current_timestamp - self.last_estimate.timestamp)
-                                                        velocity[1] * (current_timestamp - self.last_estimate.timestamp))
+        // self.motor_speeds is created in Estimator when the Estimate is created,
+        // using sig_motor_speeds from shared robot data.
+        let velocity: Option<Point2<f32>> = self.robot_definition.drive_system.get_actual_velocity(self.motor_speeds);
+        let time_diff = SystemTime::now().duration_since(self.last_estimate.timestamp).ok()?.as_secs_f32();
+        let distance: Option<Point2<f32>> = Point2::new(velocity[0] * time_diff,
+                                                        velocity[1] * time_diff);
         
         
-        return Point2::new(self.last_estimate.final_estimate[0] + velocity[0], self.last_estimate.final_estimate[1] + velocity[1])
-        
+        return Point2::new(self.last_estimate.final_estimate[0] + distance[0], self.last_estimate.final_estimate[1] + distance[1]);
     }
     
     pub fn estimate(

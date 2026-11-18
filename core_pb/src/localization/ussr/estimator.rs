@@ -13,6 +13,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Estimator<'a> {
     last_estimate: LastEstimate<'a>
+    
 }
 
 impl<'a> Estimator<'a> {
@@ -35,11 +36,12 @@ impl<'a> Estimator<'a> {
         })
     }
 
-    pub fn estimate_location(
+    pub fn estimate_location<R: RobotBehavior>(
         &mut self,
         grid: StandardGrid,
         raw_sensors: &[Result<Option<f32>, heapless::String<MAX_SENSOR_ERR_LEN>>; 4],
         robot_definition: &RobotDefinition<3>,
+        shared_robot_data: &SharedRobotData<R>
     ) -> Option<Point2<f32>> {
         // - Err(_) indicates that something is wrong with the sensor and the reading can't be trusted
         // - Ok(None) indicates that the sensor is working, but didn't detect any object in its range
@@ -63,7 +65,10 @@ impl<'a> Estimator<'a> {
        let mut estimate = Estimate {
             distance_sensors: &distance_sensors,
             grid: &grid,
-            robot_definition
+            robot_definition,
+            motor_speeds: [0, 1, 2].map(|i| {
+                shared_robot_data.sig_motor_speeds[i].load(core::sync::atomic::Ordering::Relaxed);
+            })
        };
        estimate.estimate()
     }
